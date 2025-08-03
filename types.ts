@@ -1,4 +1,3 @@
-
 export type Language = 'en' | 'ua';
 
 export interface LocalizedString {
@@ -6,10 +5,13 @@ export interface LocalizedString {
   ua: string;
 }
 
+export type UserRole = 'user' | 'moderator' | 'admin';
+
 export interface User {
   id: string; // Telegram User ID
   name: string;
   language: Language;
+  role: UserRole;
 }
 
 export interface League {
@@ -32,7 +34,6 @@ export interface Upgrade {
   profitPerHour: number;
   category: UpgradeCategory;
   icon: string;
-  // Dynamic properties for player
   level?: number;
 }
 
@@ -52,10 +53,25 @@ export interface DailyTask {
     requiredTaps: number;
 }
 
+export type SpecialTaskType = 'telegram_join' | 'social_follow' | 'video_watch';
+
+export interface SpecialTask {
+    id: string;
+    name: LocalizedString;
+    description: LocalizedString;
+    type: SpecialTaskType;
+    url: string;
+    rewardCoins: number;
+    rewardStars: number;
+    priceStars: number; // Cost to unlock the task
+    isOneTime: true;
+}
+
 export interface GameConfig {
     upgrades: Upgrade[];
     tasks: DailyTask[];
     boosts: Boost[];
+    specialTasks: SpecialTask[];
 }
 
 export interface PlayerState {
@@ -67,7 +83,9 @@ export interface PlayerState {
   upgrades: Record<string, number>; // key: upgrade.id, value: level
   stars: number;
   referrals: number;
-  completedDailyTaskIds: string[]; // Tracks tasks completed for the current day
-  dailyTaps: number; // Tracks taps for the current day
-  lastDailyReset: number; // Timestamp of the last daily reset
+  completedDailyTaskIds: string[];
+  purchasedSpecialTaskIds: string[]; // Tasks unlocked by paying stars
+  completedSpecialTaskIds: string[]; // One-time tasks that have been completed
+  dailyTaps: number;
+  lastDailyReset: number;
 }

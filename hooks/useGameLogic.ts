@@ -1,37 +1,58 @@
 
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
-import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost } from '../types';
-import { INITIAL_UPGRADES, INITIAL_TASKS, INITIAL_BOOSTS, LEAGUES, MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, ADMIN_TELEGRAM_ID, REFERRAL_BONUS, TRANSLATIONS } from '../constants';
+import { GoogleGenAI } from '@google/genai';
+import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, UserRole, SpecialTask } from '../types';
+import { 
+    INITIAL_UPGRADES, INITIAL_TASKS, INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, LEAGUES, MAX_ENERGY, 
+    ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, REFERRAL_BONUS, TRANSLATIONS 
+} from '../constants';
 
 // --- Add Telegram types to global scope ---
 declare global {
   interface Window {
     Telegram: {
-      WebApp: any; // Using 'any' for simplicity, but could be strictly typed
+      WebApp: any; 
     };
   }
 }
 
-// --- MOCK API CLIENT (interacts with localStorage) ---
-// In a real app, this would be replaced with actual HTTP requests to a backend.
+// --- AI Service for Translation ---
+// The API key is sourced from the environment variable `process.env.API_KEY`.
+// This variable is assumed to be pre-configured in the execution environment.
+let ai: GoogleGenAI | null = null;
+if (process.env.API_KEY) {
+    ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+} else {
+    console.warn("Gemini API key not found (process.env.API_KEY). Translation feature will be disabled.");
+}
 
+
+// --- SIMULATED BACKEND API (interacts with localStorage) ---
+// This is structured to be easily replaceable with actual HTTP requests to a real backend.
 const API = {
-  getGameConfig: (): GameConfig => {
+  // --- Config Management ---
+  getGameConfig: async (): Promise<GameConfig> => {
     const savedConfig = localStorage.getItem('ukhyliantGameConfig');
     if (savedConfig) {
       return JSON.parse(savedConfig);
     }
-    const defaultConfig: GameConfig = { upgrades: INITIAL_UPGRADES, tasks: INITIAL_TASKS, boosts: INITIAL_BOOSTS };
+    const defaultConfig: GameConfig = { 
+        upgrades: INITIAL_UPGRADES, 
+        tasks: INITIAL_TASKS, 
+        boosts: INITIAL_BOOSTS,
+        specialTasks: INITIAL_SPECIAL_TASKS
+    };
     localStorage.setItem('ukhyliantGameConfig', JSON.stringify(defaultConfig));
     return defaultConfig;
   },
 
-  saveGameConfig: (config: GameConfig) => {
+  saveGameConfig: async (config: GameConfig): Promise<void> => {
     localStorage.setItem('ukhyliantGameConfig', JSON.stringify(config));
   },
 
-  getPlayerState: (): PlayerState | null => {
-    const savedState = localStorage.getItem('ukhyliantGameState');
+  // --- Player Data Management (per-user) ---
+  getPlayerState: async (userId: string): Promise<PlayerState | null> => {
+    const savedState = localStorage.getItem(`playerState_v2_${userId}`);
     if (!savedState) return null;
 
     const parsedState = JSON.parse(savedState) as PlayerState;
@@ -39,7 +60,6 @@ const API = {
     const timeOfflineSeconds = (now - parsedState.lastLoginTimestamp) / 1000;
     const offlineEarnings = Math.floor((timeOfflineSeconds * parsedState.profitPerHour) / 3600);
     
-    // Check if a day has passed for daily reset
     const oneDay = 24 * 60 * 60 * 1000;
     const shouldResetDailies = now - parsedState.lastDailyReset > oneDay;
 
@@ -54,93 +74,123 @@ const API = {
     };
   },
 
-  savePlayerState: (state: PlayerState) => {
+  savePlayerState: async (userId: string, state: PlayerState): Promise<void> => {
      const stateToSave = { ...state, lastLoginTimestamp: Date.now() };
-     localStorage.setItem('ukhyliantGameState', JSON.stringify(stateToSave));
+     localStorage.setItem(`playerState_v2_${userId}`, JSON.stringify(stateToSave));
   },
   
-  // Real Telegram Login
-  login: (): { user: User, isNew: boolean } | null => {
+  // --- Authentication and User Management ---
+  login: async (): Promise<{ user: User, isNew: boolean } | null> => {
       if (!window.Telegram?.WebApp?.initDataUnsafe?.user) {
-          return null; // Not in a valid Telegram context
+          return null;
       }
       const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
       const userId = tgUser.id.toString();
 
       let isNew = false;
       let lang: Language = (tgUser.language_code === 'uk' || tgUser.language_code === 'ru') ? 'ua' : 'en';
+      let role: UserRole = 'user';
+      if (userId === ADMIN_TELEGRAM_ID) {
+          role = 'admin';
+      } else if (MODERATOR_TELEGRAM_IDS.includes(userId)) {
+          role = 'moderator';
+      }
 
-      let user: User = { id: userId, name: tgUser.first_name, language: lang };
-      const existingUser = localStorage.getItem(`user_${userId}`);
+      let user: User = { id: userId, name: tgUser.first_name, language: lang, role };
+      const existingUserStr = localStorage.getItem(`user_v2_${userId}`);
       
-      if(existingUser) {
-          user = JSON.parse(existingUser);
+      if(existingUserStr) {
+          user = JSON.parse(existingUserStr);
+          // Ensure role is updated if it has changed
+          user.role = role;
       } else {
           isNew = true;
           const ref = window.Telegram.WebApp.initDataUnsafe.start_param;
-          if (ref) {
-              const referrerStateStr = localStorage.getItem(`playerState_for_user_${ref}`);
-              if (referrerStateStr) {
-                  const referrerState = JSON.parse(referrerStateStr) as PlayerState;
+          if (ref && ref !== userId) { // User can't be their own referrer
+              const referrerState = await API.getPlayerState(ref);
+              if (referrerState) {
                   referrerState.balance += REFERRAL_BONUS;
                   referrerState.referrals += 1;
-                  localStorage.setItem(`playerState_for_user_${ref}`, JSON.stringify(referrerState));
+                  await API.savePlayerState(ref, referrerState);
               }
           }
       }
-      localStorage.setItem('currentUser', JSON.stringify(user));
-      localStorage.setItem(`user_${userId}`, JSON.stringify(user));
+      localStorage.setItem('currentUserId', userId);
+      localStorage.setItem(`user_v2_${userId}`, JSON.stringify(user));
       return { user, isNew };
   },
 
-  getCurrentUser: (): User | null => {
-      const userStr = localStorage.getItem('currentUser');
+  getCurrentUser: async (): Promise<User | null> => {
+      const userId = localStorage.getItem('currentUserId');
+      if (!userId) return null;
+      const userStr = localStorage.getItem(`user_v2_${userId}`);
       return userStr ? JSON.parse(userStr) : null;
   },
   
-  logout: () => {
-      localStorage.removeItem('currentUser');
+  logout: async (): Promise<void> => {
+      localStorage.removeItem('currentUserId');
   },
 
-  updateUserLanguage: (lang: Language) => {
-      const user = API.getCurrentUser();
-      if(user) {
+  updateUserLanguage: async (userId: string, lang: Language): Promise<void> => {
+      const userStr = localStorage.getItem(`user_v2_${userId}`);
+      if(userStr) {
+          const user = JSON.parse(userStr) as User;
           user.language = lang;
-          localStorage.setItem('currentUser', JSON.stringify(user));
-          localStorage.setItem(`user_${user.id}`, JSON.stringify(user));
+          localStorage.setItem(`user_v2_${userId}`, JSON.stringify(user));
       }
+  },
+
+  // --- AI Translation Service ---
+  translateText: async (text: string, from: Language, to: Language): Promise<string> => {
+    if (!ai) return `(Translation disabled) ${text}`;
+    const fromLang = from === 'ua' ? 'Ukrainian' : 'English';
+    const toLang = to === 'ua' ? 'Ukrainian' : 'English';
+    const prompt = `Translate the following text from ${fromLang} to ${toLang}. Return ONLY the translated text, without any additional comments, formatting or quotation marks:\n\n"${text}"`;
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+        });
+        return response.text.trim();
+    } catch (error) {
+        console.error("Translation API error:", error);
+        return `(Error) ${text}`;
+    }
   }
 };
 
 // --- AUTHENTICATION HOOK ---
-
 const AuthContext = createContext<{
   user: User | null;
   isAdmin: boolean;
+  hasAdminAccess: boolean; // For admins and moderators
   logout: () => void;
   switchLanguage: (lang: Language) => void;
   isInitializing: boolean;
-}>({ user: null, isAdmin: false, logout: () => {}, switchLanguage: () => {}, isInitializing: true });
+}>({ user: null, isAdmin: false, hasAdminAccess: false, logout: () => {}, switchLanguage: () => {}, isInitializing: true });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }): React.ReactElement => {
   const [user, setUser] = useState<User | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    if (window.Telegram && window.Telegram.WebApp) {
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
-        const loginResult = API.login();
-        if (loginResult) {
-            setUser(loginResult.user);
+    const init = async () => {
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+            const loginResult = await API.login();
+            if (loginResult) {
+                setUser(loginResult.user);
+            }
         }
+        setIsInitializing(false);
     }
-    setIsInitializing(false);
+    init();
   }, []);
 
-  const switchLanguage = (lang: Language) => {
+  const switchLanguage = async (lang: Language) => {
     if (user) {
-        API.updateUserLanguage(lang);
+        await API.updateUserLanguage(user.id, lang);
         setUser({ ...user, language: lang });
     }
   };
@@ -148,12 +198,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
   const logout = () => {
     API.logout();
     setUser(null);
-    window.location.reload(); // Reload to clear all state
+    window.location.reload();
   };
   
-  const isAdmin = user?.id === ADMIN_TELEGRAM_ID;
+  const isAdmin = user?.role === 'admin';
+  const hasAdminAccess = user?.role === 'admin' || user?.role === 'moderator';
   
-  const value = { user, isAdmin, logout, switchLanguage, isInitializing };
+  const value = { user, isAdmin, hasAdminAccess, logout, switchLanguage, isInitializing };
 
   return React.createElement(AuthContext.Provider, { value }, children);
 };
@@ -163,7 +214,6 @@ export const useAuth = () => useContext(AuthContext);
 // --- TRANSLATION HOOK ---
 export const useTranslation = () => {
     const { user } = useAuth();
-    // Default to 'en' during initialization or if user is somehow null
     const lang = user?.language || 'en';
 
     return (key: keyof (typeof TRANSLATIONS)[typeof lang]) => {
@@ -174,12 +224,11 @@ export const useTranslation = () => {
 
 // --- GAME LOGIC HOOK ---
 export const useGame = () => {
-  const [config, setConfig] = useState<GameConfig>(API.getGameConfig());
-  
-  const getInitialState = (): PlayerState => {
-      const savedState = API.getPlayerState();
-      if (savedState) return savedState;
+  const { user } = useAuth();
+  const [config, setConfig] = useState<GameConfig>({ upgrades: [], tasks: [], boosts: [], specialTasks: [] });
+  const [isGameLoading, setGameLoading] = useState(true);
 
+  const getInitialState = (userId: string): PlayerState => {
       const now = Date.now();
       return {
           balance: 500,
@@ -188,27 +237,46 @@ export const useGame = () => {
           coinsPerTap: 1,
           lastLoginTimestamp: now,
           upgrades: {},
-          stars: 0,
+          stars: 100, // Start with some stars for testing
           referrals: 0,
           completedDailyTaskIds: [],
+          purchasedSpecialTaskIds: [],
+          completedSpecialTaskIds: [],
           dailyTaps: 0,
           lastDailyReset: now
       };
   };
 
-  const [playerState, setPlayerState] = useState<PlayerState>(getInitialState);
-  const { balance, energy, coinsPerTap, upgrades } = playerState;
+  const [playerState, setPlayerState] = useState<PlayerState>(getInitialState(''));
+
+  // Load game config and player state on user login
+  useEffect(() => {
+    const loadData = async () => {
+        if (!user) return;
+        setGameLoading(true);
+        const [loadedConfig, loadedPlayerState] = await Promise.all([
+            API.getGameConfig(),
+            API.getPlayerState(user.id)
+        ]);
+        setConfig(loadedConfig);
+        setPlayerState(loadedPlayerState || getInitialState(user.id));
+        setGameLoading(false);
+    };
+    loadData();
+  }, [user]);
 
   // Persist state to localStorage with debounce
   useEffect(() => {
+    if (!user || isGameLoading) return;
     const handler = setTimeout(() => {
-        API.savePlayerState(playerState);
+        API.savePlayerState(user.id, playerState);
     }, SAVE_DEBOUNCE_MS);
     return () => clearTimeout(handler);
-  }, [playerState]);
+  }, [playerState, user, isGameLoading]);
 
-  // Game loop for passive income and energy regeneration
+  // Game loop
   useEffect(() => {
+    if(isGameLoading) return;
     const gameTick = setInterval(() => {
       setPlayerState(prevState => {
         const newBalance = prevState.balance + prevState.profitPerHour / 3600;
@@ -217,11 +285,21 @@ export const useGame = () => {
       });
     }, 1000);
     return () => clearInterval(gameTick);
-  }, [playerState.profitPerHour]);
+  }, [playerState.profitPerHour, isGameLoading]);
+  
+  const calculateProfitPerHour = useCallback((currentUpgrades: Record<string, number>, gameConfig: GameConfig) => {
+      return gameConfig.upgrades.reduce((total, u) => {
+          const level = currentUpgrades[u.id] || 0;
+          if (level > 0) {
+              return total + Math.floor(u.profitPerHour * level * 1.07);
+          }
+          return total;
+      }, 0);
+  }, []);
 
   const allUpgrades = useMemo((): (Upgrade & {level: number})[] => {
     return config.upgrades.map(u => {
-      const level = upgrades[u.id] || 0;
+      const level = playerState.upgrades[u.id] || 0;
       return {
         ...u,
         level,
@@ -229,26 +307,17 @@ export const useGame = () => {
         profitPerHour: u.profitPerHour * (level > 0 ? Math.pow(1.07, level) : 1),
       };
     });
-  }, [upgrades, config.upgrades]);
+  }, [playerState.upgrades, config.upgrades]);
 
-  const calculateProfitPerHour = (currentUpgrades: Record<string, number>) => {
-      return config.upgrades.reduce((total, u) => {
-          const level = currentUpgrades[u.id] || 0;
-          if (level > 0) {
-              return total + Math.floor(u.profitPerHour * level * 1.07);
-          }
-          return total;
-      }, 0);
-  };
 
   const buyUpgrade = useCallback((upgradeId: string) => {
     const upgrade = allUpgrades.find(u => u.id === upgradeId);
-    if (!upgrade || balance < upgrade.price) return;
+    if (!upgrade || playerState.balance < upgrade.price) return;
 
     setPlayerState(prevState => {
       const newLevel = (prevState.upgrades[upgradeId] || 0) + 1;
       const newUpgrades = { ...prevState.upgrades, [upgradeId]: newLevel };
-      const newProfitPerHour = calculateProfitPerHour(newUpgrades);
+      const newProfitPerHour = calculateProfitPerHour(newUpgrades, config);
 
       return {
         ...prevState,
@@ -257,20 +326,20 @@ export const useGame = () => {
         upgrades: newUpgrades,
       };
     });
-  }, [allUpgrades, balance]);
+  }, [allUpgrades, playerState.balance, config, calculateProfitPerHour]);
 
   const handleTap = useCallback(() => {
-    if (energy >= coinsPerTap) {
+    if (playerState.energy >= playerState.coinsPerTap) {
       setPlayerState(prevState => ({
         ...prevState,
-        balance: prevState.balance + coinsPerTap,
-        energy: prevState.energy - coinsPerTap,
+        balance: prevState.balance + prevState.coinsPerTap,
+        energy: prevState.energy - prevState.coinsPerTap,
         dailyTaps: prevState.dailyTaps + 1,
       }));
       return true;
     }
     return false;
-  }, [energy, coinsPerTap]);
+  }, [playerState.energy, playerState.coinsPerTap]);
 
   const claimTaskReward = useCallback((task: DailyTask) => {
       if(playerState.completedDailyTaskIds.includes(task.id)) return;
@@ -294,29 +363,63 @@ export const useGame = () => {
       if(boost.id === 'boost1') { // Full energy
           setPlayerState(p => ({ ...p, energy: MAX_ENERGY }));
       }
-      // logic for other boosts can go here
   }, [playerState.stars]);
+  
+   const purchaseSpecialTask = useCallback((task: SpecialTask) => {
+      if (playerState.stars < task.priceStars || playerState.purchasedSpecialTaskIds.includes(task.id)) return;
+      
+      // Here you would integrate with Telegram's payment API
+      // window.Telegram.WebApp.openInvoice(...)
+      // For now, we simulate a successful purchase
+      console.log(`Simulating purchase of ${task.id} for ${task.priceStars} stars`);
+      
+      setPlayerState(p => ({
+          ...p,
+          stars: p.stars - task.priceStars,
+          purchasedSpecialTaskIds: [...p.purchasedSpecialTaskIds, task.id]
+      }));
+  }, [playerState]);
+
+  const completeSpecialTask = useCallback((task: SpecialTask) => {
+      if (playerState.completedSpecialTaskIds.includes(task.id) || !playerState.purchasedSpecialTaskIds.includes(task.id)) return;
+
+      setPlayerState(p => ({
+          ...p,
+          balance: p.balance + task.rewardCoins,
+          stars: p.stars + task.rewardStars,
+          completedSpecialTaskIds: [...p.completedSpecialTaskIds, task.id]
+      }));
+  }, [playerState]);
+
 
   const currentLeague = useMemo(() => {
-    return LEAGUES.find(l => balance >= l.minBalance) ?? LEAGUES[LEAGUES.length - 1];
-  }, [balance]);
+    return LEAGUES.find(l => playerState.balance >= l.minBalance) ?? LEAGUES[LEAGUES.length - 1];
+  }, [playerState.balance]);
 
-  const saveAdminConfig = (newConfig: GameConfig) => {
-      API.saveGameConfig(newConfig);
+  const saveAdminConfig = async (newConfig: GameConfig) => {
+      await API.saveGameConfig(newConfig);
       setConfig(newConfig);
   };
+  
+  const translate = async (text: string, from: Language, to: Language) => {
+      return await API.translateText(text, from, to);
+  }
 
   return {
     playerState,
     config,
+    isGameLoading,
     handleTap,
     buyUpgrade,
     allUpgrades,
     currentLeague,
     claimTaskReward,
     buyBoost,
+    purchaseSpecialTask,
+    completeSpecialTask,
     gameAdmin: {
         saveConfig: saveAdminConfig,
+        translate: translate,
     }
   };
 };

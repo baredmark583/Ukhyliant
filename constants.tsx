@@ -1,13 +1,14 @@
-
 import React from 'react';
-import { League, Upgrade, UpgradeCategory, Boost, DailyTask, LocalizedString } from './types';
+import { League, Upgrade, UpgradeCategory, Boost, DailyTask, LocalizedString, SpecialTask } from './types';
 
-// The Telegram ID of the user who will have admin access.
-// In a real application, this would come from a secure environment variable.
-export const ADMIN_TELEGRAM_ID = '123456789'; 
+// --- ROLE MANAGEMENT ---
+// The primary admin. Has all rights.
+export const ADMIN_TELEGRAM_ID = '7327258482'; 
+// Users who can access the admin panel but have slightly fewer rights than the main admin.
+export const MODERATOR_TELEGRAM_IDS: string[] = ['987654321']; // Add moderator IDs here
+
 
 // --- BOT CONFIGURATION ---
-// Replace 'YourTelegramBotName' with the actual username of your Telegram bot.
 export const TELEGRAM_BOT_NAME = 'Ukhyliantbot';
 
 
@@ -32,6 +33,7 @@ export const ExchangeIcon = ({ active }: { active: boolean }) => <NavIcon active
 export const MineIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>⛏️</NavIcon>;
 export const BoostIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>🚀</NavIcon>;
 export const TasksIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>📋</NavIcon>;
+export const EarnIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>💰</NavIcon>;
 export const AdminIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>⚙️</NavIcon>;
 
 
@@ -44,20 +46,13 @@ export const LEAGUES: League[] = [
 ].reverse();
 
 export const INITIAL_UPGRADES: Upgrade[] = [
-    // Documents
     { id: 'doc1', name: { en: 'Student ID', ua: 'Студентський квиток' }, price: 100, profitPerHour: 10, category: UpgradeCategory.Documents, icon: '🎓' },
     { id: 'doc2', name: { en: 'Disability Certificate', ua: 'Довідка про інвалідність' }, price: 1500, profitPerHour: 80, category: UpgradeCategory.Documents, icon: '♿' },
     { id: 'doc3', name: { en: 'White Ticket', ua: 'Білий квиток' }, price: 10000, profitPerHour: 500, category: UpgradeCategory.Documents, icon: '📄' },
-    
-    // Legal
     { id: 'leg1', name: { en: 'Lawyer Consultation', ua: 'Консультація адвоката' }, price: 500, profitPerHour: 25, category: UpgradeCategory.Legal, icon: '⚖️' },
     { id: 'leg2', name: { en: 'Open a Fake Company', ua: 'Відкрити фіктивну фірму' }, price: 5000, profitPerHour: 200, category: UpgradeCategory.Legal, icon: '🏢' },
-
-    // Lifestyle
     { id: 'life1', name: { en: 'Hide in the Village', ua: 'Сховатись в селі' }, price: 2000, profitPerHour: 100, category: UpgradeCategory.Lifestyle, icon: '🛖' },
     { id: 'life2', name: { en: 'Rent a Bunker', ua: 'Орендувати бункер' }, price: 25000, profitPerHour: 1100, category: UpgradeCategory.Lifestyle, icon: '🔒' },
-
-    // Special
     { id: 'spec1', name: { en: 'Border Crossing', ua: 'Перетин кордону' }, price: 100000, profitPerHour: 4000, category: UpgradeCategory.Special, icon: '🗺️' },
     { id: 'spec2', name: { en: 'New Identity', ua: 'Нова особистість' }, price: 500000, profitPerHour: 20000, category: UpgradeCategory.Special, icon: '🎭' },
 ];
@@ -65,6 +60,11 @@ export const INITIAL_UPGRADES: Upgrade[] = [
 export const INITIAL_TASKS: DailyTask[] = [
     { id: 'task1', name: { en: 'Tap 500 times', ua: 'Натисни 500 разів' }, rewardCoins: 1000, rewardStars: 5, requiredTaps: 500 },
     { id: 'task2', name: { en: 'Daily Check-in', ua: 'Щоденний візит' }, rewardCoins: 500, rewardStars: 10, requiredTaps: 1 },
+];
+
+export const INITIAL_SPECIAL_TASKS: SpecialTask[] = [
+    { id: 'special1', name: { en: 'Join Our Channel', ua: 'Приєднайся до каналу' }, description: { en: 'Get a huge bonus for joining our news channel!', ua: 'Отримай великий бонус за підписку на наш канал новин!' }, type: 'telegram_join', url: 'https://t.me/durov', rewardCoins: 100000, rewardStars: 25, priceStars: 5, isOneTime: true },
+    { id: 'special2', name: { en: 'Watch Review', ua: 'Подивись огляд' }, description: { en: 'Watch a video review and get rewarded.', ua: 'Подивись відео-огляд та отримай нагороду.'}, type: 'video_watch', url: 'https://youtube.com', rewardCoins: 50000, rewardStars: 15, priceStars: 0, isOneTime: true },
 ];
 
 export const INITIAL_BOOSTS: Boost[] = [
@@ -88,7 +88,9 @@ type TranslationKey =
   | 'add_new_upgrade' | 'edit_upgrades' | 'edit_tasks' | 'task_name' | 'reward_coins' | 'reward_stars'
   | 'required_taps' | 'add_new_task' | 'edit_boosts' | 'boost_name' | 'description' | 'cost' | 'add_new_boost'
   | 'login_with_telegram' | 'login' | 'logout' | 'enter_telegram_id' | 'copy_referral_link' | 'copied'
-  | 'claim_reward' | 'completed';
+  | 'claim_reward' | 'completed' | 'earn' | 'special_tasks' | 'unlock_for' | 'go_to_task' | 'claim'
+  | 'edit_special_tasks' | 'task_type' | 'url' | 'price_stars' | 'add_new_special_task' | 'translate'
+  | 'telegram_join' | 'social_follow' | 'video_watch';
 
 export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
   en: {
@@ -133,6 +135,20 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     copied: 'Copied!',
     claim_reward: 'Claim Reward',
     completed: 'Completed',
+    earn: 'Earn',
+    special_tasks: 'Special Tasks',
+    unlock_for: 'Unlock for',
+    go_to_task: 'Go to Task',
+    claim: 'Claim',
+    edit_special_tasks: 'Edit Special Tasks',
+    task_type: 'Task Type',
+    url: 'URL',
+    price_stars: 'Price in Stars',
+    add_new_special_task: 'Add New Special Task',
+    translate: 'Translate',
+    telegram_join: 'Join Telegram',
+    social_follow: 'Follow Social Media',
+    video_watch: 'Watch Video',
   },
   ua: {
     exchange: 'Біржа',
@@ -176,5 +192,19 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     copied: 'Скопійовано!',
     claim_reward: 'Отримати нагороду',
     completed: 'Виконано',
+    earn: 'Заробіток',
+    special_tasks: 'Спеціальні Завдання',
+    unlock_for: 'Розблокувати за',
+    go_to_task: 'Перейти до завдання',
+    claim: 'Забрати',
+    edit_special_tasks: 'Редагувати спец. завдання',
+    task_type: 'Тип завдання',
+    url: 'Посилання',
+    price_stars: 'Ціна в зірках',
+    add_new_special_task: 'Додати спец. завдання',
+    translate: 'Перекласти',
+    telegram_join: 'Підписка Telegram',
+    social_follow: 'Підписка на соц. мережі',
+    video_watch: 'Перегляд відео',
   },
 };
