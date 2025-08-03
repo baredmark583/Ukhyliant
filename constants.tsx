@@ -8,7 +8,7 @@ export const ADMIN_TELEGRAM_ID = '123456789';
 
 // --- BOT CONFIGURATION ---
 // Replace 'YourTelegramBotName' with the actual username of your Telegram bot.
-export const TELEGRAM_BOT_NAME = 'YourTelegramBotName';
+export const TELEGRAM_BOT_NAME = 'Ukhyliantbot';
 
 
 // --- ICONS ---
