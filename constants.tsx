@@ -4,7 +4,12 @@ import { League, Upgrade, UpgradeCategory, Boost, DailyTask, LocalizedString } f
 
 // The Telegram ID of the user who will have admin access.
 // In a real application, this would come from a secure environment variable.
-export const ADMIN_TELEGRAM_ID = '7327258482'; 
+export const ADMIN_TELEGRAM_ID = '123456789'; 
+
+// --- BOT CONFIGURATION ---
+// Replace 'YourTelegramBotName' with the actual username of your Telegram bot.
+export const TELEGRAM_BOT_NAME = 'YourTelegramBotName';
+
 
 // --- ICONS ---
 export const PassportIcon = () => <span className="text-2xl" role="img" aria-label="passport">🛂</span>;

@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language } from '../types';
-import { MAX_ENERGY, CoinIcon, StarIcon } from '../constants';
+import { MAX_ENERGY, CoinIcon, StarIcon, TELEGRAM_BOT_NAME } from '../constants';
 import { useTranslation } from '../hooks/useGameLogic';
 
 interface ExchangeProps {
@@ -54,8 +54,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   }, [onTap, coinsPerTap]);
   
   const handleCopyReferral = () => {
-      // NOTE: Replace 'YourTelegramBotName' with your actual bot's username
-      const referralLink = `https://t.me/YourTelegramBotName?start=${user.id}`;
+      const referralLink = `https://t.me/${TELEGRAM_BOT_NAME}?start=${user.id}`;
       navigator.clipboard.writeText(referralLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
