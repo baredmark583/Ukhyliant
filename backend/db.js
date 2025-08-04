@@ -1,4 +1,3 @@
-
 import pg from 'pg';
 import { INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, INITIAL_TASKS, INITIAL_UPGRADES, REFERRAL_BONUS } from './constants.js';
 
@@ -87,16 +86,36 @@ export const updateUserLanguage = async (id, language) => {
 }
 
 export const applyReferralBonus = async (referrerId) => {
-    const query = `
-        UPDATE players
-        SET data = jsonb_set(
-            jsonb_set(data, '{balance}', (COALESCE((data->'balance')::numeric, 0) + $1)::jsonb),
-            '{referrals}', (COALESCE((data->'referrals')::numeric, 0) + 1)::jsonb
-        )
-        WHERE id = $2
-    `;
-    await executeQuery(query, [REFERRAL_BONUS, referrerId]);
-    console.log(`Applied referral bonus to user ${referrerId}`);
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [referrerId]);
+        if (playerRes.rows.length === 0) {
+            console.warn(`Referrer with ID ${referrerId} not found. Cannot apply bonus.`);
+            await client.query('ROLLBACK');
+            return;
+        }
+        
+        const playerData = playerRes.rows[0].data;
+        const newBalance = (playerData.balance || 0) + REFERRAL_BONUS;
+        const newReferrals = (playerData.referrals || 0) + 1;
+        
+        playerData.balance = newBalance;
+        playerData.referrals = newReferrals;
+
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [playerData, referrerId]);
+        
+        await client.query('COMMIT');
+        console.log(`Applied referral bonus to user ${referrerId}`);
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error(`Transaction failed for applyReferralBonus for referrer ${referrerId}:`, error);
+        throw error;
+    } finally {
+        client.release();
+    }
 };
 
 export const unlockSpecialTask = async (userId, taskId) => {
@@ -139,8 +158,8 @@ export const completeAndRewardSpecialTask = async (userId, taskId) => {
             UPDATE players
             SET data = jsonb_set(
                         jsonb_set(
-                            jsonb_set(data, '{balance}', $1::jsonb),
-                            '{stars}', $2::jsonb
+                            jsonb_set(data, '{balance}', to_jsonb($1)),
+                            '{stars}', to_jsonb($2)
                         ),
                         '{completedSpecialTaskIds}', $3::jsonb
                     )
@@ -158,5 +177,43 @@ export const completeAndRewardSpecialTask = async (userId, taskId) => {
         throw error;
     } finally {
         client.release();
+    }
+};
+
+export const getAllPlayersForAdmin = async () => {
+    const usersRes = await executeQuery('SELECT id, name, language FROM users');
+    const playersRes = await executeQuery('SELECT id, data FROM players');
+
+    const playersMap = new Map(playersRes.rows.map(p => [p.id, p.data]));
+
+    const allPlayers = usersRes.rows.map(user => {
+        const playerData = playersMap.get(user.id);
+        return {
+            id: user.id,
+            name: user.name || 'N/A',
+            language: user.language || 'en',
+            balance: playerData?.balance ?? 0,
+            stars: playerData?.stars ?? 0,
+            referrals: playerData?.referrals ?? 0
+        };
+    });
+
+    allPlayers.sort((a, b) => b.balance - a.balance);
+
+    return allPlayers;
+};
+
+export const deletePlayer = async (userId) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM players WHERE id = $1', [userId]);
+        await client.query('DELETE FROM users WHERE id = $1', [userId]);
+        await client.query('COMMIT');
+        console.log(`Deleted user and player with ID: ${userId}`);
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error(`Failed to delete player ${userId}:`, error);
+        throw error;
     }
 };

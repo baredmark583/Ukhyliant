@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -206,8 +207,8 @@ const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang }: { task
                     } else if (isPurchased) {
                         button = <button onClick={() => handleGoToTask(task)} className="w-full mt-2 py-2 rounded-lg font-bold bg-blue-600 hover:bg-blue-500">{t('go_to_task')}</button>;
                     } else {
-                        const canAfford = playerState.stars >= task.priceStars;
-                        button = <button onClick={() => onPurchase(task)} disabled={!canAfford} className="w-full mt-2 py-2 rounded-lg font-bold bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:text-gray-400 flex justify-center items-center space-x-2">
+                        // The button is always enabled for paid tasks to let Telegram handle the purchase flow
+                        button = <button onClick={() => onPurchase(task)} className="w-full mt-2 py-2 rounded-lg font-bold bg-purple-600 hover:bg-purple-500 flex justify-center items-center space-x-2">
                                     <span>{task.priceStars > 0 ? `${t('unlock_for')} ${task.priceStars}` : t('get')}</span>
                                     {task.priceStars > 0 && <StarIcon />}
                                  </button>;
