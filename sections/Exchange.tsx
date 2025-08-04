@@ -1,7 +1,7 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
-import { PlayerState, League, User, Language } from '../types';
+import { PlayerState, League, User, Language, GameConfig } from '../types';
 import { MAX_ENERGY, CoinIcon, TELEGRAM_BOT_NAME, MINI_APP_NAME } from '../constants';
 import { useTranslation } from '../hooks/useGameLogic';
 import coinSvg from '../assets/coin.svg';
@@ -11,6 +11,8 @@ interface ExchangeProps {
   currentLeague: League;
   onTap: () => boolean;
   user: User;
+  onClaimCipher: (cipher: string) => Promise<boolean>;
+  config: GameConfig;
 }
 
 const formatNumber = (num: number): string => {
@@ -27,7 +29,7 @@ interface ClickFx {
   value: number;
 }
 
-const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user }) => {
+const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config }) => {
   const t = useTranslation();
   const lang = user.language;
   const { balance, profitPerHour, energy, coinsPerTap } = playerState;
@@ -35,7 +37,42 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const [scale, setScale] = useState(1);
   const [copied, setCopied] = useState(false);
 
-  const handleHamsterClick = useCallback((e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+  // Morse code state
+  const [morseInput, setMorseInput] = useState('');
+  const pressTimer = useRef<number | null>(null);
+  const resetMorseTimer = useRef<number | null>(null);
+
+  const dailyCipherWord = config.dailyEvent?.cipherWord || '';
+  const claimedCipher = playerState.claimedCipherToday;
+
+  const handleCipherReset = () => {
+    setMorseInput('');
+  };
+
+  const handleMouseDown = () => {
+    pressTimer.current = Date.now();
+    if(resetMorseTimer.current) clearTimeout(resetMorseTimer.current);
+  };
+
+  const handleMouseUp = async () => {
+    if (claimedCipher) return;
+    const pressDuration = Date.now() - (pressTimer.current || Date.now());
+    pressTimer.current = null;
+    const char = pressDuration < 200 ? '.' : '-';
+    const newSequence = morseInput + char;
+    setMorseInput(newSequence);
+    
+    if(newSequence === dailyCipherWord) {
+      const success = await onClaimCipher(newSequence);
+      if(success) {
+        setMorseInput('');
+      }
+    }
+
+    resetMorseTimer.current = window.setTimeout(handleCipherReset, 3000);
+  };
+  
+  const handleTapWrapper = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     if (onTap()) {
       const rect = e.currentTarget.getBoundingClientRect();
       const newClick: ClickFx = {
@@ -52,7 +89,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
         setClicks(prev => prev.filter(c => c.id !== newClick.id));
       }, 1000);
     }
-  }, [onTap, coinsPerTap]);
+  };
   
   const handleCopyReferral = () => {
       const referralLink = `https://t.me/${TELEGRAM_BOT_NAME}/${MINI_APP_NAME}?startapp=${user.id}`;
@@ -87,13 +124,37 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
 
       {/* Balance */}
-      <div className="flex items-center justify-center space-x-2 my-4">
+      <div className="flex items-center justify-center space-x-2 my-2">
         <div className="w-12 h-12 text-yellow-400"><CoinIcon/></div>
         <h1 className="text-5xl font-bold tracking-tighter">{Math.floor(balance).toLocaleString()}</h1>
       </div>
 
+      {/* Daily Cipher Section */}
+       {dailyCipherWord && (
+          <div className="w-full max-w-sm text-center my-3 p-3 bg-red-900/40 border border-red-500 rounded-lg">
+            <h3 className="font-bold text-lg text-red-200">{t('daily_cipher')}</h3>
+            {claimedCipher ? (
+              <p className="text-green-400 font-bold">{t('claimed_today')}</p>
+            ) : (
+               <>
+                <p className="text-gray-300 text-sm my-1">{t('cipher_hint')}</p>
+                <div className="font-mono text-2xl h-8 tracking-widest text-white bg-black/30 rounded-md flex items-center justify-center">
+                    {morseInput}
+                </div>
+               </>
+            )}
+          </div>
+       )}
+
       {/* Clicker Area */}
-      <div className="relative w-64 h-64 md:w-72 md:h-72 my-auto cursor-pointer select-none" onClick={handleHamsterClick}>
+      <div 
+        className="relative w-64 h-64 md:w-72 md:h-72 my-auto cursor-pointer select-none" 
+        onClick={handleTapWrapper}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onTouchStart={handleMouseDown}
+        onTouchEnd={handleMouseUp}
+      >
         <div 
             className="w-full h-full"
             style={{ transform: `scale(${scale})`, transition: 'transform 0.1s ease' }}
@@ -101,7 +162,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
           <img 
             src={coinSvg} 
             alt="Clickable Coin" 
-            className="w-full h-full transform transition-transform duration-200 hover:scale-110"
+            className="w-full h-full transform transition-transform duration-200"
           />
         </div>
         {clicks.map(click => (

@@ -44,7 +44,8 @@ const MainApp: React.FC = () => {
   const { user, logout, switchLanguage } = useAuth();
   const { 
       playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, 
-      claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask 
+      claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask,
+      claimDailyCombo, claimDailyCipher
   } = useGame();
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
   const t = useTranslation();
@@ -63,9 +64,9 @@ const MainApp: React.FC = () => {
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={claimDailyCipher} config={config} />;
       case 'mine':
-        return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={buyUpgrade} lang={lang} />;
+        return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={buyUpgrade} lang={lang} playerState={playerState} config={config} onClaimCombo={claimDailyCombo} />;
       case 'friends':
         return <FriendsScreen playerState={playerState} user={user} />;
       case 'boost':
@@ -75,7 +76,7 @@ const MainApp: React.FC = () => {
       case 'earn':
         return <EarnScreen tasks={config.specialTasks} playerState={playerState} onPurchase={purchaseSpecialTask} onComplete={completeSpecialTask} lang={lang} />;
       default:
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={claimDailyCipher} config={config} />;
     }
   };
 

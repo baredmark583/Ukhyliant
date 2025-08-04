@@ -67,11 +67,17 @@ export interface SpecialTask {
     isOneTime: true;
 }
 
+export interface DailyEvent {
+    comboIds: string[];
+    cipherWord: string;
+}
+
 export interface GameConfig {
     upgrades: Upgrade[];
     tasks: DailyTask[];
     boosts: Boost[];
     specialTasks: SpecialTask[];
+    dailyEvent: DailyEvent | null;
 }
 
 export interface PlayerState {
@@ -87,4 +93,7 @@ export interface PlayerState {
   completedSpecialTaskIds: string[]; // One-time tasks that have been completed
   dailyTaps: number;
   lastDailyReset: number;
+  // New properties for daily events
+  claimedComboToday: boolean;
+  claimedCipherToday: boolean;
 }

@@ -94,7 +94,9 @@ type TranslationKey =
   | 'login_with_telegram' | 'login' | 'logout' | 'enter_telegram_id' | 'copy_referral_link' | 'copied'
   | 'claim_reward' | 'completed' | 'earn' | 'special_tasks' | 'unlock_for' | 'go_to_task' | 'claim'
   | 'edit_special_tasks' | 'task_type' | 'url' | 'price_stars' | 'add_new_special_task' | 'translate'
-  | 'telegram_join' | 'social_follow' | 'video_watch' | 'referral_bonus' | 'your_referrals' | 'invite_friends';
+  | 'telegram_join' | 'social_follow' | 'video_watch' | 'referral_bonus' | 'your_referrals' | 'invite_friends'
+  // Daily Events
+  | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today';
 
 export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
   en: {
@@ -155,6 +157,11 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     referral_bonus: 'Bonus per friend',
     your_referrals: 'Your referrals',
     invite_friends: 'Invite a Friend',
+    daily_combo: 'Daily Combo',
+    daily_cipher: 'Daily Cipher',
+    find_cards: 'Find and upgrade these cards!',
+    cipher_hint: 'Tap the code: . is short, - is long',
+    claimed_today: 'Claimed Today',
   },
   ua: {
     exchange: 'Біржа',
@@ -214,6 +221,11 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     referral_bonus: 'Бонус за друга',
     your_referrals: 'Ваші реферали',
     invite_friends: 'Запросити друга',
+    daily_combo: 'Щоденне комбо',
+    daily_cipher: 'Щоденний шифр',
+    find_cards: 'Знайди та прокачай ці картки!',
+    cipher_hint: 'Відстукай код: . короткий, - довгий',
+    claimed_today: 'Сьогодні забрано',
   },
   ru: {
     exchange: 'Биржа',
@@ -273,5 +285,10 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     referral_bonus: 'Бонус за друга',
     your_referrals: 'Ваши рефералы',
     invite_friends: 'Пригласить друга',
+    daily_combo: 'Ежедневное комбо',
+    daily_cipher: 'Ежедневный шифр',
+    find_cards: 'Найди и прокачай эти карты!',
+    cipher_hint: 'Отстучи код: . короткий, - длинный',
+    claimed_today: 'Сегодня забрано',
   },
 };

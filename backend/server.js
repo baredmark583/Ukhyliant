@@ -19,7 +19,12 @@ import {
     unlockSpecialTask,
     completeAndRewardSpecialTask,
     getAllPlayersForAdmin,
-    deletePlayer
+    deletePlayer,
+    getDailyEvent,
+    saveDailyEvent,
+    getDashboardStats,
+    claimComboReward,
+    claimCipherReward
 } from './db.js';
 import { ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, MAX_ENERGY, ENERGY_REGEN_RATE } from './constants.js';
 
@@ -75,6 +80,7 @@ const isAdminAuthenticated = (req, res, next) => {
     }
 };
 
+const getTodayDate = () => new Date().toISOString().split('T')[0];
 
 // --- PUBLIC GAME API ROUTES ---
 app.get('/', (req, res) => res.send('Ukhyliant Clicker Backend is running!'));
@@ -88,8 +94,14 @@ app.post('/api/login', async (req, res) => {
         
         const userId = tgUser.id.toString();
         const config = await getConfig();
+        const dailyEvent = await getDailyEvent(getTodayDate());
+        config.dailyEvent = dailyEvent;
+
         let user = await getUser(userId);
         let player = await getPlayer(userId);
+
+        const now = Date.now();
+        const today = new Date(now).setHours(0, 0, 0, 0);
 
         if (!user) { // New user
             const referrerId = (startParam && startParam !== userId) ? startParam : null;
@@ -99,12 +111,12 @@ app.post('/api/login', async (req, res) => {
 
             user = await createUser(userId, tgUser.first_name, lang);
             
-            const now = Date.now();
             player = {
                 balance: 500, energy: MAX_ENERGY, profitPerHour: 0, coinsPerTap: 1, lastLoginTimestamp: now,
                 upgrades: {}, referrals: 0, completedDailyTaskIds: [],
                 purchasedSpecialTaskIds: [], completedSpecialTaskIds: [],
-                dailyTaps: 0, lastDailyReset: now
+                dailyTaps: 0, lastDailyReset: today,
+                claimedComboToday: false, claimedCipherToday: false
             };
             await savePlayer(userId, player);
             
@@ -112,13 +124,21 @@ app.post('/api/login', async (req, res) => {
                 await applyReferralBonus(referrerId);
             }
         } else { // Existing user
-            const now = Date.now();
             const offlineSeconds = Math.floor((now - player.lastLoginTimestamp) / 1000);
             const offlineEarnings = (player.profitPerHour / 3600) * offlineSeconds;
             
             player.balance += offlineEarnings;
             player.energy = Math.min(MAX_ENERGY, player.energy + (ENERGY_REGEN_RATE * offlineSeconds));
             player.lastLoginTimestamp = now;
+
+            // Reset daily progress if it's a new day
+            if(player.lastDailyReset < today) {
+                player.dailyTaps = 0;
+                player.completedDailyTaskIds = [];
+                player.lastDailyReset = today;
+                player.claimedComboToday = false;
+                player.claimedCipherToday = false;
+            }
 
             await savePlayer(userId, player);
         }
@@ -203,7 +223,6 @@ app.post('/api/create-invoice', async (req, res) => {
         res.status(500).json({ ok: false, error: 'Internal server error.' });
     }
 });
-
 app.post('/api/action/unlock-free-task', async (req, res) => {
     try {
         const { userId, taskId } = req.body;
@@ -218,8 +237,6 @@ app.post('/api/action/unlock-free-task', async (req, res) => {
         res.status(500).json({ error: 'Internal server error.' });
     }
 });
-
-
 app.post('/api/action/complete-task', async (req, res) => {
     try {
         const { userId, taskId } = req.body;
@@ -229,7 +246,38 @@ app.post('/api/action/complete-task', async (req, res) => {
          res.status(500).json({ error: 'Internal server error.' });
     }
 });
-
+app.post('/api/action/claim-combo', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const player = await getPlayer(userId);
+        const dailyEvent = await getDailyEvent(getTodayDate());
+        if (!player || !dailyEvent || player.claimedComboToday) {
+            return res.status(400).json({ error: 'Cannot claim combo.' });
+        }
+        const hasAllComboCards = dailyEvent.combo_ids.every(id => (player.upgrades[id] || 0) > 0);
+        if (!hasAllComboCards) {
+             return res.status(400).json({ error: 'Player does not own all combo cards.' });
+        }
+        const updatedPlayer = await claimComboReward(userId);
+        res.json(updatedPlayer);
+    } catch (error) {
+         res.status(500).json({ error: error.message || 'Server error' });
+    }
+});
+app.post('/api/action/claim-cipher', async (req, res) => {
+    try {
+        const { userId, cipher } = req.body;
+        const player = await getPlayer(userId);
+        const dailyEvent = await getDailyEvent(getTodayDate());
+        if (!player || !dailyEvent || player.claimedCipherToday || dailyEvent.cipher_word !== cipher) {
+            return res.status(400).json({ error: 'Cannot claim cipher.' });
+        }
+        const updatedPlayer = await claimCipherReward(userId);
+        res.json(updatedPlayer);
+    } catch (error) {
+         res.status(500).json({ error: error.message || 'Server error' });
+    }
+});
 
 // --- TELEGRAM WEBHOOK ---
 app.post('/api/telegram-webhook', async (req, res) => {
@@ -257,7 +305,6 @@ app.post('/api/telegram-webhook', async (req, res) => {
     }
     res.sendStatus(200);
 });
-
 
 // --- ADMIN WEB PANEL ROUTES ---
 app.get('/admin/login.html', (req, res) => {
@@ -290,6 +337,32 @@ app.get('/admin', isAdminAuthenticated, (req, res) => {
 
 
 // --- ADMIN API (PROTECTED) ---
+app.get('/admin/api/dashboard-stats', isAdminAuthenticated, async (req, res) => {
+    try {
+        const stats = await getDashboardStats();
+        res.json(stats);
+    } catch (error) {
+        console.error("Failed to get dashboard stats:", error);
+        res.status(500).json({ error: "Internal server error." });
+    }
+});
+app.get('/admin/api/daily-events', isAdminAuthenticated, async (req, res) => {
+    try {
+        const event = await getDailyEvent(getTodayDate());
+        res.json(event || { combo_ids: [], cipher_word: '' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch daily events' });
+    }
+});
+app.post('/admin/api/daily-events', isAdminAuthenticated, async (req, res) => {
+    try {
+        const { comboIds, cipherWord } = req.body;
+        await saveDailyEvent(getTodayDate(), comboIds, cipherWord);
+        res.status(200).json({ message: 'Daily event saved' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to save daily event' });
+    }
+});
 app.get('/admin/api/players', isAdminAuthenticated, async (req, res) => {
     try {
         const players = await getAllPlayersForAdmin();
@@ -299,7 +372,6 @@ app.get('/admin/api/players', isAdminAuthenticated, async (req, res) => {
         res.status(500).json({ error: "Internal server error while fetching players." });
     }
 });
-
 app.delete('/admin/api/player/:id', isAdminAuthenticated, async (req, res) => {
     try {
         const { id } = req.params;
@@ -310,12 +382,10 @@ app.delete('/admin/api/player/:id', isAdminAuthenticated, async (req, res) => {
         res.status(500).json({ error: "Internal server error while deleting player." });
     }
 });
-
 app.get('/admin/api/config', isAdminAuthenticated, async (req, res) => {
     const config = await getConfig();
     res.json(config);
 });
-
 app.post('/admin/api/config', isAdminAuthenticated, async (req, res) => {
     try {
         const newConfig = req.body.config;
@@ -329,7 +399,6 @@ app.post('/admin/api/config', isAdminAuthenticated, async (req, res) => {
         res.status(500).json({ error: "Internal server error while saving configuration." });
     }
 });
-
 app.post('/admin/api/translate', isAdminAuthenticated, async (req, res) => {
     if (!ai) {
         return res.status(503).json({ error: "Translation service is not configured." });
@@ -362,15 +431,21 @@ app.post('/admin/api/translate', isAdminAuthenticated, async (req, res) => {
 
 // --- SERVER INITIALIZATION ---
 const startServer = async () => {
-    if (!process.env.SESSION_SECRET || !process.env.ADMIN_PASSWORD || !process.env.DATABASE_URL) {
-        console.error("FATAL ERROR: Missing required environment variables (SESSION_SECRET, ADMIN_PASSWORD, DATABASE_URL).");
+    try {
+        if (!process.env.SESSION_SECRET || !process.env.ADMIN_PASSWORD || !process.env.DATABASE_URL) {
+            console.error("FATAL ERROR: Missing required environment variables (SESSION_SECRET, ADMIN_PASSWORD, DATABASE_URL).");
+            process.exit(1);
+        }
+        await initializeDb();
+        console.log("Database initialized.");
+        app.listen(PORT, () => {
+            console.log(`Server is listening on port ${PORT}`);
+            console.log(`Admin panel should be available at http://localhost:${PORT}/admin`);
+        });
+    } catch (e) {
+        console.error("FATAL ERROR: Could not start server.", e);
         process.exit(1);
     }
-    await initializeDb();
-    app.listen(PORT, () => {
-        console.log(`Server is listening on port ${PORT}`);
-        console.log(`Admin panel should be available at http://localhost:${PORT}/admin`);
-    });
 };
 
 startServer();

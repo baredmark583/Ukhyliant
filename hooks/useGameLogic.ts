@@ -76,6 +76,28 @@ const API = {
     });
      if (!response.ok) return null;
     return response.json();
+  },
+
+  claimCombo: async (userId: string): Promise<PlayerState | null> => {
+    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
+    const response = await fetch(`${API_BASE_URL}/api/action/claim-combo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+    });
+     if (!response.ok) return null;
+    return response.json();
+  },
+
+  claimCipher: async (userId: string, cipher: string): Promise<PlayerState | null> => {
+    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
+    const response = await fetch(`${API_BASE_URL}/api/action/claim-cipher`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, cipher }),
+    });
+     if (!response.ok) return null;
+    return response.json();
   }
 };
 
@@ -264,6 +286,7 @@ export const useGame = () => {
         const upgrade = allUpgrades.find(u => u.id === upgradeId);
         if (!upgrade || !playerState || !config || playerState.balance < upgrade.price) return;
 
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
         setPlayerState(p => {
             if (!p) return null;
             const newLevel = (p.upgrades[upgradeId] || 0) + 1;
@@ -280,6 +303,7 @@ export const useGame = () => {
 
     const handleTap = useCallback(() => {
         if (playerState && playerState.energy >= playerState.coinsPerTap) {
+             window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
             setPlayerState(p => p ? {
                 ...p,
                 balance: p.balance + p.coinsPerTap,
@@ -295,6 +319,7 @@ export const useGame = () => {
         if (!playerState || playerState.completedDailyTaskIds.includes(task.id)) return;
         if (playerState.dailyTaps < task.requiredTaps) return;
 
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         setPlayerState(p => p ? {
             ...p,
             balance: p.balance + task.rewardCoins,
@@ -305,13 +330,14 @@ export const useGame = () => {
     const buyBoost = useCallback((boost: Boost) => {
         if (!playerState || playerState.balance < boost.costCoins) return;
         if (boost.id === 'boost1') { // Full energy
+            window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
             setPlayerState(p => p ? { ...p, energy: MAX_ENERGY, balance: p.balance - boost.costCoins } : null);
         }
     }, [playerState, setPlayerState]);
 
     const purchaseSpecialTask = useCallback(async (task: SpecialTask) => {
         if (!user || !playerState) return;
-
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
         if (task.priceStars === 0) { // Free task
              const updatedPlayerState = await API.unlockFreeTask(user.id, task.id);
              if(updatedPlayerState) setPlayerState(updatedPlayerState);
@@ -329,8 +355,33 @@ export const useGame = () => {
     const completeSpecialTask = useCallback(async (task: SpecialTask) => {
         if (!user || !playerState || playerState.completedSpecialTaskIds.includes(task.id) || !playerState.purchasedSpecialTaskIds.includes(task.id)) return;
          const updatedPlayerState = await API.completeSpecialTask(user.id, task.id);
-         if(updatedPlayerState) setPlayerState(updatedPlayerState);
+         if(updatedPlayerState) {
+            setPlayerState(updatedPlayerState);
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+         }
     }, [user, playerState, setPlayerState]);
+
+    const claimDailyCombo = useCallback(async () => {
+        if(!user) return;
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+        const updatedPlayerState = await API.claimCombo(user.id);
+        if(updatedPlayerState) {
+            setPlayerState(updatedPlayerState);
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        }
+    }, [user, setPlayerState]);
+
+    const claimDailyCipher = useCallback(async (cipher: string) => {
+        if(!user) return;
+        const updatedPlayerState = await API.claimCipher(user.id, cipher);
+        if(updatedPlayerState) {
+            setPlayerState(updatedPlayerState);
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            return true;
+        }
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+        return false;
+    }, [user, setPlayerState]);
 
 
     const currentLeague = useMemo(() => {
@@ -348,6 +399,8 @@ export const useGame = () => {
         claimTaskReward,
         buyBoost,
         purchaseSpecialTask,
-        completeSpecialTask
+        completeSpecialTask,
+        claimDailyCombo,
+        claimDailyCipher
     };
 };
