@@ -1,6 +1,6 @@
 
 import pg from 'pg';
-import { INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, INITIAL_TASKS, INITIAL_UPGRADES, REFERRAL_BONUS, DAILY_COMBO_REWARD, DAILY_CIPHER_REWARD } from './constants.js';
+import { INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, INITIAL_TASKS, INITIAL_UPGRADES, REFERRAL_BONUS } from './constants.js';
 
 const { Pool } = pg;
 const pool = new Pool({
@@ -42,11 +42,22 @@ export const initializeDb = async () => {
         CREATE TABLE IF NOT EXISTS daily_events (
             event_date DATE PRIMARY KEY,
             combo_ids JSONB,
-            cipher_word VARCHAR(255)
+            cipher_word VARCHAR(255),
+            combo_reward BIGINT DEFAULT 5000000,
+            cipher_reward BIGINT DEFAULT 1000000
         );
     `);
     console.log("Database tables checked/created successfully.");
 
+    // Safely add columns to daily_events table if they don't exist
+    try {
+        await executeQuery(`ALTER TABLE daily_events ADD COLUMN IF NOT EXISTS combo_reward BIGINT DEFAULT 5000000;`);
+        await executeQuery(`ALTER TABLE daily_events ADD COLUMN IF NOT EXISTS cipher_reward BIGINT DEFAULT 1000000;`);
+        console.log("Reward columns checked/added to 'daily_events' table.");
+    } catch (e) {
+         console.error("Could not add reward columns.", e.message);
+    }
+    
     // Safely add 'created_at' column to users table if it doesn't exist for stats tracking
     try {
         await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();`);
@@ -187,24 +198,29 @@ export const getDailyEvent = async (date) => {
     // The `pg` driver automatically parses the JSONB column into a JS object/array.
     return res.rows[0] || null;
 }
-export const saveDailyEvent = async (date, comboIds, cipherWord) => {
-    // The `pg` driver may interpret a JS array as a PG array literal ('{a,b}'), which is invalid for JSONB.
-    // We must explicitly stringify the array to ensure it's a valid JSON string ('["a","b"]').
+export const saveDailyEvent = async (date, comboIds, cipherWord, comboReward, cipherReward) => {
     const comboIdsJson = JSON.stringify(comboIds || []);
     await executeQuery(
-        'INSERT INTO daily_events (event_date, combo_ids, cipher_word) VALUES ($1, $2, $3) ON CONFLICT (event_date) DO UPDATE SET combo_ids = $2, cipher_word = $3', 
-        [date, comboIdsJson, cipherWord]
+        'INSERT INTO daily_events (event_date, combo_ids, cipher_word, combo_reward, cipher_reward) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (event_date) DO UPDATE SET combo_ids = $2, cipher_word = $3, combo_reward = $4, cipher_reward = $5', 
+        [date, comboIdsJson, cipherWord, comboReward, cipherReward]
     );
 }
 export const claimComboReward = async (userId) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        const today = new Date().toISOString().split('T')[0];
+        const dailyEvent = await getDailyEvent(today);
+        if (!dailyEvent) throw new Error("Daily event not found.");
+
         const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
         const player = playerRes.rows[0].data;
+
         if (player.claimedComboToday) throw new Error("Combo already claimed today.");
-        player.balance += DAILY_COMBO_REWARD;
+        
+        player.balance += Number(dailyEvent.combo_reward) || 0;
         player.claimedComboToday = true;
+        
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
         return updatedRes.rows[0].data;
@@ -219,11 +235,18 @@ export const claimCipherReward = async (userId) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        const today = new Date().toISOString().split('T')[0];
+        const dailyEvent = await getDailyEvent(today);
+        if (!dailyEvent) throw new Error("Daily event not found.");
+
         const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
         const player = playerRes.rows[0].data;
+
         if (player.claimedCipherToday) throw new Error("Cipher already claimed today.");
-        player.balance += DAILY_CIPHER_REWARD;
+        
+        player.balance += Number(dailyEvent.cipher_reward) || 0;
         player.claimedCipherToday = true;
+
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
         return updatedRes.rows[0].data;

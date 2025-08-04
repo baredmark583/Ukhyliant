@@ -13,7 +13,11 @@ interface UpgradeCardProps {
 const formatNumber = (num: number) => {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
-  return num.toString();
+  // Format numbers less than 1000 to have a max of 2 decimal places.
+  return num.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
 };
 
 

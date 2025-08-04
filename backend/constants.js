@@ -37,7 +37,3 @@ export const INITIAL_BOOSTS = [
 export const REFERRAL_BONUS = 5000;
 export const MAX_ENERGY = 1000;
 export const ENERGY_REGEN_RATE = 2; // per second
-
-// Daily Event Rewards
-export const DAILY_COMBO_REWARD = 5000000;
-export const DAILY_CIPHER_REWARD = 1000000;

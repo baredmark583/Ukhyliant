@@ -393,15 +393,15 @@ app.get('/admin/api/daily-events', isAdminAuthenticated, async (req, res) => {
         if (event) {
             event.combo_ids = parseComboIds(event);
         }
-        res.json(event || { combo_ids: [], cipher_word: '' });
+        res.json(event || { combo_ids: [], cipher_word: '', combo_reward: 5000000, cipher_reward: 1000000 });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch daily events' });
     }
 });
 app.post('/admin/api/daily-events', isAdminAuthenticated, async (req, res) => {
     try {
-        const { comboIds, cipherWord } = req.body;
-        await saveDailyEvent(getTodayDate(), comboIds, cipherWord);
+        const { comboIds, cipherWord, comboReward, cipherReward } = req.body;
+        await saveDailyEvent(getTodayDate(), comboIds, cipherWord, comboReward, cipherReward);
         res.status(200).json({ message: 'Daily event saved' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to save daily event' });

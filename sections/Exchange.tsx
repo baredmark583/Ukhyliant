@@ -59,6 +59,10 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   }, []);
 
   const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
+    // Prevent context menu on long touch
+    if ('touches' in e) {
+        e.preventDefault();
+    }
     // Clear any pending input reset to avoid clearing new input
     if (resetMorseTimer.current) clearTimeout(resetMorseTimer.current);
 

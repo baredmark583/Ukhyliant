@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let localConfig = {};
     let allPlayers = [];
     let dashboardStats = {};
-    let dailyEvent = { combo_ids: [], cipher_word: '' };
+    let dailyEvent = { combo_ids: [], cipher_word: '', combo_reward: 5000000, cipher_reward: 1000000 };
     let activeTab = 'dashboard';
 
     const tabContainer = document.getElementById('tab-content-container');
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="bg-gray-700/50 p-6 rounded-lg shadow-lg">
                         <h3 class="text-xl font-semibold mb-3 text-white">Ежедневное Комбо</h3>
                         <p class="text-sm text-gray-400 mb-4">Выберите 3 уникальных улучшения для комбо. Игроки, купившие все три, получат награду.</p>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                             ${[0, 1, 2].map(i => `
                                 <select data-event="combo" data-index="${i}" class="w-full bg-gray-600 p-3 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
                                     <option value="">-- Выберите карту ${i + 1} --</option>
@@ -91,11 +91,22 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </select>
                             `).join('')}
                         </div>
+                         <div>
+                            <label for="combo-reward-input" class="block text-sm font-medium text-gray-300 mb-1">Награда за Комбо</label>
+                            <input type="number" id="combo-reward-input" value="${dailyEvent.combo_reward || '5000000'}" class="w-full max-w-xs bg-gray-600 p-3 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="5000000">
+                        </div>
                     </div>
                     <div class="bg-gray-700/50 p-6 rounded-lg shadow-lg">
                         <h3 class="text-xl font-semibold mb-3 text-white">Ежедневный Шифр</h3>
                         <p class="text-sm text-gray-400 mb-4">Введите слово для шифра Морзе (только латинские буквы, без пробелов, в верхнем регистре).</p>
-                        <input type="text" id="cipher-word-input" value="${dailyEvent.cipher_word || ''}" class="w-full max-w-sm bg-gray-600 p-3 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono tracking-widest" placeholder="например, BTC">
+                        <div class="mb-4">
+                            <label for="cipher-word-input" class="block text-sm font-medium text-gray-300 mb-1">Слово для шифра</label>
+                            <input type="text" id="cipher-word-input" value="${dailyEvent.cipher_word || ''}" class="w-full max-w-sm bg-gray-600 p-3 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono tracking-widest" placeholder="например, BTC">
+                        </div>
+                        <div>
+                            <label for="cipher-reward-input" class="block text-sm font-medium text-gray-300 mb-1">Награда за Шифр</label>
+                            <input type="number" id="cipher-reward-input" value="${dailyEvent.cipher_reward || '1000000'}" class="w-full max-w-xs bg-gray-600 p-3 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="1000000">
+                        </div>
                     </div>
                 </div>
             </div>`;
@@ -258,11 +269,14 @@ document.addEventListener('DOMContentLoaded', () => {
         saveMainButton.disabled = true;
         saveMainButton.textContent = 'Сохранение...';
         try {
-            const comboSelects = document.querySelectorAll('[data-event="combo"]');
-            if (comboSelects.length > 0) {
+            // Save daily events if the tab is active or has been rendered
+            if (document.getElementById('cipher-word-input')) {
+                const comboSelects = document.querySelectorAll('[data-event="combo"]');
                 const comboIds = Array.from(comboSelects).map(sel => sel.value).filter(Boolean);
                 const cipherWord = document.getElementById('cipher-word-input').value.toUpperCase().trim();
-                
+                const comboReward = document.getElementById('combo-reward-input').value;
+                const cipherReward = document.getElementById('cipher-reward-input').value;
+
                 const uniqueComboIds = [...new Set(comboIds)];
                 if (comboIds.length > 0 && uniqueComboIds.length !== 3) {
                     alert('Для комбо необходимо выбрать ровно 3 УНИКАЛЬНЫХ карты.');
@@ -272,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await fetch('/admin/api/daily-events', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ comboIds: uniqueComboIds, cipherWord }),
+                    body: JSON.stringify({ comboIds: uniqueComboIds, cipherWord, comboReward, cipherReward }),
                 });
             }
 
@@ -375,9 +389,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             [localConfig, allPlayers, dashboardStats, dailyEvent] = data;
             
-            // Ensure dailyEvent is not null
-            dailyEvent = dailyEvent || { combo_ids: [], cipher_word: '' };
+            // Ensure dailyEvent is not null and has default values
+            dailyEvent = dailyEvent || { combo_ids: [], cipher_word: '', combo_reward: 5000000, cipher_reward: 1000000 };
             dailyEvent.combo_ids = dailyEvent.combo_ids || [];
+            dailyEvent.combo_reward = dailyEvent.combo_reward || 5000000;
+            dailyEvent.cipher_reward = dailyEvent.cipher_reward || 1000000;
 
 
             render();
