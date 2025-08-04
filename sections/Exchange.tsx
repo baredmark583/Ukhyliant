@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language, GameConfig } from '../types';
@@ -41,6 +40,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const [morseInput, setMorseInput] = useState('');
   const pressTimer = useRef<number | null>(null);
   const resetMorseTimer = useRef<number | null>(null);
+  const lastClickPos = useRef({ x: 0, y: 0 });
 
   const dailyCipherWord = config.dailyEvent?.cipherWord || '';
   const claimedCipher = playerState.claimedCipherToday;
@@ -49,45 +49,63 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
     setMorseInput('');
   };
 
-  const handleMouseDown = () => {
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     pressTimer.current = Date.now();
-    if(resetMorseTimer.current) clearTimeout(resetMorseTimer.current);
+    if (resetMorseTimer.current) clearTimeout(resetMorseTimer.current);
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    let clientX, clientY;
+    if ('touches' in e) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+    } else {
+        clientX = (e as React.MouseEvent).clientX;
+        clientY = (e as React.MouseEvent).clientY;
+    }
+    lastClickPos.current = {
+        x: clientX - rect.left,
+        y: clientY - rect.top,
+    };
   };
 
   const handleMouseUp = async () => {
-    if (claimedCipher) return;
     const pressDuration = Date.now() - (pressTimer.current || Date.now());
     pressTimer.current = null;
-    const char = pressDuration < 200 ? '.' : '-';
-    const newSequence = morseInput + char;
-    setMorseInput(newSequence);
-    
-    if(newSequence === dailyCipherWord) {
-      const success = await onClaimCipher(newSequence);
-      if(success) {
-        setMorseInput('');
+    const isShortTap = pressDuration < 200;
+
+    // Handle regular tap for coins on short taps
+    if (isShortTap) {
+      if (onTap()) {
+        const newClick: ClickFx = {
+          id: Date.now() + Math.random(),
+          x: lastClickPos.current.x,
+          y: lastClickPos.current.y,
+          value: coinsPerTap
+        };
+        setClicks(prev => [...prev, newClick]);
+        setScale(0.95);
+        setTimeout(() => setScale(1), 100);
+
+        setTimeout(() => {
+          setClicks(prev => prev.filter(c => c.id !== newClick.id));
+        }, 1000);
       }
     }
 
-    resetMorseTimer.current = window.setTimeout(handleCipherReset, 3000);
-  };
-  
-  const handleTapWrapper = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    if (onTap()) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const newClick: ClickFx = {
-        id: Date.now() + Math.random(),
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-        value: coinsPerTap
-      };
-      setClicks(prev => [...prev, newClick]);
-      setScale(0.95);
-      setTimeout(() => setScale(1), 100);
+    // Handle Morse code logic
+    if (!claimedCipher && dailyCipherWord) {
+      const char = isShortTap ? '.' : '-';
+      const newSequence = morseInput + char;
+      setMorseInput(newSequence);
 
-      setTimeout(() => {
-        setClicks(prev => prev.filter(c => c.id !== newClick.id));
-      }, 1000);
+      if (newSequence === dailyCipherWord) {
+        const success = await onClaimCipher(newSequence);
+        if (success) {
+          setMorseInput('');
+        }
+      }
+
+      resetMorseTimer.current = window.setTimeout(handleCipherReset, 3000);
     }
   };
   
@@ -148,20 +166,21 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
       {/* Clicker Area */}
       <div 
-        className="relative w-64 h-64 md:w-72 md:h-72 my-auto cursor-pointer select-none" 
-        onClick={handleTapWrapper}
+        className="relative w-64 h-64 md:w-72 md:h-72 my-auto cursor-pointer select-none"
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onTouchStart={handleMouseDown}
         onTouchEnd={handleMouseUp}
+        onContextMenu={(e) => e.preventDefault()}
       >
         <div 
-            className="w-full h-full"
+            className="w-full h-full prevent-select"
             style={{ transform: `scale(${scale})`, transition: 'transform 0.1s ease' }}
         >
           <img 
             src={coinSvg} 
             alt="Clickable Coin" 
+            draggable="false"
             className="w-full h-full transform transition-transform duration-200"
           />
         </div>
@@ -187,6 +206,14 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
         />
       </div>
        <style>{`
+        .prevent-select {
+          -webkit-touch-callout: none; /* iOS Safari */
+          -webkit-user-select: none; /* Safari */
+          -khtml-user-select: none; /* Konqueror HTML */
+          -moz-user-select: none; /* Old versions of Firefox */
+          -ms-user-select: none; /* Internet Explorer/Edge */
+          user-select: none; /* Non-prefixed version */
+        }
         @keyframes floatUp {
           0% { transform: translateY(0); opacity: 1; }
           100% { transform: translateY(-50px); opacity: 0; }

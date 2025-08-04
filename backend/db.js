@@ -21,6 +21,7 @@ const executeQuery = async (query, params) => {
 }
 
 export const initializeDb = async () => {
+    // Create tables if they don't exist
     await executeQuery(`
         CREATE TABLE IF NOT EXISTS game_config (
             key VARCHAR(255) PRIMARY KEY,
@@ -45,6 +46,15 @@ export const initializeDb = async () => {
         );
     `);
     console.log("Database tables checked/created successfully.");
+
+    // Safely add 'created_at' column to users table if it doesn't exist for stats tracking
+    try {
+        await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();`);
+        console.log("'created_at' column checked/added to 'users' table.");
+    } catch (e) {
+        console.error("Could not add 'created_at' column, this may fail on very old PostgreSQL versions but should be fine.", e.message);
+    }
+
 
     // Seed initial config if it doesn't exist
     const res = await executeQuery('SELECT * FROM game_config WHERE key = $1', ['default']);
@@ -108,6 +118,8 @@ export const applyReferralBonus = async (referrerId) => {
         await client.query('ROLLBACK');
         console.error(`Transaction failed for applyReferralBonus for referrer ${referrerId}:`, error);
         throw error;
+    } finally {
+        client.release();
     }
 };
 export const deletePlayer = async (userId) => {
@@ -122,6 +134,8 @@ export const deletePlayer = async (userId) => {
         await client.query('ROLLBACK');
         console.error(`Failed to delete player ${userId}:`, error);
         throw error;
+    } finally {
+        client.release();
     }
 };
 
@@ -234,7 +248,8 @@ export const getAllPlayersForAdmin = async () => {
 };
 export const getDashboardStats = async () => {
     const totalPlayersRes = await executeQuery('SELECT COUNT(*) FROM users');
-    const newPlayersTodayRes = await executeQuery("SELECT COUNT(*) FROM users WHERE CAST(id AS BIGINT) >= (EXTRACT(EPOCH FROM (NOW() - INTERVAL '24 hours')) * 1000)"); // Assuming user ID is a timestamp-based snowflake
+    // **FIXED**: Use the reliable `created_at` column instead of casting ID to a number.
+    const newPlayersTodayRes = await executeQuery("SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '24 hours'");
     const totalCoinsRes = await executeQuery("SELECT SUM((data->>'balance')::numeric) as total_coins FROM players");
     
     // This is a simplified query for popular upgrades. A real implementation might need more complex tracking.
