@@ -16,7 +16,8 @@ import {
     createUser, 
     applyReferralBonus, 
     updateUserLanguage,
-    purchaseSpecialTaskForPlayer
+    unlockSpecialTask,
+    completeAndRewardSpecialTask
 } from './db.js';
 import { ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, MAX_ENERGY, ENERGY_REGEN_RATE } from './constants.js';
 
@@ -25,6 +26,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const BOT_TOKEN = process.env.BOT_TOKEN;
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 let ai;
@@ -145,38 +147,109 @@ app.post('/api/user/:id/language', async (req, res) => {
 });
 
 // --- GAME ACTIONS API ---
-app.post('/api/action/purchase-special-task', async (req, res) => {
+app.post('/api/create-invoice', async (req, res) => {
+    try {
+        if (!BOT_TOKEN) {
+            return res.status(500).json({ ok: false, error: 'Bot token not configured.' });
+        }
+        const { userId, taskId } = req.body;
+        const config = await getConfig();
+        const task = config.specialTasks.find(t => t.id === taskId);
+        if (!task || task.priceStars <= 0) {
+            return res.status(400).json({ ok: false, error: 'Task not found or is free.' });
+        }
+
+        const payload = `special_task:${userId}:${taskId}`;
+        const invoice = {
+            title: task.name.en,
+            description: task.description.en,
+            payload: payload,
+            provider_token: '', // Leave empty for Stars
+            currency: 'XTR',
+            prices: [{ label: 'Unlock Task', amount: task.priceStars }]
+        };
+
+        const tgResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(invoice),
+        });
+        const data = await tgResponse.json();
+        
+        if (data.ok) {
+            res.json({ ok: true, invoiceLink: data.result });
+        } else {
+            res.status(500).json({ ok: false, error: data.description });
+        }
+    } catch (error) {
+        console.error('Error creating invoice:', error);
+        res.status(500).json({ ok: false, error: 'Internal server error.' });
+    }
+});
+
+app.post('/api/action/unlock-free-task', async (req, res) => {
     try {
         const { userId, taskId } = req.body;
-        if (!userId || !taskId) {
-            return res.status(400).json({ error: 'User ID and Task ID are required.' });
+        const config = await getConfig();
+        const task = config.specialTasks.find(t => t.id === taskId);
+        if (!task || task.priceStars > 0) {
+            return res.status(400).json({ error: 'Task is not free.' });
         }
-
-        const updatedPlayerState = await purchaseSpecialTaskForPlayer(userId, taskId);
-
-        if (!updatedPlayerState) {
-            return res.status(403).json({ error: 'Purchase failed. Insufficient funds or task already purchased.' });
-        }
-
+        const updatedPlayerState = await unlockSpecialTask(userId, taskId);
         res.json(updatedPlayerState);
     } catch (error) {
-        console.error('Error purchasing special task:', error);
         res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
 
-// --- ADMIN WEB PANEL ROUTES ---
+app.post('/api/action/complete-task', async (req, res) => {
+    try {
+        const { userId, taskId } = req.body;
+        const updatedPlayerState = await completeAndRewardSpecialTask(userId, taskId);
+        res.json(updatedPlayerState);
+    } catch (error) {
+         res.status(500).json({ error: 'Internal server error.' });
+    }
+});
 
-// Login page is public, but redirects if already logged in
+
+// --- TELEGRAM WEBHOOK ---
+app.post('/api/telegram-webhook', async (req, res) => {
+    try {
+        const update = req.body;
+        if (update.pre_checkout_query) {
+            // Confirm the checkout
+            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerPreCheckoutQuery`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pre_checkout_query_id: update.pre_checkout_query.id,
+                    ok: true
+                })
+            });
+        } else if (update.message?.successful_payment) {
+            const payload = update.message.successful_payment.invoice_payload;
+            if (payload.startsWith('special_task:')) {
+                const [, userId, taskId] = payload.split(':');
+                await unlockSpecialTask(userId, taskId);
+                console.log(`Unlocked task ${taskId} for user ${userId} after payment.`);
+            }
+        }
+    } catch (error) {
+        console.error('Webhook processing error:', error);
+    }
+    res.sendStatus(200); // Always respond 200 to Telegram
+});
+
+
+// --- ADMIN WEB PANEL ROUTES ---
 app.get('/admin/login.html', (req, res) => {
     if (req.session.isAdmin) {
         return res.redirect('/admin');
     }
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
-
-// Handle login POST
 app.post('/admin/login', (req, res) => {
     const { password } = req.body;
     if (password === process.env.ADMIN_PASSWORD) {
@@ -186,8 +259,6 @@ app.post('/admin/login', (req, res) => {
         res.status(401).send('Incorrect password. <a href="/admin/login.html">Try again</a>');
     }
 });
-
-// Handle logout
 app.get('/admin/logout', (req, res) => {
     req.session.destroy(err => {
         if(err) {
@@ -197,8 +268,6 @@ app.get('/admin/logout', (req, res) => {
         res.redirect('/admin/login.html');
     });
 });
-
-// Serve the main admin panel, protected by auth
 app.get('/admin', isAdminAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
@@ -211,9 +280,17 @@ app.get('/admin/api/config', isAdminAuthenticated, async (req, res) => {
 });
 
 app.post('/admin/api/config', isAdminAuthenticated, async (req, res) => {
-    const { config } = req.body;
-    await saveConfig(config);
-    res.status(200).json({ message: 'Configuration saved successfully.' });
+    try {
+        const newConfig = req.body.config;
+        if (!newConfig) {
+            return res.status(400).json({ error: 'Config data is missing in the request body.' });
+        }
+        await saveConfig(newConfig);
+        res.status(200).json({ message: 'Configuration saved successfully.' });
+    } catch (error) {
+        console.error("Failed to save config:", error);
+        res.status(500).json({ error: "Internal server error while saving configuration." });
+    }
 });
 
 app.post('/admin/api/translate', isAdminAuthenticated, async (req, res) => {
@@ -248,6 +325,10 @@ app.post('/admin/api/translate', isAdminAuthenticated, async (req, res) => {
 
 // --- SERVER INITIALIZATION ---
 const startServer = async () => {
+    if (!process.env.SESSION_SECRET || !process.env.ADMIN_PASSWORD || !process.env.DATABASE_URL) {
+        console.error("FATAL ERROR: Missing required environment variables (SESSION_SECRET, ADMIN_PASSWORD, DATABASE_URL).");
+        process.exit(1);
+    }
     await initializeDb();
     app.listen(PORT, () => {
         console.log(`Server is listening on port ${PORT}`);

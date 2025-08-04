@@ -5,9 +5,7 @@ import { INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, INITIAL_TASKS, INITIAL_UPGRADES,
 const { Pool } = pg;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: true
 });
 
 const executeQuery = async (query, params) => {
@@ -101,57 +99,62 @@ export const applyReferralBonus = async (referrerId) => {
     console.log(`Applied referral bonus to user ${referrerId}`);
 };
 
-export const purchaseSpecialTaskForPlayer = async (userId, taskId) => {
+export const unlockSpecialTask = async (userId, taskId) => {
+     const query = `
+        UPDATE players
+        SET data = jsonb_set(
+            data,
+            '{purchasedSpecialTaskIds}',
+            (COALESCE(data->'purchasedSpecialTaskIds', '[]'::jsonb) || $1::jsonb)
+        )
+        WHERE id = $2 AND NOT (data->'purchasedSpecialTaskIds' @> $1::jsonb)
+        RETURNING data;
+    `;
+    const res = await executeQuery(query, [JSON.stringify(taskId), userId]);
+    return res.rows[0]?.data;
+};
+
+export const completeAndRewardSpecialTask = async (userId, taskId) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
         const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
-        if (playerRes.rows.length === 0) {
-            throw new Error('Player not found');
-        }
+        if (playerRes.rows.length === 0) throw new Error('Player not found');
         const player = playerRes.rows[0].data;
 
         const configRes = await client.query('SELECT value FROM game_config WHERE key = $1', ['default']);
         const config = configRes.rows[0].value;
         const task = config.specialTasks.find(t => t.id === taskId);
+        if (!task) throw new Error('Task not found');
+        
+        if (!player.purchasedSpecialTaskIds?.includes(taskId)) throw new Error('Task not purchased');
+        if (player.completedSpecialTaskIds?.includes(taskId)) return player; // Already completed
 
-        if (!task) {
-            throw new Error('Task not found in config');
-        }
-
-        const hasPurchased = player.purchasedSpecialTaskIds?.includes(taskId);
-        if (hasPurchased) {
-            await client.query('ROLLBACK');
-            return null; // Already purchased
-        }
-
-        if (player.stars < task.priceStars) {
-            await client.query('ROLLBACK');
-            return null; // Not enough stars
-        }
-
-        const newStars = player.stars - task.priceStars;
-        const newPurchasedIds = [...(player.purchasedSpecialTaskIds || []), taskId];
+        const newBalance = (player.balance || 0) + task.rewardCoins;
+        const newStars = (player.stars || 0) + task.rewardStars;
+        const newCompletedIds = [...(player.completedSpecialTaskIds || []), taskId];
         
         const updateQuery = `
             UPDATE players
             SET data = jsonb_set(
-                jsonb_set(data, '{stars}', $1::jsonb),
-                '{purchasedSpecialTaskIds}', $2::jsonb
-            )
-            WHERE id = $3
+                        jsonb_set(
+                            jsonb_set(data, '{balance}', $1::jsonb),
+                            '{stars}', $2::jsonb
+                        ),
+                        '{completedSpecialTaskIds}', $3::jsonb
+                    )
+            WHERE id = $4
             RETURNING data;
         `;
-        const updatedPlayerRes = await client.query(updateQuery, [newStars, JSON.stringify(newPurchasedIds), userId]);
+        const updatedPlayerRes = await client.query(updateQuery, [newBalance, newStars, JSON.stringify(newCompletedIds), userId]);
         
         await client.query('COMMIT');
-        
         return updatedPlayerRes.rows[0].data;
 
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Transaction failed in purchaseSpecialTaskForPlayer', error);
+        console.error('Transaction failed in completeAndRewardSpecialTask', error);
         throw error;
     } finally {
         client.release();

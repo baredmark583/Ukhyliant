@@ -45,19 +45,38 @@ const API = {
           body: JSON.stringify({ language: lang }),
       });
   },
-  
-  purchaseSpecialTask: async (userId: string, taskId: string): Promise<PlayerState | null> => {
+
+  createInvoice: async (userId: string, taskId: string): Promise<{ok: boolean, invoiceLink?: string, error?: string}> => {
     if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
-    const response = await fetch(`${API_BASE_URL}/api/action/purchase-special-task`, {
+    const response = await fetch(`${API_BASE_URL}/api/create-invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, taskId }),
     });
-    if (!response.ok) {
-        return null;
-    }
     return response.json();
   },
+
+  unlockFreeTask: async (userId: string, taskId: string): Promise<PlayerState | null> => {
+    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
+    const response = await fetch(`${API_BASE_URL}/api/action/unlock-free-task`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, taskId }),
+    });
+    if (!response.ok) return null;
+    return response.json();
+  },
+  
+  completeSpecialTask: async (userId: string, taskId: string): Promise<PlayerState | null> => {
+    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
+    const response = await fetch(`${API_BASE_URL}/api/action/complete-task`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, taskId }),
+    });
+     if (!response.ok) return null;
+    return response.json();
+  }
 };
 
 // --- AUTH CONTEXT ---
@@ -133,8 +152,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
     };
 
     if (error && !isInitializing) {
-        // A simple error screen could be rendered here
-        return React.createElement('div', null, `Error: ${error}`);
+        return React.createElement('div', { className: 'h-screen w-screen bg-gray-900 flex flex-col justify-center items-center p-4 text-white text-center' }, `Error: ${error}`);
     }
 
     const authContextValue: AuthContextType = {
@@ -200,6 +218,24 @@ export const useGame = () => {
         }, 1000);
         return () => clearInterval(gameTick);
     }, [playerState, setPlayerState]);
+    
+    // Listener for successful payments
+    useEffect(() => {
+        const handleInvoiceClosed = (event: {slug: string, status: 'paid' | 'cancelled' | 'failed' | 'pending'}) => {
+            if (event.status === 'paid') {
+                // Payment was successful, reload data to reflect the purchase
+                window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                window.location.reload();
+            } else {
+                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            }
+        };
+
+        window.Telegram?.WebApp.onEvent('invoiceClosed', handleInvoiceClosed);
+        return () => {
+            window.Telegram?.WebApp.offEvent('invoiceClosed', handleInvoiceClosed);
+        };
+    }, []);
 
     const calculateProfitPerHour = useCallback((currentUpgrades: Record<string, number>, gameConfig: GameConfig) => {
         return gameConfig.upgrades.reduce((total, u) => {
@@ -275,31 +311,28 @@ export const useGame = () => {
     }, [playerState, setPlayerState]);
 
     const purchaseSpecialTask = useCallback(async (task: SpecialTask) => {
-        if (!user || !playerState || playerState.stars < task.priceStars || playerState.purchasedSpecialTaskIds.includes(task.id)) {
-            return;
-        }
+        if (!user || !playerState) return;
 
-        try {
-            const updatedPlayerState = await API.purchaseSpecialTask(user.id, task.id);
-            if (updatedPlayerState) {
-                setPlayerState(updatedPlayerState);
-            } else {
-                console.error("Purchase failed on server.");
-            }
-        } catch (error) {
-            console.error("Error during special task purchase:", error);
+        if (task.priceStars === 0) { // Free task
+             const updatedPlayerState = await API.unlockFreeTask(user.id, task.id);
+             if(updatedPlayerState) setPlayerState(updatedPlayerState);
+        } else { // Paid task
+             const res = await API.createInvoice(user.id, task.id);
+             if (res.ok && res.invoiceLink) {
+                 window.Telegram.WebApp.openInvoice(res.invoiceLink);
+             } else {
+                 console.error("Failed to create invoice:", res.error);
+                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+             }
         }
     }, [user, playerState, setPlayerState]);
+    
+    const completeSpecialTask = useCallback(async (task: SpecialTask) => {
+        if (!user || !playerState || playerState.completedSpecialTaskIds.includes(task.id) || !playerState.purchasedSpecialTaskIds.includes(task.id)) return;
+         const updatedPlayerState = await API.completeSpecialTask(user.id, task.id);
+         if(updatedPlayerState) setPlayerState(updatedPlayerState);
+    }, [user, playerState, setPlayerState]);
 
-    const completeSpecialTask = useCallback((task: SpecialTask) => {
-        if (!playerState || playerState.completedSpecialTaskIds.includes(task.id) || !playerState.purchasedSpecialTaskIds.includes(task.id)) return;
-        setPlayerState(p => p ? {
-            ...p,
-            balance: p.balance + task.rewardCoins,
-            stars: p.stars + task.rewardStars,
-            completedSpecialTaskIds: [...p.completedSpecialTaskIds, task.id]
-        } : null);
-    }, [playerState, setPlayerState]);
 
     const currentLeague = useMemo(() => {
         if (!playerState) return LEAGUES[LEAGUES.length - 1];

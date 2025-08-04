@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
@@ -187,6 +187,12 @@ const TasksScreen = ({ tasks, playerState, onClaim, lang }: { tasks: DailyTask[]
 
 const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang }: { tasks: SpecialTask[], playerState: any, onPurchase: (task: SpecialTask) => void, onComplete: (task: SpecialTask) => void, lang: Language }) => {
     const t = useTranslation();
+    
+    const handleGoToTask = (task: SpecialTask) => {
+        window.Telegram.WebApp.openTelegramLink(task.url);
+        onComplete(task);
+    };
+
     return (
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
             <h1 className="text-3xl font-bold text-center mb-6">{t('special_tasks')}</h1>
@@ -199,10 +205,12 @@ const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang }: { task
                     if (isCompleted) {
                         button = <button disabled className="w-full mt-2 py-2 rounded-lg font-bold bg-gray-600 text-gray-400">{t('completed')}</button>;
                     } else if (isPurchased) {
-                        button = <button onClick={() => { window.open(task.url, '_blank'); onComplete(task); }} className="w-full mt-2 py-2 rounded-lg font-bold bg-blue-600 hover:bg-blue-500">{t('go_to_task')}</button>;
+                        button = <button onClick={() => handleGoToTask(task)} className="w-full mt-2 py-2 rounded-lg font-bold bg-blue-600 hover:bg-blue-500">{t('go_to_task')}</button>;
                     } else {
-                        button = <button onClick={() => onPurchase(task)} disabled={playerState.stars < task.priceStars} className="w-full mt-2 py-2 rounded-lg font-bold bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:text-gray-400 flex justify-center items-center space-x-2">
-                                    <span>{t('unlock_for')} {task.priceStars}</span><StarIcon/>
+                        const canAfford = playerState.stars >= task.priceStars;
+                        button = <button onClick={() => onPurchase(task)} disabled={!canAfford} className="w-full mt-2 py-2 rounded-lg font-bold bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:text-gray-400 flex justify-center items-center space-x-2">
+                                    <span>{task.priceStars > 0 ? `${t('unlock_for')} ${task.priceStars}` : t('get')}</span>
+                                    {task.priceStars > 0 && <StarIcon />}
                                  </button>;
                     }
 
