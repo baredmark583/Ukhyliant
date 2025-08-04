@@ -4,6 +4,7 @@ import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language } from '../types';
 import { MAX_ENERGY, CoinIcon, TELEGRAM_BOT_NAME, MINI_APP_NAME } from '../constants';
 import { useTranslation } from '../hooks/useGameLogic';
+import coinSvg from '../assets/coin.svg';
 
 interface ExchangeProps {
   playerState: PlayerState;
@@ -94,12 +95,14 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
       {/* Clicker Area */}
       <div className="relative w-64 h-64 md:w-72 md:h-72 my-auto cursor-pointer select-none" onClick={handleHamsterClick}>
         <div 
-            className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 via-purple-600 to-indigo-700 shadow-lg flex items-center justify-center"
+            className="w-full h-full"
             style={{ transform: `scale(${scale})`, transition: 'transform 0.1s ease' }}
         >
-          <div className="text-8xl transform transition-transform duration-200 hover:scale-110">
-            🏃‍♂️
-          </div>
+          <img 
+            src={coinSvg} 
+            alt="Clickable Coin" 
+            className="w-full h-full transform transition-transform duration-200 hover:scale-110"
+          />
         </div>
         {clicks.map(click => (
           <div
