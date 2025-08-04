@@ -187,9 +187,11 @@ export const getDailyEvent = async (date) => {
     return res.rows[0] || null;
 }
 export const saveDailyEvent = async (date, comboIds, cipherWord) => {
-    // Pass comboIds array directly; the pg driver will handle JSONB conversion.
-    // Do NOT use JSON.stringify() here as it leads to double-encoding.
-    await executeQuery('INSERT INTO daily_events (event_date, combo_ids, cipher_word) VALUES ($1, $2, $3) ON CONFLICT (event_date) DO UPDATE SET combo_ids = $2, cipher_word = $3', [date, comboIds, cipherWord]);
+    // Pass the JavaScript array directly. The 'pg' driver correctly serializes it for JSONB columns.
+    await executeQuery(
+        'INSERT INTO daily_events (event_date, combo_ids, cipher_word) VALUES ($1, $2, $3) ON CONFLICT (event_date) DO UPDATE SET combo_ids = $2, cipher_word = $3', 
+        [date, comboIds, cipherWord]
+    );
 }
 export const claimComboReward = async (userId) => {
     const client = await pool.connect();

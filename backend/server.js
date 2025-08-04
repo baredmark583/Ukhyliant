@@ -82,6 +82,21 @@ const isAdminAuthenticated = (req, res, next) => {
 
 const getTodayDate = () => new Date().toISOString().split('T')[0];
 
+const parseComboIds = (ids) => {
+    if (Array.isArray(ids)) return ids;
+    if (typeof ids === 'string') {
+        try {
+            const parsed = JSON.parse(ids);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            console.error("Failed to parse combo_ids from DB string:", ids, e);
+            return [];
+        }
+    }
+    return [];
+};
+
+
 // --- PUBLIC GAME API ROUTES ---
 app.get('/', (req, res) => res.send('Ukhyliant Clicker Backend is running!'));
 
@@ -96,14 +111,8 @@ app.post('/api/login', async (req, res) => {
         const config = await getConfig();
         const dailyEvent = await getDailyEvent(getTodayDate());
         
-        // Defensive parsing for combo_ids to handle old data
-        if (dailyEvent && dailyEvent.combo_ids && typeof dailyEvent.combo_ids === 'string') {
-            try {
-                dailyEvent.combo_ids = JSON.parse(dailyEvent.combo_ids);
-            } catch (e) {
-                console.error("Failed to parse combo_ids from DB:", e);
-                dailyEvent.combo_ids = []; // Reset on parse error
-            }
+        if (dailyEvent) {
+            dailyEvent.combo_ids = parseComboIds(dailyEvent.combo_ids);
         }
         
         config.dailyEvent = dailyEvent;
@@ -262,29 +271,21 @@ app.post('/api/action/claim-combo', async (req, res) => {
         const { userId } = req.body;
         const player = await getPlayer(userId);
         const dailyEvent = await getDailyEvent(getTodayDate());
+
         if (!player || !dailyEvent || !dailyEvent.combo_ids || player.claimedComboToday) {
             return res.status(400).json({ error: 'Cannot claim combo.' });
         }
         
-        // Defensive parsing for combo_ids to handle old data that might be a string
-        let comboIds = dailyEvent.combo_ids;
-        if (typeof comboIds === 'string') {
-             try {
-                comboIds = JSON.parse(comboIds);
-            } catch (e) {
-                console.error("Failed to parse combo_ids from DB:", e);
-                return res.status(500).json({ error: 'Server configuration error for daily combo.' });
-            }
-        }
-        
-        if (!Array.isArray(comboIds)) {
-             return res.status(500).json({ error: 'Invalid combo configuration on server.' });
+        const comboIds = parseComboIds(dailyEvent.combo_ids);
+        if (comboIds.length === 0) {
+            return res.status(400).json({ error: 'No combo configured for today.' });
         }
 
         const hasAllComboCards = comboIds.every(id => (player.upgrades[id] || 0) > 0);
         if (!hasAllComboCards) {
              return res.status(400).json({ error: 'Player does not own all combo cards.' });
         }
+
         const updatedPlayer = await claimComboReward(userId);
         res.json(updatedPlayer);
     } catch (error) {
@@ -376,13 +377,8 @@ app.get('/admin/api/dashboard-stats', isAdminAuthenticated, async (req, res) => 
 app.get('/admin/api/daily-events', isAdminAuthenticated, async (req, res) => {
     try {
         const event = await getDailyEvent(getTodayDate());
-        // Defensive parsing for combo_ids to handle old data
-        if (event && event.combo_ids && typeof event.combo_ids === 'string') {
-            try {
-                event.combo_ids = JSON.parse(event.combo_ids);
-            } catch (e) {
-                event.combo_ids = [];
-            }
+        if (event) {
+            event.combo_ids = parseComboIds(event.combo_ids);
         }
         res.json(event || { combo_ids: [], cipher_word: '' });
     } catch (error) {

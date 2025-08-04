@@ -47,15 +47,22 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const dailyCipherWord = config.dailyEvent?.cipherWord || '';
   const claimedCipher = playerState.claimedCipherToday;
 
-  const handleCipherReset = () => {
+  const handleCipherReset = useCallback(() => {
     setMorseInput('');
-  };
+  }, []);
 
-  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    pressTimer.current = Date.now();
+  useEffect(() => {
+    // Cleanup timer on component unmount
+    return () => {
+      if (resetMorseTimer.current) clearTimeout(resetMorseTimer.current);
+    }
+  }, []);
 
-    // Always clear the reset timer on a new press, whether in morse mode or not
+  const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
+    // Clear any pending input reset to avoid clearing new input
     if (resetMorseTimer.current) clearTimeout(resetMorseTimer.current);
+
+    pressTimer.current = Date.now();
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     let clientX, clientY;
@@ -72,32 +79,38 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
     };
   };
 
-  const handleMouseUp = async () => {
-    if (!pressTimer.current) return; // Avoids firing if the press didn't start on the coin
+  const handlePressEnd = async () => {
+    if (!pressTimer.current) return;
 
     const pressDuration = Date.now() - pressTimer.current;
+    pressTimer.current = null;
     
     // --- MORSE MODE LOGIC ---
     if (morseMode && !claimedCipher && dailyCipherWord) {
-      pressTimer.current = null;
       const char = pressDuration < 200 ? '.' : '-';
       const newSequence = morseInput + char;
       setMorseInput(newSequence);
 
+      // Check for match
       if (newSequence === dailyCipherWord) {
         const success = await onClaimCipher(newSequence);
         if (success) {
           setMorseInput('');
-          setMorseMode(false); // Exit morse mode on success
+          setMorseMode(false);
+          if (resetMorseTimer.current) clearTimeout(resetMorseTimer.current);
         }
+      } else {
+         // Reset the input after 3 seconds of inactivity
+         resetMorseTimer.current = window.setTimeout(handleCipherReset, 3000);
       }
-
-      resetMorseTimer.current = window.setTimeout(handleCipherReset, 3000);
     
     // --- REGULAR TAP LOGIC ---
     } else {
-      pressTimer.current = null;
-      if (onTap()) { // onTap now handles haptics for any duration tap
+      // Haptic feedback on every tap, regardless of energy
+      window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+
+      // onTap handles the game logic (energy, balance)
+      if (onTap()) { 
         const newClick: ClickFx = {
           id: Date.now() + Math.random(),
           x: lastClickPos.current.x,
@@ -165,7 +178,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                 <div className="font-mono text-2xl h-8 tracking-widest text-white bg-black/30 rounded-md flex items-center justify-center">
                     {morseInput}
                 </div>
-                <button onClick={() => { setMorseMode(false); setMorseInput(''); }} className="text-xs text-gray-300 hover:text-white mt-2">
+                <button onClick={() => { setMorseMode(false); setMorseInput(''); if(resetMorseTimer.current) clearTimeout(resetMorseTimer.current); }} className="text-xs text-gray-300 hover:text-white mt-2">
                     {t('cancel_morse_mode')}
                 </button>
               </>
@@ -180,11 +193,12 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
       {/* Clicker Area */}
       <div 
         className="relative w-64 h-64 md:w-72 md:h-72 my-auto cursor-pointer select-none"
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onTouchStart={handleMouseDown}
-        onTouchEnd={handleMouseUp}
+        onMouseDown={handlePressStart}
+        onMouseUp={handlePressEnd}
+        onTouchStart={handlePressStart}
+        onTouchEnd={handlePressEnd}
         onContextMenu={(e) => e.preventDefault()}
+        onMouseLeave={pressTimer.current ? handlePressEnd : undefined} // Handle case where user drags finger/mouse off
       >
         <div 
             className="w-full h-full prevent-select"
