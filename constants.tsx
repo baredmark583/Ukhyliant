@@ -31,6 +31,7 @@ const NavIcon = ({ children, active }: { children: React.ReactNode, active: bool
 );
 export const ExchangeIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>💸</NavIcon>;
 export const MineIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>⛏️</NavIcon>;
+export const FriendsIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>🧑‍🤝‍🧑</NavIcon>;
 export const BoostIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>🚀</NavIcon>;
 export const TasksIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>📋</NavIcon>;
 export const EarnIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>💰</NavIcon>;
@@ -82,7 +83,7 @@ export const REFERRAL_BONUS = 5000; // Coins for each referral
 
 // --- TRANSLATIONS ---
 type TranslationKey = 
-  | 'exchange' | 'mine' | 'boosts' | 'tasks' | 'admin' | 'player' | 'league'
+  | 'exchange' | 'mine' | 'friends' | 'boosts' | 'tasks' | 'admin' | 'player' | 'league'
   | 'profit_per_hour' | 'energy' | 'stars' | 'mine_upgrades' | 'lvl'
   | 'get' | 'level' | 'price' | 'profit' | 'category' | 'icon' | 'actions' | 'save'
   | 'add_new_upgrade' | 'edit_upgrades' | 'edit_tasks' | 'task_name' | 'reward_coins' | 'reward_stars'
@@ -90,12 +91,13 @@ type TranslationKey =
   | 'login_with_telegram' | 'login' | 'logout' | 'enter_telegram_id' | 'copy_referral_link' | 'copied'
   | 'claim_reward' | 'completed' | 'earn' | 'special_tasks' | 'unlock_for' | 'go_to_task' | 'claim'
   | 'edit_special_tasks' | 'task_type' | 'url' | 'price_stars' | 'add_new_special_task' | 'translate'
-  | 'telegram_join' | 'social_follow' | 'video_watch';
+  | 'telegram_join' | 'social_follow' | 'video_watch' | 'referral_bonus' | 'your_referrals' | 'invite_friends';
 
 export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
   en: {
     exchange: 'Exchange',
     mine: 'Mine',
+    friends: 'Friends',
     boosts: 'Boosts',
     tasks: 'Tasks',
     admin: 'Admin',
@@ -149,10 +151,14 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     telegram_join: 'Join Telegram',
     social_follow: 'Follow Social Media',
     video_watch: 'Watch Video',
+    referral_bonus: 'Bonus per friend',
+    your_referrals: 'Your referrals',
+    invite_friends: 'Invite a Friend',
   },
   ua: {
     exchange: 'Біржа',
     mine: 'Майнінг',
+    friends: 'Друзі',
     boosts: 'Бусти',
     tasks: 'Завдання',
     admin: 'Адмінка',
@@ -206,5 +212,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     telegram_join: 'Підписка Telegram',
     social_follow: 'Підписка на соц. мережі',
     video_watch: 'Перегляд відео',
+    referral_bonus: 'Бонус за друга',
+    your_referrals: 'Ваші реферали',
+    invite_friends: 'Запросити друга',
   },
 };

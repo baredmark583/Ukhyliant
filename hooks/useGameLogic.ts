@@ -1,6 +1,4 @@
-
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
-import { GoogleGenAI } from '@google/genai';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, UserRole, SpecialTask } from '../types';
 import { 
     INITIAL_UPGRADES, INITIAL_TASKS, INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, LEAGUES, MAX_ENERGY, 
@@ -16,78 +14,55 @@ declare global {
   }
 }
 
-// --- AI Service for Translation ---
-// The API key is sourced from the environment variable `process.env.API_KEY`.
-// This variable is assumed to be pre-configured in the execution environment.
-let ai: GoogleGenAI | null = null;
-if (process.env.API_KEY) {
-    ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-} else {
-    console.warn("Gemini API key not found (process.env.API_KEY). Translation feature will be disabled.");
-}
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-
-// --- SIMULATED BACKEND API (interacts with localStorage) ---
-// This is structured to be easily replaceable with actual HTTP requests to a real backend.
+// --- REAL BACKEND API CLIENT ---
 const API = {
   // --- Config Management ---
   getGameConfig: async (): Promise<GameConfig> => {
-    const savedConfig = localStorage.getItem('ukhyliantGameConfig');
-    if (savedConfig) {
-      return JSON.parse(savedConfig);
-    }
-    const defaultConfig: GameConfig = { 
-        upgrades: INITIAL_UPGRADES, 
-        tasks: INITIAL_TASKS, 
-        boosts: INITIAL_BOOSTS,
-        specialTasks: INITIAL_SPECIAL_TASKS
-    };
-    localStorage.setItem('ukhyliantGameConfig', JSON.stringify(defaultConfig));
-    return defaultConfig;
+    if (!API_BASE_URL) return { upgrades: INITIAL_UPGRADES, tasks: INITIAL_TASKS, boosts: INITIAL_BOOSTS, specialTasks: INITIAL_SPECIAL_TASKS };
+    const response = await fetch(`${API_BASE_URL}/api/config`);
+    if (!response.ok) throw new Error('Failed to fetch game config');
+    return response.json();
   },
 
   saveGameConfig: async (config: GameConfig): Promise<void> => {
-    localStorage.setItem('ukhyliantGameConfig', JSON.stringify(config));
+    if (!API_BASE_URL) return; // Should be disabled in UI if no backend
+    await fetch(`${API_BASE_URL}/api/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
   },
 
-  // --- Player Data Management (per-user) ---
-  getPlayerState: async (userId: string): Promise<PlayerState | null> => {
-    const savedState = localStorage.getItem(`playerState_v2_${userId}`);
-    if (!savedState) return null;
-
-    const parsedState = JSON.parse(savedState) as PlayerState;
-    const now = Date.now();
-    const timeOfflineSeconds = (now - parsedState.lastLoginTimestamp) / 1000;
-    const offlineEarnings = Math.floor((timeOfflineSeconds * parsedState.profitPerHour) / 3600);
-    
-    const oneDay = 24 * 60 * 60 * 1000;
-    const shouldResetDailies = now - parsedState.lastDailyReset > oneDay;
-
-    return {
-      ...parsedState,
-      balance: parsedState.balance + offlineEarnings,
-      energy: Math.min(MAX_ENERGY, parsedState.energy + Math.floor(timeOfflineSeconds * ENERGY_REGEN_RATE)),
-      lastLoginTimestamp: now,
-      completedDailyTaskIds: shouldResetDailies ? [] : parsedState.completedDailyTaskIds,
-      dailyTaps: shouldResetDailies ? 0 : parsedState.dailyTaps,
-      lastDailyReset: shouldResetDailies ? now : parsedState.lastDailyReset,
-    };
+  // --- Player Data Management ---
+  getPlayerState: async (userId: string, isNew: boolean, ref: string | null): Promise<PlayerState | null> => {
+    if (!API_BASE_URL) return null; // Should not happen if logged in
+    const response = await fetch(`${API_BASE_URL}/api/player/${userId}?isNew=${isNew}&ref=${ref || ''}`);
+    if (!response.ok) return null;
+    return response.json();
   },
 
   savePlayerState: async (userId: string, state: PlayerState): Promise<void> => {
-     const stateToSave = { ...state, lastLoginTimestamp: Date.now() };
-     localStorage.setItem(`playerState_v2_${userId}`, JSON.stringify(stateToSave));
+     if (!API_BASE_URL) return;
+     await fetch(`${API_BASE_URL}/api/player/${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state)
+     });
   },
   
   // --- Authentication and User Management ---
-  login: async (): Promise<{ user: User, isNew: boolean } | null> => {
+  login: async (): Promise<{ user: User, isNew: boolean, ref: string | null } | null> => {
       if (!window.Telegram?.WebApp?.initDataUnsafe?.user) {
           return null;
       }
       const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
       const userId = tgUser.id.toString();
+      
+      const response = await fetch(`${API_BASE_URL}/api/user/${userId}`);
+      const isNew = !response.ok;
 
-      let isNew = false;
       let lang: Language = (tgUser.language_code === 'uk' || tgUser.language_code === 'ru') ? 'ua' : 'en';
       let role: UserRole = 'user';
       if (userId === ADMIN_TELEGRAM_ID) {
@@ -95,69 +70,48 @@ const API = {
       } else if (MODERATOR_TELEGRAM_IDS.includes(userId)) {
           role = 'moderator';
       }
-
-      let user: User = { id: userId, name: tgUser.first_name, language: lang, role };
-      const existingUserStr = localStorage.getItem(`user_v2_${userId}`);
       
-      if(existingUserStr) {
-          user = JSON.parse(existingUserStr);
-          // Ensure role is updated if it has changed
-          user.role = role;
-      } else {
-          isNew = true;
-          const ref = window.Telegram.WebApp.initDataUnsafe.start_param;
-          if (ref && ref !== userId) { // User can't be their own referrer
-              const referrerState = await API.getPlayerState(ref);
-              if (referrerState) {
-                  referrerState.balance += REFERRAL_BONUS;
-                  referrerState.referrals += 1;
-                  await API.savePlayerState(ref, referrerState);
-              }
-          }
-      }
-      localStorage.setItem('currentUserId', userId);
-      localStorage.setItem(`user_v2_${userId}`, JSON.stringify(user));
-      return { user, isNew };
-  },
-
-  getCurrentUser: async (): Promise<User | null> => {
-      const userId = localStorage.getItem('currentUserId');
-      if (!userId) return null;
-      const userStr = localStorage.getItem(`user_v2_${userId}`);
-      return userStr ? JSON.parse(userStr) : null;
+      const user: User = { id: userId, name: tgUser.first_name, language: lang, role };
+      
+      const ref = window.Telegram.WebApp.initDataUnsafe.start_param;
+      return { user, isNew, ref: ref !== userId ? ref : null };
   },
   
   logout: async (): Promise<void> => {
-      localStorage.removeItem('currentUserId');
+      // No server action needed for logout
   },
 
   updateUserLanguage: async (userId: string, lang: Language): Promise<void> => {
-      const userStr = localStorage.getItem(`user_v2_${userId}`);
-      if(userStr) {
-          const user = JSON.parse(userStr) as User;
-          user.language = lang;
-          localStorage.setItem(`user_v2_${userId}`, JSON.stringify(user));
-      }
+      if (!API_BASE_URL) return;
+      await fetch(`${API_BASE_URL}/api/user/${userId}/language`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ language: lang }),
+      });
   },
 
   // --- AI Translation Service ---
   translateText: async (text: string, from: Language, to: Language): Promise<string> => {
-    if (!ai) return `(Translation disabled) ${text}`;
-    const fromLang = from === 'ua' ? 'Ukrainian' : 'English';
-    const toLang = to === 'ua' ? 'Ukrainian' : 'English';
-    const prompt = `Translate the following text from ${fromLang} to ${toLang}. Return ONLY the translated text, without any additional comments, formatting or quotation marks:\n\n"${text}"`;
+    if (!API_BASE_URL) return `(Translation disabled) ${text}`;
     try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
+        const response = await fetch(`${API_BASE_URL}/api/translate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, from, to }),
         });
-        return response.text.trim();
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Translation failed');
+        }
+        const data = await response.json();
+        return data.translatedText;
     } catch (error) {
         console.error("Translation API error:", error);
         return `(Error) ${text}`;
     }
   }
 };
+
 
 // --- AUTHENTICATION HOOK ---
 const AuthContext = createContext<{
@@ -175,6 +129,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
 
   useEffect(() => {
     const init = async () => {
+        if (!API_BASE_URL) {
+            console.error("VITE_API_BASE_URL is not set. App cannot connect to the backend.");
+            setIsInitializing(false);
+            return;
+        }
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
@@ -196,7 +155,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
   };
 
   const logout = () => {
-    API.logout();
     setUser(null);
     window.location.reload();
   };
@@ -237,7 +195,7 @@ export const useGame = () => {
           coinsPerTap: 1,
           lastLoginTimestamp: now,
           upgrades: {},
-          stars: 100, // Start with some stars for testing
+          stars: 100,
           referrals: 0,
           completedDailyTaskIds: [],
           purchasedSpecialTaskIds: [],
@@ -254,9 +212,12 @@ export const useGame = () => {
     const loadData = async () => {
         if (!user) return;
         setGameLoading(true);
+        const loginDetails = await API.login(); // Re-fetch login details to get isNew status
+        if (!loginDetails) return;
+        
         const [loadedConfig, loadedPlayerState] = await Promise.all([
             API.getGameConfig(),
-            API.getPlayerState(user.id)
+            API.getPlayerState(user.id, loginDetails.isNew, loginDetails.ref)
         ]);
         setConfig(loadedConfig);
         setPlayerState(loadedPlayerState || getInitialState(user.id));
@@ -265,7 +226,7 @@ export const useGame = () => {
     loadData();
   }, [user]);
 
-  // Persist state to localStorage with debounce
+  // Persist state to backend with debounce
   useEffect(() => {
     if (!user || isGameLoading) return;
     const handler = setTimeout(() => {
@@ -274,7 +235,7 @@ export const useGame = () => {
     return () => clearTimeout(handler);
   }, [playerState, user, isGameLoading]);
 
-  // Game loop
+  // Game loop for passive income and energy regen
   useEffect(() => {
     if(isGameLoading) return;
     const gameTick = setInterval(() => {
@@ -368,9 +329,6 @@ export const useGame = () => {
    const purchaseSpecialTask = useCallback((task: SpecialTask) => {
       if (playerState.stars < task.priceStars || playerState.purchasedSpecialTaskIds.includes(task.id)) return;
       
-      // Here you would integrate with Telegram's payment API
-      // window.Telegram.WebApp.openInvoice(...)
-      // For now, we simulate a successful purchase
       console.log(`Simulating purchase of ${task.id} for ${task.priceStars} stars`);
       
       setPlayerState(p => ({

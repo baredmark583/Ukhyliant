@@ -1,13 +1,14 @@
 
+
 import React, { useState } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
-import { ExchangeIcon, MineIcon, BoostIcon, TasksIcon, AdminIcon, StarIcon, EarnIcon } from './constants';
-import { DailyTask, GameConfig, Language, Upgrade, Boost, SpecialTask, LocalizedString, SpecialTaskType } from './types';
+import { ExchangeIcon, MineIcon, FriendsIcon, BoostIcon, TasksIcon, AdminIcon, StarIcon, EarnIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon } from './constants';
+import { DailyTask, GameConfig, Language, Upgrade, Boost, SpecialTask, LocalizedString, SpecialTaskType, PlayerState, User } from './types';
 
-type Screen = 'exchange' | 'mine' | 'boost' | 'tasks' | 'earn' | 'admin';
+type Screen = 'exchange' | 'mine' | 'friends' | 'boost' | 'tasks' | 'earn' | 'admin';
 type AdminTab = 'upgrades' | 'tasks' | 'boosts' | 'special';
 
 const AppContainer: React.FC = () => {
@@ -61,6 +62,8 @@ const MainApp: React.FC = () => {
         return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} />;
       case 'mine':
         return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={buyUpgrade} lang={lang} />;
+      case 'friends':
+        return <FriendsScreen playerState={playerState} user={user} />;
       case 'boost':
         return <BoostScreen stars={playerState.stars} boosts={config.boosts} onBuyBoost={buyBoost} lang={lang} />;
       case 'tasks':
@@ -99,6 +102,7 @@ const MainApp: React.FC = () => {
         <div className="flex justify-around items-center max-w-xl mx-auto">
           <NavItem screen="exchange" label={t('exchange')} icon={<ExchangeIcon active={activeScreen === 'exchange'} />} />
           <NavItem screen="mine" label={t('mine')} icon={<MineIcon active={activeScreen === 'mine'} />} />
+          <NavItem screen="friends" label={t('friends')} icon={<FriendsIcon active={activeScreen === 'friends'} />} />
           <NavItem screen="earn" label={t('earn')} icon={<EarnIcon active={activeScreen === 'earn'} />} />
           <NavItem screen="tasks" label={t('tasks')} icon={<TasksIcon active={activeScreen === 'tasks'} />} />
           <NavItem screen="boost" label={t('boosts')} icon={<BoostIcon active={activeScreen === 'boost'} />} />
@@ -109,6 +113,41 @@ const MainApp: React.FC = () => {
     </div>
   );
 };
+
+const FriendsScreen = ({ playerState, user }: { playerState: PlayerState, user: User }) => {
+    const t = useTranslation();
+    const [copied, setCopied] = useState(false);
+
+    const handleCopyReferral = () => {
+        const referralLink = `https://t.me/${TELEGRAM_BOT_NAME}?start=${user.id}`;
+        navigator.clipboard.writeText(referralLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
+            <h1 className="text-3xl font-bold text-center mb-6">{t('friends')}</h1>
+            <div className="w-full max-w-md space-y-4 text-center">
+                <div className="bg-gray-800 p-6 rounded-lg">
+                    <p className="text-gray-400 text-lg">{t('your_referrals')}</p>
+                    <p className="text-5xl font-bold my-2">{playerState.referrals}</p>
+                </div>
+                <div className="bg-gray-800 p-6 rounded-lg">
+                    <p className="text-gray-400 text-lg">{t('referral_bonus')}</p>
+                    <p className="text-3xl font-bold my-2 flex items-center justify-center space-x-2">
+                        <span>+{REFERRAL_BONUS.toLocaleString()}</span>
+                        <div className="w-8 h-8"><CoinIcon/></div>
+                    </p>
+                </div>
+                <button onClick={handleCopyReferral} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95">
+                    {copied ? t('copied') : t('invite_friends')}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 
 const TasksScreen = ({ tasks, playerState, onClaim, lang }: { tasks: DailyTask[], playerState: any, onClaim: (task: DailyTask) => void, lang: Language }) => {
     const t = useTranslation();
