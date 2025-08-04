@@ -1,8 +1,9 @@
-export type Language = 'en' | 'ua';
+export type Language = 'en' | 'ua' | 'ru';
 
 export interface LocalizedString {
   en: string;
   ua: string;
+  ru: string;
 }
 
 export type UserRole = 'user' | 'moderator' | 'admin';

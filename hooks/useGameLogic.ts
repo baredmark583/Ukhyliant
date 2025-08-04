@@ -1,45 +1,30 @@
+
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, UserRole, SpecialTask } from '../types';
-import { 
-    INITIAL_UPGRADES, INITIAL_TASKS, INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, LEAGUES, MAX_ENERGY, 
-    ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, REFERRAL_BONUS, TRANSLATIONS 
-} from '../constants';
+import { LEAGUES, MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS } from '../constants';
 
-// --- Add Telegram types to global scope ---
 declare global {
   interface Window {
     Telegram: {
-      WebApp: any; 
+      WebApp: any;
     };
   }
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// --- REAL BACKEND API CLIENT ---
 const API = {
-  // --- Config Management ---
-  getGameConfig: async (): Promise<GameConfig> => {
-    if (!API_BASE_URL) return { upgrades: INITIAL_UPGRADES, tasks: INITIAL_TASKS, boosts: INITIAL_BOOSTS, specialTasks: INITIAL_SPECIAL_TASKS };
-    const response = await fetch(`${API_BASE_URL}/api/config`);
-    if (!response.ok) throw new Error('Failed to fetch game config');
-    return response.json();
-  },
-
-  saveGameConfig: async (config: GameConfig): Promise<void> => {
-    if (!API_BASE_URL) return; // Should be disabled in UI if no backend
-    await fetch(`${API_BASE_URL}/api/config`, {
+  login: async (tgUser: any, startParam: string | null): Promise<{ user: User, player: PlayerState, config: GameConfig } | null> => {
+    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
+    const response = await fetch(`${API_BASE_URL}/api/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config),
+      body: JSON.stringify({ tgUser, startParam }),
     });
-  },
-
-  // --- Player Data Management ---
-  getPlayerState: async (userId: string, isNew: boolean, ref: string | null): Promise<PlayerState | null> => {
-    if (!API_BASE_URL) return null; // Should not happen if logged in
-    const response = await fetch(`${API_BASE_URL}/api/player/${userId}?isNew=${isNew}&ref=${ref || ''}`);
-    if (!response.ok) return null;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Login failed');
+    }
     return response.json();
   },
 
@@ -51,34 +36,14 @@ const API = {
         body: JSON.stringify(state)
      });
   },
-  
-  // --- Authentication and User Management ---
-  login: async (): Promise<{ user: User, isNew: boolean, ref: string | null } | null> => {
-      if (!window.Telegram?.WebApp?.initDataUnsafe?.user) {
-          return null;
-      }
-      const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
-      const userId = tgUser.id.toString();
-      
-      const response = await fetch(`${API_BASE_URL}/api/user/${userId}`);
-      const isNew = !response.ok;
 
-      let lang: Language = (tgUser.language_code === 'uk' || tgUser.language_code === 'ru') ? 'ua' : 'en';
-      let role: UserRole = 'user';
-      if (userId === ADMIN_TELEGRAM_ID) {
-          role = 'admin';
-      } else if (MODERATOR_TELEGRAM_IDS.includes(userId)) {
-          role = 'moderator';
-      }
-      
-      const user: User = { id: userId, name: tgUser.first_name, language: lang, role };
-      
-      const ref = window.Telegram.WebApp.initDataUnsafe.start_param;
-      return { user, isNew, ref: ref !== userId ? ref : null };
-  },
-  
-  logout: async (): Promise<void> => {
-      // No server action needed for logout
+  saveGameConfig: async (config: GameConfig, userId: string): Promise<void> => {
+    if (!API_BASE_URL) return;
+    await fetch(`${API_BASE_URL}/api/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config, userId }),
+    });
   },
 
   updateUserLanguage: async (userId: string, lang: Language): Promise<void> => {
@@ -90,294 +55,291 @@ const API = {
       });
   },
 
-  // --- AI Translation Service ---
   translateText: async (text: string, from: Language, to: Language): Promise<string> => {
     if (!API_BASE_URL) return `(Translation disabled) ${text}`;
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/translate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, from, to }),
-        });
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Translation failed');
-        }
-        const data = await response.json();
-        return data.translatedText;
-    } catch (error) {
-        console.error("Translation API error:", error);
-        return `(Error) ${text}`;
+    const response = await fetch(`${API_BASE_URL}/api/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, from, to }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Translation failed');
     }
+    const data = await response.json();
+    return data.translatedText;
   }
 };
 
-
-// --- AUTHENTICATION HOOK ---
-const AuthContext = createContext<{
+// --- AUTH CONTEXT ---
+interface AuthContextType {
   user: User | null;
   isAdmin: boolean;
-  hasAdminAccess: boolean; // For admins and moderators
+  hasAdminAccess: boolean;
   logout: () => void;
   switchLanguage: (lang: Language) => void;
   isInitializing: boolean;
-}>({ user: null, isAdmin: false, hasAdminAccess: false, logout: () => {}, switchLanguage: () => {}, isInitializing: true });
+}
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// --- GAME CONTEXT ---
+interface GameContextType {
+    playerState: PlayerState | null;
+    setPlayerState: React.Dispatch<React.SetStateAction<PlayerState | null>>;
+    config: GameConfig | null;
+    setConfig: React.Dispatch<React.SetStateAction<GameConfig | null>>;
+}
+const GameContext = createContext<GameContextType | undefined>(undefined);
+
+
+// --- MAIN APP PROVIDER ---
 export const AuthProvider = ({ children }: { children: React.ReactNode }): React.ReactElement => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isInitializing, setIsInitializing] = useState(true);
+    const [user, setUser] = useState<User | null>(null);
+    const [playerState, setPlayerState] = useState<PlayerState | null>(null);
+    const [config, setConfig] = useState<GameConfig | null>(null);
+    const [isInitializing, setIsInitializing] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const init = async () => {
-        if (!API_BASE_URL) {
-            console.error("VITE_API_BASE_URL is not set. App cannot connect to the backend.");
-            setIsInitializing(false);
-            return;
-        }
-        if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
-            const loginResult = await API.login();
-            if (loginResult) {
-                setUser(loginResult.user);
+    useEffect(() => {
+        const init = async () => {
+            try {
+                if (!window.Telegram?.WebApp?.initData) {
+                    throw new Error("Not inside Telegram or initData is missing.");
+                }
+                window.Telegram.WebApp.ready();
+                window.Telegram.WebApp.expand();
+                
+                const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
+                const startParam = window.Telegram.WebApp.initDataUnsafe.start_param || null;
+
+                const loginData = await API.login(tgUser, startParam);
+                
+                if (loginData) {
+                    setUser(loginData.user);
+                    setPlayerState(loginData.player);
+                    setConfig(loginData.config);
+                } else {
+                    throw new Error("Failed to get login data from backend.");
+                }
+            } catch (err: any) {
+                console.error("Initialization failed:", err);
+                setError(err.message || "An unknown error occurred.");
+            } finally {
+                setIsInitializing(false);
             }
+        };
+        init();
+    }, []);
+
+    const switchLanguage = async (lang: Language) => {
+        if (user) {
+            setUser({ ...user, language: lang }); // Optimistic update
+            await API.updateUserLanguage(user.id, lang);
         }
-        setIsInitializing(false);
+    };
+
+    const logout = () => {
+        setUser(null);
+        setPlayerState(null);
+        setConfig(null);
+        window.location.reload();
+    };
+
+    const isAdmin = user?.role === 'admin';
+    const hasAdminAccess = user?.role === 'admin' || user?.role === 'moderator';
+
+    if (error && !isInitializing) {
+        // A simple error screen could be rendered here
+        return React.createElement('div', null, `Error: ${error}`);
     }
-    init();
-  }, []);
 
-  const switchLanguage = async (lang: Language) => {
-    if (user) {
-        await API.updateUserLanguage(user.id, lang);
-        setUser({ ...user, language: lang });
-    }
-  };
+    const authContextValue: AuthContextType = {
+        user,
+        isAdmin,
+        hasAdminAccess,
+        logout,
+        switchLanguage,
+        isInitializing
+    };
 
-  const logout = () => {
-    setUser(null);
-    window.location.reload();
-  };
-  
-  const isAdmin = user?.role === 'admin';
-  const hasAdminAccess = user?.role === 'admin' || user?.role === 'moderator';
-  
-  const value = { user, isAdmin, hasAdminAccess, logout, switchLanguage, isInitializing };
-
-  return React.createElement(AuthContext.Provider, { value }, children);
+    const gameContextValue: GameContextType = {
+        playerState,
+        setPlayerState,
+        config,
+        setConfig
+    };
+    
+    return React.createElement(AuthContext.Provider, { value: authContextValue },
+        React.createElement(GameContext.Provider, { value: gameContextValue }, children)
+    );
 };
 
-export const useAuth = () => useContext(AuthContext);
+// --- HOOKS TO USE CONTEXTS ---
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
+    return context;
+};
 
-// --- TRANSLATION HOOK ---
+export const useGameContext = () => {
+    const context = useContext(GameContext);
+    if (context === undefined) throw new Error('useGameContext must be used within an AuthProvider');
+    return context;
+};
+
 export const useTranslation = () => {
     const { user } = useAuth();
     const lang = user?.language || 'en';
-
-    return (key: keyof (typeof TRANSLATIONS)[typeof lang]) => {
+    return useCallback((key: keyof (typeof TRANSLATIONS)[typeof lang]) => {
         return TRANSLATIONS[lang]?.[key] || TRANSLATIONS.en[key];
-    };
+    }, [lang]);
 };
 
-
-// --- GAME LOGIC HOOK ---
+// --- MAIN GAME LOGIC HOOK ---
 export const useGame = () => {
-  const { user } = useAuth();
-  const [config, setConfig] = useState<GameConfig>({ upgrades: [], tasks: [], boosts: [], specialTasks: [] });
-  const [isGameLoading, setGameLoading] = useState(true);
+    const { user } = useAuth();
+    const { playerState, setPlayerState, config, setConfig } = useGameContext();
 
-  const getInitialState = (userId: string): PlayerState => {
-      const now = Date.now();
-      return {
-          balance: 500,
-          energy: MAX_ENERGY,
-          profitPerHour: 0,
-          coinsPerTap: 1,
-          lastLoginTimestamp: now,
-          upgrades: {},
-          stars: 100,
-          referrals: 0,
-          completedDailyTaskIds: [],
-          purchasedSpecialTaskIds: [],
-          completedSpecialTaskIds: [],
-          dailyTaps: 0,
-          lastDailyReset: now
-      };
-  };
+    // Persist state to backend with debounce
+    useEffect(() => {
+        if (!user || !playerState) return;
+        const handler = setTimeout(() => {
+            const stateToSave = { ...playerState, lastLoginTimestamp: Date.now() };
+            API.savePlayerState(user.id, stateToSave);
+        }, SAVE_DEBOUNCE_MS);
+        return () => clearTimeout(handler);
+    }, [playerState, user]);
 
-  const [playerState, setPlayerState] = useState<PlayerState>(getInitialState(''));
+    // Game loop for energy regen
+    useEffect(() => {
+        if (!playerState) return;
+        const gameTick = setInterval(() => {
+            setPlayerState(p => p ? { ...p, energy: Math.min(MAX_ENERGY, p.energy + ENERGY_REGEN_RATE) } : null);
+        }, 1000);
+        return () => clearInterval(gameTick);
+    }, [playerState, setPlayerState]);
 
-  // Load game config and player state on user login
-  useEffect(() => {
-    const loadData = async () => {
+    const calculateProfitPerHour = useCallback((currentUpgrades: Record<string, number>, gameConfig: GameConfig) => {
+        return gameConfig.upgrades.reduce((total, u) => {
+            const level = currentUpgrades[u.id] || 0;
+            if (level > 0) {
+                return total + Math.floor(u.profitPerHour * level * 1.07);
+            }
+            return total;
+        }, 0);
+    }, []);
+    
+    const allUpgrades = useMemo((): (Upgrade & {level: number})[] => {
+        if (!config || !playerState) return [];
+        return config.upgrades.map(u => {
+            const level = playerState.upgrades[u.id] || 0;
+            return {
+                ...u,
+                level,
+                price: Math.floor(u.price * Math.pow(1.15, level)),
+                profitPerHour: u.profitPerHour * (level > 0 ? Math.pow(1.07, level) : 1),
+            };
+        });
+    }, [playerState, config]);
+
+    const buyUpgrade = useCallback((upgradeId: string) => {
+        const upgrade = allUpgrades.find(u => u.id === upgradeId);
+        if (!upgrade || !playerState || !config || playerState.balance < upgrade.price) return;
+
+        setPlayerState(p => {
+            if (!p) return null;
+            const newLevel = (p.upgrades[upgradeId] || 0) + 1;
+            const newUpgrades = { ...p.upgrades, [upgradeId]: newLevel };
+            const newProfitPerHour = calculateProfitPerHour(newUpgrades, config);
+            return {
+                ...p,
+                balance: p.balance - upgrade.price,
+                profitPerHour: newProfitPerHour,
+                upgrades: newUpgrades,
+            };
+        });
+    }, [allUpgrades, playerState, config, calculateProfitPerHour, setPlayerState]);
+
+    const handleTap = useCallback(() => {
+        if (playerState && playerState.energy >= playerState.coinsPerTap) {
+            setPlayerState(p => p ? {
+                ...p,
+                balance: p.balance + p.coinsPerTap,
+                energy: p.energy - p.coinsPerTap,
+                dailyTaps: p.dailyTaps + 1,
+            } : null);
+            return true;
+        }
+        return false;
+    }, [playerState, setPlayerState]);
+
+    const claimTaskReward = useCallback((task: DailyTask) => {
+        if (!playerState || playerState.completedDailyTaskIds.includes(task.id)) return;
+        if (playerState.dailyTaps < task.requiredTaps) return;
+
+        setPlayerState(p => p ? {
+            ...p,
+            balance: p.balance + task.rewardCoins,
+            stars: p.stars + task.rewardStars,
+            completedDailyTaskIds: [...p.completedDailyTaskIds, task.id]
+        } : null);
+    }, [playerState, setPlayerState]);
+
+    const buyBoost = useCallback((boost: Boost) => {
+        if (!playerState || playerState.stars < boost.cost) return;
+        if (boost.id === 'boost1') { // Full energy
+            setPlayerState(p => p ? { ...p, energy: MAX_ENERGY, stars: p.stars - boost.cost } : null);
+        }
+    }, [playerState, setPlayerState]);
+
+    const purchaseSpecialTask = useCallback((task: SpecialTask) => {
+        if (!playerState || playerState.stars < task.priceStars || playerState.purchasedSpecialTaskIds.includes(task.id)) return;
+        setPlayerState(p => p ? {
+            ...p,
+            stars: p.stars - task.priceStars,
+            purchasedSpecialTaskIds: [...p.purchasedSpecialTaskIds, task.id]
+        } : null);
+    }, [playerState, setPlayerState]);
+
+    const completeSpecialTask = useCallback((task: SpecialTask) => {
+        if (!playerState || playerState.completedSpecialTaskIds.includes(task.id) || !playerState.purchasedSpecialTaskIds.includes(task.id)) return;
+        setPlayerState(p => p ? {
+            ...p,
+            balance: p.balance + task.rewardCoins,
+            stars: p.stars + task.rewardStars,
+            completedSpecialTaskIds: [...p.completedSpecialTaskIds, task.id]
+        } : null);
+    }, [playerState, setPlayerState]);
+
+    const currentLeague = useMemo(() => {
+        if (!playerState) return LEAGUES[LEAGUES.length - 1];
+        return LEAGUES.find(l => playerState.balance >= l.minBalance) ?? LEAGUES[LEAGUES.length - 1];
+    }, [playerState?.balance]);
+
+    const saveAdminConfig = async (newConfig: GameConfig) => {
         if (!user) return;
-        setGameLoading(true);
-        const loginDetails = await API.login(); // Re-fetch login details to get isNew status
-        if (!loginDetails) return;
-        
-        const [loadedConfig, loadedPlayerState] = await Promise.all([
-            API.getGameConfig(),
-            API.getPlayerState(user.id, loginDetails.isNew, loginDetails.ref)
-        ]);
-        setConfig(loadedConfig);
-        setPlayerState(loadedPlayerState || getInitialState(user.id));
-        setGameLoading(false);
+        await API.saveGameConfig(newConfig, user.id);
+        setConfig(newConfig);
     };
-    loadData();
-  }, [user]);
 
-  // Persist state to backend with debounce
-  useEffect(() => {
-    if (!user || isGameLoading) return;
-    const handler = setTimeout(() => {
-        API.savePlayerState(user.id, playerState);
-    }, SAVE_DEBOUNCE_MS);
-    return () => clearTimeout(handler);
-  }, [playerState, user, isGameLoading]);
+    const translate = async (text: string, from: Language, to: Language) => {
+        return await API.translateText(text, from, to);
+    };
 
-  // Game loop for passive income and energy regen
-  useEffect(() => {
-    if(isGameLoading) return;
-    const gameTick = setInterval(() => {
-      setPlayerState(prevState => {
-        const newBalance = prevState.balance + prevState.profitPerHour / 3600;
-        const newEnergy = Math.min(MAX_ENERGY, prevState.energy + ENERGY_REGEN_RATE);
-        return { ...prevState, balance: newBalance, energy: newEnergy };
-      });
-    }, 1000);
-    return () => clearInterval(gameTick);
-  }, [playerState.profitPerHour, isGameLoading]);
-  
-  const calculateProfitPerHour = useCallback((currentUpgrades: Record<string, number>, gameConfig: GameConfig) => {
-      return gameConfig.upgrades.reduce((total, u) => {
-          const level = currentUpgrades[u.id] || 0;
-          if (level > 0) {
-              return total + Math.floor(u.profitPerHour * level * 1.07);
-          }
-          return total;
-      }, 0);
-  }, []);
-
-  const allUpgrades = useMemo((): (Upgrade & {level: number})[] => {
-    return config.upgrades.map(u => {
-      const level = playerState.upgrades[u.id] || 0;
-      return {
-        ...u,
-        level,
-        price: Math.floor(u.price * Math.pow(1.15, level)),
-        profitPerHour: u.profitPerHour * (level > 0 ? Math.pow(1.07, level) : 1),
-      };
-    });
-  }, [playerState.upgrades, config.upgrades]);
-
-
-  const buyUpgrade = useCallback((upgradeId: string) => {
-    const upgrade = allUpgrades.find(u => u.id === upgradeId);
-    if (!upgrade || playerState.balance < upgrade.price) return;
-
-    setPlayerState(prevState => {
-      const newLevel = (prevState.upgrades[upgradeId] || 0) + 1;
-      const newUpgrades = { ...prevState.upgrades, [upgradeId]: newLevel };
-      const newProfitPerHour = calculateProfitPerHour(newUpgrades, config);
-
-      return {
-        ...prevState,
-        balance: prevState.balance - upgrade.price,
-        profitPerHour: newProfitPerHour,
-        upgrades: newUpgrades,
-      };
-    });
-  }, [allUpgrades, playerState.balance, config, calculateProfitPerHour]);
-
-  const handleTap = useCallback(() => {
-    if (playerState.energy >= playerState.coinsPerTap) {
-      setPlayerState(prevState => ({
-        ...prevState,
-        balance: prevState.balance + prevState.coinsPerTap,
-        energy: prevState.energy - prevState.coinsPerTap,
-        dailyTaps: prevState.dailyTaps + 1,
-      }));
-      return true;
-    }
-    return false;
-  }, [playerState.energy, playerState.coinsPerTap]);
-
-  const claimTaskReward = useCallback((task: DailyTask) => {
-      if(playerState.completedDailyTaskIds.includes(task.id)) return;
-      
-      const isCompleted = playerState.dailyTaps >= task.requiredTaps;
-      if(!isCompleted) return;
-
-      setPlayerState(p => ({
-          ...p,
-          balance: p.balance + task.rewardCoins,
-          stars: p.stars + task.rewardStars,
-          completedDailyTaskIds: [...p.completedDailyTaskIds, task.id]
-      }));
-  }, [playerState]);
-  
-  const buyBoost = useCallback((boost: Boost) => {
-      if(playerState.stars < boost.cost) return;
-
-      setPlayerState(p => ({ ...p, stars: p.stars - boost.cost }));
-
-      if(boost.id === 'boost1') { // Full energy
-          setPlayerState(p => ({ ...p, energy: MAX_ENERGY }));
-      }
-  }, [playerState.stars]);
-  
-   const purchaseSpecialTask = useCallback((task: SpecialTask) => {
-      if (playerState.stars < task.priceStars || playerState.purchasedSpecialTaskIds.includes(task.id)) return;
-      
-      console.log(`Simulating purchase of ${task.id} for ${task.priceStars} stars`);
-      
-      setPlayerState(p => ({
-          ...p,
-          stars: p.stars - task.priceStars,
-          purchasedSpecialTaskIds: [...p.purchasedSpecialTaskIds, task.id]
-      }));
-  }, [playerState]);
-
-  const completeSpecialTask = useCallback((task: SpecialTask) => {
-      if (playerState.completedSpecialTaskIds.includes(task.id) || !playerState.purchasedSpecialTaskIds.includes(task.id)) return;
-
-      setPlayerState(p => ({
-          ...p,
-          balance: p.balance + task.rewardCoins,
-          stars: p.stars + task.rewardStars,
-          completedSpecialTaskIds: [...p.completedSpecialTaskIds, task.id]
-      }));
-  }, [playerState]);
-
-
-  const currentLeague = useMemo(() => {
-    return LEAGUES.find(l => playerState.balance >= l.minBalance) ?? LEAGUES[LEAGUES.length - 1];
-  }, [playerState.balance]);
-
-  const saveAdminConfig = async (newConfig: GameConfig) => {
-      await API.saveGameConfig(newConfig);
-      setConfig(newConfig);
-  };
-  
-  const translate = async (text: string, from: Language, to: Language) => {
-      return await API.translateText(text, from, to);
-  }
-
-  return {
-    playerState,
-    config,
-    isGameLoading,
-    handleTap,
-    buyUpgrade,
-    allUpgrades,
-    currentLeague,
-    claimTaskReward,
-    buyBoost,
-    purchaseSpecialTask,
-    completeSpecialTask,
-    gameAdmin: {
-        saveConfig: saveAdminConfig,
-        translate: translate,
-    }
-  };
+    return {
+        playerState,
+        config,
+        handleTap,
+        buyUpgrade,
+        allUpgrades,
+        currentLeague,
+        claimTaskReward,
+        buyBoost,
+        purchaseSpecialTask,
+        completeSpecialTask,
+        gameAdmin: {
+            saveConfig: saveAdminConfig,
+            translate: translate,
+        }
+    };
 };
