@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask } from '../types';
 import { LEAGUES, MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS } from '../constants';
@@ -75,6 +74,17 @@ const API = {
         body: JSON.stringify({ userId, taskId }),
     });
      if (!response.ok) return null;
+    return response.json();
+  },
+
+  unlockPaidTask: async (userId: string, taskId: string): Promise<PlayerState | null> => {
+    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
+    const response = await fetch(`${API_BASE_URL}/api/action/unlock-paid-task`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, taskId }),
+    });
+    if (!response.ok) return null;
     return response.json();
   }
 };
@@ -316,7 +326,7 @@ export const useGame = () => {
         if (task.priceStars === 0) { // Free task
              const updatedPlayerState = await API.unlockFreeTask(user.id, task.id);
              if(updatedPlayerState) setPlayerState(updatedPlayerState);
-        } else { // Paid task
+        } else { // Покупка за Telegram Stars
              const res = await API.createInvoice(user.id, task.id);
              if (res.ok && res.invoiceLink) {
                  window.Telegram.WebApp.openInvoice(res.invoiceLink);

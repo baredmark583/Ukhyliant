@@ -1,4 +1,3 @@
-
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -18,6 +17,7 @@ import {
     updateUserLanguage,
     unlockSpecialTask,
     completeAndRewardSpecialTask,
+    unlockPaidSpecialTask,
     getAllPlayersForAdmin,
     deletePlayer
 } from './db.js';
@@ -166,8 +166,8 @@ app.post('/api/create-invoice', async (req, res) => {
             title: task.name.en,
             description: task.description.en,
             payload: payload,
-            currency: 'XTR',
-            prices: [{ label: 'Unlock Task', amount: task.priceStars }]
+            currency: 'STARS', // Use Telegram Stars currency
+            prices: [{ label: 'Unlock Task', amount: task.priceStars * 100 }] // amount in hundredths
         };
 
         const tgResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
@@ -197,6 +197,24 @@ app.post('/api/action/unlock-free-task', async (req, res) => {
             return res.status(400).json({ error: 'Task is not free.' });
         }
         const updatedPlayerState = await unlockSpecialTask(userId, taskId);
+        res.json(updatedPlayerState);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+});
+
+app.post('/api/action/unlock-paid-task', async (req, res) => {
+    try {
+        const { userId, taskId } = req.body;
+        const config = await getConfig();
+        const task = config.specialTasks.find(t => t.id === taskId);
+        if (!task || task.priceStars <= 0) {
+            return res.status(400).json({ error: 'Task not found or is free.' });
+        }
+        const updatedPlayerState = await unlockPaidSpecialTask(userId, taskId, task.priceStars);
+        if (!updatedPlayerState) {
+            return res.status(400).json({ error: 'Not enough stars or already purchased.' });
+        }
         res.json(updatedPlayerState);
     } catch (error) {
         res.status(500).json({ error: 'Internal server error.' });
