@@ -43,14 +43,13 @@ export interface Boost {
   name: LocalizedString;
   description: LocalizedString;
   icon: string;
-  cost: number; // Cost in stars
+  cost: number; // Cost in coins
 }
 
 export interface DailyTask {
     id: string;
     name: LocalizedString;
     rewardCoins: number;
-    rewardStars: number;
     requiredTaps: number;
 }
 
@@ -63,8 +62,7 @@ export interface SpecialTask {
     type: SpecialTaskType;
     url: string;
     rewardCoins: number;
-    rewardStars: number;
-    priceStars: number; // Cost to unlock the task
+    priceStars: number; // Cost to unlock the task (Telegram Stars)
     isOneTime: true;
 }
 
@@ -81,12 +79,11 @@ export interface PlayerState {
   profitPerHour: number;
   coinsPerTap: number;
   lastLoginTimestamp: number;
-  upgrades: Record<string, number>; // key: upgrade.id, value: level
-  stars: number;
+  upgrades: Record<string, number>;
   referrals: number;
   completedDailyTaskIds: string[];
-  purchasedSpecialTaskIds: string[]; // Tasks unlocked by paying stars
-  completedSpecialTaskIds: string[]; // One-time tasks that have been completed
+  purchasedSpecialTaskIds: string[];
+  completedSpecialTaskIds: string[];
   dailyTaps: number;
   lastDailyReset: number;
 }

@@ -151,22 +151,18 @@ export const completeAndRewardSpecialTask = async (userId, taskId) => {
         if (player.completedSpecialTaskIds?.includes(taskId)) return player; // Already completed
 
         const newBalance = (player.balance || 0) + task.rewardCoins;
-        const newStars = (player.stars || 0) + task.rewardStars;
         const newCompletedIds = [...(player.completedSpecialTaskIds || []), taskId];
         
         const updateQuery = `
             UPDATE players
             SET data = jsonb_set(
-                        jsonb_set(
-                            jsonb_set(data, '{balance}', to_jsonb($1)),
-                            '{stars}', to_jsonb($2)
-                        ),
-                        '{completedSpecialTaskIds}', $3::jsonb
+                        jsonb_set(data, '{balance}', to_jsonb($1)),
+                        '{completedSpecialTaskIds}', $2::jsonb
                     )
-            WHERE id = $4
+            WHERE id = $3
             RETURNING data;
         `;
-        const updatedPlayerRes = await client.query(updateQuery, [newBalance, newStars, JSON.stringify(newCompletedIds), userId]);
+        const updatedPlayerRes = await client.query(updateQuery, [newBalance, JSON.stringify(newCompletedIds), userId]);
         
         await client.query('COMMIT');
         return updatedPlayerRes.rows[0].data;
@@ -193,7 +189,6 @@ export const getAllPlayersForAdmin = async () => {
             name: user.name || 'N/A',
             language: user.language || 'en',
             balance: playerData?.balance ?? 0,
-            stars: playerData?.stars ?? 0,
             referrals: playerData?.referrals ?? 0
         };
     });
@@ -216,4 +211,15 @@ export const deletePlayer = async (userId) => {
         console.error(`Failed to delete player ${userId}:`, error);
         throw error;
     }
+};
+
+export const unlockPaidSpecialTask = async (userId, taskId, priceStars) => {
+    // Эта функция нужна только для совместимости, если вы используете Telegram Stars — она может быть пустой или просто возвращать null.
+    // Если вы не используете покупку за локальные звезды, а только через Telegram Invoice, можно сделать так:
+    return null;
+};
+export const unlockPaidSpecialTask = async (userId, taskId, priceStars) => {
+    // Эта функция нужна только для совместимости, если вы используете Telegram Stars — она может быть пустой или просто возвращать null.
+    // Если вы не используете покупку за локальные звезды, а только через Telegram Invoice, можно сделать так:
+    return null;
 };

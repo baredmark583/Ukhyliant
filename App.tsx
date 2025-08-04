@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -69,7 +68,7 @@ const MainApp: React.FC = () => {
       case 'friends':
         return <FriendsScreen playerState={playerState} user={user} />;
       case 'boost':
-        return <BoostScreen stars={playerState.stars} boosts={config.boosts} onBuyBoost={buyBoost} lang={lang} />;
+        return <BoostScreen stars={playerState.balance} boosts={config.boosts} onBuyBoost={buyBoost} lang={lang} />;
       case 'tasks':
         return <TasksScreen tasks={config.tasks} playerState={playerState} onClaim={claimTaskReward} lang={lang} />;
       case 'earn':
@@ -237,4 +236,5 @@ const App: React.FC = () => (
     </AuthProvider>
 );
 
+export default App;
 export default App;

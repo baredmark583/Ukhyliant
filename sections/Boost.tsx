@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { Boost, Language } from '../types';
-import { StarIcon } from '../constants';
+import { CoinIcon } from '../constants';
 import { useTranslation } from '../hooks/useGameLogic';
 
 interface BoostProps {
@@ -17,13 +16,9 @@ const BoostScreen: React.FC<BoostProps> = ({ stars, boosts, onBuyBoost, lang }) 
   return (
     <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
       <h1 className="text-3xl font-bold text-center mb-2">{t('boosts')}</h1>
-      <p className="text-lg text-gray-400 mb-6">
-        {t('stars')}: <span className="font-bold text-yellow-300">{stars}</span>
-      </p>
-
       <div className="w-full max-w-md space-y-4 overflow-y-auto no-scrollbar">
         {boosts.map(boost => {
-          const canAfford = stars >= boost.cost;
+          const canAfford = stars >= boost.cost; // change to balance >= boost.cost
           return (
             <div key={boost.id} className="bg-gray-800 p-4 rounded-lg flex items-center justify-between">
                 <div className="flex items-center">
@@ -43,7 +38,7 @@ const BoostScreen: React.FC<BoostProps> = ({ stars, boosts, onBuyBoost, lang }) 
                         : 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500'
                     }`}
                 >
-                    <StarIcon />
+                    <CoinIcon />
                     <span>{boost.cost}</span>
                 </button>
             </div>
@@ -54,6 +49,11 @@ const BoostScreen: React.FC<BoostProps> = ({ stars, boosts, onBuyBoost, lang }) 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
+    </div>
+  );
+};
+
+export default BoostScreen;
     </div>
   );
 };

@@ -308,16 +308,16 @@ export const useGame = () => {
         setPlayerState(p => p ? {
             ...p,
             balance: p.balance + task.rewardCoins,
-            stars: p.stars + task.rewardStars,
             completedDailyTaskIds: [...p.completedDailyTaskIds, task.id]
         } : null);
     }, [playerState, setPlayerState]);
 
     const buyBoost = useCallback((boost: Boost) => {
-        if (!playerState || playerState.stars < boost.cost) return;
+        if (!playerState || playerState.balance < boost.cost) return;
         if (boost.id === 'boost1') { // Full energy
-            setPlayerState(p => p ? { ...p, energy: MAX_ENERGY, stars: p.stars - boost.cost } : null);
+            setPlayerState(p => p ? { ...p, energy: MAX_ENERGY, balance: p.balance - boost.cost } : null);
         }
+        // ...add logic for other boosts if needed...
     }, [playerState, setPlayerState]);
 
     const purchaseSpecialTask = useCallback(async (task: SpecialTask) => {
