@@ -96,7 +96,8 @@ type TranslationKey =
   | 'edit_special_tasks' | 'task_type' | 'url' | 'price_stars' | 'add_new_special_task' | 'translate'
   | 'telegram_join' | 'social_follow' | 'video_watch' | 'referral_bonus' | 'your_referrals' | 'invite_friends'
   // Daily Events
-  | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today';
+  | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today'
+  | 'enter_morse_mode' | 'cancel_morse_mode';
 
 export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
   en: {
@@ -162,6 +163,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     find_cards: 'Find and upgrade these cards!',
     cipher_hint: 'Tap the code: . is short, - is long',
     claimed_today: 'Claimed Today',
+    enter_morse_mode: 'Enter Code',
+    cancel_morse_mode: 'Cancel',
   },
   ua: {
     exchange: 'Біржа',
@@ -226,6 +229,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     find_cards: 'Знайди та прокачай ці картки!',
     cipher_hint: 'Відстукай код: . короткий, - довгий',
     claimed_today: 'Сьогодні забрано',
+    enter_morse_mode: 'Ввести код',
+    cancel_morse_mode: 'Скасувати',
   },
   ru: {
     exchange: 'Биржа',
@@ -290,5 +295,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     find_cards: 'Найди и прокачай эти карты!',
     cipher_hint: 'Отстучи код: . короткий, - длинный',
     claimed_today: 'Сегодня забрано',
+    enter_morse_mode: 'Ввести код',
+    cancel_morse_mode: 'Отмена',
   },
 };

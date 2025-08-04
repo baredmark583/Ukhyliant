@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language, GameConfig } from '../types';
@@ -37,6 +38,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const [copied, setCopied] = useState(false);
 
   // Morse code state
+  const [morseMode, setMorseMode] = useState(false);
   const [morseInput, setMorseInput] = useState('');
   const pressTimer = useRef<number | null>(null);
   const resetMorseTimer = useRef<number | null>(null);
@@ -51,6 +53,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     pressTimer.current = Date.now();
+
+    // Always clear the reset timer on a new press, whether in morse mode or not
     if (resetMorseTimer.current) clearTimeout(resetMorseTimer.current);
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -69,13 +73,31 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   };
 
   const handleMouseUp = async () => {
-    const pressDuration = Date.now() - (pressTimer.current || Date.now());
-    pressTimer.current = null;
-    const isShortTap = pressDuration < 200;
+    if (!pressTimer.current) return; // Avoids firing if the press didn't start on the coin
 
-    // Handle regular tap for coins on short taps
-    if (isShortTap) {
-      if (onTap()) {
+    const pressDuration = Date.now() - pressTimer.current;
+    
+    // --- MORSE MODE LOGIC ---
+    if (morseMode && !claimedCipher && dailyCipherWord) {
+      pressTimer.current = null;
+      const char = pressDuration < 200 ? '.' : '-';
+      const newSequence = morseInput + char;
+      setMorseInput(newSequence);
+
+      if (newSequence === dailyCipherWord) {
+        const success = await onClaimCipher(newSequence);
+        if (success) {
+          setMorseInput('');
+          setMorseMode(false); // Exit morse mode on success
+        }
+      }
+
+      resetMorseTimer.current = window.setTimeout(handleCipherReset, 3000);
+    
+    // --- REGULAR TAP LOGIC ---
+    } else {
+      pressTimer.current = null;
+      if (onTap()) { // onTap now handles haptics for any duration tap
         const newClick: ClickFx = {
           id: Date.now() + Math.random(),
           x: lastClickPos.current.x,
@@ -90,22 +112,6 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
           setClicks(prev => prev.filter(c => c.id !== newClick.id));
         }, 1000);
       }
-    }
-
-    // Handle Morse code logic
-    if (!claimedCipher && dailyCipherWord) {
-      const char = isShortTap ? '.' : '-';
-      const newSequence = morseInput + char;
-      setMorseInput(newSequence);
-
-      if (newSequence === dailyCipherWord) {
-        const success = await onClaimCipher(newSequence);
-        if (success) {
-          setMorseInput('');
-        }
-      }
-
-      resetMorseTimer.current = window.setTimeout(handleCipherReset, 3000);
     }
   };
   
@@ -153,13 +159,20 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             <h3 className="font-bold text-lg text-red-200">{t('daily_cipher')}</h3>
             {claimedCipher ? (
               <p className="text-green-400 font-bold">{t('claimed_today')}</p>
-            ) : (
-               <>
+            ) : morseMode ? (
+              <>
                 <p className="text-gray-300 text-sm my-1">{t('cipher_hint')}</p>
                 <div className="font-mono text-2xl h-8 tracking-widest text-white bg-black/30 rounded-md flex items-center justify-center">
                     {morseInput}
                 </div>
-               </>
+                <button onClick={() => { setMorseMode(false); setMorseInput(''); }} className="text-xs text-gray-300 hover:text-white mt-2">
+                    {t('cancel_morse_mode')}
+                </button>
+              </>
+            ) : (
+                <button onClick={() => setMorseMode(true)} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg mt-2 transition-transform active:scale-95">
+                    {t('enter_morse_mode')}
+                </button>
             )}
           </div>
        )}
