@@ -1,3 +1,4 @@
+
 {
   "name": "ukhyliant-backend",
   "version": "1.0.0",
@@ -13,8 +14,10 @@
   "license": "ISC",
   "dependencies": {
     "@google/genai": "^0.15.0",
+    "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "express-session": "^1.18.0",
     "pg": "^8.12.0"
   }
 }

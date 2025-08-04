@@ -1,6 +1,10 @@
 
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import session from 'express-session';
+import cookieParser from 'cookie-parser';
 import { GoogleGenAI } from '@google/genai';
 import { 
     initializeDb, 
@@ -15,6 +19,9 @@ import {
 } from './db.js';
 import { ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, MAX_ENERGY, ENERGY_REGEN_RATE } from './constants.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -26,9 +33,36 @@ if (geminiApiKey) {
     console.warn("GEMINI_API_KEY not found. Translation will be disabled.");
 }
 
-app.use(cors());
+// Middlewares
+app.use(cors({
+    origin: '*', // Adjust for production
+    credentials: true
+}));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'default_secret_for_dev',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: process.env.NODE_ENV === 'production' }
+}));
 
+// Serve static files for the admin panel
+app.use('/admin', express.static(path.join(__dirname, 'public')));
+
+
+// --- AUTH MIDDLEWARE FOR ADMIN PANEL ---
+const isAdminAuthenticated = (req, res, next) => {
+    if (req.session.isAdmin) {
+        next();
+    } else {
+        res.redirect('/admin/login.html');
+    }
+};
+
+
+// --- PUBLIC GAME API ROUTES ---
 app.get('/', (req, res) => res.send('Ukhyliant Clicker Backend is running!'));
 
 app.post('/api/login', async (req, res) => {
@@ -100,19 +134,58 @@ app.post('/api/user/:id/language', async (req, res) => {
     res.status(200).send();
 });
 
-app.post('/api/config', async (req, res) => {
-    const { userId, config } = req.body;
-    const userRole = (userId === ADMIN_TELEGRAM_ID) ? 'admin' : (MODERATOR_TELEGRAM_IDS.includes(userId) ? 'moderator' : 'user');
-    
-    if (userRole === 'admin' || userRole === 'moderator') {
-        await saveConfig(config);
-        res.status(200).send();
+
+// --- ADMIN WEB PANEL ROUTES ---
+
+// Login page is public, but redirects if already logged in
+app.get('/admin/login.html', (req, res) => {
+    if (req.session.isAdmin) {
+        return res.redirect('/admin');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Handle login POST
+app.post('/admin/login', (req, res) => {
+    const { password } = req.body;
+    if (password === process.env.ADMIN_PASSWORD) {
+        req.session.isAdmin = true;
+        res.redirect('/admin');
     } else {
-        res.status(403).json({ error: 'Permission denied.' });
+        res.status(401).send('Incorrect password. <a href="/admin/login.html">Try again</a>');
     }
 });
 
-app.post('/api/translate', async (req, res) => {
+// Handle logout
+app.get('/admin/logout', (req, res) => {
+    req.session.destroy(err => {
+        if(err) {
+            return res.redirect('/admin');
+        }
+        res.clearCookie('connect.sid');
+        res.redirect('/admin/login.html');
+    });
+});
+
+// Serve the main admin panel, protected by auth
+app.get('/admin', isAdminAuthenticated, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+
+// --- ADMIN API (PROTECTED) ---
+app.get('/admin/api/config', isAdminAuthenticated, async (req, res) => {
+    const config = await getConfig();
+    res.json(config);
+});
+
+app.post('/admin/api/config', isAdminAuthenticated, async (req, res) => {
+    const { config } = req.body;
+    await saveConfig(config);
+    res.status(200).json({ message: 'Configuration saved successfully.' });
+});
+
+app.post('/admin/api/translate', isAdminAuthenticated, async (req, res) => {
     if (!ai) {
         return res.status(503).json({ error: "Translation service is not configured." });
     }
@@ -142,10 +215,12 @@ app.post('/api/translate', async (req, res) => {
 });
 
 
+// --- SERVER INITIALIZATION ---
 const startServer = async () => {
     await initializeDb();
     app.listen(PORT, () => {
         console.log(`Server is listening on port ${PORT}`);
+        console.log(`Admin panel should be available at http://localhost:${PORT}/admin`);
     });
 };
 

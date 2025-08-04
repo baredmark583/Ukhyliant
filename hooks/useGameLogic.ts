@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
-import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, UserRole, SpecialTask } from '../types';
+import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask } from '../types';
 import { LEAGUES, MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS } from '../constants';
 
 declare global {
@@ -37,15 +37,6 @@ const API = {
      });
   },
 
-  saveGameConfig: async (config: GameConfig, userId: string): Promise<void> => {
-    if (!API_BASE_URL) return;
-    await fetch(`${API_BASE_URL}/api/config`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ config, userId }),
-    });
-  },
-
   updateUserLanguage: async (userId: string, lang: Language): Promise<void> => {
       if (!API_BASE_URL) return;
       await fetch(`${API_BASE_URL}/api/user/${userId}/language`, {
@@ -54,28 +45,11 @@ const API = {
           body: JSON.stringify({ language: lang }),
       });
   },
-
-  translateText: async (text: string, from: Language, to: Language): Promise<string> => {
-    if (!API_BASE_URL) return `(Translation disabled) ${text}`;
-    const response = await fetch(`${API_BASE_URL}/api/translate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, from, to }),
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Translation failed');
-    }
-    const data = await response.json();
-    return data.translatedText;
-  }
 };
 
 // --- AUTH CONTEXT ---
 interface AuthContextType {
   user: User | null;
-  isAdmin: boolean;
-  hasAdminAccess: boolean;
   logout: () => void;
   switchLanguage: (lang: Language) => void;
   isInitializing: boolean;
@@ -145,9 +119,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
         window.location.reload();
     };
 
-    const isAdmin = user?.role === 'admin';
-    const hasAdminAccess = user?.role === 'admin' || user?.role === 'moderator';
-
     if (error && !isInitializing) {
         // A simple error screen could be rendered here
         return React.createElement('div', null, `Error: ${error}`);
@@ -155,8 +126,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
 
     const authContextValue: AuthContextType = {
         user,
-        isAdmin,
-        hasAdminAccess,
         logout,
         switchLanguage,
         isInitializing
@@ -198,7 +167,7 @@ export const useTranslation = () => {
 // --- MAIN GAME LOGIC HOOK ---
 export const useGame = () => {
     const { user } = useAuth();
-    const { playerState, setPlayerState, config, setConfig } = useGameContext();
+    const { playerState, setPlayerState, config } = useGameContext();
 
     // Persist state to backend with debounce
     useEffect(() => {
@@ -316,16 +285,6 @@ export const useGame = () => {
         return LEAGUES.find(l => playerState.balance >= l.minBalance) ?? LEAGUES[LEAGUES.length - 1];
     }, [playerState?.balance]);
 
-    const saveAdminConfig = async (newConfig: GameConfig) => {
-        if (!user) return;
-        await API.saveGameConfig(newConfig, user.id);
-        setConfig(newConfig);
-    };
-
-    const translate = async (text: string, from: Language, to: Language) => {
-        return await API.translateText(text, from, to);
-    };
-
     return {
         playerState,
         config,
@@ -336,10 +295,6 @@ export const useGame = () => {
         claimTaskReward,
         buyBoost,
         purchaseSpecialTask,
-        completeSpecialTask,
-        gameAdmin: {
-            saveConfig: saveAdminConfig,
-            translate: translate,
-        }
+        completeSpecialTask
     };
 };
