@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     let localConfig = {};
     let allPlayers = [];
@@ -81,7 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th class="p-3 text-left text-sm font-semibold text-gray-300">ID</th>
                     <th class="p-3 text-left text-sm font-semibold text-gray-300">Имя</th>
                     <th class="p-3 text-left text-sm font-semibold text-gray-300">Монеты</th>
-                    <th class="p-3 text-left text-sm font-semibold text-gray-300">Звезды</th>
                     <th class="p-3 text-left text-sm font-semibold text-gray-300">Рефералы</th>
                     <th class="p-3 text-left text-sm font-semibold text-gray-300">Язык</th>
                     <th class="p-3 text-left text-sm font-semibold text-gray-300">Действия</th>
@@ -95,7 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td class="p-3 text-sm font-mono text-gray-400">${player.id}</td>
                         <td class="p-3 text-sm">${escapeHtml(player.name)}</td>
                         <td class="p-3 text-sm">${Number(player.balance).toLocaleString()}</td>
-                        <td class="p-3 text-sm">${Number(player.stars).toLocaleString()}</td>
                         <td class="p-3 text-sm">${Number(player.referrals).toLocaleString()}</td>
                         <td class="p-3 text-sm uppercase">${player.language}</td>
                         <td class="p-3"><button data-player-id="${player.id}" class="delete-player-btn text-red-500 hover:text-red-400 font-bold text-sm">Удалить</button></td>
@@ -115,9 +114,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const items = localConfig[sectionKey] || [];
         const headersMap = {
             upgrades: ['Название', 'Прибыль/час', 'Цена', 'Категория', 'Иконка', 'ID', 'Действия'],
-            tasks: ['Название', 'Награда (монеты)', 'Награда (звезды)', 'Тапы', 'ID', 'Действия'],
-            boosts: ['Название', 'Описание', 'Цена (звезды)', 'Иконка', 'ID', 'Действия'],
-            specialTasks: ['Название', 'Описание', 'Тип', 'URL', 'Награда', 'Цена (звезды)', 'ID', 'Действия']
+            tasks: ['Название', 'Награда (монеты)', 'Тапы', 'ID', 'Действия'],
+            boosts: ['Название', 'Описание', 'Цена (монеты)', 'Иконка', 'ID', 'Действия'],
+            specialTasks: ['Название', 'Описание', 'Тип', 'URL', 'Награда (монеты)', 'Цена (звезды)', 'ID', 'Действия']
         };
 
         const tableHeader = `
@@ -145,7 +144,6 @@ document.addEventListener('DOMContentLoaded', () => {
                              cells = `
                                 <td>${createLocalizedInput(sectionKey, index, 'name', item.name)}</td>
                                 <td>${createInput(sectionKey, index, 'rewardCoins', 'number')}</td>
-                                <td>${createInput(sectionKey, index, 'rewardStars', 'number')}</td>
                                 <td>${createInput(sectionKey, index, 'requiredTaps', 'number')}</td>
                             `;
                             break;
@@ -153,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
                              cells = `
                                 <td>${createLocalizedInput(sectionKey, index, 'name', item.name)}</td>
                                 <td>${createLocalizedTextarea(sectionKey, index, 'description', item.description)}</td>
-                                <td>${createInput(sectionKey, index, 'cost', 'number')}</td>
+                                <td>${createInput(sectionKey, index, 'costCoins', 'number')}</td>
                                 <td>${createInput(sectionKey, index, 'icon')}</td>
                             `;
                             break;
@@ -163,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td>${createLocalizedTextarea(sectionKey, index, 'description', item.description)}</td>
                                 <td>${createSelect(sectionKey, index, 'type', [{value:'telegram_join', label:'Join Telegram'}, {value:'social_follow', label:'Follow Social'}, {value:'video_watch', label:'Watch Video'}])}</td>
                                 <td>${createInput(sectionKey, index, 'url')}</td>
-                                <td>${createInput(sectionKey, index, 'rewardCoins', 'number')} + ${createInput(sectionKey, index, 'rewardStars', 'number')} ⭐</td>
+                                <td>${createInput(sectionKey, index, 'rewardCoins', 'number')}</td>
                                 <td>${createInput(sectionKey, index, 'priceStars', 'number')}</td>
                             `;
                             break;
@@ -253,9 +251,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let newItem = {};
         switch (section) {
             case 'upgrades': newItem = { ...base, price: 0, profitPerHour: 0, category: 'Documents', icon: '🆕' }; break;
-            case 'tasks': newItem = { ...base, rewardCoins: 0, rewardStars: 0, requiredTaps: 0 }; break;
-            case 'boosts': newItem = { ...base, description: { en: '', ua: '', ru: '' }, cost: 0, icon: '🆕' }; break;
-            case 'specialTasks': newItem = { ...base, description: { en: '', ua: '', ru: '' }, type: 'telegram_join', url: 'https://t.me/', rewardCoins: 0, rewardStars: 0, priceStars: 0, isOneTime: true }; break;
+            case 'tasks': newItem = { ...base, rewardCoins: 0, requiredTaps: 0 }; break;
+            case 'boosts': newItem = { ...base, description: { en: '', ua: '', ru: '' }, costCoins: 0, icon: '🆕' }; break;
+            case 'specialTasks': newItem = { ...base, description: { en: '', ua: '', ru: '' }, type: 'telegram_join', url: 'https://t.me/', rewardCoins: 0, priceStars: 0, isOneTime: true }; break;
         }
         localConfig[section].unshift(newItem);
         render();

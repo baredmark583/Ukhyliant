@@ -1,3 +1,4 @@
+
 // This file makes the backend self-contained by providing initial data.
 // It prevents the server from trying to import files from the frontend.
 
@@ -29,11 +30,10 @@ export const INITIAL_SPECIAL_TASKS = [
 ];
 
 export const INITIAL_BOOSTS = [
-    { id: 'boost1', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, icon: '⚡', cost: 1000 },
-    { id: 'boost2', name: { en: 'Turbo Taps (30s)', ua: 'Турбо-тапи (30с)', ru: 'Турбо-тапы (30с)' }, description: { en: 'Multiply coins per tap for 30 seconds.', ua: 'Помножити монети за тап на 30 секунд.', ru: 'Умножить монеты за тап на 30 секунд.' }, icon: '🔥', cost: 2000 },
+    { id: 'boost1', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, icon: '⚡', costCoins: 5000 },
+    { id: 'boost2', name: { en: 'Turbo Taps (30s)', ua: 'Турбо-тапи (30с)', ru: 'Турбо-тапы (30с)' }, description: { en: 'Multiply coins per tap for 30 seconds.', ua: 'Помножити монети за тап на 30 секунд.', ru: 'Умножить монеты за тап на 30 секунд.' }, icon: '🔥', costCoins: 10000 },
 ];
 
 export const REFERRAL_BONUS = 5000;
 export const MAX_ENERGY = 1000;
-export const ENERGY_REGEN_RATE = 2; // per second
 export const ENERGY_REGEN_RATE = 2; // per second

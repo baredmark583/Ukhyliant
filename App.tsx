@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -68,7 +69,7 @@ const MainApp: React.FC = () => {
       case 'friends':
         return <FriendsScreen playerState={playerState} user={user} />;
       case 'boost':
-        return <BoostScreen stars={playerState.balance} boosts={config.boosts} onBuyBoost={buyBoost} lang={lang} />;
+        return <BoostScreen balance={playerState.balance} boosts={config.boosts} onBuyBoost={buyBoost} lang={lang} />;
       case 'tasks':
         return <TasksScreen tasks={config.tasks} playerState={playerState} onClaim={claimTaskReward} lang={lang} />;
       case 'earn':
@@ -137,7 +138,7 @@ const FriendsScreen = ({ playerState, user }: { playerState: PlayerState, user: 
                     <p className="text-gray-400 text-lg">{t('referral_bonus')}</p>
                     <p className="text-3xl font-bold my-2 flex items-center justify-center space-x-2">
                         <span>+{REFERRAL_BONUS.toLocaleString()}</span>
-                        <div className="w-8 h-8"><CoinIcon/></div>
+                        <div className="w-8 h-8 text-yellow-400"><CoinIcon/></div>
                     </p>
                 </div>
                 <button onClick={handleCopyReferral} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95">
@@ -164,7 +165,6 @@ const TasksScreen = ({ tasks, playerState, onClaim, lang }: { tasks: DailyTask[]
                             <h2 className="text-lg font-bold">{task.name[lang]}</h2>
                             <div className="text-sm text-yellow-300 my-2 flex items-center space-x-4">
                                 <span>+ {task.rewardCoins.toLocaleString()} 🪙</span>
-                                <span className="flex items-center space-x-1"><span>+{task.rewardStars}</span> <StarIcon /></span>
                             </div>
                              <div className="w-full bg-gray-700 rounded-full h-2.5 my-2">
                                 <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${(progress / task.requiredTaps) * 100}%` }}></div>
@@ -219,7 +219,6 @@ const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang }: { task
                             <p className="text-sm text-gray-400 my-1">{task.description[lang]}</p>
                             <div className="text-sm text-yellow-300 my-2 flex items-center space-x-4">
                                 <span>+ {task.rewardCoins.toLocaleString()} 🪙</span>
-                                {task.rewardStars > 0 && <span className="flex items-center space-x-1"><span>+{task.rewardStars}</span> <StarIcon /></span>}
                             </div>
                             {button}
                         </div>
@@ -236,5 +235,4 @@ const App: React.FC = () => (
     </AuthProvider>
 );
 
-export default App;
 export default App;

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { League, Upgrade, UpgradeCategory, Boost, DailyTask, LocalizedString, SpecialTask } from './types';
 
@@ -21,11 +22,11 @@ export const MansionIcon = () => <span className="text-2xl" role="img" aria-labe
 export const CrownIcon = () => <span className="text-2xl" role="img" aria-label="crown">👑</span>;
 
 export const CoinIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-full w-full" viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" />
     </svg>
 );
-export const StarIcon = () => <span className="text-yellow-300">⭐</span>;
+export const StarIcon = () => <span className="text-yellow-300">⭐</span>; // For Telegram Stars, not the internal currency
 
 // Nav Icons
 const NavIcon = ({ children, active }: { children: React.ReactNode, active: boolean }) => (
@@ -61,18 +62,18 @@ export const INITIAL_UPGRADES: Upgrade[] = [
 ];
 
 export const INITIAL_TASKS: DailyTask[] = [
-    { id: 'task1', name: { en: 'Tap 500 times', ua: 'Натисни 500 разів', ru: 'Нажми 500 раз' }, rewardCoins: 1000, rewardStars: 5, requiredTaps: 500 },
-    { id: 'task2', name: { en: 'Daily Check-in', ua: 'Щоденний візит', ru: 'Ежедневный визит' }, rewardCoins: 500, rewardStars: 10, requiredTaps: 1 },
+    { id: 'task1', name: { en: 'Tap 500 times', ua: 'Натисни 500 разів', ru: 'Нажми 500 раз' }, rewardCoins: 1000, requiredTaps: 500 },
+    { id: 'task2', name: { en: 'Daily Check-in', ua: 'Щоденний візит', ru: 'Ежедневный визит' }, rewardCoins: 500, requiredTaps: 1 },
 ];
 
 export const INITIAL_SPECIAL_TASKS: SpecialTask[] = [
-    { id: 'special1', name: { en: 'Join Our Channel', ua: 'Приєднайся до каналу', ru: 'Присоединись к каналу' }, description: { en: 'Get a huge bonus for joining our news channel!', ua: 'Отримай великий бонус за підписку на наш канал новин!', ru: 'Получи большой бонус за подписку на наш новостной канал!' }, type: 'telegram_join', url: 'https://t.me/durov', rewardCoins: 100000, rewardStars: 25, priceStars: 5, isOneTime: true },
-    { id: 'special2', name: { en: 'Watch Review', ua: 'Подивись огляд', ru: 'Посмотри обзор' }, description: { en: 'Watch a video review and get rewarded.', ua: 'Подивись відео-огляд та отримай нагороду.', ru: 'Посмотри видео-обзор и получи награду.'}, type: 'video_watch', url: 'https://youtube.com', rewardCoins: 50000, rewardStars: 15, priceStars: 0, isOneTime: true },
+    { id: 'special1', name: { en: 'Join Our Channel', ua: 'Приєднайся до каналу', ru: 'Присоединись к каналу' }, description: { en: 'Get a huge bonus for joining our news channel!', ua: 'Отримай великий бонус за підписку на наш канал новин!', ru: 'Получи большой бонус за подписку на наш новостной канал!' }, type: 'telegram_join', url: 'https://t.me/durov', rewardCoins: 100000, priceStars: 5, isOneTime: true },
+    { id: 'special2', name: { en: 'Watch Review', ua: 'Подивись огляд', ru: 'Посмотри обзор' }, description: { en: 'Watch a video review and get rewarded.', ua: 'Подивись відео-огляд та отримай нагороду.', ru: 'Посмотри видео-обзор и получи награду.'}, type: 'video_watch', url: 'https://youtube.com', rewardCoins: 50000, priceStars: 0, isOneTime: true },
 ];
 
 export const INITIAL_BOOSTS: Boost[] = [
-    { id: 'boost1', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, icon: '⚡', cost: 1000 },
-    { id: 'boost2', name: { en: 'Turbo Taps (30s)', ua: 'Турбо-тапи (30с)', ru: 'Турбо-тапы (30с)' }, description: { en: 'Multiply coins per tap for 30 seconds.', ua: 'Помножити монети за тап на 30 секунд.', ru: 'Умножить монеты за тап на 30 секунд.' }, icon: '🔥', cost: 2000 },
+    { id: 'boost1', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, icon: '⚡', costCoins: 5000 },
+    { id: 'boost2', name: { en: 'Turbo Taps (30s)', ua: 'Турбо-тапи (30с)', ru: 'Турбо-тапы (30с)' }, description: { en: 'Multiply coins per tap for 30 seconds.', ua: 'Помножити монети за тап на 30 секунд.', ru: 'Умножить монеты за тап на 30 секунд.' }, icon: '🔥', costCoins: 10000 },
 ];
 
 
@@ -86,9 +87,9 @@ export const REFERRAL_BONUS = 5000; // Coins for each referral
 // --- TRANSLATIONS ---
 type TranslationKey = 
   | 'exchange' | 'mine' | 'friends' | 'boosts' | 'tasks' | 'admin' | 'player' | 'league'
-  | 'profit_per_hour' | 'energy' | 'stars' | 'mine_upgrades' | 'lvl'
+  | 'profit_per_hour' | 'energy' | 'mine_upgrades' | 'lvl'
   | 'get' | 'level' | 'price' | 'profit' | 'category' | 'icon' | 'actions' | 'save'
-  | 'add_new_upgrade' | 'edit_upgrades' | 'edit_tasks' | 'task_name' | 'reward_coins' | 'reward_stars'
+  | 'add_new_upgrade' | 'edit_upgrades' | 'edit_tasks' | 'task_name' | 'reward_coins'
   | 'required_taps' | 'add_new_task' | 'edit_boosts' | 'boost_name' | 'description' | 'cost' | 'add_new_boost'
   | 'login_with_telegram' | 'login' | 'logout' | 'enter_telegram_id' | 'copy_referral_link' | 'copied'
   | 'claim_reward' | 'completed' | 'earn' | 'special_tasks' | 'unlock_for' | 'go_to_task' | 'claim'
@@ -107,7 +108,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     league: 'League',
     profit_per_hour: 'Profit per hour',
     energy: 'Energy',
-    stars: 'Stars',
     mine_upgrades: 'Mine Upgrades',
     lvl: 'lvl',
     get: 'Get',
@@ -123,7 +123,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     edit_tasks: 'Edit Daily Tasks',
     task_name: 'Task Name',
     reward_coins: 'Reward Coins',
-    reward_stars: 'Reward Stars',
     required_taps: 'Required Taps',
     add_new_task: 'Add New Task',
     edit_boosts: 'Edit Boosts',
@@ -168,7 +167,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     league: 'Ліга',
     profit_per_hour: 'Прибуток на годину',
     energy: 'Енергія',
-    stars: 'Зірки',
     mine_upgrades: 'Покращення',
     lvl: 'рів',
     get: 'Отримати',
@@ -184,7 +182,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     edit_tasks: 'Редагувати щоденні завдання',
     task_name: 'Назва завдання',
     reward_coins: 'Нагорода монетами',
-    reward_stars: 'Нагорода зірками',
     required_taps: 'Необхідно тапів',
     add_new_task: 'Додати нове завдання',
     edit_boosts: 'Редагувати бусти',
@@ -229,7 +226,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     league: 'Лига',
     profit_per_hour: 'Прибыль в час',
     energy: 'Энергия',
-    stars: 'Звёзды',
     mine_upgrades: 'Улучшения',
     lvl: 'ур',
     get: 'Получить',
@@ -245,7 +241,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     edit_tasks: 'Редактировать ежедневные задания',
     task_name: 'Название задания',
     reward_coins: 'Награда монетами',
-    reward_stars: 'Награда звёздами',
     required_taps: 'Необходимо тапов',
     add_new_task: 'Добавить новое задание',
     edit_boosts: 'Редактировать бусты',

@@ -1,3 +1,4 @@
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -17,7 +18,6 @@ import {
     updateUserLanguage,
     unlockSpecialTask,
     completeAndRewardSpecialTask,
-    unlockPaidSpecialTask,
     getAllPlayersForAdmin,
     deletePlayer
 } from './db.js';
@@ -102,7 +102,7 @@ app.post('/api/login', async (req, res) => {
             const now = Date.now();
             player = {
                 balance: 500, energy: MAX_ENERGY, profitPerHour: 0, coinsPerTap: 1, lastLoginTimestamp: now,
-                upgrades: {}, stars: 100, referrals: 0, completedDailyTaskIds: [],
+                upgrades: {}, referrals: 0, completedDailyTaskIds: [],
                 purchasedSpecialTaskIds: [], completedSpecialTaskIds: [],
                 dailyTaps: 0, lastDailyReset: now
             };
@@ -152,30 +152,46 @@ app.post('/api/user/:id/language', async (req, res) => {
 app.post('/api/create-invoice', async (req, res) => {
     try {
         if (!BOT_TOKEN) {
-            return res.status(500).json({ ok: false, error: 'Bot token not configured.' });
+            console.error('SERVER ERROR: BOT_TOKEN is not configured.');
+            return res.status(500).json({ ok: false, error: 'Bot token not configured on server.' });
         }
         const { userId, taskId } = req.body;
+        
         const config = await getConfig();
+        const user = await getUser(userId);
+        
+        if(!user) {
+            return res.status(404).json({ ok: false, error: 'User not found.' });
+        }
+
         const task = config.specialTasks.find(t => t.id === taskId);
         if (!task || task.priceStars <= 0) {
             return res.status(400).json({ ok: false, error: 'Task not found or is free.' });
         }
 
         const payload = `special_task:${userId}:${taskId}`;
+        const userLang = user.language || 'en';
+
         const invoice = {
-            title: task.name.en,
-            description: task.description.en,
+            title: task.name[userLang],
+            description: task.description[userLang],
             payload: payload,
-            currency: 'STARS', // Use Telegram Stars currency
-            prices: [{ label: 'Unlock Task', amount: task.priceStars * 100 }] // amount in hundredths
+            currency: 'XTR',
+            prices: [{ label: task.name[userLang], amount: task.priceStars }]
         };
+
+        console.log(`Creating invoice for user ${userId}, task ${taskId}. Payload:`, JSON.stringify(invoice));
 
         const tgResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(invoice),
         });
-        const data = await tgResponse.json();
+        
+        const responseText = await tgResponse.text();
+        console.log("Response from Telegram API:", responseText);
+
+        const data = JSON.parse(responseText);
         
         if (data.ok) {
             res.json({ ok: true, invoiceLink: data.result });
@@ -203,24 +219,6 @@ app.post('/api/action/unlock-free-task', async (req, res) => {
     }
 });
 
-app.post('/api/action/unlock-paid-task', async (req, res) => {
-    try {
-        const { userId, taskId } = req.body;
-        const config = await getConfig();
-        const task = config.specialTasks.find(t => t.id === taskId);
-        if (!task || task.priceStars <= 0) {
-            return res.status(400).json({ error: 'Task not found or is free.' });
-        }
-        const updatedPlayerState = await unlockPaidSpecialTask(userId, taskId, task.priceStars);
-        if (!updatedPlayerState) {
-            return res.status(400).json({ error: 'Not enough stars or already purchased.' });
-        }
-        res.json(updatedPlayerState);
-    } catch (error) {
-        res.status(500).json({ error: 'Internal server error.' });
-    }
-});
-
 
 app.post('/api/action/complete-task', async (req, res) => {
     try {
@@ -238,7 +236,6 @@ app.post('/api/telegram-webhook', async (req, res) => {
     try {
         const update = req.body;
         if (update.pre_checkout_query) {
-            // Confirm the checkout
             await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerPreCheckoutQuery`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -258,7 +255,7 @@ app.post('/api/telegram-webhook', async (req, res) => {
     } catch (error) {
         console.error('Webhook processing error:', error);
     }
-    res.sendStatus(200); // Always respond 200 to Telegram
+    res.sendStatus(200);
 });
 
 

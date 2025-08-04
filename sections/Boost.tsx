@@ -1,24 +1,30 @@
+
 import React from 'react';
 import { Boost, Language } from '../types';
 import { CoinIcon } from '../constants';
 import { useTranslation } from '../hooks/useGameLogic';
 
 interface BoostProps {
-  stars: number;
+  balance: number;
   boosts: Boost[];
   onBuyBoost: (boost: Boost) => void;
   lang: Language;
 }
 
-const BoostScreen: React.FC<BoostProps> = ({ stars, boosts, onBuyBoost, lang }) => {
+const BoostScreen: React.FC<BoostProps> = ({ balance, boosts, onBuyBoost, lang }) => {
   const t = useTranslation();
 
   return (
     <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
       <h1 className="text-3xl font-bold text-center mb-2">{t('boosts')}</h1>
+      <p className="text-lg text-gray-400 mb-6 flex items-center space-x-2">
+        <span className="w-6 h-6 text-yellow-400"><CoinIcon/></span>
+        <span className="font-bold text-white">{balance.toLocaleString()}</span>
+      </p>
+
       <div className="w-full max-w-md space-y-4 overflow-y-auto no-scrollbar">
         {boosts.map(boost => {
-          const canAfford = stars >= boost.cost; // change to balance >= boost.cost
+          const canAfford = balance >= boost.costCoins;
           return (
             <div key={boost.id} className="bg-gray-800 p-4 rounded-lg flex items-center justify-between">
                 <div className="flex items-center">
@@ -38,8 +44,8 @@ const BoostScreen: React.FC<BoostProps> = ({ stars, boosts, onBuyBoost, lang }) 
                         : 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500'
                     }`}
                 >
-                    <CoinIcon />
-                    <span>{boost.cost}</span>
+                    <div className="w-5 h-5 text-yellow-400"><CoinIcon /></div>
+                    <span>{boost.costCoins.toLocaleString()}</span>
                 </button>
             </div>
           );
@@ -49,11 +55,6 @@ const BoostScreen: React.FC<BoostProps> = ({ stars, boosts, onBuyBoost, lang }) 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
-    </div>
-  );
-};
-
-export default BoostScreen;
     </div>
   );
 };

@@ -1,3 +1,4 @@
+
 import pg from 'pg';
 import { INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, INITIAL_TASKS, INITIAL_UPGRADES, REFERRAL_BONUS } from './constants.js';
 
@@ -113,8 +114,6 @@ export const applyReferralBonus = async (referrerId) => {
         await client.query('ROLLBACK');
         console.error(`Transaction failed for applyReferralBonus for referrer ${referrerId}:`, error);
         throw error;
-    } finally {
-        client.release();
     }
 };
 
@@ -193,7 +192,7 @@ export const getAllPlayersForAdmin = async () => {
         };
     });
 
-    allPlayers.sort((a, b) => b.balance - a.balance);
+    allPlayers.sort((a, b) => (b.balance || 0) - (a.balance || 0));
 
     return allPlayers;
 };
@@ -211,15 +210,4 @@ export const deletePlayer = async (userId) => {
         console.error(`Failed to delete player ${userId}:`, error);
         throw error;
     }
-};
-
-export const unlockPaidSpecialTask = async (userId, taskId, priceStars) => {
-    // Эта функция нужна только для совместимости, если вы используете Telegram Stars — она может быть пустой или просто возвращать null.
-    // Если вы не используете покупку за локальные звезды, а только через Telegram Invoice, можно сделать так:
-    return null;
-};
-export const unlockPaidSpecialTask = async (userId, taskId, priceStars) => {
-    // Эта функция нужна только для совместимости, если вы используете Telegram Stars — она может быть пустой или просто возвращать null.
-    // Если вы не используете покупку за локальные звезды, а только через Telegram Invoice, можно сделать так:
-    return null;
 };

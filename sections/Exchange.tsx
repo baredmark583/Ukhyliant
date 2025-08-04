@@ -1,7 +1,8 @@
+
 import React, { useState, useCallback } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language } from '../types';
-import { MAX_ENERGY, CoinIcon, StarIcon, TELEGRAM_BOT_NAME, MINI_APP_NAME } from '../constants';
+import { MAX_ENERGY, CoinIcon, TELEGRAM_BOT_NAME, MINI_APP_NAME } from '../constants';
 import { useTranslation } from '../hooks/useGameLogic';
 
 interface ExchangeProps {
@@ -28,7 +29,7 @@ interface ClickFx {
 const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user }) => {
   const t = useTranslation();
   const lang = user.language;
-  const { balance, profitPerHour, energy, coinsPerTap, stars } = playerState;
+  const { balance, profitPerHour, energy, coinsPerTap } = playerState;
   const [clicks, setClicks] = useState<ClickFx[]>([]);
   const [scale, setScale] = useState(1);
   const [copied, setCopied] = useState(false);
@@ -86,12 +87,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
       {/* Balance */}
       <div className="flex items-center justify-center space-x-2 my-4">
-        <div className="w-12 h-12"><CoinIcon/></div>
+        <div className="w-12 h-12 text-yellow-400"><CoinIcon/></div>
         <h1 className="text-5xl font-bold tracking-tighter">{Math.floor(balance).toLocaleString()}</h1>
-      </div>
-      <div className="flex items-center justify-center space-x-2 -mt-2">
-        <div className="w-6 h-6"><StarIcon/></div>
-        <h2 className="text-2xl font-bold text-yellow-300">{stars.toLocaleString()}</h2>
       </div>
 
       {/* Clicker Area */}
