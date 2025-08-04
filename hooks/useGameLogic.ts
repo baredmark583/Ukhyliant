@@ -45,6 +45,19 @@ const API = {
           body: JSON.stringify({ language: lang }),
       });
   },
+  
+  purchaseSpecialTask: async (userId: string, taskId: string): Promise<PlayerState | null> => {
+    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
+    const response = await fetch(`${API_BASE_URL}/api/action/purchase-special-task`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, taskId }),
+    });
+    if (!response.ok) {
+        return null;
+    }
+    return response.json();
+  },
 };
 
 // --- AUTH CONTEXT ---
@@ -261,14 +274,22 @@ export const useGame = () => {
         }
     }, [playerState, setPlayerState]);
 
-    const purchaseSpecialTask = useCallback((task: SpecialTask) => {
-        if (!playerState || playerState.stars < task.priceStars || playerState.purchasedSpecialTaskIds.includes(task.id)) return;
-        setPlayerState(p => p ? {
-            ...p,
-            stars: p.stars - task.priceStars,
-            purchasedSpecialTaskIds: [...p.purchasedSpecialTaskIds, task.id]
-        } : null);
-    }, [playerState, setPlayerState]);
+    const purchaseSpecialTask = useCallback(async (task: SpecialTask) => {
+        if (!user || !playerState || playerState.stars < task.priceStars || playerState.purchasedSpecialTaskIds.includes(task.id)) {
+            return;
+        }
+
+        try {
+            const updatedPlayerState = await API.purchaseSpecialTask(user.id, task.id);
+            if (updatedPlayerState) {
+                setPlayerState(updatedPlayerState);
+            } else {
+                console.error("Purchase failed on server.");
+            }
+        } catch (error) {
+            console.error("Error during special task purchase:", error);
+        }
+    }, [user, playerState, setPlayerState]);
 
     const completeSpecialTask = useCallback((task: SpecialTask) => {
         if (!playerState || playerState.completedSpecialTaskIds.includes(task.id) || !playerState.purchasedSpecialTaskIds.includes(task.id)) return;

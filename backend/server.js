@@ -15,7 +15,8 @@ import {
     getUser, 
     createUser, 
     applyReferralBonus, 
-    updateUserLanguage
+    updateUserLanguage,
+    purchaseSpecialTaskForPlayer
 } from './db.js';
 import { ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, MAX_ENERGY, ENERGY_REGEN_RATE } from './constants.js';
 
@@ -41,12 +42,21 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(session({
+
+// Set up session middleware
+const sessionMiddleware = session({
     secret: process.env.SESSION_SECRET || 'default_secret_for_dev',
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: process.env.NODE_ENV === 'production' }
-}));
+    cookie: { 
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        sameSite: 'lax'
+    }
+});
+
+app.use(sessionMiddleware);
+app.set('trust proxy', 1); // Crucial for Render proxy
 
 // Serve static files for the admin panel
 app.use('/admin', express.static(path.join(__dirname, 'public')));
@@ -132,6 +142,27 @@ app.post('/api/player/:id', async (req, res) => {
 app.post('/api/user/:id/language', async (req, res) => {
     await updateUserLanguage(req.params.id, req.body.language);
     res.status(200).send();
+});
+
+// --- GAME ACTIONS API ---
+app.post('/api/action/purchase-special-task', async (req, res) => {
+    try {
+        const { userId, taskId } = req.body;
+        if (!userId || !taskId) {
+            return res.status(400).json({ error: 'User ID and Task ID are required.' });
+        }
+
+        const updatedPlayerState = await purchaseSpecialTaskForPlayer(userId, taskId);
+
+        if (!updatedPlayerState) {
+            return res.status(403).json({ error: 'Purchase failed. Insufficient funds or task already purchased.' });
+        }
+
+        res.json(updatedPlayerState);
+    } catch (error) {
+        console.error('Error purchasing special task:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
 });
 
 

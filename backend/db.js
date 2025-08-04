@@ -1,3 +1,4 @@
+
 import pg from 'pg';
 import { INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, INITIAL_TASKS, INITIAL_UPGRADES, REFERRAL_BONUS } from './constants.js';
 
@@ -88,11 +89,71 @@ export const updateUserLanguage = async (id, language) => {
 }
 
 export const applyReferralBonus = async (referrerId) => {
-    const referrer = await getPlayer(referrerId);
-    if (referrer) {
-        referrer.balance += REFERRAL_BONUS;
-        referrer.referrals = (referrer.referrals || 0) + 1;
-        await savePlayer(referrerId, referrer);
-        console.log(`Applied referral bonus to user ${referrerId}`);
+    const query = `
+        UPDATE players
+        SET data = jsonb_set(
+            jsonb_set(data, '{balance}', (COALESCE((data->'balance')::numeric, 0) + $1)::jsonb),
+            '{referrals}', (COALESCE((data->'referrals')::numeric, 0) + 1)::jsonb
+        )
+        WHERE id = $2
+    `;
+    await executeQuery(query, [REFERRAL_BONUS, referrerId]);
+    console.log(`Applied referral bonus to user ${referrerId}`);
+};
+
+export const purchaseSpecialTaskForPlayer = async (userId, taskId) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) {
+            throw new Error('Player not found');
+        }
+        const player = playerRes.rows[0].data;
+
+        const configRes = await client.query('SELECT value FROM game_config WHERE key = $1', ['default']);
+        const config = configRes.rows[0].value;
+        const task = config.specialTasks.find(t => t.id === taskId);
+
+        if (!task) {
+            throw new Error('Task not found in config');
+        }
+
+        const hasPurchased = player.purchasedSpecialTaskIds?.includes(taskId);
+        if (hasPurchased) {
+            await client.query('ROLLBACK');
+            return null; // Already purchased
+        }
+
+        if (player.stars < task.priceStars) {
+            await client.query('ROLLBACK');
+            return null; // Not enough stars
+        }
+
+        const newStars = player.stars - task.priceStars;
+        const newPurchasedIds = [...(player.purchasedSpecialTaskIds || []), taskId];
+        
+        const updateQuery = `
+            UPDATE players
+            SET data = jsonb_set(
+                jsonb_set(data, '{stars}', $1::jsonb),
+                '{purchasedSpecialTaskIds}', $2::jsonb
+            )
+            WHERE id = $3
+            RETURNING data;
+        `;
+        const updatedPlayerRes = await client.query(updateQuery, [newStars, JSON.stringify(newPurchasedIds), userId]);
+        
+        await client.query('COMMIT');
+        
+        return updatedPlayerRes.rows[0].data;
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Transaction failed in purchaseSpecialTaskForPlayer', error);
+        throw error;
+    } finally {
+        client.release();
     }
-}
+};
