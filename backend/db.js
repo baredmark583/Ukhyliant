@@ -184,13 +184,16 @@ export const completeAndRewardSpecialTask = async (userId, taskId) => {
 // --- Daily Event Functions ---
 export const getDailyEvent = async (date) => {
     const res = await executeQuery('SELECT * FROM daily_events WHERE event_date = $1', [date]);
+    // The `pg` driver automatically parses the JSONB column into a JS object/array.
     return res.rows[0] || null;
 }
 export const saveDailyEvent = async (date, comboIds, cipherWord) => {
-    // Pass the JavaScript array directly. The 'pg' driver correctly serializes it for JSONB columns.
+    // The `pg` driver may interpret a JS array as a PG array literal ('{a,b}'), which is invalid for JSONB.
+    // We must explicitly stringify the array to ensure it's a valid JSON string ('["a","b"]').
+    const comboIdsJson = JSON.stringify(comboIds || []);
     await executeQuery(
         'INSERT INTO daily_events (event_date, combo_ids, cipher_word) VALUES ($1, $2, $3) ON CONFLICT (event_date) DO UPDATE SET combo_ids = $2, cipher_word = $3', 
-        [date, comboIds, cipherWord]
+        [date, comboIdsJson, cipherWord]
     );
 }
 export const claimComboReward = async (userId) => {

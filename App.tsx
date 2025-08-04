@@ -6,6 +6,7 @@ import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
 import { ExchangeIcon, MineIcon, FriendsIcon, BoostIcon, TasksIcon, StarIcon, EarnIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon, MINI_APP_NAME } from './constants';
 import { DailyTask, GameConfig, Language, Upgrade, Boost, SpecialTask, PlayerState, User } from './types';
+import NotificationToast from './components/NotificationToast';
 
 type Screen = 'exchange' | 'mine' | 'friends' | 'boost' | 'tasks' | 'earn';
 
@@ -48,6 +49,7 @@ const MainApp: React.FC = () => {
       claimDailyCombo, claimDailyCipher
   } = useGame();
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const t = useTranslation();
 
   if (!user || !playerState || !config) return <LoadingScreen />;
@@ -55,18 +57,59 @@ const MainApp: React.FC = () => {
   const lang = user.language;
   const languages = ['en', 'ua', 'ru'] as const;
 
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type });
+    // This timeout is just to clear the notification from state.
+    // The component itself handles its disappearance animation.
+    setTimeout(() => {
+        setNotification(prev => (prev?.message === message ? null : prev));
+    }, 3000);
+  };
+
   const handleSwitchLanguage = () => {
       const currentIndex = languages.indexOf(lang);
       const nextIndex = (currentIndex + 1) % languages.length;
       switchLanguage(languages[nextIndex]);
   };
+  
+  const handleBuyUpgrade = async (upgradeId: string) => {
+    const result = await buyUpgrade(upgradeId);
+    if(result) {
+        const upgrade = allUpgrades.find(u => u.id === upgradeId);
+        showNotification(`${upgrade?.name[lang]} Lvl ${result.upgrades[upgradeId]}`);
+    }
+  };
+  
+  const handleClaimCombo = async () => {
+    const oldBalance = playerState.balance;
+    const result = await claimDailyCombo();
+    if(result) {
+        const reward = result.balance - oldBalance;
+        if (reward > 0) {
+          showNotification(`Комбо собрано! +${reward.toLocaleString()}`, 'success');
+        }
+    }
+  };
+
+  const handleClaimCipher = async (cipher: string) => {
+    const oldBalance = playerState.balance;
+    const result = await claimDailyCipher(cipher);
+    if(result) {
+        const reward = result.balance - oldBalance;
+        if (reward > 0) {
+          showNotification(`Шифр разгадан! +${reward.toLocaleString()}`, 'success');
+        }
+    }
+    return !!result;
+  };
+
 
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={claimDailyCipher} config={config} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} />;
       case 'mine':
-        return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={buyUpgrade} lang={lang} playerState={playerState} config={config} onClaimCombo={claimDailyCombo} />;
+        return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={lang} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} />;
       case 'friends':
         return <FriendsScreen playerState={playerState} user={user} />;
       case 'boost':
@@ -76,7 +119,7 @@ const MainApp: React.FC = () => {
       case 'earn':
         return <EarnScreen tasks={config.specialTasks} playerState={playerState} onPurchase={purchaseSpecialTask} onComplete={completeSpecialTask} lang={lang} />;
       default:
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={claimDailyCipher} config={config} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} />;
     }
   };
 
@@ -100,6 +143,8 @@ const MainApp: React.FC = () => {
       <div className="flex-grow h-full w-full overflow-y-auto no-scrollbar">
         {renderScreen()}
       </div>
+      
+      <NotificationToast notification={notification} />
 
       <div className="fixed bottom-0 left-0 right-0 bg-black/50 backdrop-blur-lg border-t border-gray-700/50">
         <div className="flex justify-around items-center max-w-xl mx-auto">

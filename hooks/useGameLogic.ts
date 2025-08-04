@@ -282,23 +282,26 @@ export const useGame = () => {
         });
     }, [playerState, config]);
 
-    const buyUpgrade = useCallback((upgradeId: string) => {
+    const buyUpgrade = useCallback((upgradeId: string): PlayerState | null => {
         const upgrade = allUpgrades.find(u => u.id === upgradeId);
-        if (!upgrade || !playerState || !config || playerState.balance < upgrade.price) return;
+        if (!upgrade || !playerState || !config || playerState.balance < upgrade.price) return null;
 
         window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+        let updatedState: PlayerState | null = null;
         setPlayerState(p => {
             if (!p) return null;
             const newLevel = (p.upgrades[upgradeId] || 0) + 1;
             const newUpgrades = { ...p.upgrades, [upgradeId]: newLevel };
             const newProfitPerHour = calculateProfitPerHour(newUpgrades, config);
-            return {
+            updatedState = {
                 ...p,
                 balance: p.balance - upgrade.price,
                 profitPerHour: newProfitPerHour,
                 upgrades: newUpgrades,
             };
+            return updatedState;
         });
+        return updatedState;
     }, [allUpgrades, playerState, config, calculateProfitPerHour, setPlayerState]);
 
     const handleTap = useCallback(() => {
@@ -361,26 +364,28 @@ export const useGame = () => {
          }
     }, [user, playerState, setPlayerState]);
 
-    const claimDailyCombo = useCallback(async () => {
-        if(!user) return;
+    const claimDailyCombo = useCallback(async (): Promise<PlayerState | null> => {
+        if(!user) return null;
         window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
         const updatedPlayerState = await API.claimCombo(user.id);
         if(updatedPlayerState) {
             setPlayerState(updatedPlayerState);
             window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            return updatedPlayerState;
         }
+        return null;
     }, [user, setPlayerState]);
 
-    const claimDailyCipher = useCallback(async (cipher: string) => {
-        if(!user) return;
+    const claimDailyCipher = useCallback(async (cipher: string): Promise<PlayerState | null> => {
+        if(!user) return null;
         const updatedPlayerState = await API.claimCipher(user.id, cipher);
         if(updatedPlayerState) {
             setPlayerState(updatedPlayerState);
             window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-            return true;
+            return updatedPlayerState;
         }
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-        return false;
+        return null;
     }, [user, setPlayerState]);
 
 
