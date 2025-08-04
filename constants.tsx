@@ -10,6 +10,8 @@ export const MODERATOR_TELEGRAM_IDS: string[] = ['987654321']; // Add moderator 
 
 // --- BOT CONFIGURATION ---
 export const TELEGRAM_BOT_NAME = 'Ukhyliantbot';
+// IMPORTANT: Replace 'app' with the "App Short Name" from BotFather for deep links to work
+export const MINI_APP_NAME = 'app';
 
 
 // --- ICONS ---

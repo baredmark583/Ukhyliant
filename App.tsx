@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
-import { ExchangeIcon, MineIcon, FriendsIcon, BoostIcon, TasksIcon, StarIcon, EarnIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon } from './constants';
+import { ExchangeIcon, MineIcon, FriendsIcon, BoostIcon, TasksIcon, StarIcon, EarnIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon, MINI_APP_NAME } from './constants';
 import { DailyTask, GameConfig, Language, Upgrade, Boost, SpecialTask, PlayerState, User } from './types';
 
 type Screen = 'exchange' | 'mine' | 'friends' | 'boost' | 'tasks' | 'earn';
@@ -120,7 +119,7 @@ const FriendsScreen = ({ playerState, user }: { playerState: PlayerState, user: 
     const [copied, setCopied] = useState(false);
 
     const handleCopyReferral = () => {
-        const referralLink = `https://t.me/${TELEGRAM_BOT_NAME}?start=${user.id}`;
+        const referralLink = `https://t.me/${TELEGRAM_BOT_NAME}/${MINI_APP_NAME}?startapp=${user.id}`;
         navigator.clipboard.writeText(referralLink);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
