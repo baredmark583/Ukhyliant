@@ -1,10 +1,19 @@
-
 // This file makes the backend self-contained by providing initial data.
 // It prevents the server from trying to import files from the frontend.
 
 // --- ROLE MANAGEMENT ---
 export const ADMIN_TELEGRAM_ID = '7327258482'; 
 export const MODERATOR_TELEGRAM_IDS = ['987654321'];
+
+// --- LEAGUES (Backend Safe) ---
+// This is used for calculating leagues on the server-side, e.g., for the leaderboard.
+// It uses simple string icons instead of React components.
+export const LEAGUES = [
+  { name: { en: 'European Baron', ua: 'Європейський Барон', ru: 'Европейский Барон' }, minBalance: 50000000, iconString: '👑' },
+  { name: { en: 'Across the Tisza', ua: 'Переплив Тису', ru: 'Переплыл Тиссу' }, minBalance: 1000000, iconString: '🏰' },
+  { name: { en: 'Grandma\'s Village', ua: 'В селі у бабці', ru: 'В деревне у бабушки' }, minBalance: 50000, iconString: '💼' },
+  { name: { en: 'In The City', ua: 'В місті', ru: 'В городе' }, minBalance: 0, iconString: '🛂' },
+];
 
 
 export const INITIAL_UPGRADES = [

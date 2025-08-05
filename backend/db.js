@@ -1,4 +1,3 @@
-
 import pg from 'pg';
 import { INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, INITIAL_TASKS, INITIAL_UPGRADES, REFERRAL_BONUS } from './constants.js';
 
@@ -435,13 +434,17 @@ export const resetPlayerDailyProgress = async (userId) => {
 
 export const getLeaderboardData = async () => {
     const res = await executeQuery(`
-        SELECT u.id, u.name, p.data->>'profitPerHour' as "profitPerHour"
+        SELECT u.id, u.name, p.data->>'profitPerHour' as "profitPerHour", p.data->>'balance' as "balance"
         FROM users u
         JOIN players p ON u.id = p.id
         ORDER BY (p.data->>'profitPerHour')::numeric DESC
         LIMIT 10;
     `);
-    return res.rows.map(row => ({...row, profitPerHour: parseFloat(row.profitPerHour)}));
+    return res.rows.map(row => ({
+        ...row,
+        profitPerHour: parseFloat(row.profitPerHour),
+        balance: parseFloat(row.balance)
+    }));
 };
 
 export const getTotalPlayerCount = async () => {

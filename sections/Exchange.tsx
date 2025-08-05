@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language, GameConfig } from '../types';
@@ -160,7 +159,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
       {/* Balance */}
       <div className="flex items-center justify-center space-x-2 my-2">
         <div className="w-8 h-8 text-yellow-400"><CoinIcon/></div>
-        <h1 className="text-3xl font-bold tracking-tighter">{formatNumber(balance)}</h1>
+        <h1 className="text-2xl font-bold tracking-tighter">{formatNumber(balance)}</h1>
       </div>
 
       {/* Daily Cipher Section */}

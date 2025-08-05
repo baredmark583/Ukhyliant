@@ -1,4 +1,3 @@
-
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -257,10 +256,12 @@ app.get('/api/leaderboard', async (req, res) => {
             const balance = p.balance || 0;
             const league = LEAGUES.find(l => balance >= l.minBalance) || LEAGUES[LEAGUES.length - 1];
             return {
-                ...p,
+                id: p.id,
+                name: p.name,
+                profitPerHour: p.profitPerHour,
                 leagueName: league.name,
                 leagueIcon: league.iconString
-            }
+            };
         });
 
         res.json({ topPlayers: playersWithLeagues, totalPlayers });
