@@ -21,8 +21,8 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
   
   if (comboIds.length !== 3) return null;
 
-  const ownedComboCards = comboIds.filter(id => (playerState.upgrades[id] || 0) > 0);
-  const allComboCardsOwned = ownedComboCards.length === 3;
+  const upgradedCardsToday = playerState.dailyUpgrades || [];
+  const allComboCardsUpgradedToday = comboIds.every(id => upgradedCardsToday.includes(id));
   const isClaimed = playerState.claimedComboToday;
 
   return (
@@ -31,11 +31,11 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
       <p className="text-center text-gray-300 text-sm mb-4">{t('find_cards')}</p>
       <div className="flex justify-around items-center mb-4">
         {comboIds.map((id, index) => {
-          const isOwned = (playerState.upgrades[id] || 0) > 0;
+          const isUpgradedToday = upgradedCardsToday.includes(id);
           const upgrade = upgrades.find(u => u.id === id);
           return (
             <div key={index} className="w-20 h-20 bg-black/30 rounded-lg flex items-center justify-center text-4xl border-2 border-dashed border-gray-600">
-              {isOwned ? upgrade?.icon : '?'}
+              {isUpgradedToday ? upgrade?.icon : '?'}
             </div>
           );
         })}
@@ -47,7 +47,7 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
       ) : (
         <button 
           onClick={onClaimCombo}
-          disabled={!allComboCardsOwned}
+          disabled={!allComboCardsUpgradedToday}
           className="w-full py-2 rounded-lg font-bold text-white transition-colors disabled:bg-gray-600 disabled:text-gray-400 bg-green-600 hover:bg-green-500"
         >
           {t('claim_reward')}

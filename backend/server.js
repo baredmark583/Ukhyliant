@@ -163,7 +163,8 @@ app.post('/api/login', async (req, res) => {
                 upgrades: {}, referrals: 0, completedDailyTaskIds: [],
                 purchasedSpecialTaskIds: [], completedSpecialTaskIds: [],
                 dailyTaps: 0, lastDailyReset: today,
-                claimedComboToday: false, claimedCipherToday: false
+                claimedComboToday: false, claimedCipherToday: false,
+                dailyUpgrades: []
             };
             await savePlayer(userId, player);
             log('info', `Initial player state created for ${userId}.`);
@@ -189,6 +190,7 @@ app.post('/api/login', async (req, res) => {
                 player.lastDailyReset = today;
                 player.claimedComboToday = false;
                 player.claimedCipherToday = false;
+                player.dailyUpgrades = [];
             }
 
             await savePlayer(userId, player);
@@ -275,6 +277,14 @@ app.post('/api/action/buy-upgrade', async (req, res) => {
         // Apply changes
         player.balance -= currentPrice;
         player.upgrades[upgradeId] = currentLevel + 1;
+
+        // Add to daily upgrades list for combo tracking
+        if (!player.dailyUpgrades) {
+            player.dailyUpgrades = [];
+        }
+        if (!player.dailyUpgrades.includes(upgradeId)) {
+            player.dailyUpgrades.push(upgradeId);
+        }
 
         // Recalculate total profit with consistent logic
         player.profitPerHour = config.upgrades.reduce((total, u) => {

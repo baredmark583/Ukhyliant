@@ -250,21 +250,12 @@ export const claimComboReward = async (userId) => {
             throw new Error('Daily combo is not configured correctly for today.');
         }
 
-        let hasAllCards = true;
-        for (const cardId of comboIds) {
-            if (!cardId) { // Defense against invalid config
-                hasAllCards = false;
-                break;
-            }
-            const playerLevel = player.upgrades?.[cardId] || 0;
-            if (playerLevel <= 0) {
-                hasAllCards = false;
-                break;
-            }
-        }
+        const hasUpgradedAllCardsToday = comboIds.every(id => {
+            return player.dailyUpgrades?.includes(id);
+        });
 
-        if (!hasAllCards) {
-            throw new Error("You haven't purchased all the required combo cards yet.");
+        if (!hasUpgradedAllCardsToday) {
+            throw new Error("Найди и прокачай эти карты сегодня, чтобы забрать награду.");
         }
         
         const rewardAmount = Number(dailyEvent.combo_reward) || 0;

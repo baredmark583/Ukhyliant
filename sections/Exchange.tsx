@@ -184,14 +184,14 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
       {/* Daily Cipher Section */}
        {dailyCipherMorseTarget && (
-          <div className="w-full max-w-sm text-center my-3 p-3 bg-red-900/40 border border-red-500 rounded-lg">
-            <h3 className="font-bold text-lg text-red-200">{t('daily_cipher')}</h3>
+          <div className="w-full max-w-sm text-center my-2 p-2 bg-red-900/40 border border-red-500 rounded-lg">
+            <h3 className="font-bold text-base text-red-200">{t('daily_cipher')}</h3>
             {claimedCipher ? (
               <p className="text-green-400 font-bold">{t('claimed_today')}</p>
             ) : morseMode ? (
               <>
-                <p className="text-gray-300 text-sm my-1">{t('cipher_hint')}</p>
-                <div className="font-mono text-2xl h-8 tracking-widest text-white bg-black/30 rounded-md flex items-center justify-center">
+                <p className="text-gray-300 text-xs my-1">{t('cipher_hint')}</p>
+                <div className="font-mono text-xl h-7 tracking-widest text-white bg-black/30 rounded-md flex items-center justify-center">
                     {morseInput}
                 </div>
                 <button onClick={() => { setMorseMode(false); setMorseInput(''); if(resetMorseTimer.current) clearTimeout(resetMorseTimer.current); }} className="text-xs text-gray-300 hover:text-white mt-2">
@@ -217,14 +217,14 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
         onMouseLeave={pressTimer.current ? handlePressEnd : undefined} // Handle case where user drags finger/mouse off
       >
         <div 
-            className="w-full h-full prevent-select"
+            className="w-full h-full"
             style={{ transform: `scale(${scale})`, transition: 'transform 0.1s ease' }}
         >
           <img 
             src={coinSvg} 
             alt="Clickable Coin" 
             draggable="false"
-            className="w-full h-full transform transition-transform duration-200"
+            className="w-full h-full pointer-events-none"
           />
         </div>
         {clicks.map(click => (
@@ -248,20 +248,6 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
           icon={<span className="text-xl">⚡</span>}
         />
       </div>
-       <style>{`
-        .prevent-select {
-          -webkit-touch-callout: none; /* iOS Safari */
-          -webkit-user-select: none; /* Safari */
-          -khtml-user-select: none; /* Konqueror HTML */
-          -moz-user-select: none; /* Old versions of Firefox */
-          -ms-user-select: none; /* Internet Explorer/Edge */
-          user-select: none; /* Non-prefixed version */
-        }
-        @keyframes floatUp {
-          0% { transform: translateY(0); opacity: 1; }
-          100% { transform: translateY(-50px); opacity: 0; }
-        }
-      `}</style>
     </div>
   );
 };

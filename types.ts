@@ -96,4 +96,5 @@ export interface PlayerState {
   // New properties for daily events
   claimedComboToday: boolean;
   claimedCipherToday: boolean;
+  dailyUpgrades: string[];
 }
