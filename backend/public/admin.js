@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     let localConfig = {};
     let allPlayers = [];
@@ -65,8 +64,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <ul class="space-y-3">
                         ${(dashboardStats.popularUpgrades || []).map(upg => {
                             const upgradeDetails = localConfig.upgrades?.find(u => u.id === upg.upgrade_id);
+                            const iconHtml = upgradeDetails?.iconUrl ? `<img src="${upgradeDetails.iconUrl}" alt="" class="w-6 h-6 inline-block mr-2" />` : '❓';
                             return `<li class="flex justify-between items-center text-gray-300 hover:bg-gray-600/50 p-2 rounded-md transition-colors">
-                                <span>${upgradeDetails?.icon || '❓'} ${upgradeDetails?.name?.ru || upgradeDetails?.name?.en || upg.upgrade_id}</span>
+                                <span class="flex items-center">${iconHtml} ${upgradeDetails?.name?.ru || upgradeDetails?.name?.en || upg.upgrade_id}</span>
                                 <span class="font-bold text-white">${formatNumber(upg.purchase_count)} покупок</span>
                             </li>`;
                         }).join('') || '<p class="text-gray-400">Нет данных</p>'}
@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${[0, 1, 2].map(i => `
                                 <select data-event="combo" data-index="${i}" class="w-full bg-gray-600 p-3 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
                                     <option value="">-- Выберите карту ${i + 1} --</option>
-                                    ${localConfig.upgrades?.map(u => `<option value="${u.id}" ${dailyEvent.combo_ids?.[i] === u.id ? 'selected' : ''}>${u.icon} ${u.name.ru || u.name.en}</option>`).join('')}
+                                    ${localConfig.upgrades?.map(u => `<option value="${u.id}" ${dailyEvent.combo_ids?.[i] === u.id ? 'selected' : ''}>${u.name.ru || u.name.en}</option>`).join('')}
                                 </select>
                             `).join('')}
                         </div>
@@ -211,10 +211,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     fieldsHTML += createInput(sectionKey, index, 'price', 'number');
                     fieldsHTML += createInput(sectionKey, index, 'profitPerHour', 'number');
                     fieldsHTML += createSelect(sectionKey, index, 'category', ['Documents', 'Legal', 'Lifestyle', 'Special']);
-                    fieldsHTML += createInput(sectionKey, index, 'icon');
+                    fieldsHTML += createInput(sectionKey, index, 'iconUrl', 'text', false, 'https://.../img.svg');
                 } else if (sectionKey === 'boosts') {
                     fieldsHTML += createInput(sectionKey, index, 'costCoins', 'number');
-                    fieldsHTML += createInput(sectionKey, index, 'icon');
+                    fieldsHTML += createInput(sectionKey, index, 'iconUrl', 'text', false, 'https://.../img.svg');
                 } else if (isTask) {
                     const taskTypes = ['taps', 'telegram_join', 'social_follow', 'video_watch', 'video_code'];
                     fieldsHTML += createSelect(sectionKey, index, 'type', taskTypes);

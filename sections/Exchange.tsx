@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language, GameConfig } from '../types';
-import { MAX_ENERGY, CoinIcon } from '../constants';
-import { useTranslation } from '../hooks/useGameLogic';
+import { MAX_ENERGY, COIN_ICON_URL, NAV_ICON_URLS } from '../constants';
+import { useTranslation, useAuth } from '../hooks/useGameLogic';
 import coinSvg from '../assets/coin.svg';
 
 const MORSE_CODE_MAP: { [key: string]: string } = {
@@ -143,7 +143,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
       {/* Top Section: League Icon & Profit/hr */}
       <div className="w-full flex justify-between items-start">
         <button onClick={onOpenLeaderboard} className="flex flex-col items-center bg-gray-800/50 p-2 rounded-lg w-20 h-20 justify-center">
-            <div className="text-4xl">{currentLeague.icon}</div>
+            <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-12 h-12" />
         </button>
         <div className="flex-grow flex items-center justify-between bg-gray-800/50 p-2 rounded-lg mx-2">
             <div className="flex flex-col items-start">
@@ -158,7 +158,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
       {/* Balance */}
       <div className="flex items-center justify-center space-x-2 my-2">
-        <div className="w-8 h-8 text-yellow-400"><CoinIcon/></div>
+        <img src={COIN_ICON_URL} alt="coin" className="w-8 h-8"/>
         <h1 className="text-2xl font-bold tracking-tighter">{formatNumber(balance)}</h1>
       </div>
 
@@ -231,8 +231,5 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
     </div>
   );
 };
-
-// Re-add useAuth here as it's used internally by the component
-import { useAuth } from '../hooks/useGameLogic';
 
 export default ExchangeScreen;

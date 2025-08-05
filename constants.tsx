@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { League, Upgrade, UpgradeCategory, Boost, DailyTask, LocalizedString, SpecialTask } from './types';
 
@@ -16,49 +15,35 @@ export const MINI_APP_NAME = 'ukhyliant_game';
 
 
 // --- ICONS ---
-export const PassportIcon = () => <span className="text-2xl" role="img" aria-label="passport">🛂</span>;
-export const BriefcaseIcon = () => <span className="text-2xl" role="img" aria-label="briefcase">💼</span>;
-export const MansionIcon = () => <span className="text-2xl" role="img" aria-label="mansion">🏰</span>;
-export const CrownIcon = () => <span className="text-2xl" role="img" aria-label="crown">👑</span>;
-
-export const CoinIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-full w-full" viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" />
-    </svg>
-);
-export const StarIcon = () => <span className="text-yellow-300">⭐</span>; // For Telegram Stars, not the internal currency
-
-// Nav Icons
-const NavIcon = ({ children, active }: { children: React.ReactNode, active: boolean }) => (
-    <span className={`text-3xl ${active ? 'text-white' : 'text-gray-500'}`}>{children}</span>
-);
-export const ExchangeIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>💸</NavIcon>;
-export const MineIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>⛏️</NavIcon>;
-export const FriendsIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>🧑‍🤝‍🧑</NavIcon>;
-export const BoostIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>🚀</NavIcon>;
-export const TasksIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>📋</NavIcon>;
-export const EarnIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>💰</NavIcon>;
-export const AdminIcon = ({ active }: { active: boolean }) => <NavIcon active={active}>⚙️</NavIcon>;
+export const COIN_ICON_URL = `data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23FBBF24'%3e%3cpath fill-rule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z' clip-rule='evenodd' /%3e%3c/svg%3e`;
+export const STAR_ICON_URL = `data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23FBBF24'%3e%3cpath d='M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z'/%3e%3c/svg%3e`;
+export const NAV_ICON_URLS = {
+    exchange: 'https://api.iconify.design/ph/chart-line-up-bold.svg?color=white',
+    mine: 'https://api.iconify.design/ph/hammer-bold.svg?color=white',
+    friends: 'https://api.iconify.design/ph/users-three-bold.svg?color=white',
+    earn: 'https://api.iconify.design/ph/star-bold.svg?color=white',
+    boost: 'https://api.iconify.design/ph/rocket-launch-bold.svg?color=white'
+};
 
 
 // --- GAME CONFIGURATION ---
 export const LEAGUES: League[] = [
-  { name: { en: 'In The City', ua: 'В місті', ru: 'В городе' }, minBalance: 0, icon: <PassportIcon /> },
-  { name: { en: 'Grandma\'s Village', ua: 'В селі у бабці', ru: 'В деревне у бабушки' }, minBalance: 50000, icon: <BriefcaseIcon /> },
-  { name: { en: 'Across the Tisza', ua: 'Переплив Тису', ru: 'Переплыл Тиссу' }, minBalance: 1000000, icon: <MansionIcon /> },
-  { name: { en: 'European Baron', ua: 'Європейський Барон', ru: 'Европейский Барон' }, minBalance: 50000000, icon: <CrownIcon /> },
+  { name: { en: 'In The City', ua: 'В місті', ru: 'В городе' }, minBalance: 0, iconUrl: 'https://api.iconify.design/twemoji/passport-control.svg' },
+  { name: { en: 'Grandma\'s Village', ua: 'В селі у бабці', ru: 'В деревне у бабушки' }, minBalance: 50000, iconUrl: 'https://api.iconify.design/twemoji/briefcase.svg' },
+  { name: { en: 'Across the Tisza', ua: 'Переплив Тису', ru: 'Переплыл Тиссу' }, minBalance: 1000000, iconUrl: 'https://api.iconify.design/twemoji/european-castle.svg' },
+  { name: { en: 'European Baron', ua: 'Європейський Барон', ru: 'Европейский Барон' }, minBalance: 50000000, iconUrl: 'https://api.iconify.design/twemoji/crown.svg' },
 ].reverse();
 
 export const INITIAL_UPGRADES: Upgrade[] = [
-    { id: 'doc1', name: { en: 'Student ID', ua: 'Студентський квиток', ru: 'Студенческий билет' }, price: 100, profitPerHour: 10, category: UpgradeCategory.Documents, icon: '🎓' },
-    { id: 'doc2', name: { en: 'Disability Certificate', ua: 'Довідка про інвалідність', ru: 'Справка об инвалидности' }, price: 1500, profitPerHour: 80, category: UpgradeCategory.Documents, icon: '♿' },
-    { id: 'doc3', name: { en: 'White Ticket', ua: 'Білий квиток', ru: 'Белый билет' }, price: 10000, profitPerHour: 500, category: UpgradeCategory.Documents, icon: '📄' },
-    { id: 'leg1', name: { en: 'Lawyer Consultation', ua: 'Консультація адвоката', ru: 'Консультация адвоката' }, price: 500, profitPerHour: 25, category: UpgradeCategory.Legal, icon: '⚖️' },
-    { id: 'leg2', name: { en: 'Open a Fake Company', ua: 'Відкрити фіктивну фірму', ru: 'Открыть фиктивную фирму' }, price: 5000, profitPerHour: 200, category: UpgradeCategory.Legal, icon: '🏢' },
-    { id: 'life1', name: { en: 'Hide in the Village', ua: 'Сховатись в селі', ru: 'Спрятаться в деревне' }, price: 2000, profitPerHour: 100, category: UpgradeCategory.Lifestyle, icon: '🛖' },
-    { id: 'life2', name: { en: 'Rent a Bunker', ua: 'Орендувати бункер', ru: 'Арендовать бункер' }, price: 25000, profitPerHour: 1100, category: UpgradeCategory.Lifestyle, icon: '🔒' },
-    { id: 'spec1', name: { en: 'Border Crossing', ua: 'Перетин кордону', ru: 'Пересечение границы' }, price: 100000, profitPerHour: 4000, category: UpgradeCategory.Special, icon: '🗺️' },
-    { id: 'spec2', name: { en: 'New Identity', ua: 'Нова особистість', ru: 'Новая личность' }, price: 500000, profitPerHour: 20000, category: UpgradeCategory.Special, icon: '🎭' },
+    { id: 'doc1', name: { en: 'Student ID', ua: 'Студентський квиток', ru: 'Студенческий билет' }, price: 100, profitPerHour: 10, category: UpgradeCategory.Documents, iconUrl: 'https://api.iconify.design/twemoji/graduation-cap.svg' },
+    { id: 'doc2', name: { en: 'Disability Certificate', ua: 'Довідка про інвалідність', ru: 'Справка об инвалидности' }, price: 1500, profitPerHour: 80, category: UpgradeCategory.Documents, iconUrl: 'https://api.iconify.design/twemoji/wheelchair-symbol.svg' },
+    { id: 'doc3', name: { en: 'White Ticket', ua: 'Білий квиток', ru: 'Белый билет' }, price: 10000, profitPerHour: 500, category: UpgradeCategory.Documents, iconUrl: 'https://api.iconify.design/twemoji/page-facing-up.svg' },
+    { id: 'leg1', name: { en: 'Lawyer Consultation', ua: 'Консультація адвоката', ru: 'Консультация адвоката' }, price: 500, profitPerHour: 25, category: UpgradeCategory.Legal, iconUrl: 'https://api.iconify.design/twemoji/balance-scale.svg' },
+    { id: 'leg2', name: { en: 'Open a Fake Company', ua: 'Відкрити фіктивну фірму', ru: 'Открыть фиктивную фирму' }, price: 5000, profitPerHour: 200, category: UpgradeCategory.Legal, iconUrl: 'https://api.iconify.design/twemoji/office-building.svg' },
+    { id: 'life1', name: { en: 'Hide in the Village', ua: 'Сховатись в селі', ru: 'Спрятаться в деревне' }, price: 2000, profitPerHour: 100, category: UpgradeCategory.Lifestyle, iconUrl: 'https://api.iconify.design/twemoji/hut.svg' },
+    { id: 'life2', name: { en: 'Rent a Bunker', ua: 'Орендувати бункер', ru: 'Арендовать бункер' }, price: 25000, profitPerHour: 1100, category: UpgradeCategory.Lifestyle, iconUrl: 'https://api.iconify.design/twemoji/locked.svg' },
+    { id: 'spec1', name: { en: 'Border Crossing', ua: 'Перетин кордону', ru: 'Пересечение границы' }, price: 100000, profitPerHour: 4000, category: UpgradeCategory.Special, iconUrl: 'https://api.iconify.design/twemoji/world-map.svg' },
+    { id: 'spec2', name: { en: 'New Identity', ua: 'Нова особистість', ru: 'Новая личность' }, price: 500000, profitPerHour: 20000, category: UpgradeCategory.Special, iconUrl: 'https://api.iconify.design/twemoji/performing-arts.svg' },
 ];
 
 export const INITIAL_TASKS: DailyTask[] = [
@@ -73,8 +58,8 @@ export const INITIAL_SPECIAL_TASKS: SpecialTask[] = [
 ];
 
 export const INITIAL_BOOSTS: Boost[] = [
-    { id: 'boost1', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, icon: '⚡', costCoins: 5000 },
-    { id: 'boost2', name: { en: 'Turbo Taps (30s)', ua: 'Турбо-тапи (30с)', ru: 'Турбо-тапы (30с)' }, description: { en: 'Multiply coins per tap for 30 seconds.', ua: 'Помножити монети за тап на 30 секунд.', ru: 'Умножить монеты за тап на 30 секунд.' }, icon: '🔥', costCoins: 10000 },
+    { id: 'boost1', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, iconUrl: 'https://api.iconify.design/twemoji/high-voltage.svg', costCoins: 5000 },
+    { id: 'boost2', name: { en: 'Turbo Taps (30s)', ua: 'Турбо-тапи (30с)', ru: 'Турбо-тапы (30с)' }, description: { en: 'Multiply coins per tap for 30 seconds.', ua: 'Помножити монети за тап на 30 секунд.', ru: 'Умножить монеты за тап на 30 секунд.' }, iconUrl: 'https://api.iconify.design/twemoji/fire.svg', costCoins: 10000 },
 ];
 
 
@@ -98,7 +83,7 @@ type TranslationKey =
   | 'telegram_join' | 'social_follow' | 'video_watch' | 'referral_bonus' | 'your_referrals' | 'invite_friends'
   // Daily Events
   | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today'
-  | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'leaderboard' | 'your_league' | 'total_players';
+  | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard' | 'your_league' | 'total_players';
 
 export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
   en: {
@@ -167,6 +152,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     enter_morse_mode: 'Enter Code',
     cancel_morse_mode: 'Cancel',
     enter_secret_code: 'Enter Secret Code',
+    check: 'Check',
     leaderboard: 'Leaderboard',
     your_league: 'Your League',
     total_players: 'Total Players',
@@ -237,6 +223,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     enter_morse_mode: 'Ввести код',
     cancel_morse_mode: 'Скасувати',
     enter_secret_code: 'Введіть секретний код',
+    check: 'Перевірити',
     leaderboard: 'Таблиця лідерів',
     your_league: 'Ваша ліга',
     total_players: 'Всього гравців',
@@ -307,6 +294,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     enter_morse_mode: 'Ввести код',
     cancel_morse_mode: 'Отмена',
     enter_secret_code: 'Введите секретный код',
+    check: 'Проверить',
     leaderboard: 'Таблица лидеров',
     your_league: 'Ваша лига',
     total_players: 'Всего игроков',

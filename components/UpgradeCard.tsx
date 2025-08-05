@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Upgrade, LocalizedString, Language } from '../types';
-import { CoinIcon } from '../constants';
+import { Upgrade, Language } from '../types';
+import { COIN_ICON_URL } from '../constants';
 
 interface UpgradeCardProps {
   upgrade: Upgrade & { level: number };
@@ -33,7 +33,9 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
       }`}
     >
       <div className="flex items-center space-x-3">
-        <div className="bg-gray-700/50 p-2.5 rounded-lg text-4xl">{upgrade.icon}</div>
+        <div className="bg-gray-700/50 p-2 rounded-lg w-16 h-16 flex-shrink-0">
+          <img src={upgrade.iconUrl} alt={upgrade.name[lang]} className="w-full h-full object-contain" />
+        </div>
         <div>
           <p className="text-white text-left text-base font-semibold">{upgrade.name[lang]}</p>
           <div className="text-gray-400 text-xs text-left mt-1">
@@ -44,9 +46,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
         </div>
       </div>
       <div className="flex items-center space-x-2">
-         <div className="text-yellow-400 h-5 w-5">
-            <CoinIcon/>
-        </div>
+         <img src={COIN_ICON_URL} alt="coin" className="w-5 h-5"/>
         <span className="text-white font-bold text-sm">{formatNumber(upgrade.price)}</span>
       </div>
     </button>

@@ -260,7 +260,7 @@ app.get('/api/leaderboard', async (req, res) => {
                 name: p.name,
                 profitPerHour: p.profitPerHour,
                 leagueName: league.name,
-                leagueIcon: league.iconString
+                leagueIconUrl: league.iconUrl
             };
         });
 
@@ -302,7 +302,11 @@ app.post('/api/action/buy-upgrade', async (req, res) => {
 
         const baseProfitFromUpgrades = config.upgrades.reduce((total, u) => {
             const level = player.upgrades[u.id] || 0;
-            return total + (u.profitPerHour * level);
+            if (level > 0) {
+                 const profit = u.profitPerHour * level; // Simplified profit calculation
+                 return total + profit;
+            }
+            return total;
         }, 0);
         player.profitPerHour = baseProfitFromUpgrades + (player.tasksProfitPerHour || 0);
 
@@ -333,10 +337,18 @@ app.post('/api/action/claim-task', async (req, res) => {
 });
 
 app.post('/api/create-invoice', async (req, res) => {
-    // ... (logic remains the same)
+     // Not implemented for this example
 });
 app.post('/api/action/unlock-free-task', async (req, res) => {
-    // ... (logic remains the same)
+    const { userId, taskId } = req.body;
+    log('info', `Unlocking free special task ${taskId} for user ${userId}`);
+    try {
+         const updatedPlayerState = await unlockSpecialTask(userId, taskId);
+         res.json(updatedPlayerState);
+    } catch (error) {
+        log('error', `Failed to unlock free task ${taskId} for user ${userId}`, error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
 });
 app.post('/api/action/complete-task', async (req, res) => {
     const { userId, taskId, code } = req.body;
@@ -350,53 +362,157 @@ app.post('/api/action/complete-task', async (req, res) => {
     }
 });
 app.post('/api/action/claim-combo', async (req, res) => {
-    // ... (logic remains the same)
+     const { userId } = req.body;
+    try {
+        const result = await claimComboReward(userId);
+        res.json(result);
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
 });
 app.post('/api/action/claim-cipher', async (req, res) => {
-    // ... (logic remains the same)
+    const { userId, cipher } = req.body;
+    try {
+        const result = await claimCipherReward(userId, cipher);
+        res.json(result);
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
 });
 
 // --- TELEGRAM WEBHOOK ---
-// ... (logic remains the same)
+// Webhook logic would go here if needed.
 
 // --- ADMIN WEB PANEL ROUTES ---
-// ... (logic remains the same)
+app.get('/admin/', isAdminAuthenticated, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.post('/admin/login', async (req, res) => {
+    const { password } = req.body;
+    if (password === process.env.ADMIN_PASSWORD) {
+        req.session.isAdmin = true;
+        log('info', `Admin login successful from IP: ${req.ip}`);
+        res.redirect('/admin/');
+    } else {
+        log('warn', `Failed admin login attempt from IP: ${req.ip}`);
+        res.status(401).send('Authentication failed. <a href="/admin/login.html">Try again</a>');
+    }
+});
+
+app.get('/admin/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            log('error', 'Failed to destroy session during logout', err);
+            return res.status(500).send('Could not log out.');
+        }
+        res.redirect('/admin/login.html');
+    });
+});
 
 
 // --- ADMIN API (PROTECTED) ---
-app.get('/admin/api/dashboard-stats', async (req, res) => {
-    // ... (logic remains the same)
+const adminApiRouter = express.Router();
+adminApiRouter.use(isAdminAuthenticated); // Protect all routes in this router
+
+adminApiRouter.get('/dashboard-stats', async (req, res) => {
+    try {
+        const stats = await getDashboardStats();
+        res.json(stats);
+    } catch(e) {
+        log('error', 'Failed to get dashboard stats', e);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
-app.get('/admin/api/daily-events', async (req, res) => {
-    // ... (logic remains the same)
+adminApiRouter.get('/daily-events', async (req, res) => {
+    try {
+        const event = await getDailyEvent(getTodayDate());
+        res.json(event);
+    } catch(e) {
+        log('error', 'Failed to get daily events', e);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
-app.post('/admin/api/daily-events', async (req, res) => {
-    // ... (logic remains the same)
+adminApiRouter.post('/daily-events', async (req, res) => {
+    const { comboIds, cipherWord, comboReward, cipherReward } = req.body;
+    try {
+        await saveDailyEvent(getTodayDate(), comboIds, cipherWord, comboReward, cipherReward);
+        res.json({ message: 'События дня сохранены!' });
+    } catch(e) {
+        log('error', 'Failed to save daily events', e);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
-app.get('/admin/api/players', async (req, res) => {
-    // ... (logic remains the same)
+adminApiRouter.get('/players', async (req, res) => {
+    try {
+        const players = await getAllPlayersForAdmin();
+        res.json(players);
+    } catch(e) {
+        log('error', 'Failed to get players list', e);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
-app.delete('/admin/api/player/:id', async (req, res) => {
-    // ... (logic remains the same)
+adminApiRouter.delete('/player/:id', async (req, res) => {
+    const userId = req.params.id;
+    log('info', `Attempting to delete player ${userId} from admin panel.`);
+    try {
+        await deletePlayer(userId);
+        res.json({ message: `Player ${userId} deleted.` });
+    } catch (e) {
+        log('error', `Failed to delete player ${userId} from admin panel.`, e);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
-app.post('/admin/api/player/:id/reset-daily', async (req, res) => {
-    // ... (logic remains the same)
+adminApiRouter.post('/player/:id/reset-daily', async (req, res) => {
+    const userId = req.params.id;
+    log('info', `Attempting to reset daily progress for ${userId}`);
+    try {
+        await resetPlayerDailyProgress(userId);
+        res.json({ message: 'Daily progress reset successfully.' });
+    } catch (e) {
+        log('error', `Failed to reset daily progress for ${userId}`, e);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
-app.get('/admin/api/config', async (req, res) => {
-    // ... (logic remains the same)
+adminApiRouter.get('/config', async (req, res) => {
+    try {
+        const config = await getConfig();
+        res.json(config);
+    } catch(e) {
+        log('error', 'Failed to get config', e);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
-app.post('/admin/api/config', async (req, res) => {
-    // ... (logic remains the same)
+adminApiRouter.post('/config', async (req, res) => {
+    const { config } = req.body;
+    try {
+        await saveConfig(config);
+        res.json({ message: 'Config saved' });
+    } catch(e) {
+        log('error', 'Failed to save config', e);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
-app.post('/admin/api/translate', async (req, res) => {
-    // ... (logic remains the same)
+adminApiRouter.post('/translate', async (req, res) => {
+    if (!ai) return res.status(503).json({ error: "Translation service is not configured." });
+    const { text, from, to } = req.body;
+    try {
+        const prompt = `Translate the following text from ${from} to ${to}: "${text}"`;
+        const result = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt});
+        const translatedText = result.text;
+        res.json({ translatedText });
+    } catch (e) {
+        log('error', 'Translation API call failed', e);
+        res.status(500).json({ error: 'Failed to translate text.' });
+    }
 });
+
+app.use('/admin/api', adminApiRouter);
 
 
 // --- SERVER INITIALIZATION ---
-// ... (all logic from previous version is correct here)
 const startServer = async () => {
     try {
         if (!process.env.SESSION_SECRET || !process.env.ADMIN_PASSWORD || !process.env.DATABASE_URL) {

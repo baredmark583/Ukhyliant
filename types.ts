@@ -19,7 +19,7 @@ export interface User {
 export interface League {
   name: LocalizedString;
   minBalance: number;
-  icon: React.ReactNode;
+  iconUrl: string;
 }
 
 export enum UpgradeCategory {
@@ -35,7 +35,7 @@ export interface Upgrade {
   price: number;
   profitPerHour: number;
   category: UpgradeCategory;
-  icon: string;
+  iconUrl: string;
   level?: number;
 }
 
@@ -43,7 +43,7 @@ export interface Boost {
   id: string;
   name: LocalizedString;
   description: LocalizedString;
-  icon: string;
+  iconUrl: string;
   costCoins: number; // Cost in coins
 }
 
@@ -118,5 +118,5 @@ export interface LeaderboardPlayer {
     name: string;
     profitPerHour: number;
     leagueName: LocalizedString;
-    leagueIcon: string; // Can be a character or an identifier
+    leagueIconUrl: string;
 }
