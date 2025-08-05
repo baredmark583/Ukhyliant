@@ -31,6 +31,20 @@ import { ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, MAX_ENERGY, ENERGY_REGEN_RAT
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// --- Simple Logger ---
+const log = (level, message, data = '') => {
+    const timestamp = new Date().toISOString();
+    const formattedMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
+    if (level === 'error') {
+        if (data) console.error(formattedMessage, data);
+        else console.error(formattedMessage);
+    } else {
+        if (data) console.log(formattedMessage, data);
+        else console.log(formattedMessage);
+    }
+};
+
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -40,7 +54,7 @@ let ai;
 if (geminiApiKey) {
     ai = new GoogleGenAI({ apiKey: geminiApiKey });
 } else {
-    console.warn("GEMINI_API_KEY not found. Translation will be disabled.");
+    log("warn", "GEMINI_API_KEY not found. Translation will be disabled.");
 }
 
 // Middlewares
@@ -76,6 +90,7 @@ const isAdminAuthenticated = (req, res, next) => {
     if (req.session.isAdmin) {
         next();
     } else {
+        log('warn', `Unauthorized attempt to access admin area from IP: ${req.ip}`);
         res.redirect('/admin/login.html');
     }
 };
@@ -100,7 +115,7 @@ const parseComboIds = (event) => {
             const parsed = JSON.parse(event.combo_ids);
             return Array.isArray(parsed) ? parsed : [];
         } catch (e) {
-            console.warn('Could not parse combo_ids string from DB:', event.combo_ids);
+            log('warn', 'Could not parse combo_ids string from DB:', event.combo_ids);
             return [];
         }
     }
@@ -112,13 +127,16 @@ const parseComboIds = (event) => {
 app.get('/', (req, res) => res.send('Ukhyliant Clicker Backend is running!'));
 
 app.post('/api/login', async (req, res) => {
+    log('info', 'Received /api/login request');
     try {
         const { tgUser, startParam } = req.body;
         if (!tgUser || !tgUser.id) {
+            log('warn', 'Login attempt with invalid Telegram user data.', req.body);
             return res.status(400).json({ error: "Invalid Telegram user data." });
         }
         
         const userId = tgUser.id.toString();
+        log('info', `Processing login for user ID: ${userId}`);
         
         // --- DATA FETCHING ---
         const baseConfig = await getConfig();
@@ -131,12 +149,14 @@ app.post('/api/login', async (req, res) => {
 
         // --- PLAYER & USER LOGIC ---
         if (!user) { // New user
+            log('info', `New user detected: ${userId}. Creating profile.`);
             const referrerId = (startParam && startParam !== userId) ? startParam : null;
             let lang = 'en';
             if (tgUser.language_code === 'ua' || tgUser.language_code === 'uk') lang = 'ua';
             if (tgUser.language_code === 'ru') lang = 'ru';
 
             user = await createUser(userId, tgUser.first_name, lang);
+            log('info', `User profile created for ${userId}. Language: ${lang}`);
             
             player = {
                 balance: 500, energy: MAX_ENERGY, profitPerHour: 0, coinsPerTap: 1, lastLoginTimestamp: now,
@@ -146,11 +166,14 @@ app.post('/api/login', async (req, res) => {
                 claimedComboToday: false, claimedCipherToday: false
             };
             await savePlayer(userId, player);
+            log('info', `Initial player state created for ${userId}.`);
             
             if (referrerId) {
+                log('info', `Applying referral bonus. Referrer: ${referrerId}, New User: ${userId}`);
                 await applyReferralBonus(referrerId);
             }
         } else { // Existing user
+            log('info', `Existing user login: ${userId}. Calculating offline progress.`);
             const offlineSeconds = Math.floor((now - player.lastLoginTimestamp) / 1000);
             const offlineEarnings = (player.profitPerHour / 3600) * offlineSeconds;
             
@@ -160,6 +183,7 @@ app.post('/api/login', async (req, res) => {
 
             // Reset daily progress if it's a new day
             if(player.lastDailyReset < today) {
+                log('info', `New day detected for user ${userId}. Resetting daily progress.`);
                 player.dailyTaps = 0;
                 player.completedDailyTaskIds = [];
                 player.lastDailyReset = today;
@@ -168,6 +192,7 @@ app.post('/api/login', async (req, res) => {
             }
 
             await savePlayer(userId, player);
+            log('info', `User ${userId} state updated. Offline earnings: ${offlineEarnings.toFixed(2)}`);
         }
 
         // --- RESPONSE ASSEMBLY ---
@@ -188,21 +213,24 @@ app.post('/api/login', async (req, res) => {
             dailyEvent: dailyEvent // Explicitly set/overwrite dailyEvent with fresh data
         };
         
+        log('info', `Login successful for ${userId}. Sending config.`);
         res.json({ user: userWithRole, player, config: finalConfig });
 
     } catch (error) {
-        console.error("Login error:", error);
+        log('error', "Login error:", error);
         res.status(500).json({ error: "Internal server error during login." });
     }
 });
 
 
 app.post('/api/player/:id', async (req, res) => {
+    log('info', `Saving player state for ID: ${req.params.id}`);
     await savePlayer(req.params.id, req.body);
     res.status(200).send();
 });
 
 app.post('/api/user/:id/language', async (req, res) => {
+    log('info', `Updating language for user ${req.params.id} to ${req.body.language}`);
     await updateUserLanguage(req.params.id, req.body.language);
     res.status(200).send();
 });
@@ -210,9 +238,11 @@ app.post('/api/user/:id/language', async (req, res) => {
 // --- GAME ACTIONS API ---
 
 app.post('/api/action/buy-upgrade', async (req, res) => {
+    const { userId, upgradeId } = req.body;
+    log('info', `Buy upgrade attempt: User ${userId}, Upgrade ${upgradeId}`);
     try {
-        const { userId, upgradeId } = req.body;
         if (!userId || !upgradeId) {
+            log('warn', 'Missing userId or upgradeId in buy-upgrade request.', req.body);
             return res.status(400).json({ error: 'User ID and Upgrade ID are required.' });
         }
 
@@ -220,11 +250,13 @@ app.post('/api/action/buy-upgrade', async (req, res) => {
         const config = await getConfig();
 
         if (!player || !config) {
+            log('error', `Player or config not found for user ${userId}.`);
             return res.status(404).json({ error: 'Player or game config not found.' });
         }
 
         const upgradeTemplate = config.upgrades.find(u => u.id === upgradeId);
         if (!upgradeTemplate) {
+             log('warn', `Upgrade template ${upgradeId} not found.`);
             return res.status(404).json({ error: 'Upgrade not found.' });
         }
 
@@ -232,6 +264,7 @@ app.post('/api/action/buy-upgrade', async (req, res) => {
         const currentPrice = Math.floor(upgradeTemplate.price * Math.pow(1.15, currentLevel));
 
         if (player.balance < currentPrice) {
+            log('info', `User ${userId} has insufficient funds for upgrade ${upgradeId}. Balance: ${player.balance}, Cost: ${currentPrice}`);
             return res.status(400).json({ error: 'Insufficient funds.' });
         }
         
@@ -246,19 +279,20 @@ app.post('/api/action/buy-upgrade', async (req, res) => {
         }, 0);
 
         await savePlayer(userId, player);
-
+        log('info', `Upgrade ${upgradeId} purchased successfully for user ${userId}. New level: ${currentLevel + 1}`);
         res.json(player);
 
     } catch (error) {
-        console.error("Buy upgrade error:", error);
+        log('error', `Buy upgrade error for User ${userId}, Upgrade ${upgradeId}:`, error);
         res.status(500).json({ error: "Internal server error during purchase." });
     }
 });
 
 app.post('/api/create-invoice', async (req, res) => {
+    log('info', 'Received request to create invoice.', req.body);
     try {
         if (!BOT_TOKEN) {
-            console.error('SERVER ERROR: BOT_TOKEN is not configured.');
+            log('error', 'SERVER ERROR: BOT_TOKEN is not configured.');
             return res.status(500).json({ ok: false, error: 'Bot token not configured on server.' });
         }
         const { userId, taskId } = req.body;
@@ -282,11 +316,12 @@ app.post('/api/create-invoice', async (req, res) => {
             title: task.name[userLang],
             description: task.description[userLang],
             payload: payload,
+            provider_token: process.env.TELEGRAM_PAYMENT_PROVIDER_TOKEN,
             currency: 'XTR',
             prices: [{ label: task.name[userLang], amount: task.priceStars }]
         };
 
-        console.log(`Creating invoice for user ${userId}, task ${taskId}. Payload:`, JSON.stringify(invoice));
+        log('info', `Creating invoice for user ${userId}, task ${taskId}. Payload:`, JSON.stringify(invoice));
 
         const tgResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
             method: 'POST',
@@ -295,7 +330,7 @@ app.post('/api/create-invoice', async (req, res) => {
         });
         
         const responseText = await tgResponse.text();
-        console.log("Response from Telegram API:", responseText);
+        log("info", "Response from Telegram API (createInvoiceLink):", responseText);
 
         const data = JSON.parse(responseText);
         
@@ -305,13 +340,14 @@ app.post('/api/create-invoice', async (req, res) => {
             res.status(500).json({ ok: false, error: data.description });
         }
     } catch (error) {
-        console.error('Error creating invoice:', error);
+        log('error', 'Error creating invoice:', error);
         res.status(500).json({ ok: false, error: 'Internal server error.' });
     }
 });
 app.post('/api/action/unlock-free-task', async (req, res) => {
+    const { userId, taskId } = req.body;
+    log('info', `Unlocking free task ${taskId} for user ${userId}`);
     try {
-        const { userId, taskId } = req.body;
         const config = await getConfig();
         const task = config.specialTasks.find(t => t.id === taskId);
         if (!task || task.priceStars > 0) {
@@ -320,49 +356,59 @@ app.post('/api/action/unlock-free-task', async (req, res) => {
         const updatedPlayerState = await unlockSpecialTask(userId, taskId);
         res.json(updatedPlayerState);
     } catch (error) {
+        log('error', `Failed to unlock free task ${taskId} for user ${userId}`, error);
         res.status(500).json({ error: 'Internal server error.' });
     }
 });
 app.post('/api/action/complete-task', async (req, res) => {
+    const { userId, taskId } = req.body;
+    log('info', `Completing special task ${taskId} for user ${userId}`);
     try {
-        const { userId, taskId } = req.body;
         const updatedPlayerState = await completeAndRewardSpecialTask(userId, taskId);
         res.json(updatedPlayerState);
     } catch (error) {
+        log('error', `Failed to complete task ${taskId} for user ${userId}`, error);
          res.status(500).json({ error: 'Internal server error.' });
     }
 });
 app.post('/api/action/claim-combo', async (req, res) => {
+    const { userId } = req.body;
+    log('info', `Claim combo attempt for user ${userId}`);
     try {
-        const { userId } = req.body;
         if (!userId) {
             return res.status(400).json({ error: "User ID is required" });
         }
         const updatedPlayer = await claimComboReward(userId);
+        log('info', `Combo reward claimed successfully for user ${userId}`);
         res.json(updatedPlayer);
     } catch (error) {
-         // The db function now provides user-friendly errors
+         log('warn', `Failed combo claim for user ${userId}: ${error.message}`);
          res.status(400).json({ error: error.message || 'Failed to claim combo.' });
     }
 });
 app.post('/api/action/claim-cipher', async (req, res) => {
+    const { userId, cipher } = req.body;
+    log('info', `Claim cipher attempt for user ${userId} with cipher "${cipher}"`);
     try {
-        const { userId, cipher } = req.body;
         if (!userId || !cipher) {
             return res.status(400).json({ error: "User ID and cipher are required." });
         }
         const updatedPlayer = await claimCipherReward(userId, cipher);
+        log('info', `Cipher reward claimed successfully for user ${userId}`);
         res.json(updatedPlayer);
     } catch (error) {
-         res.status(400).json({ error: error.message || 'Failed to claim cipher.' });
+        log('warn', `Failed cipher claim for user ${userId}: ${error.message}`);
+        res.status(400).json({ error: error.message || 'Failed to claim cipher.' });
     }
 });
 
 // --- TELEGRAM WEBHOOK ---
 app.post('/api/telegram-webhook', async (req, res) => {
+    log('info', 'Received update from Telegram webhook.', req.body);
     try {
         const update = req.body;
         if (update.pre_checkout_query) {
+            log('info', 'Answering pre_checkout_query', update.pre_checkout_query);
             await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerPreCheckoutQuery`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -372,15 +418,16 @@ app.post('/api/telegram-webhook', async (req, res) => {
                 })
             });
         } else if (update.message?.successful_payment) {
+            log('info', 'Processing successful payment.', update.message.successful_payment);
             const payload = update.message.successful_payment.invoice_payload;
             if (payload.startsWith('special_task:')) {
                 const [, userId, taskId] = payload.split(':');
                 await unlockSpecialTask(userId, taskId);
-                console.log(`Unlocked task ${taskId} for user ${userId} after payment.`);
+                log('info', `Unlocked task ${taskId} for user ${userId} after payment.`);
             }
         }
     } catch (error) {
-        console.error('Webhook processing error:', error);
+        log('error', 'Webhook processing error:', error);
     }
     res.sendStatus(200);
 });
@@ -396,12 +443,15 @@ app.post('/admin/login', (req, res) => {
     const { password } = req.body;
     if (password === process.env.ADMIN_PASSWORD) {
         req.session.isAdmin = true;
+        log('info', `Admin login successful from IP: ${req.ip}`);
         res.redirect('/admin');
     } else {
+        log('warn', `Failed admin login attempt from IP: ${req.ip}`);
         res.status(401).send('Incorrect password. <a href="/admin/login.html">Try again</a>');
     }
 });
 app.get('/admin/logout', (req, res) => {
+    log('info', 'Admin logged out.');
     req.session.destroy(err => {
         if(err) {
             return res.redirect('/admin');
@@ -417,15 +467,17 @@ app.get('/admin', isAdminAuthenticated, (req, res) => {
 
 // --- ADMIN API (PROTECTED) ---
 app.get('/admin/api/dashboard-stats', isAdminAuthenticated, async (req, res) => {
+    log('info', 'Admin requested dashboard stats.');
     try {
         const stats = await getDashboardStats();
         res.json(stats);
     } catch (error) {
-        console.error("Failed to get dashboard stats:", error);
+        log('error', "Failed to get dashboard stats:", error);
         res.status(500).json({ error: "Internal server error." });
     }
 });
 app.get('/admin/api/daily-events', isAdminAuthenticated, async (req, res) => {
+    log('info', 'Admin requested daily events config.');
     try {
         const event = await getDailyEvent(getTodayDate());
         if (event) {
@@ -437,51 +489,60 @@ app.get('/admin/api/daily-events', isAdminAuthenticated, async (req, res) => {
     }
 });
 app.post('/admin/api/daily-events', isAdminAuthenticated, async (req, res) => {
+    log('info', 'Admin saving daily events.', req.body);
     try {
         const { comboIds, cipherWord, comboReward, cipherReward } = req.body;
         await saveDailyEvent(getTodayDate(), comboIds, cipherWord, comboReward, cipherReward);
         res.status(200).json({ message: 'Daily event saved' });
     } catch (error) {
+        log('error', 'Failed to save daily event.', error);
         res.status(500).json({ error: 'Failed to save daily event' });
     }
 });
 app.get('/admin/api/players', isAdminAuthenticated, async (req, res) => {
+    log('info', 'Admin requested player list.');
     try {
         const players = await getAllPlayersForAdmin();
         res.json(players);
     } catch (error) {
-        console.error("Failed to get players:", error);
+        log('error', "Failed to get players:", error);
         res.status(500).json({ error: "Internal server error while fetching players." });
     }
 });
 app.delete('/admin/api/player/:id', isAdminAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    log('info', `Admin initiated deletion of player ${id}`);
     try {
-        const { id } = req.params;
         await deletePlayer(id);
+        log('info', `Player ${id} deleted successfully.`);
         res.status(200).json({ message: 'Player deleted successfully.' });
     } catch (error) {
-        console.error("Failed to delete player:", error);
+        log('error', `Failed to delete player ${id}:`, error);
         res.status(500).json({ error: "Internal server error while deleting player." });
     }
 });
 app.get('/admin/api/config', isAdminAuthenticated, async (req, res) => {
+    log('info', 'Admin requested game config.');
     const config = await getConfig();
     res.json(config);
 });
 app.post('/admin/api/config', isAdminAuthenticated, async (req, res) => {
+    log('info', 'Admin saving main game config.');
     try {
         const newConfig = req.body.config;
         if (!newConfig) {
             return res.status(400).json({ error: 'Config data is missing in the request body.' });
         }
         await saveConfig(newConfig);
+        log('info', 'Game config saved successfully.');
         res.status(200).json({ message: 'Configuration saved successfully.' });
     } catch (error) {
-        console.error("Failed to save config:", error);
+        log('error', "Failed to save config:", error);
         res.status(500).json({ error: "Internal server error while saving configuration." });
     }
 });
 app.post('/admin/api/translate', isAdminAuthenticated, async (req, res) => {
+    log('info', 'Admin requesting AI translation.', req.body);
     if (!ai) {
         return res.status(503).json({ error: "Translation service is not configured." });
     }
@@ -505,7 +566,7 @@ app.post('/admin/api/translate', isAdminAuthenticated, async (req, res) => {
         });
         res.json({ translatedText: response.text });
     } catch (error) {
-        console.error("Translation API error:", error);
+        log('error', "Translation API error:", error);
         res.status(500).json({ error: "Failed to translate text" });
     }
 });
@@ -515,17 +576,17 @@ app.post('/admin/api/translate', isAdminAuthenticated, async (req, res) => {
 const startServer = async () => {
     try {
         if (!process.env.SESSION_SECRET || !process.env.ADMIN_PASSWORD || !process.env.DATABASE_URL) {
-            console.error("FATAL ERROR: Missing required environment variables (SESSION_SECRET, ADMIN_PASSWORD, DATABASE_URL).");
+            log("error", "FATAL ERROR: Missing required environment variables (SESSION_SECRET, ADMIN_PASSWORD, DATABASE_URL).");
             process.exit(1);
         }
         await initializeDb();
-        console.log("Database initialized.");
+        log("info", "Database initialized successfully.");
         app.listen(PORT, () => {
-            console.log(`Server is listening on port ${PORT}`);
-            console.log(`Admin panel should be available at http://localhost:${PORT}/admin`);
+            log('info', `Server is listening on port ${PORT}`);
+            log('info', `Admin panel should be available at http://localhost:${PORT}/admin`);
         });
     } catch (e) {
-        console.error("FATAL ERROR: Could not start server.", e);
+        log("error", "FATAL ERROR: Could not start server.", e);
         process.exit(1);
     }
 };
