@@ -45,6 +45,17 @@ const API = {
           body: JSON.stringify({ language: lang }),
       });
   },
+  
+  buyUpgrade: async (userId: string, upgradeId: string): Promise<PlayerState | null> => {
+    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
+    const response = await fetch(`${API_BASE_URL}/api/action/buy-upgrade`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, upgradeId }),
+    });
+    if (!response.ok) return null;
+    return response.json();
+  },
 
   createInvoice: async (userId: string, taskId: string): Promise<{ok: boolean, invoiceLink?: string, error?: string}> => {
     if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
@@ -262,10 +273,8 @@ export const useGame = () => {
     const calculateProfitPerHour = useCallback((currentUpgrades: Record<string, number>, gameConfig: GameConfig) => {
         return gameConfig.upgrades.reduce((total, u) => {
             const level = currentUpgrades[u.id] || 0;
-            if (level > 0) {
-                return total + Math.floor(u.profitPerHour * level * 1.07);
-            }
-            return total;
+            // Correct, simple logic: sum of (base profit * level) for each upgrade.
+            return total + (u.profitPerHour * level);
         }, 0);
     }, []);
     
@@ -282,27 +291,31 @@ export const useGame = () => {
         });
     }, [playerState, config]);
 
-    const buyUpgrade = useCallback((upgradeId: string): PlayerState | null => {
+    const buyUpgrade = useCallback(async (upgradeId: string): Promise<PlayerState | null> => {
+        if (!user) return null;
+
+        // Client-side check for immediate feedback
         const upgrade = allUpgrades.find(u => u.id === upgradeId);
-        if (!upgrade || !playerState || !config || playerState.balance < upgrade.price) return null;
+        if (!upgrade || !playerState || playerState.balance < upgrade.price) {
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            return null;
+        }
 
         window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-        let updatedState: PlayerState | null = null;
-        setPlayerState(p => {
-            if (!p) return null;
-            const newLevel = (p.upgrades[upgradeId] || 0) + 1;
-            const newUpgrades = { ...p.upgrades, [upgradeId]: newLevel };
-            const newProfitPerHour = calculateProfitPerHour(newUpgrades, config);
-            updatedState = {
-                ...p,
-                balance: p.balance - upgrade.price,
-                profitPerHour: newProfitPerHour,
-                upgrades: newUpgrades,
-            };
-            return updatedState;
-        });
-        return updatedState;
-    }, [allUpgrades, playerState, config, calculateProfitPerHour, setPlayerState]);
+        
+        const updatedPlayerState = await API.buyUpgrade(user.id, upgradeId);
+        
+        if (updatedPlayerState) {
+            setPlayerState(updatedPlayerState);
+            return updatedPlayerState;
+        } else {
+            // The API call failed, maybe because of a race condition or other server issue.
+            // The user's state might be out of sync, a reload could be a good idea,
+            // but for now, we'll just signal the failure.
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            return null;
+        }
+    }, [user, allUpgrades, playerState, setPlayerState]);
 
     const handleTap = useCallback(() => {
         if (playerState && playerState.energy >= playerState.coinsPerTap) {

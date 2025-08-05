@@ -200,6 +200,53 @@ app.post('/api/user/:id/language', async (req, res) => {
 });
 
 // --- GAME ACTIONS API ---
+
+app.post('/api/action/buy-upgrade', async (req, res) => {
+    try {
+        const { userId, upgradeId } = req.body;
+        if (!userId || !upgradeId) {
+            return res.status(400).json({ error: 'User ID and Upgrade ID are required.' });
+        }
+
+        const player = await getPlayer(userId);
+        const config = await getConfig();
+
+        if (!player || !config) {
+            return res.status(404).json({ error: 'Player or game config not found.' });
+        }
+
+        const upgradeTemplate = config.upgrades.find(u => u.id === upgradeId);
+        if (!upgradeTemplate) {
+            return res.status(404).json({ error: 'Upgrade not found.' });
+        }
+
+        const currentLevel = player.upgrades[upgradeId] || 0;
+        const currentPrice = Math.floor(upgradeTemplate.price * Math.pow(1.15, currentLevel));
+
+        if (player.balance < currentPrice) {
+            return res.status(400).json({ error: 'Insufficient funds.' });
+        }
+        
+        // Apply changes
+        player.balance -= currentPrice;
+        player.upgrades[upgradeId] = currentLevel + 1;
+
+        // Recalculate total profit with consistent logic
+        player.profitPerHour = config.upgrades.reduce((total, u) => {
+            const level = player.upgrades[u.id] || 0;
+            return total + (u.profitPerHour * level);
+        }, 0);
+
+        await savePlayer(userId, player);
+
+        res.json(player);
+
+    } catch (error) {
+        console.error("Buy upgrade error:", error);
+        res.status(500).json({ error: "Internal server error during purchase." });
+    }
+});
+
 app.post('/api/create-invoice', async (req, res) => {
     try {
         if (!BOT_TOKEN) {
