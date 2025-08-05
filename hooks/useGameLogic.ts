@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask } from '../types';
 import { LEAGUES, MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS } from '../constants';
@@ -55,6 +54,25 @@ const API = {
     });
     if (!response.ok) return null;
     return response.json();
+  },
+
+  claimDailyTask: async (userId: string, taskId: string): Promise<{player?: PlayerState, error?: string}> => {
+    if (!API_BASE_URL) return { error: "VITE_API_BASE_URL is not set." };
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/action/claim-task`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, taskId }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            return { error: data.error || 'Failed to claim task.' };
+        }
+        return data;
+    } catch (e) {
+        console.error('Claim task API call failed', e);
+        return { error: 'Server connection failed while claiming task.' };
+    }
   },
 
   createInvoice: async (userId: string, taskId: string): Promise<{ok: boolean, invoiceLink?: string, error?: string}> => {
@@ -347,17 +365,17 @@ export const useGame = () => {
         return false;
     }, [playerState, setPlayerState]);
 
-    const claimTaskReward = useCallback((task: DailyTask) => {
-        if (!playerState || playerState.completedDailyTaskIds.includes(task.id)) return;
-        if (playerState.dailyTaps < task.requiredTaps) return;
-
-        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-        setPlayerState(p => p ? {
-            ...p,
-            balance: p.balance + task.rewardCoins,
-            completedDailyTaskIds: [...p.completedDailyTaskIds, task.id]
-        } : null);
-    }, [playerState, setPlayerState]);
+    const claimTaskReward = useCallback(async (task: DailyTask): Promise<{player?: PlayerState, error?: string}> => {
+        if (!user) return { error: "User not logged in" };
+        
+        const result = await API.claimDailyTask(user.id, task.id);
+        
+        if (result.player) {
+            setPlayerState(result.player);
+        }
+        
+        return result;
+    }, [user, setPlayerState]);
 
     const buyBoost = useCallback((boost: Boost) => {
         if (!playerState || playerState.balance < boost.costCoins) return;

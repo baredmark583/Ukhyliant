@@ -1,4 +1,3 @@
-
 import pg from 'pg';
 import { INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, INITIAL_TASKS, INITIAL_UPGRADES, REFERRAL_BONUS } from './constants.js';
 
@@ -186,6 +185,47 @@ export const completeAndRewardSpecialTask = async (userId, taskId) => {
     } catch (error) {
         await client.query('ROLLBACK');
         console.error('Transaction failed in completeAndRewardSpecialTask', error);
+        throw error;
+    } finally {
+        client.release();
+    }
+};
+
+export const claimDailyTaskReward = async (userId, taskId) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error('Player not found');
+        const player = playerRes.rows[0].data;
+
+        const configRes = await client.query('SELECT value FROM game_config WHERE key = $1', ['default']);
+        if (configRes.rows.length === 0) throw new Error('Game config not found');
+        const config = configRes.rows[0].value;
+
+        const task = config.tasks.find(t => t.id === taskId);
+        if (!task) throw new Error('Task not found in config');
+
+        if (player.completedDailyTaskIds?.includes(taskId)) {
+            throw new Error('Task already completed today.');
+        }
+
+        if (player.dailyTaps < task.requiredTaps) {
+            throw new Error('Not enough taps to claim this task.');
+        }
+
+        player.balance = (player.balance || 0) + task.rewardCoins;
+        player.completedDailyTaskIds = [...(player.completedDailyTaskIds || []), taskId];
+
+        const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
+        await client.query('COMMIT');
+
+        return updatedPlayerRes.rows[0].data;
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error(`Transaction failed in claimDailyTaskReward for user ${userId}, task ${taskId}`, error);
         throw error;
     } finally {
         client.release();

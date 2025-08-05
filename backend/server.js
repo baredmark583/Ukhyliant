@@ -1,4 +1,3 @@
-
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -25,7 +24,8 @@ import {
     getDashboardStats,
     claimComboReward,
     claimCipherReward,
-    resetPlayerDailyProgress
+    resetPlayerDailyProgress,
+    claimDailyTaskReward
 } from './db.js';
 import { ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, MAX_ENERGY, ENERGY_REGEN_RATE } from './constants.js';
 
@@ -231,9 +231,30 @@ app.post('/api/login', async (req, res) => {
 
 
 app.post('/api/player/:id', async (req, res) => {
-    log('info', `Saving player state for ID: ${req.params.id}`);
-    await savePlayer(req.params.id, req.body);
-    res.status(200).send();
+    const userId = req.params.id;
+    const clientState = req.body;
+    log('info', `Saving passive player state for ID: ${userId}`);
+
+    try {
+        const serverState = await getPlayer(userId);
+        if (!serverState) {
+            log('warn', `Player not found during save attempt for ID: ${userId}, performing full save.`);
+            await savePlayer(userId, clientState);
+            return res.status(200).send();
+        }
+        
+        // Smart merge to prevent race conditions from client overwriting server-authoritative actions.
+        // We only accept passive, frequently-changing values from the client's heartbeat save.
+        serverState.balance = clientState.balance;
+        serverState.energy = clientState.energy;
+        serverState.dailyTaps = clientState.dailyTaps;
+
+        await savePlayer(userId, serverState);
+        res.status(200).send();
+    } catch (error) {
+        log('error', `Error during smart save for player ${userId}:`, error);
+        res.status(500).json({ error: 'Failed to save player state.' });
+    }
 });
 
 app.post('/api/user/:id/language', async (req, res) => {
@@ -300,6 +321,22 @@ app.post('/api/action/buy-upgrade', async (req, res) => {
     } catch (error) {
         log('error', `Buy upgrade error for User ${userId}, Upgrade ${upgradeId}:`, error);
         res.status(500).json({ error: "Internal server error during purchase." });
+    }
+});
+
+app.post('/api/action/claim-task', async (req, res) => {
+    const { userId, taskId } = req.body;
+    log('info', `Claim daily task attempt for user ${userId}, task ${taskId}`);
+    try {
+        if (!userId || !taskId) {
+            return res.status(400).json({ error: "User ID and Task ID are required." });
+        }
+        const updatedPlayer = await claimDailyTaskReward(userId, taskId);
+        log('info', `Daily task ${taskId} claimed successfully for user ${userId}`);
+        res.json({ player: updatedPlayer });
+    } catch (error) {
+        log('warn', `Failed daily task claim for user ${userId}, task ${taskId}: ${error.message}`);
+        res.status(400).json({ error: error.message || 'Failed to claim task.' });
     }
 });
 

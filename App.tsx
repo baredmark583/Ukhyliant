@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -79,6 +78,20 @@ const MainApp: React.FC = () => {
         showNotification(`${upgrade?.name[lang]} Lvl ${result.upgrades[upgradeId]}`);
     }
   };
+
+  const handleClaimTaskReward = async (task: DailyTask) => {
+    const result = await claimTaskReward(task);
+    if (result.player) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        showNotification(`${task.name[lang]} выполнено! +${task.rewardCoins.toLocaleString()}`, 'success');
+    } else if (result.error) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+        // Only show errors for actual failures, not for client-side preventable ones.
+        if (result.error.includes('Failed') || result.error.includes('Server') || result.error.includes('error')) {
+           showNotification(result.error, 'error');
+        }
+    }
+  };
   
   const handleClaimCombo = async () => {
     const result = await claimDailyCombo();
@@ -119,7 +132,7 @@ const MainApp: React.FC = () => {
       case 'boost':
         return <BoostScreen balance={playerState.balance} boosts={config.boosts} onBuyBoost={buyBoost} lang={lang} />;
       case 'tasks':
-        return <TasksScreen tasks={config.tasks} playerState={playerState} onClaim={claimTaskReward} lang={lang} />;
+        return <TasksScreen tasks={config.tasks} playerState={playerState} onClaim={handleClaimTaskReward} lang={lang} />;
       case 'earn':
         return <EarnScreen tasks={config.specialTasks} playerState={playerState} onPurchase={purchaseSpecialTask} onComplete={completeSpecialTask} lang={lang} />;
       default:
