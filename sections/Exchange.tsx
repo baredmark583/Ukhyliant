@@ -143,23 +143,24 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
     <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
       {/* Top Section: League Icon & Profit/hr */}
       <div className="w-full flex justify-between items-start">
-        <button onClick={onOpenLeaderboard} className="flex flex-col items-center bg-gray-800/50 p-2 rounded-lg">
-            <div className="text-3xl">{currentLeague.icon}</div>
-            <span className="text-xs text-gray-400">{t('league')}</span>
+        <button onClick={onOpenLeaderboard} className="flex flex-col items-center bg-gray-800/50 p-2 rounded-lg w-20 h-20 justify-center">
+            <div className="text-4xl">{currentLeague.icon}</div>
         </button>
-        <div className="flex flex-col items-center bg-gray-800/50 p-2 rounded-lg">
-            <span className="text-xs text-gray-400">{t('profit_per_hour')}</span>
-            <span className="font-bold text-green-400 text-lg">+{formatProfit(profitPerHour)}</span>
+        <div className="flex-grow flex items-center justify-between bg-gray-800/50 p-2 rounded-lg mx-2">
+            <div className="flex flex-col items-start">
+                <span className="text-xs text-gray-400">{t('profit_per_hour')}</span>
+                <span className="font-bold text-green-400 text-lg">+{formatProfit(profitPerHour)}</span>
+            </div>
+            <button onClick={handleSwitchLanguage} className="bg-gray-700/60 text-white rounded-lg p-2 font-bold w-10 h-10 flex items-center justify-center text-sm">
+                {user.language.toUpperCase()}
+            </button>
         </div>
-        <button onClick={handleSwitchLanguage} className="bg-gray-800/50 text-white rounded-lg p-2 font-bold w-12 h-12 flex items-center justify-center">
-            {user.language.toUpperCase()}
-        </button>
       </div>
 
       {/* Balance */}
       <div className="flex items-center justify-center space-x-2 my-2">
-        <div className="w-9 h-9 text-yellow-400"><CoinIcon/></div>
-        <h1 className="text-4xl font-bold tracking-tighter">{formatNumber(balance)}</h1>
+        <div className="w-8 h-8 text-yellow-400"><CoinIcon/></div>
+        <h1 className="text-3xl font-bold tracking-tighter">{formatNumber(balance)}</h1>
       </div>
 
       {/* Daily Cipher Section */}

@@ -77,6 +77,7 @@ export interface SpecialTask {
     priceStars: number;
     isOneTime: true;
     imageUrl?: string;
+    secretCode?: string; // Added for consistency although not in original request for special tasks
 }
 
 export interface DailyEvent {

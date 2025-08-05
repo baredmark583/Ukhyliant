@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider, useGameContext } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -49,7 +50,7 @@ const NotInTelegramScreen: React.FC = () => (
 
 
 const MainApp: React.FC = () => {
-  const { user, switchLanguage } = useAuth();
+  const { user } = useAuth();
   const { 
       playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, 
       claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask,
@@ -78,6 +79,7 @@ const MainApp: React.FC = () => {
   };
 
   const handleClaimTask = async (task: DailyTask | SpecialTask) => {
+    // Shared logic for opening popups or links
     if (task.type === 'video_code') {
         window.Telegram.WebApp.showPopup({
             title: t('enter_secret_code'),
@@ -88,23 +90,33 @@ const MainApp: React.FC = () => {
             ]
         }, async (buttonId, text) => {
             if (buttonId === 'submit' && text) {
-                if ('isOneTime' in task) {
+                if ('isOneTime' in task) { // Special task
                     await completeSpecialTask(task, text);
-                } else {
+                } else { // Daily task
                     await handleClaimDailyTaskReward(task, text);
                 }
             }
         });
-    } else if ('isOneTime' in task) { // Special Task
-        if (task.url) {
-            window.Telegram.WebApp.openTelegramLink(task.url);
-        }
+        return; // Stop further execution
+    }
+
+    // For other link-based tasks
+    if (task.url) {
+        window.Telegram.WebApp.openTelegramLink(task.url);
+    }
+
+    // After link is opened (or if there's no link), proceed to claim
+    if ('isOneTime' in task) { // Special Task
         await completeSpecialTask(task);
     } else { // Daily Task
-        if (task.url) {
-            window.Telegram.WebApp.openTelegramLink(task.url);
+        // For daily tasks that are not 'taps', claim is immediate
+        if (task.type !== 'taps') {
+             await handleClaimDailyTaskReward(task);
+        } else {
+            // For 'taps' tasks, the button in TaskCard handles canClaim state, 
+            // so a direct call here is for when it's clickable
+             await handleClaimDailyTaskReward(task);
         }
-        await handleClaimDailyTaskReward(task);
     }
 };
 
@@ -255,18 +267,49 @@ const TaskCard = ({ task, playerState, onClaim, lang }: { task: DailyTask | Spec
     
     let canClaim = !isCompleted;
     let progressText = t('get');
+
+    // Handle canClaim logic for daily tap tasks
     if (task.type === 'taps' && !isSpecial) {
         const progress = Math.min(playerState.dailyTaps, task.requiredTaps || 0);
         canClaim = progress >= (task.requiredTaps || 0) && !isCompleted;
         progressText = `${progress}/${task.requiredTaps}`;
     }
 
+    // For non-tap tasks, the button is generally claimable if not completed
+    // The actual action (e.g., opening a link) is handled by onClaim
+    if (task.type !== 'taps') {
+        progressText = t('get'); // Or 'go_to_task'
+    }
+
     const rewardIcon = task.reward.type === 'profit' ? '⚡' : '🪙';
     
+    const getButtonText = () => {
+        if (isCompleted) return t('completed');
+        if (canClaim) {
+             if (task.url || task.type === 'video_code') return t('go_to_task');
+             return t('claim');
+        }
+        return progressText; // Shows progress for tap tasks
+    };
+
+    const getTaskIcon = () => {
+        if (task.imageUrl) {
+            return <img src={task.imageUrl} alt={task.name[lang]} className="w-12 h-12 object-contain"/>;
+        }
+        switch (task.type) {
+            case 'taps': return '👆';
+            case 'telegram_join': return '✈️';
+            case 'social_follow': return '🔗';
+            case 'video_watch': return '🎬';
+            case 'video_code': return '🔑';
+            default: return '📋';
+        }
+    };
+
     return (
         <div className={`bg-gray-800 p-3 rounded-lg flex items-center ${isCompleted ? 'opacity-60' : ''}`}>
-            <div className="w-16 h-16 bg-gray-700/50 rounded-lg flex items-center justify-center mr-3">
-                {task.imageUrl ? <img src={task.imageUrl} alt={task.name[lang]} className="w-12 h-12"/> : <span className="text-4xl">{task.type === 'taps' ? '👆' : '🔗'}</span>}
+            <div className="w-16 h-16 bg-gray-700/50 rounded-lg flex items-center justify-center mr-3 text-4xl">
+                {getTaskIcon()}
             </div>
             <div className="flex-grow">
                 <h2 className="text-base font-bold">{task.name[lang]}</h2>
@@ -276,16 +319,16 @@ const TaskCard = ({ task, playerState, onClaim, lang }: { task: DailyTask | Spec
             </div>
             <button 
                 onClick={() => onClaim(task)}
-                disabled={!canClaim}
+                disabled={!canClaim && !isCompleted && task.type === 'taps'} // Only disable for tap tasks that are not ready
                 className="ml-3 px-4 py-3 rounded-lg font-bold text-white text-base transition-colors whitespace-nowrap disabled:bg-gray-600 disabled:text-gray-400 bg-green-600 hover:bg-green-500"
             >
-                {isCompleted ? t('completed') : canClaim ? t('claim') : progressText}
+                {getButtonText()}
             </button>
         </div>
     );
 };
 
-const TasksScreen = ({ tasks, playerState, onClaim, lang }: { tasks: DailyTask[], playerState: PlayerState, onClaim: (task: DailyTask) => void, lang: Language }) => {
+const TasksScreen = ({ tasks, playerState, onClaim, lang }: { tasks: DailyTask[], playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, lang: Language }) => {
     const t = useTranslation();
     return (
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
@@ -327,7 +370,7 @@ const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang }: { task
                         <div key={task.id} className={`bg-gray-800 p-4 rounded-lg ${isCompleted ? 'opacity-60' : ''}`}>
                             <div className="flex items-center mb-2">
                                 <div className="w-12 h-12 bg-gray-700/50 rounded-lg flex items-center justify-center mr-3">
-                                     {task.imageUrl ? <img src={task.imageUrl} alt={task.name[lang]} className="w-10 h-10"/> : <span className="text-3xl">🔗</span>}
+                                     {task.imageUrl ? <img src={task.imageUrl} alt={task.name[lang]} className="w-10 h-10 object-contain"/> : <span className="text-3xl">🔗</span>}
                                 </div>
                                 <div>
                                     <h2 className="text-lg font-bold">{task.name[lang]}</h2>

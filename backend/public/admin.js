@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const createInput = (section, index, field, type = 'text', hidden = false, placeholder = '') => {
         const item = localConfig[section][index];
-        const value = item ? item[field] : '';
+        const value = item ? (item[field] ?? '') : '';
         return `<div class="col-span-1 ${hidden ? 'hidden' : ''}" id="field-container-${section}-${index}-${field}"><label class="block text-xs text-gray-400 mb-1 capitalize">${field.replace(/([A-Z])/g, ' $1')}</label><input type="${type}" data-section="${section}" data-index="${index}" data-field="${field}" value="${escapeHtml(value)}" class="w-full bg-gray-600 p-2 rounded" placeholder="${placeholder}"></div>`;
     };
 
@@ -179,15 +179,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const createRewardInput = (section, index, reward) => {
+        const safeReward = reward || { type: 'coins', amount: 0 };
         return `
         <div class="col-span-2">
             <label class="block text-xs text-gray-400 mb-1">Награда</label>
             <div class="flex items-center space-x-2">
                 <select data-section="${section}" data-index="${index}" data-field="reward.type" class="w-1/3 bg-gray-600 p-2 rounded">
-                    <option value="coins" ${reward.type === 'coins' ? 'selected' : ''}>Монеты 🪙</option>
-                    <option value="profit" ${reward.type === 'profit' ? 'selected' : ''}>Прибыль ⚡</option>
+                    <option value="coins" ${safeReward.type === 'coins' ? 'selected' : ''}>Монеты 🪙</option>
+                    <option value="profit" ${safeReward.type === 'profit' ? 'selected' : ''}>Прибыль ⚡</option>
                 </select>
-                <input type="number" data-section="${section}" data-index="${index}" data-field="reward.amount" value="${reward.amount}" class="w-2/3 bg-gray-600 p-2 rounded">
+                <input type="number" data-section="${section}" data-index="${index}" data-field="reward.amount" value="${safeReward.amount}" class="w-2/3 bg-gray-600 p-2 rounded">
             </div>
         </div>`;
     };
@@ -217,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (isTask) {
                     const taskTypes = ['taps', 'telegram_join', 'social_follow', 'video_watch', 'video_code'];
                     fieldsHTML += createSelect(sectionKey, index, 'type', taskTypes);
-                    fieldsHTML += createRewardInput(sectionKey, index, item.reward || { type: 'coins', amount: 0 });
+                    fieldsHTML += createRewardInput(sectionKey, index, item.reward);
                     fieldsHTML += createInput(sectionKey, index, 'imageUrl', 'text', false, 'https://.../img.svg');
                     fieldsHTML += createInput(sectionKey, index, 'url', 'text', item.type === 'taps', 'https://t.me/...');
                     fieldsHTML += createInput(sectionKey, index, 'requiredTaps', 'number', item.type !== 'taps');
@@ -246,6 +247,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Handle nested fields like reward.type
         if (field.includes('.')) {
             const [parent, child] = field.split('.');
+            if (!localConfig[section][index][parent]) {
+                localConfig[section][index][parent] = {}; // Ensure parent object exists
+            }
             localConfig[section][index][parent][child] = value;
         } else if (e.target.dataset.lang) {
             localConfig[section][index][field][e.target.dataset.lang] = value;
@@ -347,14 +351,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const addNewItem = (e) => {
         const { section } = e.target.dataset;
         const newItem = JSON.parse(JSON.stringify(localConfig[section][0] || {}));
-        Object.keys(newItem).forEach(key => {
-            if (key === 'id') newItem[key] = `${section.slice(0, 4)}_${Date.now()}`;
-            else if (key === 'reward') newItem[key] = { type: 'coins', amount: 0 };
-            else if (typeof newItem[key] === 'object' && newItem[key] !== null && !Array.isArray(newItem[key])) {
-                Object.keys(newItem[key]).forEach(subKey => newItem[key][subKey] = '');
-            } else if (typeof newItem[key] === 'number') newItem[key] = 0;
-            else if (typeof newItem[key] === 'string') newItem[key] = '';
-        });
+        
+        // Create a default structure if the section is empty
+        if (Object.keys(newItem).length === 0) {
+            newItem.id = `${section.slice(0, 4)}_${Date.now()}`;
+            newItem.name = { en: '', ua: '', ru: '' };
+            if (section === 'tasks' || section === 'specialTasks') {
+                newItem.type = 'taps';
+                newItem.reward = { type: 'coins', amount: 0 };
+                newItem.imageUrl = '';
+                newItem.url = '';
+                newItem.requiredTaps = 0;
+                newItem.secretCode = '';
+            }
+             if (section === 'specialTasks') {
+                 newItem.description = { en: '', ua: '', ru: '' };
+                 newItem.priceStars = 0;
+                 newItem.isOneTime = true;
+             }
+        } else {
+            Object.keys(newItem).forEach(key => {
+                if (key === 'id') newItem[key] = `${section.slice(0, 4)}_${Date.now()}`;
+                else if (key === 'reward') newItem[key] = { type: 'coins', amount: 0 };
+                else if (typeof newItem[key] === 'object' && newItem[key] !== null && !Array.isArray(newItem[key])) {
+                    Object.keys(newItem[key]).forEach(subKey => newItem[key][subKey] = '');
+                } else if (typeof newItem[key] === 'number') newItem[key] = 0;
+                else if (typeof newItem[key] === 'string') newItem[key] = '';
+            });
+        }
+
         localConfig[section].push(newItem);
         render();
     };
