@@ -89,26 +89,42 @@ const API = {
     return response.json();
   },
 
-  claimCombo: async (userId: string): Promise<PlayerState | null> => {
-    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
-    const response = await fetch(`${API_BASE_URL}/api/action/claim-combo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-    });
-     if (!response.ok) return null;
-    return response.json();
+  claimCombo: async (userId: string): Promise<{player?: PlayerState, error?: string}> => {
+    if (!API_BASE_URL) return { error: "VITE_API_BASE_URL is not set." };
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/action/claim-combo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            return { error: data.error || 'Failed to claim combo reward.' };
+        }
+        return { player: data };
+    } catch (e) {
+        console.error('Claim combo API call failed', e);
+        return { error: 'Не удалось подключиться к серверу для получения награды.' };
+    }
   },
 
-  claimCipher: async (userId: string, cipher: string): Promise<PlayerState | null> => {
-    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
-    const response = await fetch(`${API_BASE_URL}/api/action/claim-cipher`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, cipher }),
-    });
-     if (!response.ok) return null;
-    return response.json();
+  claimCipher: async (userId: string, cipher: string): Promise<{player?: PlayerState, error?: string}> => {
+    if (!API_BASE_URL) return { error: "VITE_API_BASE_URL is not set." };
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/action/claim-cipher`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, cipher }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            return { error: data.error || 'Incorrect cipher or already claimed.' };
+        }
+        return { player: data };
+    } catch (e) {
+         console.error('Claim cipher API call failed', e);
+         return { error: 'Не удалось подключиться к серверу для проверки шифра.' };
+    }
   }
 };
 
@@ -377,28 +393,29 @@ export const useGame = () => {
          }
     }, [user, playerState, setPlayerState]);
 
-    const claimDailyCombo = useCallback(async (): Promise<PlayerState | null> => {
-        if(!user) return null;
+    const claimDailyCombo = useCallback(async (): Promise<{player?: PlayerState, error?: string}> => {
+        if(!user) return { error: "User not logged in" };
         window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
-        const updatedPlayerState = await API.claimCombo(user.id);
-        if(updatedPlayerState) {
-            setPlayerState(updatedPlayerState);
+        const result = await API.claimCombo(user.id);
+        if(result.player) {
+            setPlayerState(result.player);
             window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-            return updatedPlayerState;
+        } else {
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
         }
-        return null;
+        return result;
     }, [user, setPlayerState]);
 
-    const claimDailyCipher = useCallback(async (cipher: string): Promise<PlayerState | null> => {
-        if(!user) return null;
-        const updatedPlayerState = await API.claimCipher(user.id, cipher);
-        if(updatedPlayerState) {
-            setPlayerState(updatedPlayerState);
+    const claimDailyCipher = useCallback(async (cipher: string): Promise<{player?: PlayerState, error?: string}> => {
+        if(!user) return { error: 'User not logged in.'};
+        const result = await API.claimCipher(user.id, cipher);
+        if(result.player) {
+            setPlayerState(result.player);
             window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-            return updatedPlayerState;
+        } else {
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
         }
-        window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-        return null;
+        return result;
     }, [user, setPlayerState]);
 
 
