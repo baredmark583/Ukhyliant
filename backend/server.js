@@ -378,9 +378,9 @@ app.post('/api/action/claim-combo', async (req, res) => {
         if (!userId) {
             return res.status(400).json({ error: "User ID is required" });
         }
-        const updatedPlayer = await claimComboReward(userId);
-        log('info', `Combo reward claimed successfully for user ${userId}`);
-        res.json(updatedPlayer);
+        const { player, reward } = await claimComboReward(userId);
+        log('info', `Combo reward of ${reward} claimed successfully for user ${userId}`);
+        res.json({ player, reward });
     } catch (error) {
          log('warn', `Failed combo claim for user ${userId}: ${error.message}`);
          res.status(400).json({ error: error.message || 'Failed to claim combo.' });
@@ -393,9 +393,9 @@ app.post('/api/action/claim-cipher', async (req, res) => {
         if (!userId || !cipher) {
             return res.status(400).json({ error: "User ID and cipher are required." });
         }
-        const updatedPlayer = await claimCipherReward(userId, cipher);
-        log('info', `Cipher reward claimed successfully for user ${userId}`);
-        res.json(updatedPlayer);
+        const { player, reward } = await claimCipherReward(userId, cipher);
+        log('info', `Cipher reward of ${reward} claimed successfully for user ${userId}`);
+        res.json({ player, reward });
     } catch (error) {
         log('warn', `Failed cipher claim for user ${userId}: ${error.message}`);
         res.status(400).json({ error: error.message || 'Failed to claim cipher.' });
@@ -492,7 +492,10 @@ app.post('/admin/api/daily-events', isAdminAuthenticated, async (req, res) => {
     log('info', 'Admin saving daily events.', req.body);
     try {
         const { comboIds, cipherWord, comboReward, cipherReward } = req.body;
-        await saveDailyEvent(getTodayDate(), comboIds, cipherWord, comboReward, cipherReward);
+        // Ensure rewards are numbers before saving
+        const comboRewardNum = parseInt(comboReward, 10) || 5000000;
+        const cipherRewardNum = parseInt(cipherReward, 10) || 1000000;
+        await saveDailyEvent(getTodayDate(), comboIds, cipherWord, comboRewardNum, cipherRewardNum);
         res.status(200).json({ message: 'Daily event saved' });
     } catch (error) {
         log('error', 'Failed to save daily event.', error);

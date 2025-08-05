@@ -81,36 +81,25 @@ const MainApp: React.FC = () => {
   };
   
   const handleClaimCombo = async () => {
-    // Storing balance before the async call is crucial
-    const oldBalance = playerState.balance;
     const result = await claimDailyCombo();
     
-    // After the await, playerState might have been updated by the hook,
-    // but we compare the fresh player data from the API response.
-    if (result.player) {
-        const reward = result.player.balance - oldBalance;
-        if (reward > 0) {
-          showNotification(`Комбо собрано! +${reward.toLocaleString()}`, 'success');
-        } else {
-          // This case could happen if the reward was 0 or something else unexpected occurred.
-          showNotification('Комбо засчитано!', 'success');
-        }
+    if (result.player && result.reward) {
+        showNotification(`Комбо собрано! +${result.reward.toLocaleString()}`, 'success');
+    } else if (result.player) { // Fallback if reward is 0 or undefined
+        showNotification('Комбо засчитано!', 'success');
     } else if (result.error) {
         showNotification(result.error, 'error');
     }
   };
 
   const handleClaimCipher = async (cipher: string): Promise<boolean> => {
-    const oldBalance = playerState.balance;
     const result = await claimDailyCipher(cipher);
 
-    if (result.player) {
-        const reward = result.player.balance - oldBalance;
-        if (reward > 0) {
-          showNotification(`Шифр разгадан! +${reward.toLocaleString()}`, 'success');
-        } else {
-          showNotification('Шифр принят!', 'success');
-        }
+    if (result.player && result.reward) {
+        showNotification(`Шифр разгадан! +${result.reward.toLocaleString()}`, 'success');
+        return true;
+    } else if (result.player) {
+        showNotification('Шифр принят!', 'success');
         return true;
     } else if (result.error) {
         showNotification(result.error, 'error');

@@ -89,7 +89,7 @@ const API = {
     return response.json();
   },
 
-  claimCombo: async (userId: string): Promise<{player?: PlayerState, error?: string}> => {
+  claimCombo: async (userId: string): Promise<{player?: PlayerState, reward?: number, error?: string}> => {
     if (!API_BASE_URL) return { error: "VITE_API_BASE_URL is not set." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/action/claim-combo`, {
@@ -101,14 +101,14 @@ const API = {
         if (!response.ok) {
             return { error: data.error || 'Failed to claim combo reward.' };
         }
-        return { player: data };
+        return data;
     } catch (e) {
         console.error('Claim combo API call failed', e);
         return { error: 'Не удалось подключиться к серверу для получения награды.' };
     }
   },
 
-  claimCipher: async (userId: string, cipher: string): Promise<{player?: PlayerState, error?: string}> => {
+  claimCipher: async (userId: string, cipher: string): Promise<{player?: PlayerState, reward?: number, error?: string}> => {
     if (!API_BASE_URL) return { error: "VITE_API_BASE_URL is not set." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/action/claim-cipher`, {
@@ -120,7 +120,7 @@ const API = {
         if (!response.ok) {
             return { error: data.error || 'Incorrect cipher or already claimed.' };
         }
-        return { player: data };
+        return data;
     } catch (e) {
          console.error('Claim cipher API call failed', e);
          return { error: 'Не удалось подключиться к серверу для проверки шифра.' };
@@ -393,7 +393,7 @@ export const useGame = () => {
          }
     }, [user, playerState, setPlayerState]);
 
-    const claimDailyCombo = useCallback(async (): Promise<{player?: PlayerState, error?: string}> => {
+    const claimDailyCombo = useCallback(async (): Promise<{player?: PlayerState, reward?: number, error?: string}> => {
         if(!user) return { error: "User not logged in" };
         window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
         const result = await API.claimCombo(user.id);
@@ -406,7 +406,7 @@ export const useGame = () => {
         return result;
     }, [user, setPlayerState]);
 
-    const claimDailyCipher = useCallback(async (cipher: string): Promise<{player?: PlayerState, error?: string}> => {
+    const claimDailyCipher = useCallback(async (cipher: string): Promise<{player?: PlayerState, reward?: number, error?: string}> => {
         if(!user) return { error: 'User not logged in.'};
         const result = await API.claimCipher(user.id, cipher);
         if(result.player) {

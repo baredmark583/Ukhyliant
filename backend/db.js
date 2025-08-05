@@ -228,7 +228,6 @@ export const claimComboReward = async (userId) => {
         
         const today = new Date().toISOString().split('T')[0];
         
-        // Fetch daily event WITHIN the transaction
         const eventRes = await client.query('SELECT * FROM daily_events WHERE event_date = $1', [today]);
         const dailyEvent = eventRes.rows[0];
 
@@ -236,7 +235,6 @@ export const claimComboReward = async (userId) => {
             throw new Error("Daily combo is not active for today.");
         }
 
-        // Lock player row for update
         const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
         if (playerRes.rows.length === 0) {
             throw new Error("Player not found.");
@@ -252,25 +250,23 @@ export const claimComboReward = async (userId) => {
             throw new Error('Daily combo is not configured correctly.');
         }
 
-        // THE CRITICAL CHECK: happens inside the transaction on locked data
         const hasAllCards = comboIds.every(id => (player.upgrades?.[id] || 0) > 0);
 
         if (!hasAllCards) {
             throw new Error("You haven't purchased all the required combo cards yet.");
         }
-
-        // All checks passed, apply the reward
-        player.balance += Number(dailyEvent.combo_reward) || 0;
+        
+        const rewardAmount = Number(dailyEvent.combo_reward) || 0;
+        player.balance += rewardAmount;
         player.claimedComboToday = true;
         
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         
         await client.query('COMMIT');
-        return updatedRes.rows[0].data;
+        return { player: updatedRes.rows[0].data, reward: rewardAmount };
     } catch(e) {
         await client.query('ROLLBACK');
         console.error(`Claim combo reward failed for user ${userId}:`, e.message);
-        // Re-throw the original error to be caught by the server route
         throw e; 
     } finally {
         client.release();
@@ -303,12 +299,13 @@ export const claimCipherReward = async (userId, cipher) => {
             throw new Error("Incorrect cipher.");
         }
         
-        player.balance += Number(dailyEvent.cipher_reward) || 0;
+        const rewardAmount = Number(dailyEvent.cipher_reward) || 0;
+        player.balance += rewardAmount;
         player.claimedCipherToday = true;
 
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
-        return updatedRes.rows[0].data;
+        return { player: updatedRes.rows[0].data, reward: rewardAmount };
     } catch(e) {
         await client.query('ROLLBACK');
         throw e;
