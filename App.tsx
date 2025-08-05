@@ -78,53 +78,6 @@ const MainApp: React.FC = () => {
     }
   };
 
-  const handleClaimTask = async (task: DailyTask | SpecialTask) => {
-    // Shared logic for opening popups or links
-    if (task.type === 'video_code') {
-        window.Telegram.WebApp.showPrompt({
-            title: t('enter_secret_code'),
-            message: task.name[user.language],
-            buttons: [
-                { id: 'submit', type: 'default', text: t('check') },
-                { type: 'cancel' },
-            ]
-        }, async (text) => {
-            // The callback for showPrompt receives only the entered text.
-            if (text) {
-                if ('isOneTime' in task) { // Special task
-                    await completeSpecialTask(task, text);
-                } else { // Daily task
-                    await handleClaimDailyTaskReward(task, text);
-                }
-            }
-        });
-        return; // Stop further execution
-    }
-
-    // For other link-based tasks
-    if (task.url) {
-        if (task.url.startsWith('https://t.me/')) {
-            window.Telegram.WebApp.openTelegramLink(task.url);
-        } else {
-            window.Telegram.WebApp.openLink(task.url);
-        }
-    }
-
-    // After link is opened (or if there's no link), proceed to claim
-    if ('isOneTime' in task) { // Special Task
-        await completeSpecialTask(task);
-    } else { // Daily Task
-        // For daily tasks that are not 'taps', claim is immediate
-        if (task.type !== 'taps') {
-             await handleClaimDailyTaskReward(task);
-        } else {
-            // For 'taps' tasks, the button in TaskCard handles canClaim state, 
-            // so a direct call here is for when it's clickable
-             await handleClaimDailyTaskReward(task);
-        }
-    }
-  };
-
   const handleClaimDailyTaskReward = async (task: DailyTask, code?: string) => {
     const result = await claimTaskReward(task, code);
     if (result.player) {
@@ -136,6 +89,53 @@ const MainApp: React.FC = () => {
     } else if (result.error) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
         showNotification(result.error, 'error');
+    }
+  };
+
+  const handleClaimTask = async (task: DailyTask | SpecialTask) => {
+    // Step 1: Handle actions that require opening a link. This is common for many task types.
+    if (task.url) {
+        if (task.url.startsWith('https://t.me/')) {
+            window.Telegram.WebApp.openTelegramLink(task.url);
+        } else {
+            window.Telegram.WebApp.openLink(task.url);
+        }
+    }
+
+    // Step 2: For 'video_code' tasks, after opening the link, we must prompt for a code.
+    // The reward claim is handled inside the prompt's callback.
+    if (task.type === 'video_code') {
+        window.Telegram.WebApp.showPrompt({
+            title: t('enter_secret_code'),
+            message: task.name[user.language],
+            buttons: [
+                { id: 'submit', type: 'default', text: t('check') },
+                { type: 'cancel' },
+            ]
+        }, async (text) => {
+            // Callback receives the entered text.
+            if (text) {
+                if ('isOneTime' in task) { // Special task
+                    await completeSpecialTask(task, text);
+                } else { // Daily task
+                    await handleClaimDailyTaskReward(task, text);
+                }
+            }
+        });
+        return; // Stop further execution, as claim is now handled in the callback.
+    }
+    
+    // Step 3: For tasks that don't require further user input (e.g., watch, join), claim the reward immediately.
+    // This part should NOT run for video_code tasks due to the return statement above.
+    if ('isOneTime' in task) { // Special Task
+        await completeSpecialTask(task);
+    } else { // Daily Task
+        if (task.type !== 'taps') { // For daily tasks like join/watch, claim is immediate.
+             await handleClaimDailyTaskReward(task);
+        } else {
+            // For 'taps' tasks, this is called when the tap requirement is met.
+             await handleClaimDailyTaskReward(task);
+        }
     }
   };
   
