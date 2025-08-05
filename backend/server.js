@@ -327,29 +327,14 @@ app.post('/api/action/complete-task', async (req, res) => {
 app.post('/api/action/claim-combo', async (req, res) => {
     try {
         const { userId } = req.body;
-        const player = await getPlayer(userId);
-        const dailyEvent = await getDailyEvent(getTodayDate());
-        
-        // Safely parse combo_ids to ensure it's an array
-        const comboIds = parseComboIds(dailyEvent);
-
-        if (!player || !dailyEvent || comboIds.length === 0 || player.claimedComboToday) {
-            return res.status(400).json({ error: 'Cannot claim combo.' });
+        if (!userId) {
+            return res.status(400).json({ error: "User ID is required" });
         }
-        
-        if (comboIds.length !== 3) {
-            return res.status(400).json({ error: 'Daily combo is not configured correctly for today.' });
-        }
-
-        const hasAllComboCards = comboIds.every(id => (player.upgrades[id] || 0) > 0);
-        if (!hasAllComboCards) {
-             return res.status(400).json({ error: 'Player does not own all combo cards.' });
-        }
-
         const updatedPlayer = await claimComboReward(userId);
         res.json(updatedPlayer);
     } catch (error) {
-         res.status(500).json({ error: error.message || 'Server error' });
+         // The db function now provides user-friendly errors
+         res.status(400).json({ error: error.message || 'Failed to claim combo.' });
     }
 });
 app.post('/api/action/claim-cipher', async (req, res) => {

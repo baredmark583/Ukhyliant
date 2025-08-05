@@ -205,28 +205,73 @@ export const saveDailyEvent = async (date, comboIds, cipherWord, comboReward, ci
         [date, comboIdsJson, cipherWord, comboReward, cipherReward]
     );
 }
+
+const parseDbComboIds = (event) => {
+    if (!event || !event.combo_ids) return [];
+    if (Array.isArray(event.combo_ids)) return event.combo_ids;
+    if (typeof event.combo_ids === 'string') {
+        try {
+            const parsed = JSON.parse(event.combo_ids);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            console.error('Could not parse combo_ids from DB string:', event.combo_ids);
+            return [];
+        }
+    }
+    return [];
+};
+
 export const claimComboReward = async (userId) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        
         const today = new Date().toISOString().split('T')[0];
-        const dailyEvent = await getDailyEvent(today);
-        if (!dailyEvent) throw new Error("Daily event not found.");
+        
+        // Fetch daily event WITHIN the transaction
+        const eventRes = await client.query('SELECT * FROM daily_events WHERE event_date = $1', [today]);
+        const dailyEvent = eventRes.rows[0];
 
+        if (!dailyEvent) {
+            throw new Error("Daily combo is not active for today.");
+        }
+
+        // Lock player row for update
         const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) {
+            throw new Error("Player not found.");
+        }
         const player = playerRes.rows[0].data;
 
-        if (player.claimedComboToday) throw new Error("Combo already claimed today.");
+        if (player.claimedComboToday) {
+            throw new Error("Combo reward already claimed today.");
+        }
         
+        const comboIds = parseDbComboIds(dailyEvent);
+        if (!comboIds || comboIds.length !== 3) {
+            throw new Error('Daily combo is not configured correctly.');
+        }
+
+        // THE CRITICAL CHECK: happens inside the transaction on locked data
+        const hasAllCards = comboIds.every(id => (player.upgrades?.[id] || 0) > 0);
+
+        if (!hasAllCards) {
+            throw new Error("You haven't purchased all the required combo cards yet.");
+        }
+
+        // All checks passed, apply the reward
         player.balance += Number(dailyEvent.combo_reward) || 0;
         player.claimedComboToday = true;
         
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
+        
         await client.query('COMMIT');
         return updatedRes.rows[0].data;
     } catch(e) {
         await client.query('ROLLBACK');
-        throw e;
+        console.error(`Claim combo reward failed for user ${userId}:`, e.message);
+        // Re-throw the original error to be caught by the server route
+        throw e; 
     } finally {
         client.release();
     }
