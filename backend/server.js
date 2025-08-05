@@ -1,3 +1,4 @@
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -303,8 +304,9 @@ app.post('/api/action/buy-upgrade', async (req, res) => {
         const baseProfitFromUpgrades = config.upgrades.reduce((total, u) => {
             const level = player.upgrades[u.id] || 0;
             if (level > 0) {
-                 const profit = u.profitPerHour * level; // Simplified profit calculation
-                 return total + profit;
+                 // Match frontend compound calculation for consistency
+                 const profitForThisUpgrade = u.profitPerHour * Math.pow(1.07, level);
+                 return total + profitForThisUpgrade;
             }
             return total;
         }, 0);

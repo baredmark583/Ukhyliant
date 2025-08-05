@@ -81,15 +81,16 @@ const MainApp: React.FC = () => {
   const handleClaimTask = async (task: DailyTask | SpecialTask) => {
     // Shared logic for opening popups or links
     if (task.type === 'video_code') {
-        window.Telegram.WebApp.showPopup({
+        window.Telegram.WebApp.showPrompt({
             title: t('enter_secret_code'),
             message: task.name[user.language],
             buttons: [
-                { id: 'submit', type: 'default', text: 'Проверить' },
+                { id: 'submit', type: 'default', text: t('check') },
                 { type: 'cancel' },
             ]
-        }, async (buttonId, text) => {
-            if (buttonId === 'submit' && text) {
+        }, async (text) => {
+            // The callback for showPrompt receives only the entered text.
+            if (text) {
                 if ('isOneTime' in task) { // Special task
                     await completeSpecialTask(task, text);
                 } else { // Daily task
@@ -102,7 +103,11 @@ const MainApp: React.FC = () => {
 
     // For other link-based tasks
     if (task.url) {
-        window.Telegram.WebApp.openTelegramLink(task.url);
+        if (task.url.startsWith('https://t.me/')) {
+            window.Telegram.WebApp.openTelegramLink(task.url);
+        } else {
+            window.Telegram.WebApp.openLink(task.url);
+        }
     }
 
     // After link is opened (or if there's no link), proceed to claim
@@ -118,7 +123,7 @@ const MainApp: React.FC = () => {
              await handleClaimDailyTaskReward(task);
         }
     }
-};
+  };
 
   const handleClaimDailyTaskReward = async (task: DailyTask, code?: string) => {
     const result = await claimTaskReward(task, code);
@@ -418,7 +423,7 @@ const LeaderboardScreen = ({ onClose, getLeaderboard, user }: { onClose: () => v
                 <div className="bg-gray-700/50 rounded-lg p-3 flex flex-col items-center mb-4">
                      <p className="text-sm text-gray-400">{t('your_league')}</p>
                      <div className="flex items-center space-x-2">
-                        <span className="text-2xl">{currentLeague?.icon}</span>
+                        {currentLeague?.iconUrl && <img src={currentLeague.iconUrl} alt="" className="w-8 h-8"/>}
                         <span className="text-lg font-bold">{currentLeague?.name[user.language]}</span>
                      </div>
                      <p className="text-xs text-gray-500 mt-1">{t('total_players')}: {leaderboardData?.totalPlayers?.toLocaleString() || '...'}</p>
@@ -435,7 +440,7 @@ const LeaderboardScreen = ({ onClose, getLeaderboard, user }: { onClose: () => v
                                     <div className="flex-grow mx-2">
                                         <p className="font-semibold truncate">{player.name}</p>
                                         <p className="text-xs text-gray-400 flex items-center space-x-1">
-                                            {player.leagueIcon && <span className="text-xs">{player.leagueIcon}</span>}
+                                            {player.leagueIconUrl && <img src={player.leagueIconUrl} alt="" className="w-4 h-4 mr-1"/>}
                                             <span>{player.leagueName[user.language]}</span>
                                         </p>
                                     </div>
