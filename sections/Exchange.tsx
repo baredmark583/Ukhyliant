@@ -6,6 +6,11 @@ import { MAX_ENERGY, CoinIcon, TELEGRAM_BOT_NAME, MINI_APP_NAME } from '../const
 import { useTranslation } from '../hooks/useGameLogic';
 import coinSvg from '../assets/coin.svg';
 
+const MORSE_CODE_MAP: { [key: string]: string } = {
+    'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--', 'Z': '--..',
+    '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.', '0': '-----'
+};
+
 interface ExchangeProps {
   playerState: PlayerState;
   currentLeague: League;
@@ -44,7 +49,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const resetMorseTimer = useRef<number | null>(null);
   const lastClickPos = useRef({ x: 0, y: 0 });
 
-  const dailyCipherWord = config.dailyEvent?.cipherWord || '';
+  const dailyCipherWord = (config.dailyEvent?.cipherWord || '').toUpperCase();
+  const dailyCipherMorseTarget = dailyCipherWord.split('').map(letter => MORSE_CODE_MAP[letter]).join('');
   const claimedCipher = playerState.claimedCipherToday;
 
   const handleCipherReset = useCallback(() => {
@@ -90,22 +96,28 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
     pressTimer.current = null;
     
     // --- MORSE MODE LOGIC ---
-    if (morseMode && !claimedCipher && dailyCipherWord) {
+    if (morseMode && !claimedCipher && dailyCipherMorseTarget) {
       const char = pressDuration < 200 ? '.' : '-';
       const newSequence = morseInput + char;
       setMorseInput(newSequence);
 
       // Check for match
-      if (newSequence === dailyCipherWord) {
-        const success = await onClaimCipher(newSequence);
+      if (newSequence === dailyCipherMorseTarget) {
+        // Pass the original word, not the morse sequence, to the backend for validation
+        const success = await onClaimCipher(dailyCipherWord);
         if (success) {
           setMorseInput('');
           setMorseMode(false);
           if (resetMorseTimer.current) clearTimeout(resetMorseTimer.current);
         }
       } else {
-         // Reset the input after 3 seconds of inactivity
-         resetMorseTimer.current = window.setTimeout(handleCipherReset, 3000);
+         // Reset the input after 3 seconds of inactivity if it's not a prefix of the target
+         if (!dailyCipherMorseTarget.startsWith(newSequence)) {
+            resetMorseTimer.current = window.setTimeout(handleCipherReset, 1500);
+         } else {
+            // If it IS a valid prefix, reset the inactivity timer
+            resetMorseTimer.current = window.setTimeout(handleCipherReset, 3000);
+         }
       }
     
     // --- REGULAR TAP LOGIC ---
@@ -171,7 +183,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
       </div>
 
       {/* Daily Cipher Section */}
-       {dailyCipherWord && (
+       {dailyCipherMorseTarget && (
           <div className="w-full max-w-sm text-center my-3 p-3 bg-red-900/40 border border-red-500 rounded-lg">
             <h3 className="font-bold text-lg text-red-200">{t('daily_cipher')}</h3>
             {claimedCipher ? (

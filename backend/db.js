@@ -246,11 +246,22 @@ export const claimComboReward = async (userId) => {
         }
         
         const comboIds = parseDbComboIds(dailyEvent);
-        if (!comboIds || comboIds.length !== 3) {
-            throw new Error('Daily combo is not configured correctly.');
+        if (!comboIds || !Array.isArray(comboIds) || comboIds.length !== 3) {
+            throw new Error('Daily combo is not configured correctly for today.');
         }
 
-        const hasAllCards = comboIds.every(id => (player.upgrades?.[id] || 0) > 0);
+        let hasAllCards = true;
+        for (const cardId of comboIds) {
+            if (!cardId) { // Defense against invalid config
+                hasAllCards = false;
+                break;
+            }
+            const playerLevel = player.upgrades?.[cardId] || 0;
+            if (playerLevel <= 0) {
+                hasAllCards = false;
+                break;
+            }
+        }
 
         if (!hasAllCards) {
             throw new Error("You haven't purchased all the required combo cards yet.");
