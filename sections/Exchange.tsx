@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language, GameConfig } from '../types';
@@ -48,6 +47,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const pressTimer = useRef<number | null>(null);
   const resetMorseTimer = useRef<number | null>(null);
   const lastClickPos = useRef({ x: 0, y: 0 });
+  const pressEndDebounce = useRef(false); // Debounce to prevent double events on mobile
 
   const dailyCipherWord = (config.dailyEvent?.cipherWord || '').toUpperCase();
   const dailyCipherMorseTarget = dailyCipherWord.split('').map(letter => MORSE_CODE_MAP[letter]).join('');
@@ -65,7 +65,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   }, []);
 
   const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
-    // Prevent context menu on long touch
+    // Prevent context menu on long touch and emulated mouse events
     if ('touches' in e) {
         e.preventDefault();
     }
@@ -90,7 +90,10 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   };
 
   const handlePressEnd = async () => {
+    if (pressEndDebounce.current) return;
     if (!pressTimer.current) return;
+    
+    pressEndDebounce.current = true;
 
     const pressDuration = Date.now() - pressTimer.current;
     pressTimer.current = null;
@@ -142,6 +145,10 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
         }, 1000);
       }
     }
+
+    setTimeout(() => {
+        pressEndDebounce.current = false;
+    }, 50);
   };
   
   const handleCopyReferral = () => {
