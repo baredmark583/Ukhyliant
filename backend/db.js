@@ -276,18 +276,32 @@ export const claimComboReward = async (userId) => {
         client.release();
     }
 }
-export const claimCipherReward = async (userId) => {
+export const claimCipherReward = async (userId, cipher) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const today = new Date().toISOString().split('T')[0];
-        const dailyEvent = await getDailyEvent(today);
-        if (!dailyEvent) throw new Error("Daily event not found.");
+        
+        const eventRes = await client.query('SELECT * FROM daily_events WHERE event_date = $1', [today]);
+        const dailyEvent = eventRes.rows[0];
+        
+        if (!dailyEvent || !dailyEvent.cipher_word) {
+            throw new Error("Daily cipher is not active for today.");
+        }
 
         const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) {
+            throw new Error("Player not found.");
+        }
         const player = playerRes.rows[0].data;
 
-        if (player.claimedCipherToday) throw new Error("Cipher already claimed today.");
+        if (player.claimedCipherToday) {
+            throw new Error("Cipher reward already claimed today.");
+        }
+        
+        if (dailyEvent.cipher_word !== cipher) {
+            throw new Error("Incorrect cipher.");
+        }
         
         player.balance += Number(dailyEvent.cipher_reward) || 0;
         player.claimedCipherToday = true;

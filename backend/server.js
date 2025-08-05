@@ -119,21 +119,17 @@ app.post('/api/login', async (req, res) => {
         }
         
         const userId = tgUser.id.toString();
-        const config = await getConfig();
-        let dailyEvent = await getDailyEvent(getTodayDate());
         
-        if (dailyEvent) {
-            // Defensively parse combo_ids to ensure it's always an array
-            dailyEvent.combo_ids = parseComboIds(dailyEvent);
-        }
-        config.dailyEvent = dailyEvent;
-
+        // --- DATA FETCHING ---
+        const baseConfig = await getConfig();
+        let dailyEvent = await getDailyEvent(getTodayDate());
         let user = await getUser(userId);
         let player = await getPlayer(userId);
 
         const now = Date.now();
         const today = new Date(now).setHours(0, 0, 0, 0);
 
+        // --- PLAYER & USER LOGIC ---
         if (!user) { // New user
             const referrerId = (startParam && startParam !== userId) ? startParam : null;
             let lang = 'en';
@@ -174,13 +170,25 @@ app.post('/api/login', async (req, res) => {
             await savePlayer(userId, player);
         }
 
+        // --- RESPONSE ASSEMBLY ---
         let role = 'user';
         if (userId === ADMIN_TELEGRAM_ID) role = 'admin';
         else if (MODERATOR_TELEGRAM_IDS.includes(userId)) role = 'moderator';
         
         const userWithRole = { ...user, role };
         
-        res.json({ user: userWithRole, player, config });
+        // Ensure dailyEvent is processed correctly
+        if (dailyEvent) {
+            dailyEvent.combo_ids = parseComboIds(dailyEvent);
+        }
+
+        // Create the final config object to be sent to the client
+        const finalConfig = {
+            ...baseConfig,
+            dailyEvent: dailyEvent // Explicitly set/overwrite dailyEvent with fresh data
+        };
+        
+        res.json({ user: userWithRole, player, config: finalConfig });
 
     } catch (error) {
         console.error("Login error:", error);
@@ -340,15 +348,13 @@ app.post('/api/action/claim-combo', async (req, res) => {
 app.post('/api/action/claim-cipher', async (req, res) => {
     try {
         const { userId, cipher } = req.body;
-        const player = await getPlayer(userId);
-        const dailyEvent = await getDailyEvent(getTodayDate());
-        if (!player || !dailyEvent || player.claimedCipherToday || dailyEvent.cipher_word !== cipher) {
-            return res.status(400).json({ error: 'Cannot claim cipher.' });
+        if (!userId || !cipher) {
+            return res.status(400).json({ error: "User ID and cipher are required." });
         }
-        const updatedPlayer = await claimCipherReward(userId);
+        const updatedPlayer = await claimCipherReward(userId, cipher);
         res.json(updatedPlayer);
     } catch (error) {
-         res.status(500).json({ error: error.message || 'Server error' });
+         res.status(400).json({ error: error.message || 'Failed to claim cipher.' });
     }
 });
 
