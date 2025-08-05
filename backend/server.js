@@ -24,7 +24,8 @@ import {
     saveDailyEvent,
     getDashboardStats,
     claimComboReward,
-    claimCipherReward
+    claimCipherReward,
+    resetPlayerDailyProgress
 } from './db.js';
 import { ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, MAX_ENERGY, ENERGY_REGEN_RATE } from './constants.js';
 
@@ -538,6 +539,20 @@ app.delete('/admin/api/player/:id', isAdminAuthenticated, async (req, res) => {
         res.status(500).json({ error: "Internal server error while deleting player." });
     }
 });
+
+app.post('/admin/api/player/:id/reset-daily', isAdminAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    log('info', `Admin initiated daily progress reset for player ${id}`);
+    try {
+        await resetPlayerDailyProgress(id);
+        log('info', `Daily progress for player ${id} reset successfully.`);
+        res.status(200).json({ message: 'Player daily progress reset successfully.' });
+    } catch (error) {
+        log('error', `Failed to reset daily progress for player ${id}:`, error);
+        res.status(500).json({ error: "Internal server error while resetting daily progress." });
+    }
+});
+
 app.get('/admin/api/config', isAdminAuthenticated, async (req, res) => {
     log('info', 'Admin requested game config.');
     const config = await getConfig();

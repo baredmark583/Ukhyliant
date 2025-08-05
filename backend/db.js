@@ -356,3 +356,29 @@ export const getDashboardStats = async () => {
         popularUpgrades: popularUpgradesRes.rows
     };
 };
+
+export const resetPlayerDailyProgress = async (userId) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) {
+            throw new Error("Player not found.");
+        }
+        const player = playerRes.rows[0].data;
+
+        player.claimedComboToday = false;
+        player.claimedCipherToday = false;
+        player.dailyUpgrades = [];
+
+        const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
+        await client.query('COMMIT');
+        return updatedRes.rows[0].data;
+    } catch(e) {
+        await client.query('ROLLBACK');
+        console.error(`Reset daily progress failed for user ${userId}:`, e.message);
+        throw e;
+    } finally {
+        client.release();
+    }
+};

@@ -138,8 +138,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td class="p-3 font-mono">${formatNumber(p.balance)}</td>
                                 <td class="p-3 font-mono">${formatNumber(p.referrals)}</td>
                                 <td class="p-3 uppercase">${escapeHtml(p.language)}</td>
-                                <td class="p-3">
-                                    <button data-id="${p.id}" class="delete-player-btn text-red-500 hover:text-red-400 text-xs font-bold">Удалить</button>
+                                <td class="p-3 whitespace-nowrap space-x-2">
+                                    <button data-id="${p.id}" class="reset-daily-btn text-blue-400 hover:text-blue-300 text-xs font-bold px-2 py-1 bg-blue-900/50 rounded-md">Сброс дня</button>
+                                    <button data-id="${p.id}" class="delete-player-btn text-red-500 hover:text-red-400 text-xs font-bold px-2 py-1 bg-red-900/50 rounded-md">Удалить</button>
                                 </td>
                             </tr>
                         `).join('')}
@@ -344,6 +345,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const handleResetDaily = async (e) => {
+        const button = e.target;
+        const { id } = button.dataset;
+        if (confirm(`Вы уверены, что хотите сбросить ежедневный прогресс (комбо/шифр) для игрока ${id}?`)) {
+            button.disabled = true;
+            button.textContent = '...';
+            try {
+                const response = await fetch(`/admin/api/player/${id}/reset-daily`, { method: 'POST' });
+                if (!response.ok) throw new Error('Failed to reset daily progress');
+                const data = await response.json();
+                alert(data.message || 'Прогресс сброшен!');
+            } catch (err) {
+                alert('Ошибка при сбросе прогресса.');
+                console.error(err);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Сброс дня';
+            }
+        }
+    };
+
     const handleSearch = (e) => {
         const query = e.target.value.toLowerCase();
         const filtered = allPlayers.filter(p => p.id.includes(query) || p.name.toLowerCase().includes(query));
@@ -356,6 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tabContainer.querySelectorAll('.add-new-btn').forEach(btn => btn.addEventListener('click', addNewItem));
         tabContainer.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', deleteItem));
         tabContainer.querySelectorAll('.delete-player-btn').forEach(btn => btn.addEventListener('click', handleDeletePlayer));
+        tabContainer.querySelectorAll('.reset-daily-btn').forEach(btn => btn.addEventListener('click', handleResetDaily));
         const searchInput = document.getElementById('player-search');
         if (searchInput) searchInput.addEventListener('input', handleSearch);
     };
