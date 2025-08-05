@@ -60,6 +60,8 @@ const MainApp: React.FC = () => {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const t = useTranslation();
+  const [startedVideoTasks, setStartedVideoTasks] = useState<Set<string>>(new Set());
+
 
   if (!user || !playerState || !config) return <LoadingScreen />;
   
@@ -86,14 +88,71 @@ const MainApp: React.FC = () => {
             ? `+${task.reward.amount.toLocaleString()} 🪙`
             : `+${task.reward.amount.toLocaleString()}/hr ⚡`;
         showNotification(`${task.name[user.language]} выполнено! ${rewardText}`, 'success');
+        
+        if (task.type === 'video_code') {
+            setStartedVideoTasks(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(task.id);
+                return newSet;
+            });
+        }
     } else if (result.error) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
         showNotification(result.error, 'error');
     }
+    return result;
   };
 
+  const handleCompleteSpecialTask = async (task: SpecialTask, code?: string) => {
+    const updatedPlayerState = await completeSpecialTask(task, code);
+    if (updatedPlayerState) {
+        if (task.type === 'video_code') {
+            setStartedVideoTasks(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(task.id);
+                return newSet;
+            });
+        }
+    }
+    return updatedPlayerState;
+  };
+  
   const handleClaimTask = async (task: DailyTask | SpecialTask) => {
-    // Step 1: Handle actions that require opening a link. This is common for many task types.
+    const isVideoCodeTask = task.type === 'video_code';
+    const isVideoTaskStarted = isVideoCodeTask && startedVideoTasks.has(task.id);
+
+    // --- Two-step logic for video_code tasks ---
+    if (isVideoCodeTask) {
+        if (!isVideoTaskStarted) {
+            // First click: Open link and set state to wait for code entry
+            if (task.url) {
+                window.Telegram.WebApp.openLink(task.url);
+            }
+            setStartedVideoTasks(prev => new Set(prev).add(task.id));
+            return;
+        } else {
+            // Second click: Show prompt for code entry
+            window.Telegram.WebApp.showPrompt({
+                title: t('enter_secret_code'),
+                message: task.name[user.language],
+                buttons: [
+                    { id: 'submit', type: 'default', text: t('check') },
+                    { type: 'cancel' },
+                ]
+            }, async (text) => {
+                if (text) {
+                    if ('isOneTime' in task) { // Special task
+                        await handleCompleteSpecialTask(task, text);
+                    } else { // Daily task
+                        await handleClaimDailyTaskReward(task, text);
+                    }
+                }
+            });
+            return; // Stop further execution, as claim is handled in the callback.
+        }
+    }
+
+    // --- Standard logic for other tasks ---
     if (task.url) {
         if (task.url.startsWith('https://t.me/')) {
             window.Telegram.WebApp.openTelegramLink(task.url);
@@ -101,39 +160,15 @@ const MainApp: React.FC = () => {
             window.Telegram.WebApp.openLink(task.url);
         }
     }
-
-    // Step 2: For 'video_code' tasks, after opening the link, we must prompt for a code.
-    // The reward claim is handled inside the prompt's callback.
-    if (task.type === 'video_code') {
-        window.Telegram.WebApp.showPrompt({
-            title: t('enter_secret_code'),
-            message: task.name[user.language],
-            buttons: [
-                { id: 'submit', type: 'default', text: t('check') },
-                { type: 'cancel' },
-            ]
-        }, async (text) => {
-            // Callback receives the entered text.
-            if (text) {
-                if ('isOneTime' in task) { // Special task
-                    await completeSpecialTask(task, text);
-                } else { // Daily task
-                    await handleClaimDailyTaskReward(task, text);
-                }
-            }
-        });
-        return; // Stop further execution, as claim is now handled in the callback.
-    }
     
-    // Step 3: For tasks that don't require further user input (e.g., watch, join), claim the reward immediately.
-    // This part should NOT run for video_code tasks due to the return statement above.
-    if ('isOneTime' in task) { // Special Task
-        await completeSpecialTask(task);
-    } else { // Daily Task
-        if (task.type !== 'taps') { // For daily tasks like join/watch, claim is immediate.
+    // For tasks that don't require further user input (e.g., join, watch), claim reward immediately.
+    if ('isOneTime' in task) {
+        await handleCompleteSpecialTask(task);
+    } else {
+        if (task.type !== 'taps') {
              await handleClaimDailyTaskReward(task);
         } else {
-            // For 'taps' tasks, this is called when the tap requirement is met.
+             // For 'taps' tasks, this is called when the tap requirement is met.
              await handleClaimDailyTaskReward(task);
         }
     }
@@ -171,9 +206,9 @@ const MainApp: React.FC = () => {
       case 'boost':
         return <BoostScreen balance={playerState.balance} boosts={config.boosts} onBuyBoost={buyBoost} lang={user.language} />;
       case 'tasks':
-        return <TasksScreen tasks={config.tasks} playerState={playerState} onClaim={handleClaimTask} lang={user.language} />;
+        return <TasksScreen tasks={config.tasks} playerState={playerState} onClaim={handleClaimTask} lang={user.language} startedVideoTasks={startedVideoTasks} />;
       case 'earn':
-        return <EarnScreen tasks={config.specialTasks} playerState={playerState} onPurchase={purchaseSpecialTask} onComplete={handleClaimTask} lang={user.language} />;
+        return <EarnScreen tasks={config.specialTasks} playerState={playerState} onPurchase={purchaseSpecialTask} onComplete={handleClaimTask} lang={user.language} startedVideoTasks={startedVideoTasks}/>;
       default:
         return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} />;
     }
@@ -263,7 +298,7 @@ const FriendsScreen = ({ playerState, user }: { playerState: PlayerState, user: 
     );
 };
 
-const TaskCard = ({ task, playerState, onClaim, lang }: { task: DailyTask | SpecialTask, playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, lang: Language }) => {
+const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks }: { task: DailyTask | SpecialTask, playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, lang: Language, startedVideoTasks: Set<string> }) => {
     const t = useTranslation();
     const isSpecial = 'isOneTime' in task;
     const isCompleted = isSpecial 
@@ -280,18 +315,19 @@ const TaskCard = ({ task, playerState, onClaim, lang }: { task: DailyTask | Spec
         progressText = `${progress}/${task.requiredTaps}`;
     }
 
-    // For non-tap tasks, the button is generally claimable if not completed
-    // The actual action (e.g., opening a link) is handled by onClaim
-    if (task.type !== 'taps') {
-        progressText = t('get'); // Or 'go_to_task'
-    }
-
     const rewardIcon = task.reward.type === 'profit' ? '⚡' : '🪙';
     
     const getButtonText = () => {
         if (isCompleted) return t('completed');
+        
+        const isVideoCodeTask = task.type === 'video_code';
+        const isVideoTaskStarted = isVideoCodeTask && startedVideoTasks.has(task.id);
+        if (isVideoCodeTask) {
+            return isVideoTaskStarted ? t('enter_secret_code') : t('go_to_task');
+        }
+
         if (canClaim) {
-             if (task.url || task.type === 'video_code') return t('go_to_task');
+             if (task.url) return t('go_to_task');
              return t('claim');
         }
         return progressText; // Shows progress for tap tasks
@@ -333,21 +369,21 @@ const TaskCard = ({ task, playerState, onClaim, lang }: { task: DailyTask | Spec
     );
 };
 
-const TasksScreen = ({ tasks, playerState, onClaim, lang }: { tasks: DailyTask[], playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, lang: Language }) => {
+const TasksScreen = ({ tasks, playerState, onClaim, lang, startedVideoTasks }: { tasks: DailyTask[], playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, lang: Language, startedVideoTasks: Set<string> }) => {
     const t = useTranslation();
     return (
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
             <h1 className="text-3xl font-bold text-center mb-6">{t('tasks')}</h1>
             <div className="w-full max-w-md space-y-3 overflow-y-auto no-scrollbar">
                 {tasks.map(task => (
-                    <TaskCard key={task.id} task={task} playerState={playerState} onClaim={onClaim} lang={lang} />
+                    <TaskCard key={task.id} task={task} playerState={playerState} onClaim={onClaim} lang={lang} startedVideoTasks={startedVideoTasks} />
                 ))}
             </div>
         </div>
     );
 };
 
-const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang }: { tasks: SpecialTask[], playerState: PlayerState, onPurchase: (task: SpecialTask) => void, onComplete: (task: SpecialTask) => void, lang: Language }) => {
+const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang, startedVideoTasks }: { tasks: SpecialTask[], playerState: PlayerState, onPurchase: (task: SpecialTask) => void, onComplete: (task: SpecialTask) => void, lang: Language, startedVideoTasks: Set<string> }) => {
     const t = useTranslation();
     
     return (
@@ -363,7 +399,12 @@ const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang }: { task
                     if (isCompleted) {
                         button = <button disabled className="w-full mt-2 py-2 rounded-lg font-bold bg-gray-600 text-gray-400">{t('completed')}</button>;
                     } else if (isPurchased) {
-                        button = <button onClick={() => onComplete(task)} className="w-full mt-2 py-2 rounded-lg font-bold bg-blue-600 hover:bg-blue-500">{t('go_to_task')}</button>;
+                        const isVideoCodeTask = task.type === 'video_code';
+                        const isVideoTaskStarted = isVideoCodeTask && startedVideoTasks.has(task.id);
+                        const buttonText = isVideoCodeTask
+                            ? (isVideoTaskStarted ? t('enter_secret_code') : t('go_to_task'))
+                            : t('go_to_task');
+                        button = <button onClick={() => onComplete(task)} className="w-full mt-2 py-2 rounded-lg font-bold bg-blue-600 hover:bg-blue-500">{buttonText}</button>;
                     } else {
                         button = <button onClick={() => onPurchase(task)} className="w-full mt-2 py-2 rounded-lg font-bold bg-purple-600 hover:bg-purple-500 flex justify-center items-center space-x-2">
                                     <span>{task.priceStars > 0 ? `${t('unlock_for')} ${task.priceStars}` : t('get')}</span>

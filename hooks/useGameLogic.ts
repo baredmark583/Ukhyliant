@@ -398,13 +398,15 @@ export const useGame = () => {
         }
     }, [user, playerState, setPlayerState]);
     
-    const completeSpecialTask = useCallback(async (task: SpecialTask, code?: string) => {
-        if (!user || !playerState || playerState.completedSpecialTaskIds.includes(task.id) || !playerState.purchasedSpecialTaskIds.includes(task.id)) return;
+    const completeSpecialTask = useCallback(async (task: SpecialTask, code?: string): Promise<PlayerState | null> => {
+        if (!user || !playerState || playerState.completedSpecialTaskIds.includes(task.id) || !playerState.purchasedSpecialTaskIds.includes(task.id)) return null;
          const updatedPlayerState = await API.completeSpecialTask(user.id, task.id, code);
          if(updatedPlayerState) {
             setPlayerState(updatedPlayerState);
             window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            return updatedPlayerState;
          }
+         return null;
     }, [user, playerState, setPlayerState]);
 
     const claimDailyCombo = useCallback(async (): Promise<{player?: PlayerState, reward?: number, error?: string}> => {
