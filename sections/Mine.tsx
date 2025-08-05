@@ -14,11 +14,11 @@ interface MineProps {
   onClaimCombo: () => void;
 }
 
-const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'onClaimCombo' | 'upgrades'>> = 
-  ({ playerState, config, onClaimCombo, upgrades }) => {
+const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'onClaimCombo' | 'upgrades' | 'lang'>> =
+  ({ playerState, config, onClaimCombo, upgrades, lang }) => {
   const t = useTranslation();
   const comboIds = config.dailyEvent?.comboIds || [];
-  
+
   if (comboIds.length !== 3) return null;
 
   const upgradedCardsToday = playerState.dailyUpgrades || [];
@@ -34,8 +34,12 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
           const isUpgradedToday = upgradedCardsToday.includes(id);
           const upgrade = upgrades.find(u => u.id === id);
           return (
-            <div key={index} className="w-20 h-20 bg-black/30 rounded-lg flex items-center justify-center text-4xl border-2 border-dashed border-gray-600">
-              {isUpgradedToday ? upgrade?.icon : '?'}
+            <div key={index} className="w-20 h-20 bg-black/30 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-600 p-2">
+              {isUpgradedToday && upgrade ? (
+                <img src={upgrade.iconUrl} alt={upgrade.name[lang]} className="w-full h-full object-contain" />
+              ) : (
+                <span className="text-4xl text-gray-500">?</span>
+              )}
             </div>
           );
         })}
@@ -45,7 +49,7 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
           {t('claimed_today')}
         </button>
       ) : (
-        <button 
+        <button
           onClick={onClaimCombo}
           disabled={!allComboCardsUpgradedToday}
           className="w-full py-2 rounded-lg font-bold text-white transition-colors disabled:bg-gray-600 disabled:text-gray-400 bg-green-600 hover:bg-green-500"
@@ -68,13 +72,14 @@ const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang
   return (
     <div className="flex flex-col h-full text-white pt-4 pb-24 px-4">
       <h1 className="text-3xl font-bold text-center mb-6">{t('mine_upgrades')}</h1>
-      
+
       <div className="overflow-y-auto space-y-6 flex-grow no-scrollbar">
-        <DailyComboSection 
+        <DailyComboSection
           playerState={playerState}
           config={config}
           onClaimCombo={onClaimCombo}
           upgrades={upgrades}
+          lang={lang}
         />
         {categories.map(category => {
           const categoryUpgrades = getUpgradesByCategory(category);

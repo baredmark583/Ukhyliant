@@ -22,8 +22,20 @@ export const NAV_ICON_URLS = {
     mine: 'https://api.iconify.design/ph/hammer-bold.svg?color=white',
     friends: 'https://api.iconify.design/ph/users-three-bold.svg?color=white',
     earn: 'https://api.iconify.design/ph/star-bold.svg?color=white',
-    boost: 'https://api.iconify.design/ph/rocket-launch-bold.svg?color=white'
+    boost: 'https://api.iconify.design/ph/rocket-launch-bold.svg?color=white',
+    tasks: 'https://api.iconify.design/ph/list-bold.svg?color=white'
 };
+
+// --- ICON COMPONENTS ---
+export const ExchangeIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.exchange} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Exchange" />;
+export const MineIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.mine} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Mine" />;
+export const FriendsIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.friends} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Friends" />;
+export const EarnIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.earn} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Earn" />;
+export const BoostIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.boost} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Boost" />;
+export const TasksIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.tasks} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Tasks" />;
+
+export const StarIcon = () => <img src={STAR_ICON_URL} alt="star" className="w-4 h-4" />;
+export const CoinIcon = () => <img src={COIN_ICON_URL} alt="coin" className="w-full h-full" />;
 
 
 // --- GAME CONFIGURATION ---
