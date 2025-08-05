@@ -202,15 +202,19 @@ app.post('/api/login', async (req, res) => {
         
         const userWithRole = { ...user, role };
         
-        // Ensure dailyEvent is processed correctly
+        // Create a client-facing daily event object with the correct camelCase keys
+        let clientDailyEvent = null;
         if (dailyEvent) {
-            dailyEvent.combo_ids = parseComboIds(dailyEvent);
+            clientDailyEvent = {
+                comboIds: parseComboIds(dailyEvent),       // Map snake_case to camelCase
+                cipherWord: dailyEvent.cipher_word || ''   // Map snake_case to camelCase
+            };
         }
 
         // Create the final config object to be sent to the client
         const finalConfig = {
             ...baseConfig,
-            dailyEvent: dailyEvent // Explicitly set/overwrite dailyEvent with fresh data
+            dailyEvent: clientDailyEvent // Use the correctly formatted object
         };
         
         log('info', `Login successful for ${userId}. Sending config.`);
