@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const createLocalizedInputGroup = (section, index, field, value) => {
         return `
-        <div class="col-span-3">
+        <div class="col-span-full md:col-span-2">
             <div class="relative">
                 <div class="absolute -top-2 left-2 bg-gray-700 px-1 text-xs text-gray-400">${field}</div>
                 <div class="grid grid-cols-4 gap-2 border border-gray-600 rounded-lg p-2 pt-4">
@@ -166,64 +166,100 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     };
 
-    const createInput = (section, index, field, type = 'text') => {
+    const createInput = (section, index, field, type = 'text', hidden = false, placeholder = '') => {
         const item = localConfig[section][index];
         const value = item ? item[field] : '';
-        return `<div class="col-span-1"><label class="block text-xs text-gray-400 mb-1">${field}</label><input type="${type}" data-section="${section}" data-index="${index}" data-field="${field}" value="${escapeHtml(value)}" class="w-full bg-gray-600 p-2 rounded"></div>`;
+        return `<div class="col-span-1 ${hidden ? 'hidden' : ''}" id="field-container-${section}-${index}-${field}"><label class="block text-xs text-gray-400 mb-1 capitalize">${field.replace(/([A-Z])/g, ' $1')}</label><input type="${type}" data-section="${section}" data-index="${index}" data-field="${field}" value="${escapeHtml(value)}" class="w-full bg-gray-600 p-2 rounded" placeholder="${placeholder}"></div>`;
     };
 
-    const createSelect = (section, index, field, options) => {
+    const createSelect = (section, index, field, options, hidden = false) => {
          const item = localConfig[section][index];
          const value = item ? item[field] : '';
-         return `<div class="col-span-1"><label class="block text-xs text-gray-400 mb-1">${field}</label><select data-section="${section}" data-index="${index}" data-field="${field}" class="w-full bg-gray-600 p-2 rounded">${options.map(o => `<option value="${o}" ${o === value ? 'selected' : ''}>${o}</option>`).join('')}</select></div>`;
+         return `<div class="col-span-1 ${hidden ? 'hidden' : ''}" id="field-container-${section}-${index}-${field}"><label class="block text-xs text-gray-400 mb-1 capitalize">${field}</label><select data-section="${section}" data-index="${index}" data-field="${field}" class="w-full bg-gray-600 p-2 rounded">${options.map(o => `<option value="${o}" ${o === value ? 'selected' : ''}>${o}</option>`).join('')}</select></div>`;
+    };
+
+    const createRewardInput = (section, index, reward) => {
+        return `
+        <div class="col-span-2">
+            <label class="block text-xs text-gray-400 mb-1">Награда</label>
+            <div class="flex items-center space-x-2">
+                <select data-section="${section}" data-index="${index}" data-field="reward.type" class="w-1/3 bg-gray-600 p-2 rounded">
+                    <option value="coins" ${reward.type === 'coins' ? 'selected' : ''}>Монеты 🪙</option>
+                    <option value="profit" ${reward.type === 'profit' ? 'selected' : ''}>Прибыль ⚡</option>
+                </select>
+                <input type="number" data-section="${section}" data-index="${index}" data-field="reward.amount" value="${reward.amount}" class="w-2/3 bg-gray-600 p-2 rounded">
+            </div>
+        </div>`;
     };
 
     const renderConfigTable = (sectionKey) => {
         const items = localConfig[sectionKey] || [];
-        if (!items.length) {
-            tabContainer.innerHTML = '<p class="text-gray-500">Нет элементов для отображения.</p>';
-            return;
-        }
+        const isTask = sectionKey === 'tasks' || sectionKey === 'specialTasks';
 
-        const headers = Object.keys(items[0] || {});
-        let tableHTML = `
-            <div class="space-y-4">
+        let tableHTML = `<div class="space-y-4">
             ${items.map((item, index) => {
                 let fieldsHTML = '<div class="grid grid-cols-1 md:grid-cols-4 gap-4">';
-                headers.forEach(header => {
-                    if(header === 'id') {
-                        fieldsHTML += `<div class="col-span-1"><label class="block text-xs text-gray-400 mb-1">ID</label><input type="text" value="${escapeHtml(item.id)}" class="w-full bg-gray-500 p-2 rounded" readonly></div>`;
-                    } else if (typeof item[header] === 'object' && item[header]?.en !== undefined) {
-                        fieldsHTML += createLocalizedInputGroup(sectionKey, index, header, item[header]);
-                    } else if (header === 'category') {
-                        fieldsHTML += createSelect(sectionKey, index, header, ['Documents', 'Legal', 'Lifestyle', 'Special']);
-                    } else if (header === 'type') {
-                         fieldsHTML += createSelect(sectionKey, index, header, ['telegram_join', 'social_follow', 'video_watch']);
-                    } else if (typeof item[header] === 'number') {
-                         fieldsHTML += createInput(sectionKey, index, header, 'number');
-                    } else if (typeof item[header] !== 'boolean') {
-                         fieldsHTML += createInput(sectionKey, index, header, 'text');
+                
+                // Common fields for all types
+                fieldsHTML += `<div class="col-span-1"><label class="block text-xs text-gray-400 mb-1">ID</label><input type="text" value="${escapeHtml(item.id)}" class="w-full bg-gray-500 p-2 rounded" readonly></div>`;
+                if (item.name) fieldsHTML += createLocalizedInputGroup(sectionKey, index, 'name', item.name);
+                if (item.description) fieldsHTML += createLocalizedInputGroup(sectionKey, index, 'description', item.description);
+
+                // Specific fields based on section
+                if (sectionKey === 'upgrades') {
+                    fieldsHTML += createInput(sectionKey, index, 'price', 'number');
+                    fieldsHTML += createInput(sectionKey, index, 'profitPerHour', 'number');
+                    fieldsHTML += createSelect(sectionKey, index, 'category', ['Documents', 'Legal', 'Lifestyle', 'Special']);
+                    fieldsHTML += createInput(sectionKey, index, 'icon');
+                } else if (sectionKey === 'boosts') {
+                    fieldsHTML += createInput(sectionKey, index, 'costCoins', 'number');
+                    fieldsHTML += createInput(sectionKey, index, 'icon');
+                } else if (isTask) {
+                    const taskTypes = ['taps', 'telegram_join', 'social_follow', 'video_watch', 'video_code'];
+                    fieldsHTML += createSelect(sectionKey, index, 'type', taskTypes);
+                    fieldsHTML += createRewardInput(sectionKey, index, item.reward || { type: 'coins', amount: 0 });
+                    fieldsHTML += createInput(sectionKey, index, 'imageUrl', 'text', false, 'https://.../img.svg');
+                    fieldsHTML += createInput(sectionKey, index, 'url', 'text', item.type === 'taps', 'https://t.me/...');
+                    fieldsHTML += createInput(sectionKey, index, 'requiredTaps', 'number', item.type !== 'taps');
+                    fieldsHTML += createInput(sectionKey, index, 'secretCode', 'text', item.type !== 'video_code');
+                    if (sectionKey === 'specialTasks') {
+                         fieldsHTML += createInput(sectionKey, index, 'priceStars', 'number');
                     }
-                });
-                 fieldsHTML += `<div class="col-span-4 flex justify-end"><button data-section="${sectionKey}" data-index="${index}" class="delete-btn bg-red-800/80 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Удалить</button></div>`;
+                }
+
+                fieldsHTML += `<div class="col-span-full flex justify-end"><button data-section="${sectionKey}" data-index="${index}" class="delete-btn bg-red-800/80 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Удалить</button></div>`;
                 fieldsHTML += '</div>';
                 return `<div class="bg-gray-700/50 p-4 rounded-lg">${fieldsHTML}</div>`;
             }).join('')}
             <button class="add-new-btn bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg" data-section="${sectionKey}">Добавить</button>
-            </div>
-        `;
+            </div>`;
         tabContainer.innerHTML = tableHTML;
     };
     
     // --- EVENT HANDLERS ---
     const handleFieldChange = (e) => {
-        const { section, index, field, lang } = e.target.dataset;
+        const { section, index, field } = e.target.dataset;
         if (!section || !index || !field) return;
-        const value = e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value;
-        if (lang) {
-            localConfig[section][index][field][lang] = value;
+
+        const value = e.target.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value;
+        
+        // Handle nested fields like reward.type
+        if (field.includes('.')) {
+            const [parent, child] = field.split('.');
+            localConfig[section][index][parent][child] = value;
+        } else if (e.target.dataset.lang) {
+            localConfig[section][index][field][e.target.dataset.lang] = value;
         } else {
             localConfig[section][index][field] = value;
+        }
+
+        // Dynamic UI update for task types
+        if (field === 'type' && (section === 'tasks' || section === 'specialTasks')) {
+            const item = localConfig[section][index];
+            const type = item.type;
+            document.getElementById(`field-container-${section}-${index}-url`).classList.toggle('hidden', type === 'taps');
+            document.getElementById(`field-container-${section}-${index}-requiredTaps`).classList.toggle('hidden', type !== 'taps');
+            document.getElementById(`field-container-${section}-${index}-secretCode`).classList.toggle('hidden', type !== 'video_code');
         }
     };
     
@@ -270,8 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveMainButton.disabled = true;
         saveMainButton.textContent = 'Сохранение...';
         try {
-            // Save daily events if the tab is active or has been rendered
-            if (document.getElementById('cipher-word-input')) {
+            if (activeTab === 'dailyEvents') {
                 const comboSelects = document.querySelectorAll('[data-event="combo"]');
                 const comboIds = Array.from(comboSelects).map(sel => sel.value).filter(Boolean);
                 const cipherWord = document.getElementById('cipher-word-input').value.toUpperCase().trim();
@@ -311,10 +346,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const addNewItem = (e) => {
         const { section } = e.target.dataset;
-        const newItem = JSON.parse(JSON.stringify(localConfig[section][0])); // Deep copy a template
+        const newItem = JSON.parse(JSON.stringify(localConfig[section][0] || {}));
         Object.keys(newItem).forEach(key => {
             if (key === 'id') newItem[key] = `${section.slice(0, 4)}_${Date.now()}`;
-            else if (typeof newItem[key] === 'object' && newItem[key] !== null) {
+            else if (key === 'reward') newItem[key] = { type: 'coins', amount: 0 };
+            else if (typeof newItem[key] === 'object' && newItem[key] !== null && !Array.isArray(newItem[key])) {
                 Object.keys(newItem[key]).forEach(subKey => newItem[key][subKey] = '');
             } else if (typeof newItem[key] === 'number') newItem[key] = 0;
             else if (typeof newItem[key] === 'string') newItem[key] = '';
@@ -412,12 +448,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             [localConfig, allPlayers, dashboardStats, dailyEvent] = data;
             
-            // Ensure dailyEvent is not null and has default values
             dailyEvent = dailyEvent || { combo_ids: [], cipher_word: '', combo_reward: 5000000, cipher_reward: 1000000 };
             dailyEvent.combo_ids = dailyEvent.combo_ids || [];
             dailyEvent.combo_reward = dailyEvent.combo_reward || 5000000;
             dailyEvent.cipher_reward = dailyEvent.cipher_reward || 1000000;
-
 
             render();
         } catch (error) {

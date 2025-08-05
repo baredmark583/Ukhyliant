@@ -1,3 +1,4 @@
+
 import pg from 'pg';
 import { INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, INITIAL_TASKS, INITIAL_UPGRADES, REFERRAL_BONUS } from './constants.js';
 
@@ -164,20 +165,37 @@ export const unlockSpecialTask = async (userId, taskId) => {
     const res = await executeQuery(query, [JSON.stringify(taskId), userId]);
     return res.rows[0]?.data;
 };
-export const completeAndRewardSpecialTask = async (userId, taskId) => {
+
+const applyReward = (player, reward) => {
+    if (reward.type === 'coins') {
+        player.balance = (player.balance || 0) + reward.amount;
+    } else if (reward.type === 'profit') {
+        const baseProfit = player.profitPerHour - (player.tasksProfitPerHour || 0);
+        player.tasksProfitPerHour = (player.tasksProfitPerHour || 0) + reward.amount;
+        player.profitPerHour = baseProfit + player.tasksProfitPerHour;
+    }
+    return player;
+};
+
+export const completeAndRewardSpecialTask = async (userId, taskId, code) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
         if (playerRes.rows.length === 0) throw new Error('Player not found');
-        const player = playerRes.rows[0].data;
+        let player = playerRes.rows[0].data;
         const configRes = await client.query('SELECT value FROM game_config WHERE key = $1', ['default']);
         const config = configRes.rows[0].value;
         const task = config.specialTasks.find(t => t.id === taskId);
         if (!task) throw new Error('Task not found');
         if (!player.purchasedSpecialTaskIds?.includes(taskId)) throw new Error('Task not purchased');
         if (player.completedSpecialTaskIds?.includes(taskId)) return player;
-        player.balance = (player.balance || 0) + task.rewardCoins;
+        
+        if (task.type === 'video_code' && task.secretCode && task.secretCode.toLowerCase() !== code?.toLowerCase()) {
+            throw new Error("Incorrect secret code.");
+        }
+
+        player = applyReward(player, task.reward);
         player.completedSpecialTaskIds = [...(player.completedSpecialTaskIds || []), taskId];
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
@@ -191,38 +209,32 @@ export const completeAndRewardSpecialTask = async (userId, taskId) => {
     }
 };
 
-export const claimDailyTaskReward = async (userId, taskId) => {
+export const claimDailyTaskReward = async (userId, taskId, code) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-
         const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
         if (playerRes.rows.length === 0) throw new Error('Player not found');
-        const player = playerRes.rows[0].data;
-
+        let player = playerRes.rows[0].data;
         const configRes = await client.query('SELECT value FROM game_config WHERE key = $1', ['default']);
         if (configRes.rows.length === 0) throw new Error('Game config not found');
         const config = configRes.rows[0].value;
-
         const task = config.tasks.find(t => t.id === taskId);
         if (!task) throw new Error('Task not found in config');
+        if (player.completedDailyTaskIds?.includes(taskId)) throw new Error('Task already completed today.');
 
-        if (player.completedDailyTaskIds?.includes(taskId)) {
-            throw new Error('Task already completed today.');
-        }
-
-        if (player.dailyTaps < task.requiredTaps) {
+        if (task.type === 'taps' && player.dailyTaps < (task.requiredTaps || 0)) {
             throw new Error('Not enough taps to claim this task.');
         }
+        if (task.type === 'video_code' && task.secretCode && task.secretCode.toLowerCase() !== code?.toLowerCase()) {
+            throw new Error("Incorrect secret code.");
+        }
 
-        player.balance = (player.balance || 0) + task.rewardCoins;
+        player = applyReward(player, task.reward);
         player.completedDailyTaskIds = [...(player.completedDailyTaskIds || []), taskId];
-
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
-
         return updatedPlayerRes.rows[0].data;
-
     } catch (error) {
         await client.query('ROLLBACK');
         console.error(`Transaction failed in claimDailyTaskReward for user ${userId}, task ${taskId}`, error);
@@ -376,11 +388,9 @@ export const getAllPlayersForAdmin = async () => {
 };
 export const getDashboardStats = async () => {
     const totalPlayersRes = await executeQuery('SELECT COUNT(*) FROM users');
-    // **FIXED**: Use the reliable `created_at` column instead of casting ID to a number.
     const newPlayersTodayRes = await executeQuery("SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '24 hours'");
     const totalCoinsRes = await executeQuery("SELECT SUM((data->>'balance')::numeric) as total_coins FROM players");
     
-    // This is a simplified query for popular upgrades. A real implementation might need more complex tracking.
     const popularUpgradesRes = await executeQuery(`
         SELECT key as upgrade_id, COUNT(*) as purchase_count
         FROM players, jsonb_object_keys(data->'upgrades') key
@@ -421,4 +431,20 @@ export const resetPlayerDailyProgress = async (userId) => {
     } finally {
         client.release();
     }
+};
+
+export const getLeaderboardData = async () => {
+    const res = await executeQuery(`
+        SELECT u.id, u.name, p.data->>'profitPerHour' as "profitPerHour"
+        FROM users u
+        JOIN players p ON u.id = p.id
+        ORDER BY (p.data->>'profitPerHour')::numeric DESC
+        LIMIT 10;
+    `);
+    return res.rows.map(row => ({...row, profitPerHour: parseFloat(row.profitPerHour)}));
+};
+
+export const getTotalPlayerCount = async () => {
+    const res = await executeQuery('SELECT COUNT(*) FROM users');
+    return parseInt(res.rows[0].count, 10);
 };

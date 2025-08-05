@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
-import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask } from '../types';
+import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer } from '../types';
 import { LEAGUES, MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS } from '../constants';
 
 declare global {
@@ -56,13 +56,13 @@ const API = {
     return response.json();
   },
 
-  claimDailyTask: async (userId: string, taskId: string): Promise<{player?: PlayerState, error?: string}> => {
+  claimDailyTask: async (userId: string, taskId: string, code?: string): Promise<{player?: PlayerState, error?: string}> => {
     if (!API_BASE_URL) return { error: "VITE_API_BASE_URL is not set." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/action/claim-task`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, taskId }),
+            body: JSON.stringify({ userId, taskId, code }),
         });
         const data = await response.json();
         if (!response.ok) {
@@ -96,12 +96,12 @@ const API = {
     return response.json();
   },
   
-  completeSpecialTask: async (userId: string, taskId: string): Promise<PlayerState | null> => {
+  completeSpecialTask: async (userId: string, taskId: string, code?: string): Promise<PlayerState | null> => {
     if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
     const response = await fetch(`${API_BASE_URL}/api/action/complete-task`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, taskId }),
+        body: JSON.stringify({ userId, taskId, code }),
     });
      if (!response.ok) return null;
     return response.json();
@@ -143,7 +143,14 @@ const API = {
          console.error('Claim cipher API call failed', e);
          return { error: 'Не удалось подключиться к серверу для проверки шифра.' };
     }
-  }
+  },
+
+  getLeaderboard: async (): Promise<{topPlayers: LeaderboardPlayer[], totalPlayers: number} | null> => {
+    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
+    const response = await fetch(`${API_BASE_URL}/api/leaderboard`);
+    if (!response.ok) return null;
+    return response.json();
+  },
 };
 
 // --- AUTH CONTEXT ---
@@ -303,14 +310,6 @@ export const useGame = () => {
             window.Telegram?.WebApp.offEvent('invoiceClosed', handleInvoiceClosed);
         };
     }, []);
-
-    const calculateProfitPerHour = useCallback((currentUpgrades: Record<string, number>, gameConfig: GameConfig) => {
-        return gameConfig.upgrades.reduce((total, u) => {
-            const level = currentUpgrades[u.id] || 0;
-            // Correct, simple logic: sum of (base profit * level) for each upgrade.
-            return total + (u.profitPerHour * level);
-        }, 0);
-    }, []);
     
     const allUpgrades = useMemo((): (Upgrade & {level: number})[] => {
         if (!config || !playerState) return [];
@@ -343,9 +342,6 @@ export const useGame = () => {
             setPlayerState(updatedPlayerState);
             return updatedPlayerState;
         } else {
-            // The API call failed, maybe because of a race condition or other server issue.
-            // The user's state might be out of sync, a reload could be a good idea,
-            // but for now, we'll just signal the failure.
             window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             return null;
         }
@@ -365,10 +361,10 @@ export const useGame = () => {
         return false;
     }, [playerState, setPlayerState]);
 
-    const claimTaskReward = useCallback(async (task: DailyTask): Promise<{player?: PlayerState, error?: string}> => {
+    const claimTaskReward = useCallback(async (task: DailyTask, code?: string): Promise<{player?: PlayerState, error?: string}> => {
         if (!user) return { error: "User not logged in" };
         
-        const result = await API.claimDailyTask(user.id, task.id);
+        const result = await API.claimDailyTask(user.id, task.id, code);
         
         if (result.player) {
             setPlayerState(result.player);
@@ -402,9 +398,9 @@ export const useGame = () => {
         }
     }, [user, playerState, setPlayerState]);
     
-    const completeSpecialTask = useCallback(async (task: SpecialTask) => {
+    const completeSpecialTask = useCallback(async (task: SpecialTask, code?: string) => {
         if (!user || !playerState || playerState.completedSpecialTaskIds.includes(task.id) || !playerState.purchasedSpecialTaskIds.includes(task.id)) return;
-         const updatedPlayerState = await API.completeSpecialTask(user.id, task.id);
+         const updatedPlayerState = await API.completeSpecialTask(user.id, task.id, code);
          if(updatedPlayerState) {
             setPlayerState(updatedPlayerState);
             window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
@@ -436,6 +432,7 @@ export const useGame = () => {
         return result;
     }, [user, setPlayerState]);
 
+    const getLeaderboard = useCallback(API.getLeaderboard, []);
 
     const currentLeague = useMemo(() => {
         if (!playerState) return LEAGUES[LEAGUES.length - 1];
@@ -454,6 +451,7 @@ export const useGame = () => {
         purchaseSpecialTask,
         completeSpecialTask,
         claimDailyCombo,
-        claimDailyCipher
+        claimDailyCipher,
+        getLeaderboard
     };
 };

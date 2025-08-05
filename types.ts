@@ -47,24 +47,36 @@ export interface Boost {
   costCoins: number; // Cost in coins
 }
 
+export type RewardType = 'coins' | 'profit';
+
+export interface Reward {
+    type: RewardType;
+    amount: number;
+}
+
+export type TaskType = 'taps' | 'telegram_join' | 'social_follow' | 'video_watch' | 'video_code';
+
 export interface DailyTask {
     id: string;
     name: LocalizedString;
-    rewardCoins: number;
-    requiredTaps: number;
+    type: TaskType;
+    reward: Reward;
+    requiredTaps?: number; // Only for 'taps' type
+    url?: string; // For link-based tasks
+    secretCode?: string; // For 'video_code' type
+    imageUrl?: string; // Custom image for the task
 }
-
-export type SpecialTaskType = 'telegram_join' | 'social_follow' | 'video_watch';
 
 export interface SpecialTask {
     id: string;
     name: LocalizedString;
     description: LocalizedString;
-    type: SpecialTaskType;
-    url: string;
-    rewardCoins: number;
-    priceStars: number; // Cost to unlock the task, paid in Telegram Stars
+    type: TaskType;
+    url?: string;
+    reward: Reward;
+    priceStars: number;
     isOneTime: true;
+    imageUrl?: string;
 }
 
 export interface DailyEvent {
@@ -84,6 +96,7 @@ export interface PlayerState {
   balance: number;
   energy: number;
   profitPerHour: number;
+  tasksProfitPerHour: number; // Permanent profit from tasks
   coinsPerTap: number;
   lastLoginTimestamp: number;
   upgrades: Record<string, number>; // key: upgrade.id, value: level
@@ -93,8 +106,16 @@ export interface PlayerState {
   completedSpecialTaskIds: string[]; // One-time tasks that have been completed
   dailyTaps: number;
   lastDailyReset: number;
-  // New properties for daily events
   claimedComboToday: boolean;
   claimedCipherToday: boolean;
   dailyUpgrades: string[];
+}
+
+// For Leaderboard
+export interface LeaderboardPlayer {
+    id: string;
+    name: string;
+    profitPerHour: number;
+    leagueName: LocalizedString;
+    leagueIcon: string; // Can be a character or an identifier
 }

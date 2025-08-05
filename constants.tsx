@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { League, Upgrade, UpgradeCategory, Boost, DailyTask, LocalizedString, SpecialTask } from './types';
 
@@ -62,13 +61,13 @@ export const INITIAL_UPGRADES: Upgrade[] = [
 ];
 
 export const INITIAL_TASKS: DailyTask[] = [
-    { id: 'task1', name: { en: 'Tap 500 times', ua: 'Натисни 500 разів', ru: 'Нажми 500 раз' }, rewardCoins: 1000, requiredTaps: 500 },
-    { id: 'task2', name: { en: 'Daily Check-in', ua: 'Щоденний візит', ru: 'Ежедневный визит' }, rewardCoins: 500, requiredTaps: 1 },
+    { id: 'task1', name: { en: 'Tap 500 times', ua: 'Натисни 500 разів', ru: 'Нажми 500 раз' }, type: 'taps', reward: { type: 'coins', amount: 1000 }, requiredTaps: 500 },
+    { id: 'task2', name: { en: 'Daily Check-in', ua: 'Щоденний візит', ru: 'Ежедневный визит' }, type: 'taps', reward: { type: 'coins', amount: 500 }, requiredTaps: 1 },
 ];
 
 export const INITIAL_SPECIAL_TASKS: SpecialTask[] = [
-    { id: 'special1', name: { en: 'Join Our Channel', ua: 'Приєднайся до каналу', ru: 'Присоединись к каналу' }, description: { en: 'Get a huge bonus for joining our news channel!', ua: 'Отримай великий бонус за підписку на наш канал новин!', ru: 'Получи большой бонус за подписку на наш новостной канал!' }, type: 'telegram_join', url: 'https://t.me/durov', rewardCoins: 100000, priceStars: 5, isOneTime: true },
-    { id: 'special2', name: { en: 'Watch Review', ua: 'Подивись огляд', ru: 'Посмотри обзор' }, description: { en: 'Watch a video review and get rewarded.', ua: 'Подивись відео-огляд та отримай нагороду.', ru: 'Посмотри видео-обзор и получи награду.'}, type: 'video_watch', url: 'https://youtube.com', rewardCoins: 50000, priceStars: 0, isOneTime: true },
+    { id: 'special1', name: { en: 'Join Our Channel', ua: 'Приєднайся до каналу', ru: 'Присоединись к каналу' }, description: { en: 'Get a huge bonus for joining our news channel!', ua: 'Отримай великий бонус за підписку на наш канал новин!', ru: 'Получи большой бонус за подписку на наш новостной канал!' }, type: 'telegram_join', url: 'https://t.me/durov', reward: { type: 'coins', amount: 100000 }, priceStars: 5, isOneTime: true },
+    { id: 'special2', name: { en: 'Watch Review', ua: 'Подивись огляд', ru: 'Посмотри обзор' }, description: { en: 'Watch a video review and get rewarded.', ua: 'Подивись відео-огляд та отримай нагороду.', ru: 'Посмотри видео-обзор и получи награду.'}, type: 'video_watch', url: 'https://youtube.com', reward: { type: 'coins', amount: 50000 }, priceStars: 0, isOneTime: true },
 ];
 
 export const INITIAL_BOOSTS: Boost[] = [
@@ -97,7 +96,7 @@ type TranslationKey =
   | 'telegram_join' | 'social_follow' | 'video_watch' | 'referral_bonus' | 'your_referrals' | 'invite_friends'
   // Daily Events
   | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today'
-  | 'enter_morse_mode' | 'cancel_morse_mode';
+  | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'leaderboard' | 'your_league' | 'total_players';
 
 export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
   en: {
@@ -165,6 +164,10 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     claimed_today: 'Claimed Today',
     enter_morse_mode: 'Enter Code',
     cancel_morse_mode: 'Cancel',
+    enter_secret_code: 'Enter Secret Code',
+    leaderboard: 'Leaderboard',
+    your_league: 'Your League',
+    total_players: 'Total Players',
   },
   ua: {
     exchange: 'Біржа',
@@ -231,6 +234,10 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     claimed_today: 'Сьогодні забрано',
     enter_morse_mode: 'Ввести код',
     cancel_morse_mode: 'Скасувати',
+    enter_secret_code: 'Введіть секретний код',
+    leaderboard: 'Таблиця лідерів',
+    your_league: 'Ваша ліга',
+    total_players: 'Всього гравців',
   },
   ru: {
     exchange: 'Биржа',
@@ -297,5 +304,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     claimed_today: 'Сегодня забрано',
     enter_morse_mode: 'Ввести код',
     cancel_morse_mode: 'Отмена',
+    enter_secret_code: 'Введите секретный код',
+    leaderboard: 'Таблица лидеров',
+    your_league: 'Ваша лига',
+    total_players: 'Всего игроков',
   },
 };

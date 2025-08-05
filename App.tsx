@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
+import { useGame, useAuth, useTranslation, AuthProvider, useGameContext } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
-import { ExchangeIcon, MineIcon, FriendsIcon, BoostIcon, TasksIcon, StarIcon, EarnIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon, MINI_APP_NAME } from './constants';
-import { DailyTask, GameConfig, Language, Upgrade, Boost, SpecialTask, PlayerState, User } from './types';
+import { ExchangeIcon, MineIcon, FriendsIcon, BoostIcon, TasksIcon, StarIcon, EarnIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon, MINI_APP_NAME, LEAGUES } from './constants';
+import { DailyTask, GameConfig, Language, Upgrade, Boost, SpecialTask, PlayerState, User, LeaderboardPlayer, TaskType, Reward } from './types';
 import NotificationToast from './components/NotificationToast';
 
 type Screen = 'exchange' | 'mine' | 'friends' | 'boost' | 'tasks' | 'earn';
+
+const formatNumber = (num: number): string => {
+  if (num === null || num === undefined) return '0';
+  if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+  return num.toLocaleString('en-US');
+};
 
 const AppContainer: React.FC = () => {
     const { user, isInitializing } = useAuth();
@@ -41,65 +49,83 @@ const NotInTelegramScreen: React.FC = () => (
 
 
 const MainApp: React.FC = () => {
-  const { user, logout, switchLanguage } = useAuth();
+  const { user, switchLanguage } = useAuth();
   const { 
       playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, 
       claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask,
-      claimDailyCombo, claimDailyCipher
+      claimDailyCombo, claimDailyCipher, getLeaderboard
   } = useGame();
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const t = useTranslation();
 
   if (!user || !playerState || !config) return <LoadingScreen />;
   
-  const lang = user.language;
-  const languages = ['en', 'ua', 'ru'] as const;
-
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
-    // This timeout is just to clear the notification from state.
-    // The component itself handles its disappearance animation.
     setTimeout(() => {
         setNotification(prev => (prev?.message === message ? null : prev));
     }, 3000);
-  };
-
-  const handleSwitchLanguage = () => {
-      const currentIndex = languages.indexOf(lang);
-      const nextIndex = (currentIndex + 1) % languages.length;
-      switchLanguage(languages[nextIndex]);
   };
   
   const handleBuyUpgrade = async (upgradeId: string) => {
     const result = await buyUpgrade(upgradeId);
     if(result) {
         const upgrade = allUpgrades.find(u => u.id === upgradeId);
-        showNotification(`${upgrade?.name[lang]} Lvl ${result.upgrades[upgradeId]}`);
+        showNotification(`${upgrade?.name[user.language]} Lvl ${result.upgrades[upgradeId]}`);
     }
   };
 
-  const handleClaimTaskReward = async (task: DailyTask) => {
-    const result = await claimTaskReward(task);
+  const handleClaimTask = async (task: DailyTask | SpecialTask) => {
+    if (task.type === 'video_code') {
+        window.Telegram.WebApp.showPopup({
+            title: t('enter_secret_code'),
+            message: task.name[user.language],
+            buttons: [
+                { id: 'submit', type: 'default', text: 'Проверить' },
+                { type: 'cancel' },
+            ]
+        }, async (buttonId, text) => {
+            if (buttonId === 'submit' && text) {
+                if ('isOneTime' in task) {
+                    await completeSpecialTask(task, text);
+                } else {
+                    await handleClaimDailyTaskReward(task, text);
+                }
+            }
+        });
+    } else if ('isOneTime' in task) { // Special Task
+        if (task.url) {
+            window.Telegram.WebApp.openTelegramLink(task.url);
+        }
+        await completeSpecialTask(task);
+    } else { // Daily Task
+        if (task.url) {
+            window.Telegram.WebApp.openTelegramLink(task.url);
+        }
+        await handleClaimDailyTaskReward(task);
+    }
+};
+
+  const handleClaimDailyTaskReward = async (task: DailyTask, code?: string) => {
+    const result = await claimTaskReward(task, code);
     if (result.player) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-        showNotification(`${task.name[lang]} выполнено! +${task.rewardCoins.toLocaleString()}`, 'success');
+        const rewardText = task.reward.type === 'coins'
+            ? `+${task.reward.amount.toLocaleString()} 🪙`
+            : `+${task.reward.amount.toLocaleString()}/hr ⚡`;
+        showNotification(`${task.name[user.language]} выполнено! ${rewardText}`, 'success');
     } else if (result.error) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-        // Only show errors for actual failures, not for client-side preventable ones.
-        if (result.error.includes('Failed') || result.error.includes('Server') || result.error.includes('error')) {
-           showNotification(result.error, 'error');
-        }
+        showNotification(result.error, 'error');
     }
   };
   
   const handleClaimCombo = async () => {
     const result = await claimDailyCombo();
-    
     if (result.player && result.reward) {
         showNotification(`Комбо собрано! +${result.reward.toLocaleString()}`, 'success');
-    } else if (result.player) { // Fallback if reward is 0 or undefined
-        showNotification('Комбо засчитано!', 'success');
     } else if (result.error) {
         showNotification(result.error, 'error');
     }
@@ -107,12 +133,8 @@ const MainApp: React.FC = () => {
 
   const handleClaimCipher = async (cipher: string): Promise<boolean> => {
     const result = await claimDailyCipher(cipher);
-
     if (result.player && result.reward) {
         showNotification(`Шифр разгадан! +${result.reward.toLocaleString()}`, 'success');
-        return true;
-    } else if (result.player) {
-        showNotification('Шифр принят!', 'success');
         return true;
     } else if (result.error) {
         showNotification(result.error, 'error');
@@ -124,19 +146,19 @@ const MainApp: React.FC = () => {
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} />;
       case 'mine':
-        return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={lang} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} />;
+        return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} />;
       case 'friends':
         return <FriendsScreen playerState={playerState} user={user} />;
       case 'boost':
-        return <BoostScreen balance={playerState.balance} boosts={config.boosts} onBuyBoost={buyBoost} lang={lang} />;
+        return <BoostScreen balance={playerState.balance} boosts={config.boosts} onBuyBoost={buyBoost} lang={user.language} />;
       case 'tasks':
-        return <TasksScreen tasks={config.tasks} playerState={playerState} onClaim={handleClaimTaskReward} lang={lang} />;
+        return <TasksScreen tasks={config.tasks} playerState={playerState} onClaim={handleClaimTask} lang={user.language} />;
       case 'earn':
-        return <EarnScreen tasks={config.specialTasks} playerState={playerState} onPurchase={purchaseSpecialTask} onComplete={completeSpecialTask} lang={lang} />;
+        return <EarnScreen tasks={config.specialTasks} playerState={playerState} onPurchase={purchaseSpecialTask} onComplete={handleClaimTask} lang={user.language} />;
       default:
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} />;
     }
   };
 
@@ -152,15 +174,12 @@ const MainApp: React.FC = () => {
 
   return (
     <div className="h-screen w-screen bg-gradient-to-b from-gray-900 via-black to-gray-900 font-sans overflow-hidden flex flex-col prevent-select">
-       <div className="absolute top-2 right-2 z-20 flex space-x-2">
-            <button onClick={handleSwitchLanguage} className="bg-gray-800 text-white rounded-md px-3 py-1 text-sm w-12">{lang.toUpperCase()}</button>
-            <button onClick={logout} className="bg-red-600 text-white rounded-md px-3 py-1 text-sm">{t('logout')}</button>
-       </div>
-       
       <div className="flex-grow h-full w-full overflow-y-auto no-scrollbar">
         {renderScreen()}
       </div>
       
+      {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} />}
+
       <NotificationToast notification={notification} />
 
       <div className="fixed bottom-0 left-0 right-0 bg-black/50 backdrop-blur-lg border-t border-gray-700/50">
@@ -227,49 +246,62 @@ const FriendsScreen = ({ playerState, user }: { playerState: PlayerState, user: 
     );
 };
 
+const TaskCard = ({ task, playerState, onClaim, lang }: { task: DailyTask | SpecialTask, playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, lang: Language }) => {
+    const t = useTranslation();
+    const isSpecial = 'isOneTime' in task;
+    const isCompleted = isSpecial 
+        ? playerState.completedSpecialTaskIds.includes(task.id)
+        : playerState.completedDailyTaskIds.includes(task.id);
+    
+    let canClaim = !isCompleted;
+    let progressText = t('get');
+    if (task.type === 'taps' && !isSpecial) {
+        const progress = Math.min(playerState.dailyTaps, task.requiredTaps || 0);
+        canClaim = progress >= (task.requiredTaps || 0) && !isCompleted;
+        progressText = `${progress}/${task.requiredTaps}`;
+    }
 
-const TasksScreen = ({ tasks, playerState, onClaim, lang }: { tasks: DailyTask[], playerState: any, onClaim: (task: DailyTask) => void, lang: Language }) => {
+    const rewardIcon = task.reward.type === 'profit' ? '⚡' : '🪙';
+    
+    return (
+        <div className={`bg-gray-800 p-3 rounded-lg flex items-center ${isCompleted ? 'opacity-60' : ''}`}>
+            <div className="w-16 h-16 bg-gray-700/50 rounded-lg flex items-center justify-center mr-3">
+                {task.imageUrl ? <img src={task.imageUrl} alt={task.name[lang]} className="w-12 h-12"/> : <span className="text-4xl">{task.type === 'taps' ? '👆' : '🔗'}</span>}
+            </div>
+            <div className="flex-grow">
+                <h2 className="text-base font-bold">{task.name[lang]}</h2>
+                <div className="text-sm text-yellow-300 my-1 flex items-center">
+                    <span>+ {task.reward.amount.toLocaleString()} {rewardIcon}</span>
+                </div>
+            </div>
+            <button 
+                onClick={() => onClaim(task)}
+                disabled={!canClaim}
+                className="ml-3 px-4 py-3 rounded-lg font-bold text-white text-base transition-colors whitespace-nowrap disabled:bg-gray-600 disabled:text-gray-400 bg-green-600 hover:bg-green-500"
+            >
+                {isCompleted ? t('completed') : canClaim ? t('claim') : progressText}
+            </button>
+        </div>
+    );
+};
+
+const TasksScreen = ({ tasks, playerState, onClaim, lang }: { tasks: DailyTask[], playerState: PlayerState, onClaim: (task: DailyTask) => void, lang: Language }) => {
     const t = useTranslation();
     return (
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
             <h1 className="text-3xl font-bold text-center mb-6">{t('tasks')}</h1>
             <div className="w-full max-w-md space-y-3 overflow-y-auto no-scrollbar">
-                {tasks.map(task => {
-                    const isCompleted = playerState.completedDailyTaskIds.includes(task.id);
-                    const progress = Math.min(playerState.dailyTaps, task.requiredTaps);
-                    const canClaim = progress >= task.requiredTaps && !isCompleted;
-                    return (
-                        <div key={task.id} className="bg-gray-800 p-4 rounded-lg">
-                            <h2 className="text-lg font-bold">{task.name[lang]}</h2>
-                            <div className="text-sm text-yellow-300 my-2 flex items-center space-x-4">
-                                <span>+ {task.rewardCoins.toLocaleString()} 🪙</span>
-                            </div>
-                             <div className="w-full bg-gray-700 rounded-full h-2.5 my-2">
-                                <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${(progress / task.requiredTaps) * 100}%` }}></div>
-                             </div>
-                            <button 
-                                onClick={() => onClaim(task)}
-                                disabled={!canClaim}
-                                className="w-full mt-2 py-2 rounded-lg font-bold text-white transition-colors disabled:bg-gray-600 disabled:text-gray-400 bg-green-600 hover:bg-green-500"
-                            >
-                                {isCompleted ? t('completed') : canClaim ? t('claim_reward') : `${progress}/${task.requiredTaps}`}
-                            </button>
-                        </div>
-                    );
-                })}
+                {tasks.map(task => (
+                    <TaskCard key={task.id} task={task} playerState={playerState} onClaim={onClaim} lang={lang} />
+                ))}
             </div>
         </div>
     );
 };
 
-const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang }: { tasks: SpecialTask[], playerState: any, onPurchase: (task: SpecialTask) => void, onComplete: (task: SpecialTask) => void, lang: Language }) => {
+const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang }: { tasks: SpecialTask[], playerState: PlayerState, onPurchase: (task: SpecialTask) => void, onComplete: (task: SpecialTask) => void, lang: Language }) => {
     const t = useTranslation();
     
-    const handleGoToTask = (task: SpecialTask) => {
-        window.Telegram.WebApp.openTelegramLink(task.url);
-        onComplete(task);
-    };
-
     return (
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
             <h1 className="text-3xl font-bold text-center mb-6">{t('special_tasks')}</h1>
@@ -277,14 +309,14 @@ const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang }: { task
                 {tasks.map(task => {
                     const isPurchased = playerState.purchasedSpecialTaskIds.includes(task.id);
                     const isCompleted = playerState.completedSpecialTaskIds.includes(task.id);
+                    const rewardIcon = task.reward.type === 'profit' ? '⚡' : '🪙';
                     
                     let button;
                     if (isCompleted) {
                         button = <button disabled className="w-full mt-2 py-2 rounded-lg font-bold bg-gray-600 text-gray-400">{t('completed')}</button>;
                     } else if (isPurchased) {
-                        button = <button onClick={() => handleGoToTask(task)} className="w-full mt-2 py-2 rounded-lg font-bold bg-blue-600 hover:bg-blue-500">{t('go_to_task')}</button>;
+                        button = <button onClick={() => onComplete(task)} className="w-full mt-2 py-2 rounded-lg font-bold bg-blue-600 hover:bg-blue-500">{t('go_to_task')}</button>;
                     } else {
-                        // The button is always enabled for paid tasks to let Telegram handle the purchase flow
                         button = <button onClick={() => onPurchase(task)} className="w-full mt-2 py-2 rounded-lg font-bold bg-purple-600 hover:bg-purple-500 flex justify-center items-center space-x-2">
                                     <span>{task.priceStars > 0 ? `${t('unlock_for')} ${task.priceStars}` : t('get')}</span>
                                     {task.priceStars > 0 && <StarIcon />}
@@ -293,15 +325,85 @@ const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang }: { task
 
                     return (
                         <div key={task.id} className={`bg-gray-800 p-4 rounded-lg ${isCompleted ? 'opacity-60' : ''}`}>
-                            <h2 className="text-lg font-bold">{task.name[lang]}</h2>
-                            <p className="text-sm text-gray-400 my-1">{task.description[lang]}</p>
+                            <div className="flex items-center mb-2">
+                                <div className="w-12 h-12 bg-gray-700/50 rounded-lg flex items-center justify-center mr-3">
+                                     {task.imageUrl ? <img src={task.imageUrl} alt={task.name[lang]} className="w-10 h-10"/> : <span className="text-3xl">🔗</span>}
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold">{task.name[lang]}</h2>
+                                    <p className="text-sm text-gray-400">{task.description[lang]}</p>
+                                </div>
+                            </div>
                             <div className="text-sm text-yellow-300 my-2 flex items-center space-x-4">
-                                <span>+ {task.rewardCoins.toLocaleString()} 🪙</span>
+                                <span>+ {task.reward.amount.toLocaleString()} {rewardIcon}</span>
                             </div>
                             {button}
                         </div>
                     );
                 })}
+            </div>
+        </div>
+    );
+};
+
+const LeaderboardScreen = ({ onClose, getLeaderboard, user }: { onClose: () => void, getLeaderboard: () => Promise<{topPlayers: LeaderboardPlayer[], totalPlayers: number} | null>, user: User }) => {
+    const [leaderboardData, setLeaderboardData] = useState<{topPlayers: LeaderboardPlayer[], totalPlayers: number} | null>(null);
+    const [loading, setLoading] = useState(true);
+    const t = useTranslation();
+    const { playerState } = useGameContext();
+    const currentLeague = LEAGUES.find(l => (playerState?.balance || 0) >= l.minBalance);
+
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            const data = await getLeaderboard();
+            setLeaderboardData(data);
+            setLoading(false);
+        };
+        fetchData();
+    }, [getLeaderboard]);
+
+    return (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center" onClick={onClose}>
+            <div className="bg-gray-800 rounded-2xl w-[90%] max-w-lg max-h-[80vh] flex flex-col p-4 border border-gray-700" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-bold text-white">{t('leaderboard')}</h2>
+                    <button onClick={onClose} className="text-gray-400 text-2xl">&times;</button>
+                </div>
+
+                <div className="bg-gray-700/50 rounded-lg p-3 flex flex-col items-center mb-4">
+                     <p className="text-sm text-gray-400">{t('your_league')}</p>
+                     <div className="flex items-center space-x-2">
+                        <span className="text-2xl">{currentLeague?.icon}</span>
+                        <span className="text-lg font-bold">{currentLeague?.name[user.language]}</span>
+                     </div>
+                     <p className="text-xs text-gray-500 mt-1">{t('total_players')}: {leaderboardData?.totalPlayers?.toLocaleString() || '...'}</p>
+                </div>
+                
+                <div className="flex-grow overflow-y-auto no-scrollbar pr-1">
+                    {loading ? (
+                        <p className="text-center text-gray-400 animate-pulse">Loading leaderboard...</p>
+                    ) : (
+                        <ul className="space-y-2">
+                            {leaderboardData?.topPlayers.map((player, index) => (
+                                <li key={player.id} className="flex items-center bg-gray-700/50 rounded-lg p-2">
+                                    <span className="text-lg font-bold w-8 text-center">{index + 1}</span>
+                                    <div className="flex-grow mx-2">
+                                        <p className="font-semibold truncate">{player.name}</p>
+                                        <p className="text-xs text-gray-400 flex items-center space-x-1">
+                                            {player.leagueIcon && <span className="text-xs">{player.leagueIcon}</span>}
+                                            <span>{player.leagueName[user.language]}</span>
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-bold text-green-400 text-sm">+{formatNumber(player.profitPerHour)}/hr</p>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
             </div>
         </div>
     );
