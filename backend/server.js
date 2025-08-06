@@ -1,4 +1,5 @@
 
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -157,10 +158,23 @@ app.post('/api/login', async (req, res) => {
         const userId = tgUser.id.toString();
         log('info', `Processing login for user ID: ${userId}`);
         
+        // --- Country Detection: IP First, Language as Fallback ---
         const ip = req.ip;
         const geo = geoip.lookup(ip);
-        const countryCode = geo ? geo.country : null;
+        let countryCode = geo ? geo.country : null;
+        log('info', `GeoIP lookup for IP '${ip}' for user ${userId} resolved to country: ${countryCode}`);
 
+        // If GeoIP fails, fall back to language code
+        if (!countryCode) {
+            const lang = tgUser.language_code?.toLowerCase();
+            log('info', `GeoIP failed or returned null. Falling back to language code '${lang}' for user ${userId}.`);
+            if (lang === 'ua' || lang === 'uk') {
+                countryCode = 'UA';
+            } else if (lang === 'ru') {
+                countryCode = 'RU';
+            }
+        }
+        
         const baseConfig = await getConfig();
         let dailyEvent = await getDailyEvent(getTodayDate());
         let user = await getUser(userId);
@@ -172,12 +186,12 @@ app.post('/api/login', async (req, res) => {
         if (!user) { // New user
             log('info', `New user detected: ${userId}. Creating profile.`);
             const referrerId = (startParam && startParam !== userId) ? startParam : null;
-            let lang = 'en';
-            if (tgUser.language_code === 'ua' || tgUser.language_code === 'uk') lang = 'ua';
-            if (tgUser.language_code === 'ru') lang = 'ru';
+            let userLang = 'en';
+            if (tgUser.language_code === 'ua' || tgUser.language_code === 'uk') userLang = 'ua';
+            if (tgUser.language_code === 'ru') userLang = 'ru';
 
-            user = await createUser(userId, tgUser.first_name, lang);
-            log('info', `User profile created for ${userId}. Language: ${lang}`);
+            user = await createUser(userId, tgUser.first_name, userLang);
+            log('info', `User profile created for ${userId}. Language: ${userLang}`);
             
             player = {
                 balance: 500, energy: MAX_ENERGY, profitPerHour: 0, tasksProfitPerHour: 0, coinsPerTap: 1, lastLoginTimestamp: now,
