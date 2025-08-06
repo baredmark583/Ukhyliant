@@ -78,7 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tabTitle.dataset.translate = activeTab;
 
-        saveMainButton.classList.toggle('d-none', ['players'].includes(activeTab));
+        const configTabs = ['upgrades', 'tasks', 'specialTasks', 'dailyEvents', 'boosts', 'blackMarketCards', 'coinSkins'];
+        saveMainButton.classList.toggle('d-none', !configTabs.includes(activeTab));
 
         switch (activeTab) {
             case 'dashboard': renderDashboard(); break;
@@ -127,8 +128,8 @@ document.addEventListener('DOMContentLoaded', () => {
                  <!-- General Settings -->
                 <div class="col-12">
                     <div class="card">
+                        <div class="card-header"><h3 class="card-title" data-translate="general_settings"></h3></div>
                         <div class="card-body">
-                            <h3 class="card-title" data-translate="general_settings"></h3>
                             <div class="mb-3">
                                 <label class="form-label" data-translate="loading_screen_image_url"></label>
                                 <input type="text" class="form-control" id="loading-screen-url-input" value="${escapeHtml(localConfig.loadingScreenImageUrl || '')}">
@@ -172,13 +173,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Initialize jsVectorMap
-        const mapData = playerLocations.reduce((acc, loc) => {
-            acc[loc.country] = loc.player_count;
+        const mapData = (playerLocations || []).reduce((acc, loc) => {
+            if (loc.country) { // Ensure country code is not null/empty
+                acc[loc.country] = loc.player_count;
+            }
             return acc;
         }, {});
         
         const mapEl = document.getElementById('map-world');
-        if (mapEl) {
+        if (mapEl && window.jsVectorMap) {
             charts.map = new jsVectorMap({
                 selector: '#map-world',
                 map: 'world',
@@ -277,513 +280,544 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td>+${formatNumber(p.profitPerHour)}</td>
                                 <td>${formatNumber(p.starsSpent)}</td>
                                 <td>${formatNumber(p.referrals)}</td>
-                                <td><span class="badge bg-secondary-lt">${escapeHtml(p.language)}</span></td>
-                                <td class="text-end">
-                                    <button data-id="${p.id}" class="btn btn-sm btn-ghost-primary reset-daily-btn" data-translate="reset_daily"></button>
-                                    <button data-id="${p.id}" class="btn btn-sm btn-ghost-danger delete-player-btn" data-translate="delete"></button>
+                                <td>${escapeHtml(p.language)}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-icon view-player-btn" data-id="${p.id}" title="${t('player_details')}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-eye" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6s-6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6s6.6 2 9 6" /></svg>
+                                    </button>
                                 </td>
-                            </tr>`).join('')}
+                            </tr>
+                        `).join('')}
                     </tbody>
                 </table>
             </div>
-        </div>
-        `;
-    };
-    
-    // -- CONFIG TABLE RENDERERS --
-    const createLocalizedInputGroup = (section, index, field, value) => `
-        <div class="col-md-6">
-            <label class="form-label" data-translate="${field}"></label>
-            <div class="input-group">
-                <input type="text" class="form-control" data-section="${section}" data-index="${index}" data-lang="en" data-field="${field}" value="${escapeHtml(value.en)}" placeholder="EN">
-                <input type="text" class="form-control" data-section="${section}" data-index="${index}" data-lang="ru" data-field="${field}" value="${escapeHtml(value.ru)}" placeholder="RU">
-                <button class="btn translate-btn" type="button" data-section="${section}" data-index="${index}" data-field="${field}">AI</button>
-            </div>
         </div>`;
-
-    const createInput = (section, index, field, type = 'text', hidden = false, placeholder = '') => `
-        <div class="col-md-3 ${hidden ? 'd-none' : ''}" id="field-container-${section}-${index}-${field}">
-            <label class="form-label" data-translate="${field}"></label>
-            <input type="${type}" data-section="${section}" data-index="${index}" data-field="${field}" value="${escapeHtml(localConfig[section][index]?.[field] ?? '')}" class="form-control" placeholder="${placeholder}">
-        </div>`;
-
-    const createSelect = (section, index, field, options, hidden = false) => `
-         <div class="col-md-3 ${hidden ? 'd-none' : ''}" id="field-container-${section}-${index}-${field}">
-            <label class="form-label" data-translate="${field}"></label>
-            <select data-section="${section}" data-index="${index}" data-field="${field}" class="form-select">
-                ${options.map(o => `<option value="${o}" ${o === localConfig[section][index]?.[field] ? 'selected' : ''}>${t(o)}</option>`).join('')}
-            </select>
-         </div>`;
-
-    const createRewardInput = (section, index, reward) => {
-        const safeReward = reward || { type: 'coins', amount: 0 };
-        return `
-        <div class="col-md-3">
-            <label class="form-label" data-translate="reward"></label>
-            <div class="input-group">
-                <select data-section="${section}" data-index="${index}" data-field="reward.type" class="form-select" style="flex: 2;">
-                    <option value="coins" ${safeReward.type === 'coins' ? 'selected' : ''}>${t('reward_type_coins')}</option>
-                    <option value="profit" ${safeReward.type === 'profit' ? 'selected' : ''}>${t('reward_type_profit')}</option>
-                </select>
-                <input type="number" data-section="${section}" data-index="${index}" data-field="reward.amount" value="${safeReward.amount}" class="form-control" style="flex: 3;">
-            </div>
-        </div>`;
-    };
-
-    const renderConfigTable = (sectionKey) => {
-        const items = localConfig[sectionKey] || [];
-        const isTask = sectionKey === 'tasks' || sectionKey === 'specialTasks';
-        tabContainer.innerHTML = `<div class="space-y-4">
-             <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title" data-translate="${sectionKey}"></h3>
-                    <div class="card-actions">
-                        <input type="file" id="upload-config-input" class="d-none" accept=".json">
-                        <button class="btn btn-outline-secondary me-2" id="upload-config-btn" data-translate="upload_config"></button>
-                        <button class="btn btn-outline-secondary" id="download-config-btn" data-translate="download_config"></button>
-                    </div>
-                </div>
-            </div>
-            ${items.map((item, index) => {
-                let fieldsHTML = '<div class="row g-3">';
-                fieldsHTML += `<div class="col-md-3"><label class="form-label" data-translate="id"></label><input type="text" value="${escapeHtml(item.id)}" class="form-control" readonly></div>`;
-                if (item.name) fieldsHTML += createLocalizedInputGroup(sectionKey, index, 'name', item.name);
-                if (item.description) fieldsHTML += createLocalizedInputGroup(sectionKey, index, 'description', item.description);
-                if (sectionKey === 'upgrades') {
-                    fieldsHTML += createInput(sectionKey, index, 'price', 'number');
-                    fieldsHTML += createInput(sectionKey, index, 'profitPerHour', 'number');
-                    fieldsHTML += createSelect(sectionKey, index, 'category', ['Documents', 'Legal', 'Lifestyle', 'Special']);
-                    fieldsHTML += createInput(sectionKey, index, 'iconUrl', 'text', false, 'https://.../img.svg');
-                } else if (isTask) {
-                    const taskTypes = ['taps', 'telegram_join', 'social_follow', 'video_watch', 'video_code'];
-                    fieldsHTML += createSelect(sectionKey, index, 'type', taskTypes);
-                    fieldsHTML += createRewardInput(sectionKey, index, item.reward);
-                    fieldsHTML += createInput(sectionKey, index, 'imageUrl', 'text', false, 'https://.../img.svg');
-                    fieldsHTML += createInput(sectionKey, index, 'url', 'text', item.type === 'taps', 'https://t.me/...');
-                    fieldsHTML += createInput(sectionKey, index, 'requiredTaps', 'number', item.type !== 'taps');
-                    fieldsHTML += createInput(sectionKey, index, 'secretCode', 'text', item.type !== 'video_code');
-                    if (sectionKey === 'specialTasks') {
-                         fieldsHTML += createInput(sectionKey, index, 'priceStars', 'number');
-                    }
-                } else if (sectionKey === 'blackMarketCards') {
-                    fieldsHTML += createInput(sectionKey, index, 'profitPerHour', 'number');
-                    fieldsHTML += createInput(sectionKey, index, 'iconUrl', 'text', false, 'https://.../img.svg');
-                    fieldsHTML += createSelect(sectionKey, index, 'boxType', ['coin', 'star']);
-                    fieldsHTML += createInput(sectionKey, index, 'chance', 'number');
-                } else if (sectionKey === 'coinSkins') {
-                    fieldsHTML += createInput(sectionKey, index, 'profitBoostPercent', 'number');
-                    fieldsHTML += createInput(sectionKey, index, 'iconUrl', 'text', false, 'https://.../img.svg');
-                    fieldsHTML += createSelect(sectionKey, index, 'boxType', ['coin', 'star', 'direct']);
-                    fieldsHTML += createInput(sectionKey, index, 'chance', 'number');
-                }
-
-                fieldsHTML += `<div class="col-12 text-end"><button data-section="${sectionKey}" data-index="${index}" class="btn btn-ghost-danger delete-btn" data-translate="delete"></button></div>`;
-                fieldsHTML += '</div>';
-                return `<div class="card"><div class="card-body">${fieldsHTML}</div></div>`;
-            }).join('')}
-            <button class="btn btn-primary add-new-btn" data-section="${sectionKey}" data-translate="add_new"></button>
-            </div>`;
+        if (playersToRender.length === 0) {
+            document.getElementById('players-table-body').innerHTML = `<tr><td colspan="8" class="text-center p-5 text-secondary">${t('no_data')}</td></tr>`;
+        }
     };
     
     const renderBoostsConfig = () => {
-        const items = localConfig.boosts || [];
-        const sectionKey = 'boosts';
-        tabContainer.innerHTML = `<div class="space-y-4">
-             <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title" data-translate="boosts"></h3>
-                </div>
+        const boosts = localConfig.boosts || [];
+        tabContainer.innerHTML = `
+         <div class="card">
+            <div class="card-header"><h3 class="card-title" data-translate="boosts"></h3></div>
+            <div class="table-responsive">
+                <table class="table card-table table-vcenter">
+                    <thead>
+                        <tr>
+                            <th>ID <span class="form-help" data-bs-toggle="tooltip" title="${t('id_readonly_note')}">?</span></th>
+                            <th data-translate="boost_effect"></th>
+                            <th data-translate="name"> en / ru</th>
+                            <th data-translate="description"> en / ru</th>
+                            <th data-translate="cost_in_coins"></th>
+                            <th data-translate="iconUrl"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    ${boosts.map(boost => {
+                        let effectKey = 'boost_effect_full_energy';
+                        if (boost.id === 'boost_turbo_mode') effectKey = 'boost_effect_turbo_mode';
+                        if (boost.id === 'boost_tap_guru') effectKey = 'boost_effect_tap_guru';
+                        if (boost.id === 'boost_energy_limit') effectKey = 'boost_effect_energy_limit';
+                        const isMultiLevel = boost.id === 'boost_tap_guru' || boost.id === 'boost_energy_limit';
+
+                        return `
+                        <tr>
+                            <td><input type="text" class="form-control" value="${escapeHtml(boost.id)}" readonly></td>
+                            <td>
+                                <span class="badge bg-blue-lt">${t(effectKey)}</span>
+                                ${isMultiLevel ? `<div class="form-text text-yellow" data-translate="base_cost_note"></div>` : ''}
+                            </td>
+                            <td>
+                                <input type="text" class="form-control mb-1" data-id="${boost.id}" data-lang="en" data-field="name.en" value="${escapeHtml(boost.name.en)}">
+                                <input type="text" class="form-control" data-id="${boost.id}" data-lang="ru" data-field="name.ru" value="${escapeHtml(boost.name.ru)}">
+                            </td>
+                            <td>
+                                <textarea class="form-control mb-1" data-id="${boost.id}" data-lang="en" data-field="description.en">${escapeHtml(boost.description.en)}</textarea>
+                                <textarea class="form-control" data-id="${boost.id}" data-lang="ru" data-field="description.ru">${escapeHtml(boost.description.ru)}</textarea>
+                            </td>
+                            <td><input type="number" class="form-control" data-id="${boost.id}" data-field="costCoins" value="${escapeHtml(boost.costCoins)}"></td>
+                            <td><input type="text" class="form-control" data-id="${boost.id}" data-field="iconUrl" value="${escapeHtml(boost.iconUrl)}"></td>
+                        </tr>
+                        `;
+                    }).join('')}
+                    </tbody>
+                </table>
             </div>
-            ${items.map((item, index) => {
-                const effectKey = `boost_effect_${item.id.replace('boost_', '')}`;
-                const isMultiLevel = item.id === 'boost_tap_guru' || item.id === 'boost_energy_limit';
+         </div>`;
+    };
 
-                let fieldsHTML = '<div class="row g-3">';
-                fieldsHTML += `<div class="col-md-6"><label class="form-label" data-translate="id"></label><input type="text" value="${escapeHtml(item.id)}" class="form-control" readonly><div class="form-text" data-translate="id_readonly_note"></div></div>`;
-                fieldsHTML += `<div class="col-md-6"><label class="form-label" data-translate="boost_effect"></label><div class="form-control-plaintext" data-translate="${effectKey}"></div></div>`;
+    const renderConfigTable = (configKey) => {
+        const items = localConfig[configKey] || [];
+        const configMeta = {
+            upgrades: { title: 'upgrades', cols: ['id', 'name', 'price', 'profitPerHour', 'category', 'iconUrl'] },
+            tasks: { title: 'tasks', cols: ['id', 'name', 'type', 'reward', 'requiredTaps', 'url', 'secretCode', 'imageUrl'] },
+            specialTasks: { title: 'specialTasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'url', 'secretCode', 'imageUrl'] },
+            blackMarketCards: { title: 'blackMarketCards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'iconUrl'] },
+            coinSkins: { title: 'coinSkins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'iconUrl'] }
+        };
+        const meta = configMeta[configKey];
 
-                if (item.name) fieldsHTML += createLocalizedInputGroup(sectionKey, index, 'name', item.name);
-                if (item.description) fieldsHTML += createLocalizedInputGroup(sectionKey, index, 'description', item.description);
-                
-                fieldsHTML += `<div class="col-md-6">
-                    <label class="form-label" data-translate="cost_in_coins"></label>
-                    <input type="number" data-section="${sectionKey}" data-index="${index}" data-field="costCoins" value="${escapeHtml(item.costCoins || '')}" class="form-control">
-                    ${isMultiLevel ? `<div class="form-text" data-translate="base_cost_note"></div>` : ''}
+        const renderCell = (item, col) => {
+            const val = item[col];
+            const isReadonly = col === 'id';
+            const inputType = typeof val === 'number' ? 'number' : 'text';
+
+            if (col === 'name' || col === 'description') {
+                return `
+                <div class="input-group">
+                    <input type="text" class="form-control" data-id="${item.id}" data-lang="en" data-field="${col}.en" value="${escapeHtml(val.en)}">
+                    <input type="text" class="form-control" data-id="${item.id}" data-lang="ru" data-field="${col}.ru" value="${escapeHtml(val.ru)}">
+                    <button class="btn translate-btn" type="button" data-id="${item.id}" data-field="${col}" title="${t('translate')}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5h7" /><path d="M9 3v2c0 4.418 -2.239 8 -5 8" /><path d="M5 9c0 2.144 2.952 3.908 6.7 4" /><path d="M12 20l4 -9l4 9" /><path d="M19.1 18h-6.2" /></svg>
+                    </button>
                 </div>`;
-                
-                fieldsHTML += createInput(sectionKey, index, 'iconUrl', 'text', false, 'https://.../img.svg');
-                fieldsHTML += '</div>';
-                return `<div class="card"><div class="card-body">${fieldsHTML}</div></div>`;
-            }).join('')}
+            }
+
+            if (col === 'category') {
+                const categories = ['Documents', 'Legal', 'Lifestyle', 'Special'];
+                return `<select class="form-select" data-id="${item.id}" data-field="${col}">${categories.map(c => `<option value="${c}" ${val === c ? 'selected' : ''}>${c}</option>`).join('')}</select>`;
+            }
+            if (col === 'type') {
+                const types = ['taps', 'telegram_join', 'social_follow', 'video_watch', 'video_code'];
+                return `<select class="form-select" data-id="${item.id}" data-field="${col}">${types.map(t => `<option value="${t}" ${val === t ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+            }
+            if (col === 'boxType') {
+                const types = ['coin', 'star', 'direct'];
+                return `<select class="form-select" data-id="${item.id}" data-field="${col}">${types.map(t => `<option value="${t}" ${val === t ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+            }
+
+            if (col === 'reward') {
+                return `
+                <div class="input-group">
+                    <input type="number" class="form-control" data-id="${item.id}" data-field="reward.amount" value="${escapeHtml(val.amount)}" placeholder="Amount">
+                    <select class="form-select" data-id="${item.id}" data-field="reward.type">
+                        <option value="coins" ${val.type === 'coins' ? 'selected' : ''}>${t('reward_type_coins')}</option>
+                        <option value="profit" ${val.type === 'profit' ? 'selected' : ''}>${t('reward_type_profit')}</option>
+                    </select>
+                </div>`;
+            }
+
+            return `<input type="${inputType}" class="form-control" data-id="${item.id}" data-field="${col}" value="${escapeHtml(val)}" ${isReadonly ? 'readonly' : ''}>`;
+        };
+
+        tabContainer.innerHTML = `
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title" data-translate="${meta.title}"></h3>
+                    <div class="ms-auto btn-list">
+                        <button class="btn btn-sm download-config-btn" data-config-key="${configKey}"><span data-translate="download_config"></span></button>
+                        <label class="btn btn-sm"><span data-translate="upload_config"></span> <input type="file" class="d-none upload-config-input" data-config-key="${configKey}"></label>
+                        <button class="btn btn-primary add-new-btn"><span data-translate="add_new"></span></button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table card-table table-vcenter">
+                        <thead>
+                            <tr>
+                                ${meta.cols.map(col => `<th data-translate="${col}">${col}</th>`).join('')}
+                                <th data-translate="actions"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${items.map(item => `
+                                <tr data-id="${item.id}">
+                                    ${meta.cols.map(col => `<td>${renderCell(item, col)}</td>`).join('')}
+                                    <td><button class="btn btn-sm btn-danger delete-btn" data-id="${item.id}">${t('delete')}</button></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
             </div>`;
     };
 
-    // --- EVENT HANDLERS ---
-    const handleFieldChange = (e) => {
-        const { section, index, field } = e.target.dataset;
-        if (!section || !index || !field) return;
-        const value = e.target.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value;
-        if (field.includes('.')) {
-            const [parent, child] = field.split('.');
-            if (!localConfig[section][index][parent]) localConfig[section][index][parent] = {};
-            localConfig[section][index][parent][child] = value;
-        } else if (e.target.dataset.lang) {
-            localConfig[section][index][field][e.target.dataset.lang] = value;
-        } else {
-            localConfig[section][index][field] = value;
-        }
-        if (field === 'type' && (section === 'tasks' || section === 'specialTasks')) {
-            const type = localConfig[section][index].type;
-            document.getElementById(`field-container-${section}-${index}-url`).classList.toggle('d-none', type === 'taps');
-            document.getElementById(`field-container-${section}-${index}-requiredTaps`).classList.toggle('d-none', type !== 'taps');
-            document.getElementById(`field-container-${section}-${index}-secretCode`).classList.toggle('d-none', type !== 'video_code');
-        }
-    };
-    
-    const handleTranslate = async (e) => {
-        const button = e.target.closest('button');
-        const { section, index, field } = button.dataset;
-        const group = button.closest('.input-group');
-        const sourceInput = group.querySelector(`[data-lang="ru"]`) || group.querySelector(`[data-lang="en"]`);
-        if (!sourceInput.value) { alert(t('enter_text_to_translate')); return; }
-        button.disabled = true;
-        const originalText = button.innerHTML;
-        button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
-        try {
-            for (const lang of ['en', 'ru']) {
-                if(lang !== sourceInput.dataset.lang) {
-                    const targetInput = group.querySelector(`[data-lang="${lang}"]`);
-                    const response = await fetch('/admin/api/translate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: sourceInput.value, from: sourceInput.dataset.lang, to: lang }),
-                    });
-                    const data = await response.json();
-                    if (response.ok) {
-                        targetInput.value = data.translatedText;
-                        localConfig[section][index][field][lang] = data.translatedText;
-                    } else throw new Error(data.error || t('translation_error'));
-                }
+    // --- MODALS ---
+    const showPlayerDetailsModal = (player) => {
+        modalsContainer.innerHTML = `
+            <div class="modal modal-blur fade show" style="display: block;" tabindex="-1">
+              <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title" data-translate="player_details"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                           <p><strong>ID:</strong> ${player.id}</p>
+                           <p><strong>${t('name')}:</strong> ${escapeHtml(player.name)}</p>
+                           <p><strong>${t('current_balance')}:</strong> ${formatNumber(player.balance)}</p>
+                           <hr>
+                           <div class="mb-3">
+                                <label class="form-label" data-translate="bonus_amount"></label>
+                                <input type="number" class="form-control" id="bonus-amount-input" placeholder="10000">
+                           </div>
+                           <button class="btn btn-primary" id="add-bonus-btn">${t('add_bonus')}</button>
+                           <hr class="my-3">
+                           <button class="btn btn-warning me-2" id="reset-daily-btn">${t('reset_daily')}</button>
+                           <button class="btn btn-danger" id="delete-player-btn">${t('delete')}</button>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 data-translate="player_upgrades"></h5>
+                            <div class="table-responsive" style="max-height: 300px;">
+                                <table class="table table-sm">
+                                    <thead><tr><th>${t('name')}</th><th>${t('level')}</th></tr></thead>
+                                    <tbody>
+                                        ${Object.entries(player.upgrades || {}).map(([id, level]) => {
+                                            const allUpgrades = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
+                                            const upgrade = allUpgrades.find(u => u.id === id);
+                                            return `<tr><td>${escapeHtml(upgrade?.name?.[currentLang] || id)}</td><td>${level}</td></tr>`;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+
+        document.querySelector('.modal .btn-close').addEventListener('click', () => modalsContainer.innerHTML = '');
+        document.getElementById('add-bonus-btn').addEventListener('click', async () => {
+            const amount = document.getElementById('bonus-amount-input').value;
+            const response = await postApi(`/admin/api/player/${player.id}/update-balance`, { amount: parseFloat(amount) });
+            if (response.ok) {
+                alert(t('balance_updated'));
+                modalsContainer.innerHTML = '';
+                await init();
+            } else {
+                alert(t('error_updating_balance'));
             }
-        } catch(err) { alert(err.message); } 
-        finally { button.disabled = false; button.innerHTML = originalText; }
+        });
+        document.getElementById('reset-daily-btn').addEventListener('click', () => {
+             showConfirmationModal(t('confirm_reset_daily'), async () => {
+                const response = await postApi(`/admin/api/player/${player.id}/reset-daily`, {});
+                if (response.ok) {
+                    alert(t('daily_progress_reset_success'));
+                } else {
+                    alert(t('daily_progress_reset_error'));
+                }
+             });
+        });
+        document.getElementById('delete-player-btn').addEventListener('click', () => {
+            showConfirmationModal(t('confirm_delete_player'), async () => {
+                const response = await fetchApi(`/admin/api/player/${player.id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    modalsContainer.innerHTML = '';
+                    await init();
+                }
+            });
+        });
     };
-    
-    const saveChanges = async () => {
+
+    const showConfirmationModal = (message, onConfirm) => {
+        const modalId = `confirm-modal-${Date.now()}`;
+        const modalHtml = `
+          <div class="modal modal-blur fade show" id="${modalId}" style="display: block;" tabindex="-1">
+            <div class="modal-dialog modal-sm modal-dialog-centered">
+              <div class="modal-content">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-status bg-danger"></div>
+                <div class="modal-body text-center py-4">
+                  <h3>${message}</h3>
+                </div>
+                <div class="modal-footer">
+                  <div class="w-100">
+                    <div class="row">
+                      <div class="col"><a href="#" class="btn w-100" data-bs-dismiss="modal">Cancel</a></div>
+                      <div class="col"><a href="#" class="btn btn-danger w-100 confirm-btn">Confirm</a></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = modalHtml;
+        const modalElement = tempDiv.firstElementChild;
+        document.body.appendChild(modalElement);
+
+        modalElement.querySelector('.btn-close').addEventListener('click', () => modalElement.remove());
+        modalElement.querySelector('[data-bs-dismiss="modal"]').addEventListener('click', (e) => { e.preventDefault(); modalElement.remove(); });
+        modalElement.querySelector('.confirm-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            onConfirm();
+            modalElement.remove();
+        });
+    };
+
+    // --- EVENT LISTENERS ---
+    function addEventListeners() {
+        // Tab switching
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', e => {
+                e.preventDefault();
+                activeTab = e.currentTarget.dataset.tab;
+                render();
+            });
+        });
+
+        // Player search
+        const playerSearch = document.getElementById('player-search');
+        if (playerSearch) {
+            playerSearch.addEventListener('input', e => {
+                const searchTerm = e.target.value.toLowerCase();
+                const filtered = allPlayers.filter(p => p.id.includes(searchTerm) || p.name?.toLowerCase().includes(searchTerm));
+                renderPlayersTab(filtered);
+            });
+        }
+        
+        // Player details modal
+        document.querySelectorAll('.view-player-btn').forEach(btn => {
+            btn.addEventListener('click', async e => {
+                const playerId = e.currentTarget.dataset.id;
+                const playerDetails = await fetchApi(`/admin/api/player/${playerId}/details`);
+                if(playerDetails) showPlayerDetailsModal(playerDetails);
+            });
+        });
+
+        // Config table input changes
+        document.querySelectorAll('#tab-content-container input, #tab-content-container select, #tab-content-container textarea').forEach(input => {
+            input.addEventListener('change', e => {
+                const { id, field, lang } = e.target.dataset;
+                const value = e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value;
+                const configKey = activeTab;
+
+                let item = localConfig[configKey].find(i => i.id === id);
+                if (item) {
+                    // Handle nested objects like name.en or reward.amount
+                    const fieldParts = field.split('.');
+                    if (fieldParts.length > 1) {
+                        if (!item[fieldParts[0]]) item[fieldParts[0]] = {};
+                        item[fieldParts[0]][fieldParts[1]] = value;
+                    } else {
+                        item[field] = value;
+                    }
+                }
+            });
+        });
+        
+        document.getElementById('loading-screen-url-input')?.addEventListener('input', e => {
+             localConfig.loadingScreenImageUrl = e.target.value;
+        });
+
+        // Daily events changes
+        document.querySelectorAll('[data-event="combo"]').forEach(select => {
+            select.addEventListener('change', e => {
+                const index = parseInt(e.target.dataset.index);
+                dailyEvent.combo_ids[index] = e.target.value;
+            });
+        });
+        document.getElementById('cipher-word-input')?.addEventListener('input', e => dailyEvent.cipher_word = e.target.value);
+        document.getElementById('combo-reward-input')?.addEventListener('input', e => dailyEvent.combo_reward = parseInt(e.target.value));
+        document.getElementById('cipher-reward-input')?.addEventListener('input', e => dailyEvent.cipher_reward = parseInt(e.target.value));
+
+
+        // Save button
+        saveMainButton.addEventListener('click', handleSave);
+
+        // Add/Delete/Translate/Upload/Download buttons
+        document.querySelectorAll('.add-new-btn').forEach(btn => btn.addEventListener('click', handleAddNew));
+        document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', e => handleDelete(e.currentTarget.dataset.id)));
+        document.querySelectorAll('.translate-btn').forEach(btn => btn.addEventListener('click', e => handleTranslate(e.currentTarget)));
+        document.querySelectorAll('.upload-config-input').forEach(input => input.addEventListener('change', handleUploadConfig));
+        document.querySelectorAll('.download-config-btn').forEach(btn => btn.addEventListener('click', handleDownloadConfig));
+
+        // Lang switcher
+        document.querySelectorAll('.lang-select-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                currentLang = e.currentTarget.dataset.lang;
+                localStorage.setItem('adminLang', currentLang);
+                init(); // Re-fetch data and re-render
+            });
+        });
+    }
+
+    // --- HANDLERS ---
+    const handleSave = async () => {
         saveMainButton.disabled = true;
         saveMainButton.querySelector('span').textContent = t('saving');
-        try {
-            if (activeTab === 'dailyEvents') {
-                const comboSelects = document.querySelectorAll('[data-event="combo"]');
-                const comboIds = Array.from(comboSelects).map(sel => sel.value).filter(Boolean);
-                const uniqueComboIds = [...new Set(comboIds)];
-                if (comboIds.length > 0 && uniqueComboIds.length !== 3) {
-                    alert(t('error_3_unique_cards')); return;
-                }
-                await fetch('/admin/api/daily-events', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        comboIds: uniqueComboIds, 
-                        cipherWord: document.getElementById('cipher-word-input').value.toUpperCase().trim(),
-                        comboReward: document.getElementById('combo-reward-input').value,
-                        cipherReward: document.getElementById('cipher-reward-input').value,
-                    }),
-                });
-            }
-            if (activeTab === 'dashboard') {
-                localConfig.loadingScreenImageUrl = document.getElementById('loading-screen-url-input').value;
-            }
 
-            const configResponse = await fetch('/admin/api/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ config: localConfig }),
-            });
-            if (!configResponse.ok) throw new Error('Failed to save config');
-            alert(t('save_all_changes') + '!');
-        } catch (error) {
-            console.error(error);
-            alert('Error saving data.');
+        // Validate daily combo before saving
+        if(activeTab === 'dailyEvents'){
+            const uniqueIds = new Set(dailyEvent.combo_ids.filter(id => id));
+            if(uniqueIds.size !== 3){
+                alert(t('error_3_unique_cards'));
+                saveMainButton.disabled = false;
+                saveMainButton.querySelector('span').textContent = t('save_all_changes');
+                return;
+            }
+        }
+
+        try {
+            await Promise.all([
+                postApi('/admin/api/config', { config: localConfig }),
+                postApi('/admin/api/daily-events', dailyEvent)
+            ]);
+            // Re-fetch data after saving to ensure consistency
+            await init();
+        } catch (e) {
+            console.error('Save failed:', e);
+            alert('Save failed!');
         } finally {
             saveMainButton.disabled = false;
             saveMainButton.querySelector('span').textContent = t('save_all_changes');
         }
     };
-    
-    const addNewItem = (e) => {
-        const { section } = e.target.dataset;
-        if (!localConfig[section]) localConfig[section] = [];
-        const newItem = {
-            id: `${section.slice(0, 4)}_${Date.now()}`,
-            name: { en: '', ru: '' },
-        };
-        if (section === 'upgrades') Object.assign(newItem, { price: 0, profitPerHour: 0, category: 'Documents', iconUrl: '' });
-        else if (section === 'boosts') Object.assign(newItem, { description: { en: '', ru: '' }, costCoins: 0, iconUrl: '' });
-        else if (section === 'tasks' || section === 'specialTasks') {
-            Object.assign(newItem, { type: 'taps', reward: { type: 'coins', amount: 0 }, imageUrl: '', url: '', requiredTaps: 0, secretCode: '' });
+
+    const handleAddNew = () => {
+        const configKey = activeTab;
+        const newItem = { id: `${configKey.slice(0, 4)}_${Date.now()}` };
+        // Populate with default structure based on configKey
+        const firstItem = localConfig[configKey]?.[0];
+        if (firstItem) {
+            Object.keys(firstItem).forEach(key => {
+                if (key === 'id') return;
+                const value = firstItem[key];
+                if (typeof value === 'string') newItem[key] = '';
+                else if (typeof value === 'number') newItem[key] = 0;
+                else if (typeof value === 'object' && value !== null) {
+                    newItem[key] = {};
+                    Object.keys(value).forEach(subKey => {
+                       newItem[key][subKey] = typeof value[subKey] === 'number' ? 0 : '';
+                    });
+                }
+            });
         }
-        if (section === 'specialTasks') {
-            Object.assign(newItem, { description: { en: '', ru: '' }, priceStars: 0, isOneTime: true });
-        }
-        if (section === 'blackMarketCards') {
-            Object.assign(newItem, { profitPerHour: 0, iconUrl: '', boxType: 'coin', chance: 10 });
-        }
-        if (section === 'coinSkins') {
-            Object.assign(newItem, { profitBoostPercent: 0, iconUrl: '', boxType: 'coin', chance: 10 });
-        }
-        localConfig[section].push(newItem);
+        localConfig[configKey].push(newItem);
         render();
     };
     
-    const deleteItem = (e) => {
-        const { section, index } = e.target.closest('button').dataset;
-        if (confirm(t('confirm_delete'))) {
-            localConfig[section].splice(index, 1);
+    const handleDelete = (id) => {
+        showConfirmationModal(t('confirm_delete'), () => {
+            const configKey = activeTab;
+            localConfig[configKey] = localConfig[configKey].filter(item => item.id !== id);
             render();
-        }
-    };
-
-    const handleDeletePlayer = async (e) => {
-        const { id } = e.target.dataset;
-        if (confirm(t('confirm_delete_player'))) {
-            try {
-                const response = await fetch(`/admin/api/player/${id}`, { method: 'DELETE' });
-                if (!response.ok) throw new Error('Failed to delete player');
-                allPlayers = allPlayers.filter(p => p.id !== id);
-                render();
-            } catch (err) { alert('Error deleting player.'); }
-        }
-    };
-
-    const handleResetDaily = async (e) => {
-        const button = e.target;
-        const { id } = button.dataset;
-        if (confirm(t('confirm_reset_daily'))) {
-            button.disabled = true;
-            try {
-                const response = await fetch(`/admin/api/player/${id}/reset-daily`, { method: 'POST' });
-                if (!response.ok) throw new Error(t('daily_progress_reset_error'));
-                alert(t('daily_progress_reset_success'));
-            } catch (err) {
-                alert(err.message);
-            } finally {
-                button.disabled = false;
-            }
-        }
+        });
     };
     
-    const handleDownloadConfig = (e) => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(localConfig[activeTab] || [], null, 2));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", `${activeTab}_config_backup.json`);
-        document.body.appendChild(downloadAnchorNode);
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
+    const handleTranslate = async (button) => {
+        const { id, field } = button.dataset;
+        const row = button.closest('tr');
+        const sourceInput = row.querySelector(`[data-id="${id}"][data-field="${field}.en"]`);
+        const targetInput = row.querySelector(`[data-id="${id}"][data-field="${field}.ru"]`);
+        
+        if (!sourceInput.value) {
+            alert(t('enter_text_to_translate'));
+            return;
+        }
+
+        button.classList.add('btn-loading');
+        try {
+            const { translatedText } = await postApi('/admin/api/translate', { text: sourceInput.value, from: 'en', to: 'ru' });
+            if (translatedText) {
+                targetInput.value = translatedText;
+                // Manually trigger change event to update local state
+                targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+            } else {
+                 alert(t('translation_error'));
+            }
+        } catch(e) {
+             alert(t('translation_error'));
+        } finally {
+            button.classList.remove('btn-loading');
+        }
     };
     
     const handleUploadConfig = (e) => {
-        if (!confirm(t('confirm_upload'))) return;
-        const input = document.getElementById('upload-config-input');
-        input.onchange = (event) => {
-            const file = event.target.files[0];
+        showConfirmationModal(t('confirm_upload'), () => {
+            const file = e.target.files[0];
+            const configKey = e.target.dataset.configKey;
             if (file) {
                 const reader = new FileReader();
-                reader.onload = (e) => {
+                reader.onload = (event) => {
                     try {
-                        const uploadedConfig = JSON.parse(e.target.result);
-                        if (Array.isArray(uploadedConfig)) {
-                            localConfig[activeTab] = uploadedConfig;
+                        const uploadedData = JSON.parse(event.target.result);
+                        if (Array.isArray(uploadedData)) {
+                            localConfig[configKey] = uploadedData;
                             render();
-                            alert('Config uploaded successfully! Press "Save All Changes" to apply.');
-                        } else {
-                            alert('Invalid file format. Expected a JSON array.');
                         }
                     } catch (err) {
-                        alert('Error parsing JSON file.');
+                        alert('Invalid JSON file.');
                     }
                 };
                 reader.readAsText(file);
             }
-        };
-        input.click();
-    };
-
-    const handlePlayerRowClick = async (e) => {
-        const row = e.target.closest('.player-row');
-        if (!row) return;
-        const playerId = row.dataset.id;
-        const response = await fetchData(`/admin/api/player/${playerId}/details`);
-        if (response) {
-            renderPlayerDetailsModal(response);
-        }
-    };
-    
-    const renderPlayerDetailsModal = (player) => {
-        modalsContainer.innerHTML = '';
-        const modalEl = document.createElement('div');
-        const allUpgrades = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
-        const upgradesList = Object.entries(player.upgrades || {}).map(([id, level]) => {
-             const upg = allUpgrades.find(u => u.id === id);
-             return `<li>${upg?.name?.[currentLang] || id}: <strong data-translate="level">${t('level')} ${level}</strong></li>`;
-        }).join('');
-        
-        modalEl.innerHTML = `
-            <div class="modal modal-blur fade show" id="player-details-modal" tabindex="-1" style="display: block;">
-                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" data-translate="player_details"></h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <h3>${escapeHtml(player.name)} (${escapeHtml(player.id)})</h3>
-                                    <p data-translate="current_balance"></p>
-                                    <p class="h1">${formatNumber(player.balance)} 🪙</p>
-                                    <form id="update-balance-form" data-id="${player.id}">
-                                        <label class="form-label" data-translate="bonus_amount"></label>
-                                        <div class="input-group">
-                                            <input type="number" class="form-control" id="bonus-amount-input" required>
-                                            <button type="submit" class="btn btn-primary" data-translate="add_bonus"></button>
-                                        </div>
-                                    </form>
-                                </div>
-                                <div class="col-md-6">
-                                    <h4 data-translate="player_upgrades"></h4>
-                                    <ul class="list-unstyled">${upgradesList || `<li class="text-secondary">${t('no_data')}</li>`}</ul>
-                                </div>
-                            </div>
-                        </div>
-                         <div class="modal-footer">
-                            <button type="button" class="btn" data-bs-dismiss="modal" data-translate="close"></button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-backdrop fade show"></div>`;
-        document.body.appendChild(modalEl);
-        applyTranslations();
-        
-        const modalInstance = new bootstrap.Modal(modalEl.querySelector('.modal'));
-        modalInstance.show();
-
-        modalEl.querySelector('.btn-close').addEventListener('click', () => modalInstance.hide());
-        modalEl.querySelector('[data-bs-dismiss="modal"]').addEventListener('click', () => modalInstance.hide());
-        modalEl.querySelector('.modal').addEventListener('hidden.bs.modal', () => modalEl.remove());
-        
-        modalEl.querySelector('#update-balance-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const form = e.target;
-            const amount = parseFloat(form.querySelector('#bonus-amount-input').value);
-            const playerId = form.dataset.id;
-            if (isNaN(amount)) return;
-            try {
-                const res = await fetch(`/admin/api/player/${playerId}/update-balance`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ amount })
-                });
-                if (!res.ok) throw new Error(t('error_updating_balance'));
-                const updatedPlayer = await res.json();
-                
-                // Update local state and UI
-                const playerIndex = allPlayers.findIndex(p => p.id === playerId);
-                if (playerIndex !== -1) allPlayers[playerIndex].balance = updatedPlayer.balance;
-                document.querySelector(`.player-row[data-id="${playerId}"] td:nth-child(3)`).textContent = formatNumber(updatedPlayer.balance);
-                
-                alert(t('balance_updated'));
-                modalInstance.hide();
-            } catch(err) {
-                alert(err.message);
-            }
         });
     };
 
-    const handleSearch = (e) => {
-        const query = e.target.value.toLowerCase().trim();
-        const tableBody = document.getElementById('players-table-body');
-        if (!tableBody) return;
-        for (const row of tableBody.rows) {
-            const id = row.dataset.id || '';
-            const name = row.dataset.name || '';
-            row.style.display = (id.includes(query) || name.includes(query)) ? '' : 'none';
-        }
+    const handleDownloadConfig = (e) => {
+        const configKey = e.currentTarget.dataset.configKey;
+        const data = localConfig[configKey];
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", `${configKey}.json`);
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
     };
 
-    const addEventListeners = () => {
-        tabContainer.querySelectorAll('input, select, textarea').forEach(input => input.addEventListener('input', handleFieldChange));
-        tabContainer.querySelectorAll('.translate-btn').forEach(btn => btn.addEventListener('click', handleTranslate));
-        tabContainer.querySelectorAll('.add-new-btn').forEach(btn => btn.addEventListener('click', addNewItem));
-        tabContainer.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', deleteItem));
-        tabContainer.querySelectorAll('.delete-player-btn').forEach(btn => btn.addEventListener('click', handleDeletePlayer));
-        tabContainer.querySelectorAll('.reset-daily-btn').forEach(btn => btn.addEventListener('click', handleResetDaily));
-        tabContainer.querySelectorAll('.player-row').forEach(row => row.addEventListener('click', handlePlayerRowClick));
-        
-        const searchInput = document.getElementById('player-search');
-        if (searchInput) searchInput.addEventListener('input', handleSearch);
-        
-        const downloadBtn = document.getElementById('download-config-btn');
-        if (downloadBtn) downloadBtn.addEventListener('click', handleDownloadConfig);
-        
-        const uploadBtn = document.getElementById('upload-config-btn');
-        if (uploadBtn) uploadBtn.addEventListener('click', handleUploadConfig);
+    // --- API HELPERS ---
+    const fetchApi = async (url, options = {}) => {
+        const response = await fetch(url, options);
+        if (response.status === 401) {
+            window.location.href = '/admin/login.html';
+            throw new Error('Unauthorized');
+        }
+        if (response.ok) {
+            return response.json();
+        }
+        throw new Error(`API call failed: ${response.statusText}`);
+    };
+
+    const postApi = async (url, body) => {
+        return await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
     };
 
     // --- INITIALIZATION ---
-    const fetchData = async (url) => {
-        const response = await fetch(url);
-        if (response.status === 401) { window.location.href = '/admin/login.html'; return null; }
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        return response.json();
-    };
-    
     const init = async () => {
-        currentLang = localStorage.getItem('adminLang') || 'ru';
-        applyTranslations();
         showLoading();
-        
+        applyTranslations();
         try {
-            [localConfig, allPlayers, dashboardStats, dailyEvent, playerLocations] = await Promise.all([
-                fetchData('/admin/api/config'),
-                fetchData('/admin/api/players'),
-                fetchData('/admin/api/dashboard-stats'),
-                fetchData('/admin/api/daily-events'),
-                fetchData('/admin/api/player-locations')
+            const [configData, playersData, statsData, locationsData, eventsData] = await Promise.all([
+                fetchApi('/admin/api/config'),
+                fetchApi('/admin/api/players'),
+                fetchApi('/admin/api/dashboard-stats'),
+                fetchApi('/admin/api/player-locations'),
+                fetchApi('/admin/api/daily-events')
             ]);
-            
-            dailyEvent = dailyEvent || { combo_ids: [], cipher_word: '', combo_reward: 5000000, cipher_reward: 1000000 };
-            
-            const urlParams = new URLSearchParams(window.location.hash.substring(1));
-            activeTab = urlParams.get('tab') || 'dashboard';
-
+            localConfig = configData;
+            allPlayers = playersData;
+            dashboardStats = statsData;
+            playerLocations = locationsData;
+            if (eventsData) { // Handle case where no event is set for today
+                 dailyEvent = {
+                    combo_ids: eventsData.combo_ids || [],
+                    cipher_word: eventsData.cipher_word || '',
+                    combo_reward: eventsData.combo_reward || 5000000,
+                    cipher_reward: eventsData.cipher_reward || 1000000,
+                 };
+            }
+           
+            // Determine active tab from URL hash or default to dashboard
+            activeTab = window.location.hash.substring(1) || 'dashboard';
             render();
         } catch (error) {
-            console.error(error);
-            tabContainer.innerHTML = `<div class="alert alert-danger" role="alert"><h4 class="alert-title">Critical Error</h4><div class="text-secondary">${error.message}</div></div>`;
+            console.error('Initialization failed:', error);
+            if (error.message !== 'Unauthorized') {
+                 tabContainer.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+            }
         }
     };
-    
-    document.querySelectorAll('.tab-button').forEach(button => {
-        button.addEventListener('click', (e) => {
-            e.preventDefault();
-            activeTab = button.dataset.tab;
-            window.location.hash = `tab=${activeTab}`;
-            render();
-        });
-    });
 
-     document.querySelectorAll('.lang-select-btn').forEach(button => {
-        button.addEventListener('click', (e) => {
-            e.preventDefault();
-            currentLang = button.dataset.lang;
-            localStorage.setItem('adminLang', currentLang);
-            render();
-        });
-    });
-    
-    saveMainButton.addEventListener('click', saveChanges);
     init();
 });

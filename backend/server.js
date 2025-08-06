@@ -664,8 +664,9 @@ app.post('/api/action/set-skin', async (req, res) => {
 // --- TELEGRAM PAYMENTS ---
 app.post('/api/create-star-invoice', async (req, res) => {
     const { userId, boxType } = req.body;
-    if (!BOT_TOKEN || !TELEGRAM_PROVIDER_TOKEN) {
-        log('error', 'Missing BOT_TOKEN or TELEGRAM_PROVIDER_TOKEN for star payment.');
+    // For 'XTR' (Stars), provider_token is NOT required. Only BOT_TOKEN is needed.
+    if (!BOT_TOKEN) {
+        log('error', 'Missing BOT_TOKEN for star payment.');
         return res.status(500).json({ error: 'Payment system is not configured.' });
     }
     
@@ -679,7 +680,7 @@ app.post('/api/create-star-invoice', async (req, res) => {
                 title: 'Star Container',
                 description: 'A container with exclusive rewards!',
                 payload: payload,
-                provider_token: TELEGRAM_PROVIDER_TOKEN,
+                // provider_token is omitted for 'XTR' currency
                 currency: 'XTR',
                 prices: [{ label: 'Star Container', amount: LOOTBOX_COST_STARS }]
             })
