@@ -5,12 +5,12 @@ import { useGame, useAuth, useTranslation, AuthProvider, useGameContext } from '
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
-import { ExchangeIcon, MineIcon, FriendsIcon, BoostIcon, TasksIcon, StarIcon, AirdropIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon, MINI_APP_NAME, LEAGUES, MarketIcon, SkinsIcon, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID } from './constants';
+import { ExchangeIcon, MineIcon, StarIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon, MINI_APP_NAME, LEAGUES, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID, MissionsIcon, ProfileIcon } from './constants';
 import { DailyTask, GameConfig, Language, Upgrade, Boost, SpecialTask, PlayerState, User, LeaderboardPlayer, TaskType, Reward, BlackMarketCard, CoinSkin, BoxType } from './types';
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
 
-type Screen = 'exchange' | 'mine' | 'friends' | 'boost' | 'tasks' | 'airdrop' | 'market' | 'skins';
+type Screen = 'exchange' | 'mine' | 'missions' | 'profile';
 
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
@@ -62,6 +62,16 @@ const NotInTelegramScreen: React.FC = () => (
     </div>
 );
 
+const TabButton = ({ label, isActive, onClick }: { label: string, isActive: boolean, onClick: () => void }) => (
+    <button
+        onClick={onClick}
+        className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors w-full text-center ${
+            isActive ? 'bg-gray-600 text-white' : 'bg-transparent text-gray-400 hover:bg-gray-700'
+        }`}
+    >
+        {label}
+    </button>
+);
 
 const MainApp: React.FC = () => {
   const { user } = useAuth();
@@ -239,26 +249,33 @@ const MainApp: React.FC = () => {
   };
 
   const renderScreen = () => {
-    const currentSkin = config.coinSkins.find(s => s.id === playerState.currentSkinId) || config.coinSkins.find(s=>s.id === DEFAULT_COIN_SKIN_ID);
-    const skinUrl = currentSkin?.iconUrl || '';
-
     switch (activeScreen) {
       case 'exchange':
         return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} />;
       case 'mine':
         return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} />;
-      case 'friends':
-        return <FriendsScreen playerState={playerState} user={user} />;
-      case 'boost':
-        return <BoostScreen playerState={playerState} boosts={config.boosts} onBuyBoost={handleBuyBoost} lang={user.language} />;
-      case 'tasks':
-        return <TasksScreen tasks={config.tasks} playerState={playerState} onClaim={handleClaimTask} lang={user.language} startedVideoTasks={startedVideoTasks} />;
-      case 'airdrop':
-        return <AirdropScreen tasks={config.specialTasks} playerState={playerState} onPurchase={purchaseSpecialTask} onComplete={handleClaimTask} lang={user.language} startedVideoTasks={startedVideoTasks}/>;
-      case 'market':
-        return <MarketScreen onOpenCoinLootbox={handleOpenCoinLootbox} onPurchaseStarLootbox={handlePurchaseStarLootbox} />;
-      case 'skins':
-        return <SkinsScreen playerState={playerState} skins={config.coinSkins} onSetSkin={handleSetSkin} lang={user.language} />;
+      case 'missions':
+        return <MissionsScreen
+                    tasks={config.tasks}
+                    specialTasks={config.specialTasks}
+                    playerState={playerState}
+                    onClaim={handleClaimTask}
+                    onPurchase={purchaseSpecialTask}
+                    lang={user.language}
+                    startedVideoTasks={startedVideoTasks}
+                />;
+      case 'profile':
+        return <ProfileScreen
+                    playerState={playerState}
+                    user={user}
+                    boosts={config.boosts}
+                    onBuyBoost={handleBuyBoost}
+                    lang={user.language}
+                    skins={config.coinSkins}
+                    onSetSkin={handleSetSkin}
+                    onOpenCoinLootbox={handleOpenCoinLootbox}
+                    onPurchaseStarLootbox={handlePurchaseStarLootbox}
+                />;
       default:
         return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} />;
     }
@@ -306,12 +323,8 @@ const MainApp: React.FC = () => {
         <div className="grid grid-cols-4 justify-around items-center max-w-xl mx-auto">
           <NavItem screen="exchange" label={t('exchange')} icon={<ExchangeIcon active={activeScreen === 'exchange'} />} />
           <NavItem screen="mine" label={t('mine')} icon={<MineIcon active={activeScreen === 'mine'} />} />
-          <NavItem screen="market" label={t('market')} icon={<MarketIcon active={activeScreen === 'market'} />} />
-          <NavItem screen="boost" label={t('boosts')} icon={<BoostIcon active={activeScreen === 'boost'} />} />
-          <NavItem screen="friends" label={t('friends')} icon={<FriendsIcon active={activeScreen === 'friends'} />} />
-          <NavItem screen="airdrop" label={t('airdrop')} icon={<AirdropIcon active={activeScreen === 'airdrop'} />} />
-          <NavItem screen="tasks" label={t('tasks')} icon={<TasksIcon active={activeScreen === 'tasks'} />} />
-          <NavItem screen="skins" label={t('skins')} icon={<SkinsIcon active={activeScreen === 'skins'} />} />
+          <NavItem screen="missions" label={t('missions')} icon={<MissionsIcon active={activeScreen === 'missions'} />} />
+          <NavItem screen="profile" label={t('profile')} icon={<ProfileIcon active={activeScreen === 'profile'} />} />
         </div>
       </div>
        <style>{`
@@ -332,47 +345,6 @@ const MainApp: React.FC = () => {
       `}</style>
     </div>
   );
-};
-
-const FriendsScreen = ({ playerState, user }: { playerState: PlayerState, user: User }) => {
-    const t = useTranslation();
-    const [copied, setCopied] = useState(false);
-
-    const handleCopyReferral = () => {
-        const referralLink = `https://t.me/${TELEGRAM_BOT_NAME}/${MINI_APP_NAME}?startapp=${user.id}`;
-        navigator.clipboard.writeText(referralLink);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    return (
-        <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
-            <h1 className="text-3xl font-bold text-center mb-6">{t('friends')}</h1>
-            <div className="w-full max-w-md space-y-4 text-center">
-                <div className="bg-gray-800 p-4 rounded-lg">
-                    <p className="text-gray-400 text-lg">{t('your_referrals')}</p>
-                    <p className="text-5xl font-bold my-1">{playerState.referrals}</p>
-                </div>
-                <div className="bg-gray-800 p-4 rounded-lg">
-                    <p className="text-gray-400 text-lg">{t('referral_bonus')}</p>
-                    <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2">
-                        <span>+{REFERRAL_BONUS.toLocaleString()}</span>
-                        <div className="w-6 h-6 text-yellow-400"><CoinIcon/></div>
-                    </p>
-                </div>
-                 <div className="bg-gray-800 p-4 rounded-lg">
-                    <p className="text-gray-400 text-lg">{t('profit_from_referrals')}</p>
-                    <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2 text-green-400">
-                        <span>+{formatNumber(playerState.referralProfitPerHour)}/hr</span>
-                        <span>⚡</span>
-                    </p>
-                </div>
-                <button onClick={handleCopyReferral} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95">
-                    {copied ? t('copied') : t('invite_friends')}
-                </button>
-            </div>
-        </div>
-    );
 };
 
 const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks }: { task: DailyTask | SpecialTask, playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, lang: Language, startedVideoTasks: Set<string> }) => {
@@ -446,132 +418,187 @@ const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks }: { tas
     );
 };
 
-const TasksScreen = ({ tasks, playerState, onClaim, lang, startedVideoTasks }: { tasks: DailyTask[], playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, lang: Language, startedVideoTasks: Set<string> }) => {
+const MissionsScreen = ({ tasks, specialTasks, playerState, onClaim, onPurchase, lang, startedVideoTasks }: { tasks: DailyTask[], specialTasks: SpecialTask[], playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, onPurchase: (task: SpecialTask) => void, lang: Language, startedVideoTasks: Set<string> }) => {
     const t = useTranslation();
+    const [activeTab, setActiveTab] = useState<'daily' | 'airdrop'>('daily');
+
     return (
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
-            <h1 className="text-3xl font-bold text-center mb-6">{t('tasks')}</h1>
-            <div className="w-full max-w-md space-y-3 overflow-y-auto no-scrollbar">
-                {(tasks || []).map(task => (
-                    <TaskCard key={task.id} task={task} playerState={playerState} onClaim={onClaim} lang={lang} startedVideoTasks={startedVideoTasks} />
-                ))}
+            <div className="w-full max-w-md sticky top-0 bg-gradient-to-b from-gray-900 via-gray-900 to-transparent py-4 z-10">
+                <h1 className="text-3xl font-bold text-center mb-4">{t('missions')}</h1>
+                <div className="flex space-x-2 bg-gray-800 p-1 rounded-xl">
+                    <TabButton label={t('sub_daily')} isActive={activeTab === 'daily'} onClick={() => setActiveTab('daily')} />
+                    <TabButton label={t('sub_airdrop')} isActive={activeTab === 'airdrop'} onClick={() => setActiveTab('airdrop')} />
+                </div>
+            </div>
+
+            <div className="w-full max-w-md flex-grow space-y-3 overflow-y-auto no-scrollbar pt-2">
+                {activeTab === 'daily' && (
+                    (tasks || []).map(task => (
+                        <TaskCard key={task.id} task={task} playerState={playerState} onClaim={onClaim} lang={lang} startedVideoTasks={startedVideoTasks} />
+                    ))
+                )}
+                {activeTab === 'airdrop' && (
+                    <>
+                         <p className="text-center text-gray-400 max-w-xs mx-auto mb-2">{t('airdrop_description')}</p>
+                         {(specialTasks || []).map(task => {
+                            const isPurchased = playerState.purchasedSpecialTaskIds.includes(task.id);
+                            const isCompleted = playerState.completedSpecialTaskIds.includes(task.id);
+                            const rewardIcon = task.reward?.type === 'profit' ? '⚡' : '🪙';
+                            
+                            let button;
+                            if (isCompleted) {
+                                button = <button disabled className="w-full mt-2 py-2 rounded-lg font-bold bg-gray-600 text-gray-400">{t('completed')}</button>;
+                            } else if (isPurchased) {
+                                const isVideoCodeTask = task.type === 'video_code';
+                                const isVideoTaskStarted = isVideoCodeTask && startedVideoTasks.has(task.id);
+                                const buttonText = isVideoCodeTask
+                                    ? (isVideoTaskStarted ? t('enter_secret_code') : t('go_to_task'))
+                                    : t('go_to_task');
+                                button = <button onClick={() => onClaim(task)} className="w-full mt-2 py-2 rounded-lg font-bold bg-blue-600 hover:bg-blue-500">{buttonText}</button>;
+                            } else {
+                                button = <button onClick={() => onPurchase(task)} className="w-full mt-2 py-2 rounded-lg font-bold bg-purple-600 hover:bg-purple-500 flex justify-center items-center space-x-2">
+                                            <span>{task.priceStars > 0 ? `${t('unlock_for')} ${task.priceStars}` : t('get')}</span>
+                                            {task.priceStars > 0 && <StarIcon />}
+                                         </button>;
+                            }
+
+                            return (
+                                <div key={task.id} className={`bg-gray-800 p-4 rounded-lg ${isCompleted ? 'opacity-60' : ''}`}>
+                                    <div className="flex items-center mb-2">
+                                        <div className="w-12 h-12 bg-gray-700/50 rounded-lg flex items-center justify-center mr-3">
+                                             {task.imageUrl ? <img src={task.imageUrl} alt={task.name?.[lang]} className="w-10 h-10 object-contain"/> : <span className="text-3xl">🔗</span>}
+                                        </div>
+                                        <div>
+                                            <h2 className="text-lg font-bold">{task.name?.[lang]}</h2>
+                                            <p className="text-sm text-gray-400">{task.description?.[lang]}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-sm text-yellow-300 my-2 flex items-center space-x-4">
+                                        <span>+ {(task.reward?.amount || 0).toLocaleString()} {rewardIcon}</span>
+                                    </div>
+                                    {button}
+                                </div>
+                            );
+                        })}
+                    </>
+                )}
             </div>
         </div>
     );
 };
 
-const AirdropScreen = ({ tasks, playerState, onPurchase, onComplete, lang, startedVideoTasks }: { tasks: SpecialTask[], playerState: PlayerState, onPurchase: (task: SpecialTask) => void, onComplete: (task: SpecialTask) => void, lang: Language, startedVideoTasks: Set<string> }) => {
+const ProfileScreen = ({ playerState, user, boosts, onBuyBoost, lang, skins, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox } : any) => {
     const t = useTranslation();
+    const [activeTab, setActiveTab] = useState<'friends' | 'boosts' | 'skins' | 'market'>('friends');
     
+    // Inline component for Friends content
+    const FriendsContent = () => {
+        const [copied, setCopied] = useState(false);
+        const handleCopyReferral = () => {
+            const referralLink = `https://t.me/${TELEGRAM_BOT_NAME}/${MINI_APP_NAME}?startapp=${user.id}`;
+            navigator.clipboard.writeText(referralLink);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        };
+        return (
+            <div className="w-full max-w-md space-y-4 text-center">
+                <div className="bg-gray-800 p-4 rounded-lg">
+                    <p className="text-gray-400 text-lg">{t('your_referrals')}</p>
+                    <p className="text-5xl font-bold my-1">{playerState.referrals}</p>
+                </div>
+                <div className="bg-gray-800 p-4 rounded-lg">
+                    <p className="text-gray-400 text-lg">{t('referral_bonus')}</p>
+                    <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2">
+                        <span>+{REFERRAL_BONUS.toLocaleString()}</span>
+                        <div className="w-6 h-6 text-yellow-400"><CoinIcon/></div>
+                    </p>
+                </div>
+                 <div className="bg-gray-800 p-4 rounded-lg">
+                    <p className="text-gray-400 text-lg">{t('profit_from_referrals')}</p>
+                    <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2 text-green-400">
+                        <span>+{formatNumber(playerState.referralProfitPerHour)}/hr</span>
+                        <span>⚡</span>
+                    </p>
+                </div>
+                <button onClick={handleCopyReferral} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95">
+                    {copied ? t('copied') : t('invite_friends')}
+                </button>
+            </div>
+        );
+    };
+    
+    // Inline component for Skins content
+    const SkinsContent = () => {
+        const unlockedSkins = (skins || []).filter(skin => playerState.unlockedSkins.includes(skin.id));
+        return (
+            <div className="w-full max-w-md">
+                <p className="text-center text-gray-400 mb-4 max-w-xs mx-auto">{t('skins_gallery_desc')}</p>
+                <div className="grid grid-cols-3 gap-4">
+                    {unlockedSkins.map(skin => {
+                        const isSelected = playerState.currentSkinId === skin.id;
+                        return (
+                            <div key={skin.id} className={`bg-gray-800 rounded-lg p-3 flex flex-col items-center text-center ${isSelected ? 'border-2 border-yellow-400' : ''}`}>
+                                <div className="w-16 h-16 mb-2 flex items-center justify-center">
+                                    <img src={skin.iconUrl} alt={skin.name[lang]} className="w-full h-full object-contain" />
+                                </div>
+                                <p className="text-xs font-bold leading-tight">{skin.name[lang]}</p>
+                                <p className="text-xs text-green-400 mt-1">+{skin.profitBoostPercent}%</p>
+                                <button
+                                    onClick={() => onSetSkin(skin.id)}
+                                    disabled={isSelected}
+                                    className="w-full mt-2 py-1 text-xs rounded-md font-bold disabled:bg-yellow-500 disabled:text-black bg-blue-600 hover:bg-blue-500 text-white"
+                                >
+                                    {isSelected ? t('selected') : t('select_skin')}
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+    
+    // Inline component for Market content
+    const MarketContent = () => (
+        <div className="w-full max-w-md space-y-6">
+            <p className="text-center text-gray-400 max-w-xs mx-auto">{t('black_market_desc')}</p>
+            <div className="bg-gray-800 p-6 rounded-lg text-center border-2 border-yellow-500/50">
+                <div className="text-6xl mb-4">📦</div>
+                <h2 className="text-2xl font-bold mb-2">{t('lootbox_coin')}</h2>
+                <button onClick={() => onOpenCoinLootbox('coin')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
+                    <span>{t('open_for')} {LOOTBOX_COST_COINS.toLocaleString()}</span>
+                    <div className="w-6 h-6"><CoinIcon/></div>
+                </button>
+            </div>
+            <div className="bg-gray-800 p-6 rounded-lg text-center border-2 border-blue-500/50">
+                <div className="text-6xl mb-4">🌟</div>
+                <h2 className="text-2xl font-bold mb-2">{t('lootbox_star')}</h2>
+                <button onClick={() => onPurchaseStarLootbox('star')} className="w-full bg-blue-500 hover:bg-blue-400 text-white font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
+                    <span>{t('open_for')} {LOOTBOX_COST_STARS}</span>
+                    <div className="w-6 h-6"><StarIcon/></div>
+                </button>
+            </div>
+        </div>
+    );
+
     return (
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
-            <h1 className="text-3xl font-bold text-center">{t('airdrop')}</h1>
-            <p className="text-center text-gray-400 mt-2 mb-6 max-w-xs">{t('airdrop_description')}</p>
+            <div className="w-full max-w-md sticky top-0 bg-gradient-to-b from-gray-900 via-gray-900 to-transparent py-4 z-10">
+                <h1 className="text-3xl font-bold text-center mb-4">{t('profile')}</h1>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-gray-800 p-1 rounded-xl">
+                  <TabButton label={t('sub_contacts')} isActive={activeTab === 'friends'} onClick={() => setActiveTab('friends')} />
+                  <TabButton label={t('sub_boosts')} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
+                  <TabButton label={t('sub_disguise')} isActive={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
+                  <TabButton label={t('sub_market')} isActive={activeTab === 'market'} onClick={() => setActiveTab('market')} />
+                </div>
+            </div>
             
-            <div className="w-full max-w-md space-y-3 overflow-y-auto no-scrollbar">
-                {(tasks || []).map(task => {
-                    const isPurchased = playerState.purchasedSpecialTaskIds.includes(task.id);
-                    const isCompleted = playerState.completedSpecialTaskIds.includes(task.id);
-                    const rewardIcon = task.reward?.type === 'profit' ? '⚡' : '🪙';
-                    
-                    let button;
-                    if (isCompleted) {
-                        button = <button disabled className="w-full mt-2 py-2 rounded-lg font-bold bg-gray-600 text-gray-400">{t('completed')}</button>;
-                    } else if (isPurchased) {
-                        const isVideoCodeTask = task.type === 'video_code';
-                        const isVideoTaskStarted = isVideoCodeTask && startedVideoTasks.has(task.id);
-                        const buttonText = isVideoCodeTask
-                            ? (isVideoTaskStarted ? t('enter_secret_code') : t('go_to_task'))
-                            : t('go_to_task');
-                        button = <button onClick={() => onComplete(task)} className="w-full mt-2 py-2 rounded-lg font-bold bg-blue-600 hover:bg-blue-500">{buttonText}</button>;
-                    } else {
-                        button = <button onClick={() => onPurchase(task)} className="w-full mt-2 py-2 rounded-lg font-bold bg-purple-600 hover:bg-purple-500 flex justify-center items-center space-x-2">
-                                    <span>{task.priceStars > 0 ? `${t('unlock_for')} ${task.priceStars}` : t('get')}</span>
-                                    {task.priceStars > 0 && <StarIcon />}
-                                 </button>;
-                    }
-
-                    return (
-                        <div key={task.id} className={`bg-gray-800 p-4 rounded-lg ${isCompleted ? 'opacity-60' : ''}`}>
-                            <div className="flex items-center mb-2">
-                                <div className="w-12 h-12 bg-gray-700/50 rounded-lg flex items-center justify-center mr-3">
-                                     {task.imageUrl ? <img src={task.imageUrl} alt={task.name?.[lang]} className="w-10 h-10 object-contain"/> : <span className="text-3xl">🔗</span>}
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-bold">{task.name?.[lang]}</h2>
-                                    <p className="text-sm text-gray-400">{task.description?.[lang]}</p>
-                                </div>
-                            </div>
-                            <div className="text-sm text-yellow-300 my-2 flex items-center space-x-4">
-                                <span>+ {(task.reward?.amount || 0).toLocaleString()} {rewardIcon}</span>
-                            </div>
-                            {button}
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-};
-
-const MarketScreen = ({ onOpenCoinLootbox, onPurchaseStarLootbox }: { onOpenCoinLootbox: (boxType: 'coin') => void, onPurchaseStarLootbox: (boxType: 'star') => void }) => {
-    const t = useTranslation();
-    return (
-        <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
-            <h1 className="text-3xl font-bold text-center">{t('black_market')}</h1>
-            <p className="text-center text-gray-400 mt-2 mb-6 max-w-xs">{t('black_market_desc')}</p>
-            <div className="w-full max-w-md space-y-6">
-                {/* Coin Lootbox */}
-                <div className="bg-gray-800 p-6 rounded-lg text-center border-2 border-yellow-500/50">
-                    <div className="text-6xl mb-4">📦</div>
-                    <h2 className="text-2xl font-bold mb-2">{t('lootbox_coin')}</h2>
-                    <button onClick={() => onOpenCoinLootbox('coin')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
-                        <span>{t('open_for')} {LOOTBOX_COST_COINS.toLocaleString()}</span>
-                        <div className="w-6 h-6"><CoinIcon/></div>
-                    </button>
-                </div>
-                 {/* Star Lootbox */}
-                <div className="bg-gray-800 p-6 rounded-lg text-center border-2 border-blue-500/50">
-                    <div className="text-6xl mb-4">🌟</div>
-                    <h2 className="text-2xl font-bold mb-2">{t('lootbox_star')}</h2>
-                    <button onClick={() => onPurchaseStarLootbox('star')} className="w-full bg-blue-500 hover:bg-blue-400 text-white font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
-                        <span>{t('open_for')} {LOOTBOX_COST_STARS}</span>
-                        <div className="w-6 h-6"><StarIcon/></div>
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const SkinsScreen = ({ playerState, skins, onSetSkin, lang }: { playerState: PlayerState, skins: CoinSkin[], onSetSkin: (skinId: string) => void, lang: Language }) => {
-    const t = useTranslation();
-    const unlockedSkins = (skins || []).filter(skin => playerState.unlockedSkins.includes(skin.id));
-    
-    return (
-        <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
-            <h1 className="text-3xl font-bold text-center">{t('skins_gallery')}</h1>
-            <p className="text-center text-gray-400 mt-2 mb-6 max-w-xs">{t('skins_gallery_desc')}</p>
-            <div className="w-full max-w-md grid grid-cols-3 gap-4 overflow-y-auto no-scrollbar">
-                {unlockedSkins.map(skin => {
-                    const isSelected = playerState.currentSkinId === skin.id;
-                    return (
-                        <div key={skin.id} className={`bg-gray-800 rounded-lg p-3 flex flex-col items-center text-center ${isSelected ? 'border-2 border-yellow-400' : ''}`}>
-                            <div className="w-16 h-16 mb-2 flex items-center justify-center">
-                                <img src={skin.iconUrl} alt={skin.name[lang]} className="w-full h-full object-contain" />
-                            </div>
-                            <p className="text-xs font-bold leading-tight">{skin.name[lang]}</p>
-                            <p className="text-xs text-green-400 mt-1">+{skin.profitBoostPercent}%</p>
-                            <button
-                                onClick={() => onSetSkin(skin.id)}
-                                disabled={isSelected}
-                                className="w-full mt-2 py-1 text-xs rounded-md font-bold disabled:bg-yellow-500 disabled:text-black bg-blue-600 hover:bg-blue-500 text-white"
-                            >
-                                {isSelected ? t('selected') : t('select_skin')}
-                            </button>
-                        </div>
-                    );
-                })}
+            <div className="w-full max-w-md flex-grow overflow-y-auto no-scrollbar pt-2 flex justify-center">
+                {activeTab === 'friends' && <FriendsContent />}
+                {activeTab === 'boosts' && <BoostScreen playerState={playerState} boosts={boosts} onBuyBoost={onBuyBoost} lang={lang} />}
+                {activeTab === 'skins' && <SkinsContent />}
+                {activeTab === 'market' && <MarketContent />}
             </div>
         </div>
     );

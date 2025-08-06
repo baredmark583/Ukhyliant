@@ -21,24 +21,15 @@ export const STAR_ICON_URL = `data:image/svg+xml;charset=UTF-8,%3csvg xmlns='htt
 export const NAV_ICON_URLS = {
     exchange: 'https://api.iconify.design/ph/chart-line-up-bold.svg?color=white',
     mine: 'https://api.iconify.design/ph/hammer-bold.svg?color=white',
-    friends: 'https://api.iconify.design/ph/users-three-bold.svg?color=white',
-    airdrop: 'https://api.iconify.design/ph/parachute-bold.svg?color=white',
-    boost: 'https://api.iconify.design/ph/rocket-launch-bold.svg?color=white',
-    tasks: 'https://api.iconify.design/ph/list-bold.svg?color=white',
-    market: 'https://api.iconify.design/ph/storefront-bold.svg?color=white',
-    skins: 'https://api.iconify.design/ph/paint-brush-broad-bold.svg?color=white',
+    missions: 'https://api.iconify.design/ph/file-text-bold.svg?color=white',
+    profile: 'https://api.iconify.design/ph/identification-card-bold.svg?color=white',
 };
 
 // --- ICON COMPONENTS ---
 export const ExchangeIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.exchange} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Exchange" />;
 export const MineIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.mine} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Mine" />;
-export const FriendsIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.friends} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Friends" />;
-export const AirdropIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.airdrop} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Airdrop" />;
-export const BoostIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.boost} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Boost" />;
-export const TasksIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.tasks} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Tasks" />;
-export const MarketIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.market} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Market" />;
-export const SkinsIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.skins} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Skins" />;
-
+export const MissionsIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.missions} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Missions" />;
+export const ProfileIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.profile} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Profile" />;
 
 export const StarIcon = () => <img src={STAR_ICON_URL} alt="star" className="w-4 h-4" />;
 export const CoinIcon = () => <img src={COIN_ICON_URL} alt="coin" className="w-full h-full" />;
@@ -111,6 +102,8 @@ export const LOOTBOX_COST_STARS = 5;
 // --- TRANSLATIONS ---
 type TranslationKey = 
   | 'exchange' | 'mine' | 'friends' | 'boosts' | 'tasks' | 'admin' | 'player' | 'league'
+  | 'missions' | 'profile'
+  | 'sub_daily' | 'sub_airdrop' | 'sub_contacts' | 'sub_boosts' | 'sub_disguise' | 'sub_market'
   | 'profit_per_hour' | 'energy' | 'mine_upgrades' | 'lvl'
   | 'get' | 'level' | 'price' | 'profit' | 'category' | 'icon' | 'actions' | 'save'
   | 'add_new_upgrade' | 'edit_upgrades' | 'edit_tasks' | 'task_name' | 'reward_coins'
@@ -134,6 +127,14 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
   en: {
     exchange: 'Exchange',
     mine: 'Mine',
+    missions: 'Missions',
+    profile: 'Profile',
+    sub_daily: 'Daily',
+    sub_airdrop: 'Airdrop',
+    sub_contacts: 'Contacts',
+    sub_boosts: 'Boosts',
+    sub_disguise: 'Disguise',
+    sub_market: 'Market',
     friends: 'Friends',
     boosts: 'Boosts',
     tasks: 'Tasks',
@@ -227,6 +228,14 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
   ua: {
     exchange: 'Біржа',
     mine: 'Майнінг',
+    missions: 'Завдання',
+    profile: 'Профіль',
+    sub_daily: 'Щоденні',
+    sub_airdrop: 'Airdrop',
+    sub_contacts: 'Контакти',
+    sub_boosts: 'Посилення',
+    sub_disguise: 'Маскування',
+    sub_market: 'Ринок',
     friends: 'Друзі',
     boosts: 'Бусти',
     tasks: 'Завдання',
@@ -320,6 +329,14 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
   ru: {
     exchange: 'Биржа',
     mine: 'Майнинг',
+    missions: 'Задания',
+    profile: 'Профиль',
+    sub_daily: 'Ежедневные',
+    sub_airdrop: 'Airdrop',
+    sub_contacts: 'Контакты',
+    sub_boosts: 'Усиления',
+    sub_disguise: 'Маскировка',
+    sub_market: 'Рынок',
     friends: 'Друзья',
     boosts: 'Бусты',
     tasks: 'Задания',
