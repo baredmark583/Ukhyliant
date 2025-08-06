@@ -36,14 +36,19 @@ const AppContainer: React.FC = () => {
 };
 
 const LoadingScreen: React.FC<{imageUrl?: string}> = ({ imageUrl }) => (
-    <div className="h-screen w-screen bg-gray-900 flex flex-col justify-center items-center p-4 text-white">
+    <div className="h-screen w-screen bg-gray-900 relative overflow-hidden">
         {imageUrl ? (
-            <img src={imageUrl} alt="Loading..." className="w-48 h-48 mb-4 object-contain animate-pulse" />
+            <img 
+                src={imageUrl} 
+                alt="Loading..." 
+                className="absolute top-0 left-0 w-full h-full object-cover animate-pulse"
+                style={{animationDuration: '2s'}}
+            />
         ) : (
-            <>
+            <div className="w-full h-full flex flex-col justify-center items-center p-4 text-white">
                 <h1 className="text-4xl font-bold mb-2">Ukhyliant Clicker</h1>
                 <p className="text-lg animate-pulse">Connecting...</p>
-            </>
+            </div>
         )}
     </div>
 );
