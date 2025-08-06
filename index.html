@@ -8,7 +8,49 @@
     <title>Ukhyliant Clicker</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-  <script type="importmap">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=Russo+One&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg-main: #111827; /* gray-900 */
+        --text-primary: #e5e7eb; /* gray-200 */
+        --text-secondary: #9ca3af; /* gray-400 */
+        --accent-green: #4ade80; /* green-400 */
+        --accent-green-glow: #16a34a; /* green-600 */
+        --border-color: #374151; /* gray-700 */
+        --container-bg: rgba(55, 65, 81, 0.2); /* gray-600 with opacity */
+        --container-border: rgba(75, 85, 99, 0.5); /* gray-500 with opacity */
+      }
+      body {
+        font-family: 'IBM Plex Mono', monospace;
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        background-image:
+            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+        background-size: 30px 30px;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      .font-display {
+        font-family: 'Russo One', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .themed-container {
+        background-color: var(--container-bg);
+        border: 1px solid var(--container-border);
+      }
+      *:focus {
+        outline: none;
+      }
+      *:focus-visible {
+        outline: 2px solid var(--accent-green);
+        outline-offset: 2px;
+      }
+    </style>
+    <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.1.1",
@@ -31,7 +73,7 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-black">
+  <body class="font-mono">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

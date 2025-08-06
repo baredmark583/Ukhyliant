@@ -13,7 +13,6 @@ interface UpgradeCardProps {
 const formatNumber = (num: number) => {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
-  // Format numbers less than 1000 to have a max of 2 decimal places.
   return num.toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
@@ -28,12 +27,12 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
     <button
       onClick={() => onBuy(upgrade.id)}
       disabled={!canAfford}
-      className={`w-full p-2.5 bg-gray-800 rounded-xl flex items-center justify-between space-x-3 transition-transform duration-100 active:scale-95 ${
-        !canAfford ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'
+      className={`w-full p-2.5 themed-container flex items-center justify-between space-x-3 transition-all duration-150 active:scale-95 ${
+        !canAfford ? 'opacity-50 cursor-not-allowed' : 'hover:border-green-400/80 hover:bg-[rgba(74,222,128,0.05)]'
       }`}
     >
       <div className="flex items-center space-x-3">
-        <div className="bg-gray-700/50 p-2 rounded-lg w-16 h-16 flex-shrink-0">
+        <div className="border border-gray-700 p-2 w-16 h-16 flex-shrink-0">
           <img src={upgrade.iconUrl} alt={upgrade.name?.[lang]} className="w-full h-full object-contain" />
         </div>
         <div>

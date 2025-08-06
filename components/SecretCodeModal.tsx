@@ -22,8 +22,8 @@ const SecretCodeModal: React.FC<SecretCodeModalProps> = ({ task, onClose, onSubm
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-gray-800 rounded-2xl w-full max-w-sm flex flex-col p-6 border border-gray-700" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="themed-container w-full max-w-sm flex flex-col p-6" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-white truncate pr-4">{task.name?.[lang]}</h2>
           <button onClick={onClose} className="text-gray-400 text-3xl font-light flex-shrink-0">&times;</button>
@@ -36,7 +36,7 @@ const SecretCodeModal: React.FC<SecretCodeModalProps> = ({ task, onClose, onSubm
             type="text"
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
-            className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 text-center font-mono tracking-widest text-lg"
+            className="w-full bg-black/30 border border-gray-600 text-white py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 mb-4 text-center font-mono tracking-widest text-lg"
             placeholder="CODE"
             autoFocus
             autoCapitalize="characters"
@@ -44,7 +44,7 @@ const SecretCodeModal: React.FC<SecretCodeModalProps> = ({ task, onClose, onSubm
           <button
             type="submit"
             disabled={!code.trim()}
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg text-lg transition-colors disabled:opacity-50 active:scale-95"
+            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 text-lg transition-colors disabled:opacity-50 active:scale-95"
           >
             {t('check')}
           </button>

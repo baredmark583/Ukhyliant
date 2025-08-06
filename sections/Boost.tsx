@@ -33,19 +33,19 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
 
   return (
     <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
-      <h1 className="text-3xl font-bold text-center mb-2">{t('boosts')}</h1>
+      <h1 className="text-3xl font-display text-center mb-2">{t('boosts')}</h1>
       <p className="text-lg text-gray-400 mb-6 flex items-center space-x-2">
         <span className="w-6 h-6 text-yellow-400"><CoinIcon/></span>
         <span className="font-bold text-white">{balance.toLocaleString()}</span>
       </p>
 
-      <div className="w-full max-w-md space-y-4 overflow-y-auto no-scrollbar">
+      <div className="w-full max-w-md space-y-3 overflow-y-auto no-scrollbar">
         {(boosts || []).map(boost => {
           const { level, cost, isMultiLevel } = getBoostDetails(boost);
           const canAfford = balance >= cost;
           
           return (
-            <div key={boost.id} className="bg-gray-800 p-4 rounded-lg flex items-center justify-between">
+            <div key={boost.id} className="themed-container p-4 flex items-center justify-between">
                 <div className="flex items-center">
                     <div className="w-12 h-12 mr-4 flex-shrink-0 flex items-center justify-center">
                         <img src={boost.iconUrl} alt={boost.name?.[lang]} className="w-10 h-10 object-contain" />
@@ -59,10 +59,10 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
                 <button
                     onClick={() => onBuyBoost(boost)}
                     disabled={!canAfford}
-                    className={`px-4 py-2 rounded-lg font-bold text-base transition-colors flex items-center space-x-2 active:scale-95 ${
+                    className={`px-4 py-2 font-bold text-base transition-colors flex items-center space-x-2 active:scale-95 border ${
                     !canAfford
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500'
+                        ? 'bg-gray-700 border-gray-600 text-gray-500 cursor-not-allowed'
+                        : 'bg-green-600 border-green-500 hover:bg-green-500 text-white'
                     }`}
                 >
                     <div className="w-5 h-5 text-yellow-400"><CoinIcon /></div>

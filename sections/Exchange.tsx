@@ -150,15 +150,15 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
     <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
       {/* Top Section: League Icon & Profit/hr */}
       <div className="w-full flex justify-between items-start">
-        <button onClick={onOpenLeaderboard} className="flex flex-col items-center bg-gray-800/50 p-2 rounded-lg w-20 h-20 justify-center">
+        <button onClick={onOpenLeaderboard} className="themed-container flex flex-col items-center p-2 w-20 h-20 justify-center">
             <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-12 h-12" />
         </button>
-        <div className="flex-grow flex items-center justify-between bg-gray-800/50 p-2 rounded-lg mx-2">
+        <div className="flex-grow flex items-center justify-between themed-container p-2 mx-2">
             <div className="flex flex-col items-start">
                 <span className="text-xs text-gray-400">{t('profit_per_hour')}</span>
                 <span className="font-bold text-green-400 text-lg">+{formatProfit(profitPerHour)}</span>
             </div>
-            <button onClick={handleSwitchLanguage} className="bg-gray-700/60 text-white rounded-lg p-2 font-bold w-10 h-10 flex items-center justify-center text-sm">
+            <button onClick={handleSwitchLanguage} className="border border-gray-700 hover:border-gray-500 text-white p-2 font-bold w-10 h-10 flex items-center justify-center text-sm">
                 {user.language.toUpperCase()}
             </button>
         </div>
@@ -167,27 +167,27 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
       {/* Balance */}
       <div className="flex items-center justify-center space-x-2 my-2">
         <img src={COIN_ICON_URL} alt="coin" className="w-8 h-8"/>
-        <h1 className="text-2xl font-bold tracking-tighter">{formatNumber(balance)}</h1>
+        <h1 className="text-4xl font-display">{formatNumber(balance)}</h1>
       </div>
 
       {/* Daily Cipher Section */}
        {dailyCipherMorseTarget && (
-          <div className="w-full max-w-sm text-center my-2 p-2 bg-red-900/40 border border-red-500 rounded-lg">
-            <h3 className="font-bold text-sm text-red-200">{t('daily_cipher')}</h3>
+          <div className="w-full max-w-sm text-center my-2 p-3 bg-green-900/20 border border-green-500/50">
+            <h3 className="font-display text-sm text-green-300">{t('daily_cipher')}</h3>
             {claimedCipher ? (
-              <p className="text-green-400 font-bold text-sm">{t('claimed_today')}</p>
+              <p className="text-green-400 font-bold text-sm mt-1">{t('claimed_today')}</p>
             ) : morseMode ? (
               <>
                 <p className="text-gray-300 text-xs my-1">{t('cipher_hint')}</p>
-                <div className="font-mono text-lg h-6 tracking-widest text-white bg-black/30 rounded-md flex items-center justify-center">
+                <div className="font-mono text-lg h-6 tracking-widest text-white bg-black/50 border border-gray-600 flex items-center justify-center">
                     {morseInput}
                 </div>
-                <button onClick={() => { setMorseMode(false); setMorseInput(''); if(resetMorseTimer.current) clearTimeout(resetMorseTimer.current); }} className="text-xs text-gray-300 hover:text-white mt-1">
+                <button onClick={() => { setMorseMode(false); setMorseInput(''); if(resetMorseTimer.current) clearTimeout(resetMorseTimer.current); }} className="text-xs text-gray-400 hover:text-white mt-1">
                     {t('cancel_morse_mode')}
                 </button>
               </>
             ) : (
-                <button onClick={() => setMorseMode(true)} className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-lg mt-1 text-sm transition-transform active:scale-95">
+                <button onClick={() => setMorseMode(true)} className="bg-green-600 hover:bg-green-500 text-white font-bold py-1 px-3 mt-1 text-sm transition-transform active:scale-95">
                     {t('enter_morse_mode')}
                 </button>
             )}
@@ -209,7 +209,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             style={{ transform: `scale(${scale})`, transition: 'transform 0.1s cubic-bezier(0.22, 1, 0.36, 1)' }}
         >
           {isTurboActive && (
-             <div className="absolute inset-0 rounded-full animate-pulse-fire" style={{boxShadow: '0 0 40px 10px #f59e0b, 0 0 60px 20px #ef4444'}}></div>
+             <div className="absolute inset-0 rounded-full animate-pulse-fire" style={{boxShadow: '0 0 40px 10px var(--accent-green), 0 0 60px 20px var(--accent-green-glow)'}}></div>
           )}
           <img 
             src={coinSkinUrl} 
@@ -227,6 +227,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
               top: click.y,
               animation: 'floatUp 1s ease-out forwards',
               '--x-offset': `${click.xOffset}px`,
+              textShadow: '0px 0px 8px rgba(0, 0, 0, 0.7)'
             } as React.CSSProperties}
           >
             +{click.value}
@@ -239,9 +240,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
         <ProgressBar
           value={energy}
           max={effectiveMaxEnergy}
-          colorClass="bg-gradient-to-r from-cyan-400 to-blue-500"
           label={t('energy')}
-          icon={<span className="text-xl">⚡</span>}
+          icon={<span className="text-xl text-cyan-300">⚡</span>}
         />
       </div>
         <style>{`
