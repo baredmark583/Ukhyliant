@@ -1,4 +1,3 @@
-
 const LOCALES = {
     'en': {
         // Nav
@@ -89,7 +88,16 @@ const LOCALES = {
         'backup_restore': 'Backup & Restore',
         'download_config': 'Download Config',
         'upload_config': 'Upload Config',
-        'confirm_upload': 'Are you sure you want to overwrite the current configuration with the uploaded file? Unsaved changes will be lost.'
+        'confirm_upload': 'Are you sure you want to overwrite the current configuration with the uploaded file? Unsaved changes will be lost.',
+        // Boosts Config
+        'boosts': 'Boosts',
+        'boost_effect': 'Boost Effect',
+        'id_readonly_note': "ID is read-only as it's tied to game logic.",
+        'base_cost_note': 'For multi-level boosts, this is the base cost for the first level.',
+        'boost_effect_full_energy': 'Instantly refills energy to maximum.',
+        'boost_effect_turbo_mode': 'Multiplies coins per tap by 5 for 20 seconds.',
+        'boost_effect_tap_guru': 'Permanently increases coins per tap by 1. Price increases with each level.',
+        'boost_effect_energy_limit': 'Permanently increases max energy by 500. Price increases with each level.',
     },
     'ru': {
         // Nav
@@ -180,6 +188,15 @@ const LOCALES = {
         'backup_restore': 'Бэкап и Восстановление',
         'download_config': 'Скачать конфиг',
         'upload_config': 'Загрузить конфиг',
-        'confirm_upload': 'Вы уверены, что хотите перезаписать текущую конфигурацию загруженным файлом? Несохраненные изменения будут потеряны.'
+        'confirm_upload': 'Вы уверены, что хотите перезаписать текущую конфигурацию загруженным файлом? Несохраненные изменения будут потеряны.',
+        // Boosts Config
+        'boosts': 'Бусты',
+        'boost_effect': 'Эффект буста',
+        'id_readonly_note': 'ID нельзя изменить, т.к. он связан с логикой игры.',
+        'base_cost_note': 'Для многоуровневых бустов это базовая стоимость для первого уровня.',
+        'boost_effect_full_energy': 'Мгновенно восстанавливает энергию до максимума.',
+        'boost_effect_turbo_mode': 'Умножает монеты за тап на 5 в течение 20 секунд.',
+        'boost_effect_tap_guru': 'Постоянно увеличивает монеты за тап на 1. Цена растет с уровнем.',
+        'boost_effect_energy_limit': 'Постоянно увеличивает макс. запас энергии на 500. Цена растет с уровнем.',
     }
 };

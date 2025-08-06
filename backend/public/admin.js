@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'specialTasks': renderConfigTable('specialTasks'); break;
             case 'upgrades': renderConfigTable('upgrades'); break;
             case 'tasks': renderConfigTable('tasks'); break;
-            case 'boosts': renderConfigTable('boosts'); break;
+            case 'boosts': renderBoostsConfig(); break;
             default: renderDashboard();
         }
         applyTranslations();
@@ -336,9 +336,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     fieldsHTML += createInput(sectionKey, index, 'profitPerHour', 'number');
                     fieldsHTML += createSelect(sectionKey, index, 'category', ['Documents', 'Legal', 'Lifestyle', 'Special']);
                     fieldsHTML += createInput(sectionKey, index, 'iconUrl', 'text', false, 'https://.../img.svg');
-                } else if (sectionKey === 'boosts') {
-                    fieldsHTML += createInput(sectionKey, index, 'costCoins', 'number');
-                    fieldsHTML += createInput(sectionKey, index, 'iconUrl', 'text', false, 'https://.../img.svg');
                 } else if (isTask) {
                     const taskTypes = ['taps', 'telegram_join', 'social_follow', 'video_watch', 'video_code'];
                     fieldsHTML += createSelect(sectionKey, index, 'type', taskTypes);
@@ -359,6 +356,39 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
     };
     
+    const renderBoostsConfig = () => {
+        const items = localConfig.boosts || [];
+        const sectionKey = 'boosts';
+        tabContainer.innerHTML = `<div class="space-y-4">
+             <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title" data-translate="boosts"></h3>
+                </div>
+            </div>
+            ${items.map((item, index) => {
+                const effectKey = `boost_effect_${item.id.replace('boost_', '')}`;
+                const isMultiLevel = item.id === 'boost_tap_guru' || item.id === 'boost_energy_limit';
+
+                let fieldsHTML = '<div class="row g-3">';
+                fieldsHTML += `<div class="col-md-6"><label class="form-label" data-translate="id"></label><input type="text" value="${escapeHtml(item.id)}" class="form-control" readonly><div class="form-text" data-translate="id_readonly_note"></div></div>`;
+                fieldsHTML += `<div class="col-md-6"><label class="form-label" data-translate="boost_effect"></label><div class="form-control-plaintext" data-translate="${effectKey}"></div></div>`;
+
+                if (item.name) fieldsHTML += createLocalizedInputGroup(sectionKey, index, 'name', item.name);
+                if (item.description) fieldsHTML += createLocalizedInputGroup(sectionKey, index, 'description', item.description);
+                
+                fieldsHTML += `<div class="col-md-6">
+                    <label class="form-label" data-translate="cost_in_coins"></label>
+                    <input type="number" data-section="${sectionKey}" data-index="${index}" data-field="costCoins" value="${escapeHtml(item.costCoins || '')}" class="form-control">
+                    ${isMultiLevel ? `<div class="form-text" data-translate="base_cost_note"></div>` : ''}
+                </div>`;
+                
+                fieldsHTML += createInput(sectionKey, index, 'iconUrl', 'text', false, 'https://.../img.svg');
+                fieldsHTML += '</div>';
+                return `<div class="card"><div class="card-body">${fieldsHTML}</div></div>`;
+            }).join('')}
+            </div>`;
+    };
+
     // --- EVENT HANDLERS ---
     const handleFieldChange = (e) => {
         const { section, index, field } = e.target.dataset;
@@ -505,11 +535,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const handleDownloadConfig = (e) => {
-        const section = e.target.dataset.section;
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(localConfig[section] || [], null, 2));
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(localConfig[activeTab] || [], null, 2));
         const downloadAnchorNode = document.createElement('a');
         downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", `${section}_config_backup.json`);
+        downloadAnchorNode.setAttribute("download", `${activeTab}_config_backup.json`);
         document.body.appendChild(downloadAnchorNode);
         downloadAnchorNode.click();
         downloadAnchorNode.remove();
@@ -517,7 +546,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const handleUploadConfig = (e) => {
         if (!confirm(t('confirm_upload'))) return;
-        const section = e.target.dataset.section;
         const input = document.getElementById('upload-config-input');
         input.onchange = (event) => {
             const file = event.target.files[0];
@@ -527,7 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         const uploadedConfig = JSON.parse(e.target.result);
                         if (Array.isArray(uploadedConfig)) {
-                            localConfig[section] = uploadedConfig;
+                            localConfig[activeTab] = uploadedConfig;
                             render();
                             alert('Config uploaded successfully! Press "Save All Changes" to apply.');
                         } else {
@@ -658,10 +686,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (searchInput) searchInput.addEventListener('input', handleSearch);
         
         const downloadBtn = document.getElementById('download-config-btn');
-        if (downloadBtn) downloadBtn.addEventListener('click', (e) => handleDownloadConfig(e, activeTab));
+        if (downloadBtn) downloadBtn.addEventListener('click', handleDownloadConfig);
         
         const uploadBtn = document.getElementById('upload-config-btn');
-        if (uploadBtn) uploadBtn.addEventListener('click', (e) => handleUploadConfig(e, activeTab));
+        if (uploadBtn) uploadBtn.addEventListener('click', handleUploadConfig);
     };
 
     // --- INITIALIZATION ---
