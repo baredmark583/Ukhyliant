@@ -6,6 +6,7 @@ import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import { GoogleGenAI } from '@google/genai';
 import connectPgSimple from 'connect-pg-simple';
+import geoip from 'geoip-lite';
 import { 
     pool,
     initializeDb, 
@@ -17,6 +18,7 @@ import {
     createUser, 
     applyReferralBonus, 
     updateUserLanguage,
+    updateUserAccessInfo,
     unlockSpecialTask,
     completeAndRewardSpecialTask,
     getAllPlayersForAdmin,
@@ -24,6 +26,8 @@ import {
     getDailyEvent,
     saveDailyEvent,
     getDashboardStats,
+    getOnlinePlayerCount,
+    getPlayerLocations,
     claimComboReward,
     claimCipherReward,
     resetPlayerDailyProgress,
@@ -150,6 +154,10 @@ app.post('/api/login', async (req, res) => {
         const userId = tgUser.id.toString();
         log('info', `Processing login for user ID: ${userId}`);
         
+        const ip = req.ip;
+        const geo = geoip.lookup(ip);
+        const countryCode = geo ? geo.country : null;
+
         const baseConfig = await getConfig();
         let dailyEvent = await getDailyEvent(getTodayDate());
         let user = await getUser(userId);
@@ -205,6 +213,8 @@ app.post('/api/login', async (req, res) => {
             await savePlayer(userId, player);
             log('info', `User ${userId} state updated. Offline earnings: ${offlineEarnings.toFixed(2)}`);
         }
+        
+        await updateUserAccessInfo(userId, { country: countryCode });
 
         let role = 'user';
         if (userId === ADMIN_TELEGRAM_ID) role = 'admin';
@@ -446,14 +456,30 @@ adminApiRouter.use(isAdminAuthenticated); // Protect all routes in this router
 adminApiRouter.get('/dashboard-stats', async (req, res) => {
     log('info', 'Admin request: /api/dashboard-stats');
     try {
-        const stats = await getDashboardStats();
-        log('info', 'Raw dashboard stats from DB:', stats);
-        res.json(stats);
+        const [stats, onlineNow] = await Promise.all([
+            getDashboardStats(),
+            getOnlinePlayerCount()
+        ]);
+        const fullStats = { ...stats, onlineNow };
+        log('info', 'Raw dashboard stats from DB:', fullStats);
+        res.json(fullStats);
     } catch(e) {
         log('error', 'Failed to get dashboard stats', e);
         res.status(500).json({ error: 'Server error' });
     }
 });
+
+adminApiRouter.get('/player-locations', async (req, res) => {
+    log('info', 'Admin request: /api/player-locations');
+    try {
+        const locations = await getPlayerLocations();
+        res.json(locations);
+    } catch(e) {
+        log('error', 'Failed to get player locations', e);
+        res.status(500).json({ error: 'Server error'});
+    }
+});
+
 adminApiRouter.get('/daily-events', async (req, res) => {
     log('info', 'Admin request: /api/daily-events');
     try {
@@ -478,9 +504,27 @@ adminApiRouter.post('/daily-events', async (req, res) => {
 adminApiRouter.get('/players', async (req, res) => {
     log('info', 'Admin request: /api/players');
     try {
-        const players = await getAllPlayersForAdmin();
-        log('info', `Raw players data from DB. Count: ${players.length}`);
-        res.json(players);
+        const [players, config] = await Promise.all([
+            getAllPlayersForAdmin(),
+            getConfig()
+        ]);
+        
+        const augmentedPlayers = players.map(player => {
+            const playerConfigData = config.specialTasks || [];
+            
+            const starsSpent = (player.purchasedSpecialTaskIds || []).reduce((total, taskId) => {
+                const task = playerConfigData.find(t => t.id === taskId);
+                return total + (task?.priceStars || 0);
+            }, 0);
+            
+            return {
+                ...player,
+                starsSpent: starsSpent
+            };
+        });
+
+        log('info', `Raw players data from DB. Count: ${augmentedPlayers.length}`);
+        res.json(augmentedPlayers);
     } catch(e) {
         log('error', 'Failed to get players list', e);
         res.status(500).json({ error: 'Server error' });

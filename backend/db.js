@@ -72,12 +72,14 @@ export const initializeDb = async () => {
          console.error("Could not add reward columns.", e.message);
     }
     
-    // Safely add 'created_at' column to users table if it doesn't exist for stats tracking
+    // Safely add analytics columns to users table
     try {
         await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();`);
-        console.log("'created_at' column checked/added to 'users' table.");
+        await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(2);`);
+        await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ;`);
+        console.log("'created_at', 'country', 'last_seen' columns checked/added to 'users' table.");
     } catch (e) {
-        console.error("Could not add 'created_at' column, this may fail on very old PostgreSQL versions but should be fine.", e.message);
+        console.error("Could not add analytics columns to 'users' table.", e.message);
     }
 
 
@@ -123,6 +125,12 @@ export const createUser = async (id, name, language) => {
 export const updateUserLanguage = async (id, language) => {
     await executeQuery('UPDATE users SET language = $1 WHERE id = $2', [language, id]);
 }
+export const updateUserAccessInfo = async (id, { country }) => {
+    await executeQuery(
+        'UPDATE users SET country = COALESCE($1, country), last_seen = NOW() WHERE id = $2', 
+        [country, id]
+    );
+};
 export const applyReferralBonus = async (referrerId) => {
     const client = await pool.connect();
     try {
@@ -388,13 +396,15 @@ export const getAllPlayersForAdmin = async () => {
     const playersRes = await executeQuery('SELECT id, data FROM players');
     const playersMap = new Map(playersRes.rows.map(p => [p.id, p.data]));
     const allPlayers = usersRes.rows.map(user => {
-        const playerData = playersMap.get(user.id);
+        const playerData = playersMap.get(user.id) || {};
         return {
             id: user.id,
             name: user.name || 'N/A',
             language: user.language || 'en',
-            balance: playerData?.balance ?? 0,
-            referrals: playerData?.referrals ?? 0
+            balance: playerData.balance ?? 0,
+            referrals: playerData.referrals ?? 0,
+            profitPerHour: playerData.profitPerHour ?? 0,
+            purchasedSpecialTaskIds: playerData.purchasedSpecialTaskIds || []
         };
     });
     allPlayers.sort((a, b) => (b.balance || 0) - (a.balance || 0));
@@ -419,6 +429,24 @@ export const getDashboardStats = async () => {
         totalCoins: totalCoinsRes.rows[0].total_coins,
         popularUpgrades: popularUpgradesRes.rows
     };
+};
+
+export const getOnlinePlayerCount = async () => {
+    const res = await executeQuery("SELECT COUNT(*) FROM users WHERE last_seen >= NOW() - INTERVAL '5 minutes'");
+    return parseInt(res.rows[0]?.count, 10) || 0;
+};
+
+export const getPlayerLocations = async () => {
+    const res = await executeQuery(`
+        SELECT country, COUNT(*) as player_count
+        FROM users
+        WHERE country IS NOT NULL AND country != ''
+        GROUP BY country
+    `);
+    return res.rows.map(row => ({
+        ...row,
+        player_count: parseInt(row.player_count, 10)
+    }));
 };
 
 export const resetPlayerDailyProgress = async (userId) => {
