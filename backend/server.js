@@ -12,7 +12,7 @@ import geoip from 'geoip-lite';
 import { 
     pool,
     initializeDb, 
-    getConfig, 
+    getGameConfig, 
     saveConfig, 
     getPlayer, 
     savePlayer, 
@@ -37,9 +37,13 @@ import {
     getLeaderboardData,
     getTotalPlayerCount,
     getPlayerDetails,
-    updatePlayerBalance
+    updatePlayerBalance,
+    getReferredUsersProfit
 } from './db.js';
-import { ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, LEAGUES, INITIAL_BOOSTS } from './constants.js';
+import { 
+    ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, LEAGUES, INITIAL_BOOSTS,
+    REFERRAL_PROFIT_SHARE, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID, INITIAL_UPGRADES, INITIAL_BLACK_MARKET_CARDS, INITIAL_COIN_SKINS
+} from './constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -103,8 +107,9 @@ const sessionMiddleware = session({
 app.use(sessionMiddleware);
 app.set('trust proxy', 1); // Crucial for Render proxy
 
-// Serve static files for the admin panel
+// Serve static files for the admin panel and game assets
 app.use('/admin', express.static(path.join(__dirname, 'public')));
+app.use('/assets', express.static(path.join(__dirname, '..', 'assets')));
 
 
 // --- AUTH MIDDLEWARE FOR ADMIN PANEL ---
@@ -178,7 +183,7 @@ app.post('/api/login', async (req, res) => {
             }
         }
         
-        const baseConfig = await getConfig();
+        const baseConfig = await getGameConfig();
         let dailyEvent = await getDailyEvent(getTodayDate());
         let user = await getUser(userId);
         let player = await getPlayer(userId);
@@ -193,18 +198,20 @@ app.post('/api/login', async (req, res) => {
             if (tgUser.language_code === 'ua' || tgUser.language_code === 'uk') userLang = 'ua';
             if (tgUser.language_code === 'ru') userLang = 'ru';
 
-            user = await createUser(userId, tgUser.first_name, userLang);
+            user = await createUser(userId, tgUser.first_name, userLang, referrerId);
             log('info', `User profile created for ${userId}. Language: ${userLang}`);
             
             player = {
-                balance: 500, energy: INITIAL_MAX_ENERGY, profitPerHour: 0, tasksProfitPerHour: 0, coinsPerTap: 1, lastLoginTimestamp: now,
+                balance: 500, energy: INITIAL_MAX_ENERGY, profitPerHour: 0, tasksProfitPerHour: 0, referralProfitPerHour: 0, coinsPerTap: 1, lastLoginTimestamp: now,
                 upgrades: {}, referrals: 0, completedDailyTaskIds: [],
                 purchasedSpecialTaskIds: [], completedSpecialTaskIds: [],
                 dailyTaps: 0, lastDailyReset: today,
                 claimedComboToday: false, claimedCipherToday: false,
                 dailyUpgrades: [],
                 tapGuruLevel: 0,
-                energyLimitLevel: 0
+                energyLimitLevel: 0,
+                unlockedSkins: [DEFAULT_COIN_SKIN_ID],
+                currentSkinId: DEFAULT_COIN_SKIN_ID,
             };
             await savePlayer(userId, player);
             log('info', `Initial player state created for ${userId}.`);
@@ -215,6 +222,32 @@ app.post('/api/login', async (req, res) => {
             }
         } else { // Existing user
             log('info', `Existing user login: ${userId}. Calculating offline progress.`);
+
+            // Recalculate profitPerHour with referral and skin bonuses before calculating offline earnings
+            const [referralProfit, skinProfitBoost] = await Promise.all([
+                 getReferredUsersProfit(userId).then(p => p * REFERRAL_PROFIT_SHARE),
+                 Promise.resolve().then(() => {
+                    const currentSkin = baseConfig.coinSkins.find(s => s.id === player.currentSkinId);
+                    return currentSkin ? currentSkin.profitBoostPercent : 0;
+                 })
+            ]);
+            
+            const baseProfitFromUpgrades = Object.entries(player.upgrades).reduce((total, [upgradeId, level]) => {
+                 const allUpgrades = [...(baseConfig.upgrades || []), ...(baseConfig.blackMarketCards || [])];
+                 const upgradeTemplate = allUpgrades.find(u => u.id === upgradeId);
+                 if (level > 0 && upgradeTemplate) {
+                     const profitForThisUpgrade = upgradeTemplate.profitPerHour * Math.pow(1.07, level - 1); // Corrected to level - 1 for proper compounding
+                     return total + profitForThisUpgrade;
+                }
+                return total;
+            }, 0);
+
+            const baseTotalProfit = baseProfitFromUpgrades + (player.tasksProfitPerHour || 0);
+            const finalProfitWithSkinBoost = baseTotalProfit * (1 + skinProfitBoost / 100);
+            
+            player.referralProfitPerHour = referralProfit;
+            player.profitPerHour = finalProfitWithSkinBoost + referralProfit;
+
             const offlineSeconds = Math.floor((now - player.lastLoginTimestamp) / 1000);
             const offlineEarnings = (player.profitPerHour / 3600) * offlineSeconds;
             
@@ -243,7 +276,7 @@ app.post('/api/login', async (req, res) => {
         if (userId === ADMIN_TELEGRAM_ID) role = 'admin';
         else if (MODERATOR_TELEGRAM_IDS.includes(userId)) role = 'moderator';
         
-        const userWithRole = { ...user, role };
+        const userWithRole = { ...user, role, referrerId: user.referrer_id };
         
         let clientDailyEvent = null;
         if (dailyEvent) {
@@ -259,7 +292,9 @@ app.post('/api/login', async (req, res) => {
         finalConfig.tasks = finalConfig.tasks || [];
         finalConfig.boosts = finalConfig.boosts || [];
         finalConfig.specialTasks = finalConfig.specialTasks || [];
-        
+        finalConfig.blackMarketCards = finalConfig.blackMarketCards || [];
+        finalConfig.coinSkins = finalConfig.coinSkins || [];
+
         log('info', `Login successful for ${userId}. Sending sanitized config.`);
         res.json({ user: userWithRole, player, config: finalConfig });
 
@@ -336,16 +371,20 @@ app.post('/api/action/buy-upgrade', async (req, res) => {
             return res.status(400).json({ error: 'User ID and Upgrade ID are required.' });
         }
         const player = await getPlayer(userId);
-        const config = await getConfig();
+        const config = await getGameConfig();
         if (!player || !config) {
             return res.status(404).json({ error: 'Player or game config not found.' });
         }
-        const upgradeTemplate = config.upgrades.find(u => u.id === upgradeId);
+        
+        let allUpgrades = [...(config.upgrades || []), ...(config.blackMarketCards || [])];
+        const upgradeTemplate = allUpgrades.find(u => u.id === upgradeId);
+
         if (!upgradeTemplate) {
             return res.status(404).json({ error: 'Upgrade not found.' });
         }
         const currentLevel = player.upgrades[upgradeId] || 0;
-        const currentPrice = Math.floor(upgradeTemplate.price * Math.pow(1.15, currentLevel));
+        const price = upgradeTemplate.price || upgradeTemplate.profitPerHour * 10;
+        const currentPrice = Math.floor(price * Math.pow(1.15, currentLevel));
         if (player.balance < currentPrice) {
             return res.status(400).json({ error: 'Insufficient funds.' });
         }
@@ -355,15 +394,21 @@ app.post('/api/action/buy-upgrade', async (req, res) => {
         if (!player.dailyUpgrades) player.dailyUpgrades = [];
         if (!player.dailyUpgrades.includes(upgradeId)) player.dailyUpgrades.push(upgradeId);
 
-        const baseProfitFromUpgrades = config.upgrades.reduce((total, u) => {
+        // Recalculate total profit
+        const baseProfitFromUpgrades = [...config.upgrades, ...config.blackMarketCards].reduce((total, u) => {
             const level = player.upgrades[u.id] || 0;
             if (level > 0) {
-                 const profitForThisUpgrade = u.profitPerHour * Math.pow(1.07, level);
+                 const profitForThisUpgrade = u.profitPerHour * Math.pow(1.07, level-1);
                  return total + profitForThisUpgrade;
             }
             return total;
         }, 0);
-        player.profitPerHour = baseProfitFromUpgrades + (player.tasksProfitPerHour || 0);
+        
+        const baseTotalProfit = baseProfitFromUpgrades + (player.tasksProfitPerHour || 0);
+        const skin = config.coinSkins.find(s => s.id === player.currentSkinId);
+        const skinBoost = skin ? skin.profitBoostPercent / 100 : 0;
+        
+        player.profitPerHour = (baseTotalProfit * (1 + skinBoost)) + (player.referralProfitPerHour || 0);
 
         await savePlayer(userId, player);
         log('info', `Upgrade ${upgradeId} purchased successfully for user ${userId}. New level: ${currentLevel + 1}`);
@@ -383,7 +428,7 @@ app.post('/api/action/buy-boost', async (req, res) => {
             return res.status(400).json({ error: 'User ID and Boost ID are required.' });
         }
         const player = await getPlayer(userId);
-        const config = await getConfig();
+        const config = await getGameConfig();
         if (!player || !config) {
             return res.status(404).json({ error: 'Player or game config not found.' });
         }
@@ -432,7 +477,6 @@ app.post('/api/action/buy-boost', async (req, res) => {
         res.status(500).json({ error: "Internal server error during boost purchase." });
     }
 });
-
 
 app.post('/api/action/claim-task', async (req, res) => {
     const { userId, taskId, code } = req.body;
@@ -491,6 +535,128 @@ app.post('/api/action/claim-cipher', async (req, res) => {
         res.json(result);
     } catch (e) {
         res.status(400).json({ error: e.message });
+    }
+});
+
+app.post('/api/action/open-lootbox', async (req, res) => {
+    const { userId, boxType } = req.body;
+    log('info', `Lootbox open attempt: User ${userId}, Type ${boxType}`);
+    try {
+        const player = await getPlayer(userId);
+        const config = await getGameConfig();
+        if (!player || !config) return res.status(404).json({ error: 'Player or config not found' });
+        
+        const cost = boxType === 'coin' ? LOOTBOX_COST_COINS : LOOTBOX_COST_STARS;
+        if (boxType === 'coin' && player.balance < cost) {
+            return res.status(400).json({ error: 'Insufficient coins' });
+        }
+        // TODO: Implement Telegram Stars payment check
+        if (boxType === 'star') {
+            return res.status(501).json({ error: 'Star payments not implemented yet.' });
+        }
+
+        player.balance -= cost;
+
+        // Create a weighted pool of possible rewards
+        const rewardPool = [
+            ...(config.blackMarketCards || []).filter(c => c.boxType === boxType).map(c => ({ ...c, itemType: 'card' })),
+            ...(config.coinSkins || []).filter(s => s.boxType === boxType && !player.unlockedSkins.includes(s.id)).map(s => ({ ...s, itemType: 'skin' })),
+            { id: 'coins_small', name: {en: 'Small Coin Pouch', ru: 'Малый мешок монет', ua: 'Малий мішок монет'}, itemType: 'coins', amount: cost * 0.5, chance: 40 },
+            { id: 'coins_medium', name: {en: 'Medium Coin Pouch', ru: 'Средний мешок монет', ua: 'Середній мішок монет'}, itemType: 'coins', amount: cost * 1.2, chance: 20 },
+            { id: 'coins_large', name: {en: 'Large Coin Pouch', ru: 'Большой мешок монет', ua: 'Великий мішок монет'}, itemType: 'coins', amount: cost * 2, chance: 5 },
+        ];
+        
+        const totalChance = rewardPool.reduce((sum, item) => sum + (item.chance || 1), 0);
+        let random = Math.random() * totalChance;
+        
+        let wonItem = null;
+        for (const item of rewardPool) {
+            random -= (item.chance || 1);
+            if (random <= 0) {
+                wonItem = item;
+                break;
+            }
+        }
+        
+        if (!wonItem) wonItem = rewardPool.find(i => i.id === 'coins_small'); // Fallback
+
+        // Apply reward
+        switch(wonItem.itemType) {
+            case 'card':
+                player.upgrades[wonItem.id] = (player.upgrades[wonItem.id] || 0) + 1;
+                break;
+            case 'skin':
+                player.unlockedSkins.push(wonItem.id);
+                break;
+            case 'coins':
+                player.balance += wonItem.amount;
+                break;
+        }
+
+        // Recalculate profit if a card or skin was won
+         if(wonItem.itemType === 'card' || wonItem.itemType === 'skin') {
+            const baseProfitFromUpgrades = [...config.upgrades, ...config.blackMarketCards].reduce((total, u) => {
+                const level = player.upgrades[u.id] || 0;
+                if (level > 0) {
+                     const profitForThisUpgrade = u.profitPerHour * Math.pow(1.07, level-1);
+                     return total + profitForThisUpgrade;
+                }
+                return total;
+            }, 0);
+            
+            const baseTotalProfit = baseProfitFromUpgrades + (player.tasksProfitPerHour || 0);
+            const skin = config.coinSkins.find(s => s.id === player.currentSkinId);
+            const skinBoost = skin ? skin.profitBoostPercent / 100 : 0;
+            
+            player.profitPerHour = (baseTotalProfit * (1 + skinBoost)) + (player.referralProfitPerHour || 0);
+        }
+
+        await savePlayer(userId, player);
+        log('info', `User ${userId} opened ${boxType} lootbox and won: ${wonItem.id}`);
+        res.json({ player, wonItem });
+    } catch (error) {
+        log('error', `Lootbox error for User ${userId}, Type ${boxType}:`, error);
+        res.status(500).json({ error: "Internal server error during lootbox opening." });
+    }
+});
+
+app.post('/api/action/set-skin', async (req, res) => {
+    const { userId, skinId } = req.body;
+    log('info', `Set skin attempt: User ${userId}, Skin ${skinId}`);
+    try {
+        const player = await getPlayer(userId);
+        const config = await getGameConfig();
+        if (!player || !config) return res.status(404).json({ error: 'Player or config not found' });
+        
+        if (!player.unlockedSkins.includes(skinId)) {
+            return res.status(403).json({ error: 'Skin not unlocked' });
+        }
+        
+        player.currentSkinId = skinId;
+        
+        // Recalculate profit with new skin boost
+        const baseProfitFromUpgrades = [...config.upgrades, ...config.blackMarketCards].reduce((total, u) => {
+            const level = player.upgrades[u.id] || 0;
+            if (level > 0) {
+                 const profitForThisUpgrade = u.profitPerHour * Math.pow(1.07, level-1);
+                 return total + profitForThisUpgrade;
+            }
+            return total;
+        }, 0);
+        
+        const baseTotalProfit = baseProfitFromUpgrades + (player.tasksProfitPerHour || 0);
+        const skin = config.coinSkins.find(s => s.id === player.currentSkinId);
+        const skinBoost = skin ? skin.profitBoostPercent / 100 : 0;
+        
+        player.profitPerHour = (baseTotalProfit * (1 + skinBoost)) + (player.referralProfitPerHour || 0);
+
+        await savePlayer(userId, player);
+        log('info', `User ${userId} set skin to ${skinId}`);
+        res.json(player);
+
+    } catch (error) {
+        log('error', `Set skin error for User ${userId}, Skin ${skinId}:`, error);
+        res.status(500).json({ error: "Internal server error during skin selection." });
     }
 });
 
@@ -583,7 +749,7 @@ adminApiRouter.get('/players', async (req, res) => {
     try {
         const [players, config] = await Promise.all([
             getAllPlayersForAdmin(),
-            getConfig()
+            getGameConfig()
         ]);
         
         const augmentedPlayers = players.map(player => {
@@ -667,42 +833,46 @@ adminApiRouter.post('/player/:id/reset-daily', async (req, res) => {
 adminApiRouter.get('/config', async (req, res) => {
     log('info', 'Admin request: /api/config');
     try {
-        const config = await getConfig();
-        log('info', 'Raw config data from DB fetched for admin.');
-        res.json(config);
+        const dbConfig = await getGameConfig();
+        if (!dbConfig) {
+             return res.status(404).json({ error: 'Config not found' });
+        }
+
+        // --- Reconcile all lists that have hardcoded templates ---
+        const reconcile = (templates, savedItems) => {
+            return templates.map(template => {
+                const saved = (savedItems || []).find(s => s.id === template.id);
+                return saved ? { ...template, ...saved } : template;
+            });
+        };
+
+        const cleanConfig = { ...dbConfig };
+        cleanConfig.boosts = reconcile(INITIAL_BOOSTS, dbConfig.boosts);
+        cleanConfig.blackMarketCards = reconcile(INITIAL_BLACK_MARKET_CARDS, dbConfig.blackMarketCards);
+        cleanConfig.coinSkins = reconcile(INITIAL_COIN_SKINS, dbConfig.coinSkins);
+
+        log('info', 'Cleaned config data sent to admin.');
+        res.json(cleanConfig);
     } catch(e) {
         log('error', 'Failed to get config', e);
         res.status(500).json({ error: 'Server error' });
     }
 });
+
 adminApiRouter.post('/config', async (req, res) => {
     const { config: clientConfig } = req.body;
     try {
-        // The list of boosts from constants is the source of truth for what boosts EXIST.
-        // The database stores editable properties like name, cost, etc.
-        const serverBoostTemplates = INITIAL_BOOSTS;
-        const clientSavedBoosts = clientConfig.boosts || [];
-
-        // Reconcile the two lists. This ensures no boosts can be permanently deleted
-        // and new boosts added to constants will appear on next save.
-        const finalBoosts = serverBoostTemplates.map(template => {
-            const savedBoost = clientSavedBoosts.find(b => b.id === template.id);
-            if (savedBoost) {
-                // If we found the boost in the saved config, use its values,
-                // but fall back to the template's defaults if a property is missing.
-                return {
-                    id: template.id, // ID is non-negotiable
-                    name: savedBoost.name || template.name,
-                    description: savedBoost.description || template.description,
-                    costCoins: savedBoost.costCoins ?? template.costCoins,
-                    iconUrl: savedBoost.iconUrl || template.iconUrl,
-                };
-            }
-            // If the boost wasn't in the saved config at all, use the template version.
-            return template;
-        });
-
-        const finalConfig = { ...clientConfig, boosts: finalBoosts };
+        const reconcile = (templates, clientItems) => {
+            return templates.map(template => {
+                const clientItem = (clientItems || []).find(b => b.id === template.id);
+                return clientItem ? { ...template, ...clientItem } : template;
+            });
+        };
+        
+        const finalConfig = { ...clientConfig };
+        finalConfig.boosts = reconcile(INITIAL_BOOSTS, clientConfig.boosts);
+        finalConfig.blackMarketCards = reconcile(INITIAL_BLACK_MARKET_CARDS, clientConfig.blackMarketCards);
+        finalConfig.coinSkins = reconcile(INITIAL_COIN_SKINS, clientConfig.coinSkins);
 
         await saveConfig(finalConfig);
         res.json({ message: 'Config saved' });

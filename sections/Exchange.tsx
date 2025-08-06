@@ -2,9 +2,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language, GameConfig } from '../types';
-import { COIN_ICON_URL } from '../constants';
-import { useTranslation, useAuth } from '../hooks/useGameLogic';
-import coinSvg from '../assets/coin.svg';
+import { COIN_ICON_URL, DEFAULT_COIN_SKIN_ID } from '../constants';
+import { useTranslation, useAuth, useGameContext } from '../hooks/useGameLogic';
 
 const MORSE_CODE_MAP: { [key: string]: string } = {
     'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--', 'Z': '--..',
@@ -63,6 +62,9 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const dailyCipherWord = (config.dailyEvent?.cipherWord || '').toUpperCase();
   const dailyCipherMorseTarget = dailyCipherWord.split('').map(letter => MORSE_CODE_MAP[letter]).join('');
   const claimedCipher = playerState.claimedCipherToday;
+
+  const currentSkin = config.coinSkins.find(s => s.id === playerState.currentSkinId) || config.coinSkins.find(s => s.id === DEFAULT_COIN_SKIN_ID);
+  const coinSkinUrl = currentSkin?.iconUrl || '/assets/coin.svg';
 
   const handleCipherReset = useCallback(() => {
     setMorseInput('');
@@ -210,7 +212,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
              <div className="absolute inset-0 rounded-full animate-pulse-fire" style={{boxShadow: '0 0 40px 10px #f59e0b, 0 0 60px 20px #ef4444'}}></div>
           )}
           <img 
-            src={coinSvg} 
+            src={coinSkinUrl} 
             alt="Clickable Coin" 
             draggable="false"
             className="w-full h-full pointer-events-none relative z-10"

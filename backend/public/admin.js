@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -77,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tabTitle.dataset.translate = activeTab;
 
-        saveMainButton.classList.toggle('d-none', ['dashboard', 'players'].includes(activeTab));
+        saveMainButton.classList.toggle('d-none', ['players'].includes(activeTab));
 
         switch (activeTab) {
             case 'dashboard': renderDashboard(); break;
@@ -87,6 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'upgrades': renderConfigTable('upgrades'); break;
             case 'tasks': renderConfigTable('tasks'); break;
             case 'boosts': renderBoostsConfig(); break;
+            case 'blackMarketCards': renderConfigTable('blackMarketCards'); break;
+            case 'coinSkins': renderConfigTable('coinSkins'); break;
             default: renderDashboard();
         }
         applyTranslations();
@@ -121,6 +124,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
 
+                 <!-- General Settings -->
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h3 class="card-title" data-translate="general_settings"></h3>
+                            <div class="mb-3">
+                                <label class="form-label" data-translate="loading_screen_image_url"></label>
+                                <input type="text" class="form-control" id="loading-screen-url-input" value="${escapeHtml(localConfig.loadingScreenImageUrl || '')}">
+                                <div class="form-text" data-translate="loading_screen_image_url_desc"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Map -->
                 <div class="col-12">
                     <div class="card">
@@ -134,7 +151,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Initialize Charts
         const upgradeNames = (dashboardStats.popularUpgrades || []).map(upg => {
-            const details = localConfig.upgrades?.find(u => u.id === upg.upgrade_id);
+            const allUpgrades = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
+            const details = allUpgrades.find(u => u.id === upg.upgrade_id);
             return details?.name?.[currentLang] || details?.name?.en || upg.upgrade_id;
         });
         const upgradeCounts = (dashboardStats.popularUpgrades || []).map(upg => parseInt(upg.purchase_count));
@@ -293,7 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
          <div class="col-md-3 ${hidden ? 'd-none' : ''}" id="field-container-${section}-${index}-${field}">
             <label class="form-label" data-translate="${field}"></label>
             <select data-section="${section}" data-index="${index}" data-field="${field}" class="form-select">
-                ${options.map(o => `<option value="${o}" ${o === localConfig[section][index]?.[field] ? 'selected' : ''}>${o}</option>`).join('')}
+                ${options.map(o => `<option value="${o}" ${o === localConfig[section][index]?.[field] ? 'selected' : ''}>${t(o)}</option>`).join('')}
             </select>
          </div>`;
 
@@ -347,7 +365,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (sectionKey === 'specialTasks') {
                          fieldsHTML += createInput(sectionKey, index, 'priceStars', 'number');
                     }
+                } else if (sectionKey === 'blackMarketCards') {
+                    fieldsHTML += createInput(sectionKey, index, 'profitPerHour', 'number');
+                    fieldsHTML += createInput(sectionKey, index, 'iconUrl', 'text', false, 'https://.../img.svg');
+                    fieldsHTML += createSelect(sectionKey, index, 'boxType', ['coin', 'star']);
+                    fieldsHTML += createInput(sectionKey, index, 'chance', 'number');
+                } else if (sectionKey === 'coinSkins') {
+                    fieldsHTML += createInput(sectionKey, index, 'profitBoostPercent', 'number');
+                    fieldsHTML += createInput(sectionKey, index, 'iconUrl', 'text', false, 'https://.../img.svg');
+                    fieldsHTML += createSelect(sectionKey, index, 'boxType', ['coin', 'star', 'direct']);
+                    fieldsHTML += createInput(sectionKey, index, 'chance', 'number');
                 }
+
                 fieldsHTML += `<div class="col-12 text-end"><button data-section="${sectionKey}" data-index="${index}" class="btn btn-ghost-danger delete-btn" data-translate="delete"></button></div>`;
                 fieldsHTML += '</div>';
                 return `<div class="card"><div class="card-body">${fieldsHTML}</div></div>`;
@@ -462,6 +491,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }),
                 });
             }
+            if (activeTab === 'dashboard') {
+                localConfig.loadingScreenImageUrl = document.getElementById('loading-screen-url-input').value;
+            }
+
             const configResponse = await fetch('/admin/api/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -492,6 +525,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (section === 'specialTasks') {
             Object.assign(newItem, { description: { en: '', ru: '' }, priceStars: 0, isOneTime: true });
+        }
+        if (section === 'blackMarketCards') {
+            Object.assign(newItem, { profitPerHour: 0, iconUrl: '', boxType: 'coin', chance: 10 });
+        }
+        if (section === 'coinSkins') {
+            Object.assign(newItem, { profitBoostPercent: 0, iconUrl: '', boxType: 'coin', chance: 10 });
         }
         localConfig[section].push(newItem);
         render();
@@ -584,8 +623,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderPlayerDetailsModal = (player) => {
         modalsContainer.innerHTML = '';
         const modalEl = document.createElement('div');
+        const allUpgrades = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
         const upgradesList = Object.entries(player.upgrades || {}).map(([id, level]) => {
-             const upg = localConfig.upgrades.find(u => u.id === id);
+             const upg = allUpgrades.find(u => u.id === id);
              return `<li>${upg?.name?.[currentLang] || id}: <strong data-translate="level">${t('level')} ${level}</strong></li>`;
         }).join('');
         

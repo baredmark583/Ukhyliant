@@ -4,12 +4,12 @@ import { useGame, useAuth, useTranslation, AuthProvider, useGameContext } from '
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
-import { ExchangeIcon, MineIcon, FriendsIcon, BoostIcon, TasksIcon, StarIcon, EarnIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon, MINI_APP_NAME, LEAGUES } from './constants';
-import { DailyTask, GameConfig, Language, Upgrade, Boost, SpecialTask, PlayerState, User, LeaderboardPlayer, TaskType, Reward } from './types';
+import { ExchangeIcon, MineIcon, FriendsIcon, BoostIcon, TasksIcon, StarIcon, AirdropIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon, MINI_APP_NAME, LEAGUES, MarketIcon, SkinsIcon, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID } from './constants';
+import { DailyTask, GameConfig, Language, Upgrade, Boost, SpecialTask, PlayerState, User, LeaderboardPlayer, TaskType, Reward, BlackMarketCard, CoinSkin, BoxType } from './types';
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
 
-type Screen = 'exchange' | 'mine' | 'friends' | 'boost' | 'tasks' | 'airdrop';
+type Screen = 'exchange' | 'mine' | 'friends' | 'boost' | 'tasks' | 'airdrop' | 'market' | 'skins';
 
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
@@ -21,9 +21,10 @@ const formatNumber = (num: number): string => {
 
 const AppContainer: React.FC = () => {
     const { user, isInitializing } = useAuth();
+    const { config } = useGameContext();
     
     if (isInitializing) {
-        return <LoadingScreen />;
+        return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
     }
 
     if (!user) {
@@ -33,10 +34,16 @@ const AppContainer: React.FC = () => {
     return <MainApp />;
 };
 
-const LoadingScreen: React.FC = () => (
+const LoadingScreen: React.FC<{imageUrl?: string}> = ({ imageUrl }) => (
     <div className="h-screen w-screen bg-gray-900 flex flex-col justify-center items-center p-4 text-white">
-        <h1 className="text-4xl font-bold mb-2">Ukhyliant Clicker</h1>
-        <p className="text-lg animate-pulse">Connecting...</p>
+        {imageUrl ? (
+            <img src={imageUrl} alt="Loading..." className="w-48 h-48 mb-4 object-contain animate-pulse" />
+        ) : (
+            <>
+                <h1 className="text-4xl font-bold mb-2">Ukhyliant Clicker</h1>
+                <p className="text-lg animate-pulse">Connecting...</p>
+            </>
+        )}
     </div>
 );
 
@@ -55,7 +62,7 @@ const MainApp: React.FC = () => {
   const { 
       playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, 
       claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask,
-      claimDailyCombo, claimDailyCipher, getLeaderboard,
+      claimDailyCombo, claimDailyCipher, getLeaderboard, openLootbox, setSkin,
       isTurboActive, effectiveMaxEnergy
   } = useGame();
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
@@ -64,9 +71,10 @@ const MainApp: React.FC = () => {
   const t = useTranslation();
   const [startedVideoTasks, setStartedVideoTasks] = useState<Set<string>>(new Set());
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
+  const [lootboxResult, setLootboxResult] = useState<any>(null);
 
 
-  if (!user || !playerState || !config) return <LoadingScreen />;
+  if (!user || !playerState || !config) return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
   
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
@@ -190,8 +198,24 @@ const MainApp: React.FC = () => {
     return false;
   };
 
+  const handleOpenLootbox = async (boxType: 'coin' | 'star') => {
+      const result = await openLootbox(boxType);
+      if(result.wonItem) {
+          setLootboxResult(result.wonItem);
+      } else if (result.error) {
+          showNotification(result.error, 'error');
+      }
+  };
+  
+  const handleSetSkin = async (skinId: string) => {
+      await setSkin(skinId);
+      showNotification(t('selected'), 'success');
+  };
 
   const renderScreen = () => {
+    const currentSkin = config.coinSkins.find(s => s.id === playerState.currentSkinId) || config.coinSkins.find(s=>s.id === DEFAULT_COIN_SKIN_ID);
+    const skinUrl = currentSkin?.iconUrl || '';
+
     switch (activeScreen) {
       case 'exchange':
         return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} />;
@@ -205,15 +229,19 @@ const MainApp: React.FC = () => {
         return <TasksScreen tasks={config.tasks} playerState={playerState} onClaim={handleClaimTask} lang={user.language} startedVideoTasks={startedVideoTasks} />;
       case 'airdrop':
         return <AirdropScreen tasks={config.specialTasks} playerState={playerState} onPurchase={purchaseSpecialTask} onComplete={handleClaimTask} lang={user.language} startedVideoTasks={startedVideoTasks}/>;
+      case 'market':
+        return <MarketScreen onOpenLootbox={handleOpenLootbox} />;
+      case 'skins':
+        return <SkinsScreen playerState={playerState} skins={config.coinSkins} onSetSkin={handleSetSkin} lang={user.language} />;
       default:
         return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} />;
     }
   };
 
-  const NavItem = ({ screen, label, icon }: { screen: Screen, label: string, icon: React.ReactNode }) => (
+  const NavItem = ({ screen, label, icon }: { screen: Screen, label: string, icon: React.ReactNode}) => (
     <button
       onClick={() => setActiveScreen(screen)}
-      className="flex flex-col items-center justify-center text-xs w-full pt-2 pb-1 text-gray-400"
+      className={`flex flex-col items-center justify-center text-xs w-full pt-2 pb-1 text-gray-400`}
     >
       {icon}
       <span className={activeScreen === screen ? 'text-white font-bold' : ''}>{label}</span>
@@ -243,17 +271,21 @@ const MainApp: React.FC = () => {
               }}
           />
       )}
+      
+      {lootboxResult && <LootboxResultModal item={lootboxResult} onClose={() => setLootboxResult(null)} lang={user.language} />}
 
       <NotificationToast notification={notification} />
 
       <div className="fixed bottom-0 left-0 right-0 bg-black/50 backdrop-blur-lg border-t border-gray-700/50">
-        <div className="flex justify-around items-center max-w-xl mx-auto">
+        <div className="grid grid-cols-4 justify-around items-center max-w-xl mx-auto">
           <NavItem screen="exchange" label={t('exchange')} icon={<ExchangeIcon active={activeScreen === 'exchange'} />} />
           <NavItem screen="mine" label={t('mine')} icon={<MineIcon active={activeScreen === 'mine'} />} />
-          <NavItem screen="friends" label={t('friends')} icon={<FriendsIcon active={activeScreen === 'friends'} />} />
-          <NavItem screen="airdrop" label={t('airdrop')} icon={<EarnIcon active={activeScreen === 'airdrop'} />} />
-          <NavItem screen="tasks" label={t('tasks')} icon={<TasksIcon active={activeScreen === 'tasks'} />} />
+          <NavItem screen="market" label={t('market')} icon={<MarketIcon active={activeScreen === 'market'} />} />
           <NavItem screen="boost" label={t('boosts')} icon={<BoostIcon active={activeScreen === 'boost'} />} />
+          <NavItem screen="friends" label={t('friends')} icon={<FriendsIcon active={activeScreen === 'friends'} />} />
+          <NavItem screen="airdrop" label={t('airdrop')} icon={<AirdropIcon active={activeScreen === 'airdrop'} />} />
+          <NavItem screen="tasks" label={t('tasks')} icon={<TasksIcon active={activeScreen === 'tasks'} />} />
+          <NavItem screen="skins" label={t('skins')} icon={<SkinsIcon active={activeScreen === 'skins'} />} />
         </div>
       </div>
        <style>{`
@@ -291,15 +323,22 @@ const FriendsScreen = ({ playerState, user }: { playerState: PlayerState, user: 
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
             <h1 className="text-3xl font-bold text-center mb-6">{t('friends')}</h1>
             <div className="w-full max-w-md space-y-4 text-center">
-                <div className="bg-gray-800 p-6 rounded-lg">
+                <div className="bg-gray-800 p-4 rounded-lg">
                     <p className="text-gray-400 text-lg">{t('your_referrals')}</p>
-                    <p className="text-5xl font-bold my-2">{playerState.referrals}</p>
+                    <p className="text-5xl font-bold my-1">{playerState.referrals}</p>
                 </div>
-                <div className="bg-gray-800 p-6 rounded-lg">
+                <div className="bg-gray-800 p-4 rounded-lg">
                     <p className="text-gray-400 text-lg">{t('referral_bonus')}</p>
-                    <p className="text-3xl font-bold my-2 flex items-center justify-center space-x-2">
+                    <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2">
                         <span>+{REFERRAL_BONUS.toLocaleString()}</span>
-                        <div className="w-8 h-8 text-yellow-400"><CoinIcon/></div>
+                        <div className="w-6 h-6 text-yellow-400"><CoinIcon/></div>
+                    </p>
+                </div>
+                 <div className="bg-gray-800 p-4 rounded-lg">
+                    <p className="text-gray-400 text-lg">{t('profit_from_referrals')}</p>
+                    <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2 text-green-400">
+                        <span>+{formatNumber(playerState.referralProfitPerHour)}/hr</span>
+                        <span>⚡</span>
                     </p>
                 </div>
                 <button onClick={handleCopyReferral} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95">
@@ -449,6 +488,75 @@ const AirdropScreen = ({ tasks, playerState, onPurchase, onComplete, lang, start
     );
 };
 
+const MarketScreen = ({ onOpenLootbox }: { onOpenLootbox: (boxType: 'coin' | 'star') => void }) => {
+    const t = useTranslation();
+    return (
+        <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
+            <h1 className="text-3xl font-bold text-center">{t('black_market')}</h1>
+            <p className="text-center text-gray-400 mt-2 mb-6 max-w-xs">{t('black_market_desc')}</p>
+            <div className="w-full max-w-md space-y-6">
+                {/* Coin Lootbox */}
+                <div className="bg-gray-800 p-6 rounded-lg text-center border-2 border-yellow-500/50">
+                    <div className="text-6xl mb-4">📦</div>
+                    <h2 className="text-2xl font-bold mb-2">{t('lootbox_coin')}</h2>
+                    <button onClick={() => onOpenLootbox('coin')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
+                        <span>{t('open_for')} {LOOTBOX_COST_COINS.toLocaleString()}</span>
+                        <div className="w-6 h-6"><CoinIcon/></div>
+                    </button>
+                </div>
+                 {/* Star Lootbox */}
+                <div className="bg-gray-800 p-6 rounded-lg text-center border-2 border-blue-500/50">
+                    <div className="text-6xl mb-4">🌟</div>
+                    <h2 className="text-2xl font-bold mb-2">{t('lootbox_star')}</h2>
+                    <button onClick={() => onOpenLootbox('star')} className="w-full bg-blue-500 hover:bg-blue-400 text-white font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
+                        <span>{t('open_for')} {LOOTBOX_COST_STARS}</span>
+                        <div className="w-6 h-6"><StarIcon/></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const SkinsScreen = ({ playerState, skins, onSetSkin, lang }: { playerState: PlayerState, skins: CoinSkin[], onSetSkin: (skinId: string) => void, lang: Language }) => {
+    const t = useTranslation();
+    return (
+        <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
+            <h1 className="text-3xl font-bold text-center">{t('skins_gallery')}</h1>
+            <p className="text-center text-gray-400 mt-2 mb-6 max-w-xs">{t('skins_gallery_desc')}</p>
+            <div className="w-full max-w-md grid grid-cols-3 gap-4 overflow-y-auto no-scrollbar">
+                {(skins || []).map(skin => {
+                    const isUnlocked = playerState.unlockedSkins.includes(skin.id);
+                    const isSelected = playerState.currentSkinId === skin.id;
+                    return (
+                        <div key={skin.id} className={`bg-gray-800 rounded-lg p-3 flex flex-col items-center text-center relative ${!isUnlocked ? 'opacity-50' : ''} ${isSelected ? 'border-2 border-yellow-400' : ''}`}>
+                            <div className="w-16 h-16 mb-2 flex items-center justify-center">
+                                <img src={skin.iconUrl} alt={skin.name[lang]} className="w-full h-full object-contain" />
+                            </div>
+                            <p className="text-xs font-bold leading-tight">{skin.name[lang]}</p>
+                            <p className="text-xs text-green-400 mt-1">+{skin.profitBoostPercent}%</p>
+                            {isUnlocked && (
+                                <button
+                                    onClick={() => onSetSkin(skin.id)}
+                                    disabled={isSelected}
+                                    className="w-full mt-2 py-1 text-xs rounded-md font-bold disabled:bg-yellow-500 disabled:text-black bg-blue-600 hover:bg-blue-500 text-white"
+                                >
+                                    {isSelected ? t('selected') : t('select_skin')}
+                                </button>
+                            )}
+                            {!isUnlocked && (
+                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-lg">
+                                    <span className="text-4xl">🔒</span>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
 const LeaderboardScreen = ({ onClose, getLeaderboard, user }: { onClose: () => void, getLeaderboard: () => Promise<{topPlayers: LeaderboardPlayer[], totalPlayers: number} | null>, user: User }) => {
     const [leaderboardData, setLeaderboardData] = useState<{topPlayers: LeaderboardPlayer[], totalPlayers: number} | null>(null);
     const [loading, setLoading] = useState(true);
@@ -511,6 +619,26 @@ const LeaderboardScreen = ({ onClose, getLeaderboard, user }: { onClose: () => v
         </div>
     );
 };
+
+const LootboxResultModal = ({ item, onClose, lang }: { item: any, onClose: () => void, lang: Language }) => {
+    const t = useTranslation();
+    return (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-gray-800 rounded-2xl w-full max-w-sm flex flex-col p-6 border-2 border-yellow-400 items-center" onClick={e => e.stopPropagation()}>
+                <h2 className="text-2xl font-bold text-white mb-4">{t('won_item')}!</h2>
+                <div className="w-24 h-24 bg-gray-700 rounded-lg flex items-center justify-center mb-4">
+                    <img src={item.iconUrl} alt={item.name[lang]} className="w-20 h-20 object-contain" />
+                </div>
+                <p className="text-xl font-bold text-center mb-1">{item.name[lang]}</p>
+                {item.itemType === 'card' && <p className="text-green-400 text-center mb-4">+{item.profitPerHour}/hr</p>}
+                {item.itemType === 'skin' && <p className="text-green-400 text-center mb-4">+{item.profitBoostPercent}% {t('profit_boost')}</p>}
+                {item.itemType === 'coins' && <p className="text-yellow-400 text-center mb-4">+{item.amount.toLocaleString()} 🪙</p>}
+                <button onClick={onClose} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg">{t('close')}</button>
+            </div>
+        </div>
+    );
+};
+
 
 const App: React.FC = () => (
     <AuthProvider>

@@ -14,6 +14,7 @@ export interface User {
   name: string;
   language: Language;
   role: UserRole;
+  referrerId?: string;
 }
 
 export interface League {
@@ -38,6 +39,28 @@ export interface Upgrade {
   iconUrl: string;
   level?: number;
 }
+
+export type BoxType = 'coin' | 'star';
+
+export interface BlackMarketCard {
+    id: string;
+    name: LocalizedString;
+    price?: number; // Price is not directly used for purchase but for level calculation
+    profitPerHour: number;
+    iconUrl: string;
+    boxType: BoxType;
+    chance: number; // Rarity/drop chance
+}
+
+export interface CoinSkin {
+    id: string;
+    name: LocalizedString;
+    profitBoostPercent: number;
+    iconUrl: string;
+    boxType: BoxType | 'direct'; // 'direct' for future direct purchase
+    chance: number; // Rarity/drop chance
+}
+
 
 export interface Boost {
   id: string;
@@ -90,7 +113,10 @@ export interface GameConfig {
     tasks: DailyTask[];
     boosts: Boost[];
     specialTasks: SpecialTask[];
+    blackMarketCards: BlackMarketCard[];
+    coinSkins: CoinSkin[];
     dailyEvent: DailyEvent | null;
+    loadingScreenImageUrl?: string;
 }
 
 export interface PlayerState {
@@ -98,6 +124,7 @@ export interface PlayerState {
   energy: number;
   profitPerHour: number;
   tasksProfitPerHour: number; // Permanent profit from tasks
+  referralProfitPerHour: number;
   coinsPerTap: number;
   lastLoginTimestamp: number;
   upgrades: Record<string, number>; // key: upgrade.id, value: level
@@ -112,6 +139,8 @@ export interface PlayerState {
   dailyUpgrades: string[];
   tapGuruLevel: number;
   energyLimitLevel: number;
+  unlockedSkins: string[];
+  currentSkinId: string;
 }
 
 // For Leaderboard

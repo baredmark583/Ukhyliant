@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
-import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer } from '../types';
-import { LEAGUES, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS } from '../constants';
+import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory } from '../types';
+import { LEAGUES, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
 
 declare global {
   interface Window {
@@ -147,7 +147,7 @@ const API = {
   },
 
   claimCipher: async (userId: string, cipher: string): Promise<{player?: PlayerState, reward?: number, error?: string}> => {
-    if (!API_BASE_URL) return { error: "VITE_API_BASE_URL is not set." };
+    if (!API_BASE_URL) return { error: 'VITE_API_BASE_URL is not set.'};
     try {
         const response = await fetch(`${API_BASE_URL}/api/action/claim-cipher`, {
             method: 'POST',
@@ -168,6 +168,34 @@ const API = {
   getLeaderboard: async (): Promise<{topPlayers: LeaderboardPlayer[], totalPlayers: number} | null> => {
     if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
     const response = await fetch(`${API_BASE_URL}/api/leaderboard`);
+    if (!response.ok) return null;
+    return response.json();
+  },
+  
+  openLootbox: async (userId: string, boxType: BoxType): Promise<{ player?: PlayerState, wonItem?: any, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured." };
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/action/open-lootbox`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, boxType }),
+        });
+        const data = await response.json();
+        if (!response.ok) return { error: data.error || 'Failed to open lootbox.' };
+        return data;
+    } catch(e) {
+        console.error("Lootbox API error", e);
+        return { error: 'Server connection failed.' };
+    }
+  },
+
+  setSkin: async(userId: string, skinId: string): Promise<PlayerState | null> => {
+    if (!API_BASE_URL) return null;
+    const response = await fetch(`${API_BASE_URL}/api/action/set-skin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, skinId }),
+    });
     if (!response.ok) return null;
     return response.json();
   },
@@ -292,7 +320,7 @@ export const useTranslation = () => {
 // --- MAIN GAME LOGIC HOOK ---
 export const useGame = () => {
     const { user } = useAuth();
-    const { playerState, setPlayerState, config } = useGameContext();
+    const { playerState, setPlayerState, config, setConfig } = useGameContext();
     const [isTurboActive, setIsTurboActive] = useState(false);
 
     // Persist state to backend with debounce
@@ -341,183 +369,139 @@ export const useGame = () => {
             window.Telegram?.WebApp.offEvent('invoiceClosed', handleInvoiceClosed);
         };
     }, []);
-    
-    const allUpgrades = useMemo((): (Upgrade & {level: number})[] => {
-        if (!config || !playerState) return [];
-        return (config.upgrades || []).map(u => {
-            const level = playerState.upgrades?.[u.id] || 0;
-            const basePrice = u.price ?? 0;
-            const baseProfit = u.profitPerHour ?? 0;
-            return {
-                ...u,
-                level,
-                price: Math.floor(basePrice * Math.pow(1.15, level)),
-                profitPerHour: baseProfit * (level > 0 ? Math.pow(1.07, level) : 1),
-            };
-        });
-    }, [playerState, config]);
 
-    const buyUpgrade = useCallback(async (upgradeId: string): Promise<PlayerState | null> => {
-        if (!user) return null;
-
-        const upgrade = allUpgrades.find(u => u.id === upgradeId);
-        if (!upgrade || !playerState || playerState.balance < upgrade.price) {
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-            return null;
-        }
-
-        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+    const allUpgrades = useMemo(() => {
+        const regularUpgrades = (config?.upgrades || []).map(u => ({...u, price: Math.floor(u.price * Math.pow(1.15, playerState?.upgrades[u.id] || 0))}));
+        const marketCards = (config?.blackMarketCards || []).filter(c => playerState?.upgrades[c.id]).map(c => ({...c, category: UpgradeCategory.Special, price: Math.floor((c.price || 50000) * Math.pow(1.15, playerState?.upgrades[c.id] || 0))}));
         
-        const updatedPlayerState = await API.buyUpgrade(user.id, upgradeId);
-        
-        if (updatedPlayerState) {
-            setPlayerState(updatedPlayerState);
-            return updatedPlayerState;
-        } else {
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-            return null;
-        }
-    }, [user, allUpgrades, playerState, setPlayerState]);
+        const combined = [...regularUpgrades, ...marketCards];
+        return combined.map(u => ({...u, level: playerState?.upgrades[u.id] || 0}));
+
+    }, [config?.upgrades, config?.blackMarketCards, playerState?.upgrades]);
+
+    const currentLeague = useMemo(() => {
+        const balance = playerState?.balance || 0;
+        return LEAGUES.find(l => balance >= l.minBalance) || LEAGUES[LEAGUES.length - 1];
+    }, [playerState?.balance]);
 
     const handleTap = useCallback(() => {
-        if (!playerState) return 0;
-        
-        const tapValue = effectiveCoinsPerTap;
-        const turboMultiplier = isTurboActive ? 5 : 1;
-        const totalTapValue = tapValue * turboMultiplier;
-        
-        // Energy cost is always the base tap value, not multiplied by turbo
-        if (playerState.energy >= tapValue) {
-             window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
-            setPlayerState(p => p ? {
-                ...p,
-                balance: p.balance + totalTapValue,
-                energy: p.energy - tapValue,
-                dailyTaps: p.dailyTaps + 1,
-            } : null);
-            return totalTapValue;
-        }
-        return 0;
+        if (!playerState || playerState.energy <= 0) return 0;
+        const tapValue = effectiveCoinsPerTap * (isTurboActive ? 5 : 1);
+        setPlayerState(p => p ? {
+            ...p,
+            balance: p.balance + tapValue,
+            energy: p.energy - 1,
+            dailyTaps: p.dailyTaps + 1,
+        } : null);
+        return tapValue;
     }, [playerState, setPlayerState, effectiveCoinsPerTap, isTurboActive]);
 
-    const claimTaskReward = useCallback(async (task: DailyTask, code?: string): Promise<{player?: PlayerState, error?: string}> => {
-        if (!user) return { error: "User not logged in" };
-        
-        const result = await API.claimDailyTask(user.id, task.id, code);
-        
-        if (result.player) {
-            setPlayerState(result.player);
+    const buyUpgrade = useCallback(async (upgradeId: string) => {
+        if (!user) return null;
+        const updatedPlayerState = await API.buyUpgrade(user.id, upgradeId);
+        if (updatedPlayerState) {
+            setPlayerState(updatedPlayerState);
         }
-        
-        return result;
+        return updatedPlayerState;
     }, [user, setPlayerState]);
 
-    const buyBoost = useCallback(async (boost: Boost): Promise<{player?: PlayerState, error?: string}> => {
-        if (!user || !playerState) return { error: "User not logged in."};
-    
-        const baseCost = boost.costCoins;
-        let cost = baseCost;
-        if(boost.id === 'boost_tap_guru') {
-            cost = Math.floor(baseCost * Math.pow(1.5, playerState.tapGuruLevel || 0));
-        } else if (boost.id === 'boost_energy_limit') {
-            cost = Math.floor(baseCost * Math.pow(1.8, playerState.energyLimitLevel || 0));
-        }
-    
-        if (playerState.balance < cost) {
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-            return { error: "Insufficient funds" };
-        }
-    
-        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-    
+    const buyBoost = useCallback(async (boost: Boost) => {
+        if (!user) return { error: 'User not found' };
         const result = await API.buyBoost(user.id, boost.id);
-    
         if (result.player) {
             setPlayerState(result.player);
             if (boost.id === 'boost_turbo_mode') {
                 setIsTurboActive(true);
-                setTimeout(() => setIsTurboActive(false), 20000); // 20 seconds turbo
+                setTimeout(() => setIsTurboActive(false), 20000);
             }
         }
         return result;
-    }, [user, playerState, setPlayerState]);
+    }, [user, setPlayerState]);
 
-    const purchaseSpecialTask = useCallback(async (task: SpecialTask) => {
-        if (!user || !playerState) return;
-        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-        if (task.priceStars === 0) { // Free task
-             const updatedPlayerState = await API.unlockFreeTask(user.id, task.id);
-             if(updatedPlayerState) setPlayerState(updatedPlayerState);
-        } else { // Paid task
-             const res = await API.createInvoice(user.id, task.id);
-             if (res.ok && res.invoiceLink) {
-                 window.Telegram.WebApp.openInvoice(res.invoiceLink);
-             } else {
-                 console.error("Failed to create invoice:", res.error);
-                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-             }
+    const claimTaskReward = useCallback(async (task: DailyTask, code?: string) => {
+        if (!user) return { error: 'User not found' };
+        const result = await API.claimDailyTask(user.id, task.id, code);
+        if (result.player) {
+            setPlayerState(result.player);
         }
-    }, [user, playerState, setPlayerState]);
+        return result;
+    }, [user, setPlayerState]);
     
-    const completeSpecialTask = useCallback(async (task: SpecialTask, code?: string): Promise<PlayerState | null> => {
-        if (!user || !playerState || playerState.completedSpecialTaskIds.includes(task.id) || !playerState.purchasedSpecialTaskIds.includes(task.id)) return null;
-         const updatedPlayerState = await API.completeSpecialTask(user.id, task.id, code);
-         if(updatedPlayerState) {
+    const purchaseSpecialTask = useCallback(async (task: SpecialTask) => {
+        if (!user) return null;
+        
+        if (task.priceStars > 0) {
+            // Paid task - requires invoice
+             await API.createInvoice(user.id, task.id);
+        } else {
+            // Free task - unlock immediately
+            const updatedPlayerState = await API.unlockFreeTask(user.id, task.id);
+            if(updatedPlayerState) setPlayerState(updatedPlayerState);
+        }
+    }, [user, setPlayerState]);
+
+    const completeSpecialTask = useCallback(async (task: SpecialTask, code?: string) => {
+        if (!user) return null;
+        const updatedPlayerState = await API.completeSpecialTask(user.id, task.id, code);
+        if (updatedPlayerState) {
             setPlayerState(updatedPlayerState);
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-            return updatedPlayerState;
-         }
-         return null;
-    }, [user, playerState, setPlayerState]);
-
-    const claimDailyCombo = useCallback(async (): Promise<{player?: PlayerState, reward?: number, error?: string}> => {
-        if(!user) return { error: "User not logged in" };
-        window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+        }
+        return updatedPlayerState;
+    }, [user, setPlayerState]);
+    
+    const claimDailyCombo = useCallback(async () => {
+        if (!user) return { error: 'User not found' };
         const result = await API.claimCombo(user.id);
-        if(result.player) {
-            setPlayerState(result.player);
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-        } else {
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-        }
+        if(result.player) setPlayerState(result.player);
         return result;
     }, [user, setPlayerState]);
-
-    const claimDailyCipher = useCallback(async (cipher: string): Promise<{player?: PlayerState, reward?: number, error?: string}> => {
-        if(!user) return { error: 'User not logged in.'};
+    
+    const claimDailyCipher = useCallback(async (cipher: string) => {
+        if (!user) return { error: 'User not found' };
         const result = await API.claimCipher(user.id, cipher);
-        if(result.player) {
+        if(result.player) setPlayerState(result.player);
+        return result;
+    }, [user, setPlayerState]);
+
+    const getLeaderboard = useCallback(() => API.getLeaderboard(), []);
+    
+    const openLootbox = useCallback(async (boxType: BoxType) => {
+        if (!user) return { error: 'User not found' };
+        const result = await API.openLootbox(user.id, boxType);
+        if (result.player) {
             setPlayerState(result.player);
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-        } else {
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
         }
         return result;
     }, [user, setPlayerState]);
 
-    const getLeaderboard = useCallback(API.getLeaderboard, []);
-
-    const currentLeague = useMemo(() => {
-        if (!playerState) return LEAGUES[LEAGUES.length - 1];
-        return LEAGUES.find(l => playerState.balance >= l.minBalance) ?? LEAGUES[LEAGUES.length - 1];
-    }, [playerState?.balance]);
-
+    const setSkin = useCallback(async (skinId: string) => {
+        if (!user) return;
+        const updatedPlayer = await API.setSkin(user.id, skinId);
+        if (updatedPlayer) {
+            setPlayerState(updatedPlayer);
+        }
+    }, [user, setPlayerState]);
+    
     return {
         playerState,
         config,
+        setPlayerState,
+        setConfig,
         handleTap,
         buyUpgrade,
         allUpgrades,
         currentLeague,
-        claimTaskReward,
         buyBoost,
+        claimTaskReward,
         purchaseSpecialTask,
         completeSpecialTask,
         claimDailyCombo,
         claimDailyCipher,
         getLeaderboard,
+        openLootbox,
+        setSkin,
         isTurboActive,
         effectiveMaxEnergy,
-        effectiveCoinsPerTap
+        effectiveCoinsPerTap,
     };
 };

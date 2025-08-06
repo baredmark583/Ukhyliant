@@ -47,6 +47,24 @@ export const INITIAL_BOOSTS = [
     { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: '+500 to your max energy capacity.', ua: '+500 до максимального запасу енергії.', ru: '+500 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000 },
 ];
 
+export const INITIAL_BLACK_MARKET_CARDS = [
+    { id: 'bm_card1', name: {en: 'Shadow Courier', ua: 'Тіньовий кур\'єр', ru: 'Теневой курьер'}, profitPerHour: 5000, iconUrl: 'https://api.iconify.design/twemoji/motor-scooter.svg', boxType: 'coin', chance: 50, price: 50000 },
+    { id: 'bm_card2', name: {en: 'Offshore Account', ua: 'Офшорний рахунок', ru: 'Офшорный счёт'}, profitPerHour: 25000, iconUrl: 'https://api.iconify.design/twemoji/bank.svg', boxType: 'star', chance: 20, price: 250000 },
+];
+
+export const DEFAULT_COIN_SKIN_ID = 'default_coin';
+
+export const INITIAL_COIN_SKINS = [
+    { id: DEFAULT_COIN_SKIN_ID, name: {en: 'Default Coin', ua: 'Стандартна Монета', ru: 'Стандартная Монета'}, profitBoostPercent: 0, iconUrl: '/assets/coin.svg', boxType: 'direct', chance: 100 },
+    { id: 'skin_btc', name: {en: 'BTC', ua: 'BTC', ru: 'BTC'}, profitBoostPercent: 1, iconUrl: 'https://api.iconify.design/twemoji/coin.svg', boxType: 'coin', chance: 10 },
+    { id: 'skin_diamond', name: {en: 'Diamond', ua: 'Діамант', ru: 'Бриллиант'}, profitBoostPercent: 5, iconUrl: 'https://api.iconify.design/twemoji/gem-stone.svg', boxType: 'star', chance: 5 },
+];
+
+
+// --- GAME MECHANICS ---
 export const REFERRAL_BONUS = 5000;
+export const REFERRAL_PROFIT_SHARE = 0.10; // 10%
 export const INITIAL_MAX_ENERGY = 1000;
 export const ENERGY_REGEN_RATE = 2; // per second
+export const LOOTBOX_COST_COINS = 50000;
+export const LOOTBOX_COST_STARS = 5;

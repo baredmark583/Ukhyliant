@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { League, Upgrade, UpgradeCategory, Boost, DailyTask, LocalizedString, SpecialTask } from './types';
+import { League, Upgrade, UpgradeCategory, Boost, DailyTask, LocalizedString, SpecialTask, BlackMarketCard, CoinSkin } from './types';
 
 // --- ROLE MANAGEMENT ---
 // The primary admin. Has all rights.
@@ -22,18 +22,23 @@ export const NAV_ICON_URLS = {
     exchange: 'https://api.iconify.design/ph/chart-line-up-bold.svg?color=white',
     mine: 'https://api.iconify.design/ph/hammer-bold.svg?color=white',
     friends: 'https://api.iconify.design/ph/users-three-bold.svg?color=white',
-    earn: 'https://api.iconify.design/ph/parachute-bold.svg?color=white',
+    airdrop: 'https://api.iconify.design/ph/parachute-bold.svg?color=white',
     boost: 'https://api.iconify.design/ph/rocket-launch-bold.svg?color=white',
-    tasks: 'https://api.iconify.design/ph/list-bold.svg?color=white'
+    tasks: 'https://api.iconify.design/ph/list-bold.svg?color=white',
+    market: 'https://api.iconify.design/ph/storefront-bold.svg?color=white',
+    skins: 'https://api.iconify.design/ph/paint-brush-broad-bold.svg?color=white',
 };
 
 // --- ICON COMPONENTS ---
 export const ExchangeIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.exchange} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Exchange" />;
 export const MineIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.mine} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Mine" />;
 export const FriendsIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.friends} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Friends" />;
-export const EarnIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.earn} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Earn" />;
+export const AirdropIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.airdrop} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Airdrop" />;
 export const BoostIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.boost} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Boost" />;
 export const TasksIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.tasks} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Tasks" />;
+export const MarketIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.market} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Market" />;
+export const SkinsIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.skins} className={`w-8 h-8 transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`} alt="Skins" />;
+
 
 export const StarIcon = () => <img src={STAR_ICON_URL} alt="star" className="w-4 h-4" />;
 export const CoinIcon = () => <img src={COIN_ICON_URL} alt="coin" className="w-full h-full" />;
@@ -77,12 +82,30 @@ export const INITIAL_BOOSTS: Boost[] = [
     { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: '+500 to your max energy capacity.', ua: '+500 до максимального запасу енергії.', ru: '+500 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000 },
 ];
 
+export const INITIAL_BLACK_MARKET_CARDS: BlackMarketCard[] = [
+    { id: 'bm_card1', name: {en: 'Shadow Courier', ua: 'Тіньовий кур\'єр', ru: 'Теневой курьер'}, profitPerHour: 5000, iconUrl: 'https://api.iconify.design/twemoji/motor-scooter.svg', boxType: 'coin', chance: 50, price: 50000 },
+    { id: 'bm_card2', name: {en: 'Offshore Account', ua: 'Офшорний рахунок', ru: 'Офшорный счёт'}, profitPerHour: 25000, iconUrl: 'https://api.iconify.design/twemoji/bank.svg', boxType: 'star', chance: 20, price: 250000 },
+];
+
+export const DEFAULT_COIN_SKIN_ID = 'default_coin';
+
+export const INITIAL_COIN_SKINS: CoinSkin[] = [
+    { id: DEFAULT_COIN_SKIN_ID, name: {en: 'Default Coin', ua: 'Стандартна Монета', ru: 'Стандартная Монета'}, profitBoostPercent: 0, iconUrl: '/assets/coin.svg', boxType: 'direct', chance: 100 },
+    { id: 'skin_btc', name: {en: 'BTC', ua: 'BTC', ru: 'BTC'}, profitBoostPercent: 1, iconUrl: 'https://api.iconify.design/twemoji/coin.svg', boxType: 'coin', chance: 10 },
+    { id: 'skin_diamond', name: {en: 'Diamond', ua: 'Діамант', ru: 'Бриллиант'}, profitBoostPercent: 5, iconUrl: 'https://api.iconify.design/twemoji/gem-stone.svg', boxType: 'star', chance: 5 },
+];
+
 
 // --- GAME MECHANICS ---
 export const INITIAL_MAX_ENERGY = 1000;
 export const ENERGY_REGEN_RATE = 2; // per second
 export const SAVE_DEBOUNCE_MS = 1000;
 export const REFERRAL_BONUS = 5000; // Coins for each referral
+export const REFERRAL_PROFIT_SHARE = 0.10; // 10%
+
+// --- LOOTBOX CONFIG ---
+export const LOOTBOX_COST_COINS = 50000;
+export const LOOTBOX_COST_STARS = 5;
 
 
 // --- TRANSLATIONS ---
@@ -100,7 +123,12 @@ type TranslationKey =
   | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today'
   | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard' | 'your_league' | 'total_players'
   // Boosts
-  | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased';
+  | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased'
+  // New Features
+  | 'market' | 'skins' | 'black_market' | 'black_market_desc' | 'open_for' | 'open'
+  | 'lootbox_coin' | 'lootbox_star' | 'profit_from_referrals'
+  | 'skins_gallery' | 'skins_gallery_desc' | 'select_skin' | 'selected' | 'profit_boost'
+  | 'won_item' | 'close';
 
 export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
   en: {
@@ -179,6 +207,22 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     turbo_mode: 'Turbo Mode',
     full_energy: 'Full Energy',
     boost_purchased: 'Boost purchased!',
+    market: 'Market',
+    skins: 'Skins',
+    black_market: 'Black Market',
+    black_market_desc: 'Spend resources to open containers with exclusive rewards!',
+    open_for: 'Open for',
+    open: 'Open',
+    lootbox_coin: 'Coin Container',
+    lootbox_star: 'Star Container',
+    profit_from_referrals: 'Profit from friends',
+    skins_gallery: 'Skins Gallery',
+    skins_gallery_desc: 'Select an unlocked skin to get a profit boost.',
+    select_skin: 'Select',
+    selected: 'Selected',
+    profit_boost: 'Profit Boost',
+    won_item: 'You won',
+    close: 'Close',
   },
   ua: {
     exchange: 'Біржа',
@@ -256,6 +300,22 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     turbo_mode: 'Турбо-режим',
     full_energy: 'Повна Енергія',
     boost_purchased: 'Буст придбано!',
+    market: 'Ринок',
+    skins: 'Скіни',
+    black_market: 'Чорний ринок',
+    black_market_desc: 'Витрачайте ресурси, щоб відкривати контейнери з ексклюзивними нагородами!',
+    open_for: 'Відкрити за',
+    open: 'Відкрити',
+    lootbox_coin: 'Контейнер за монети',
+    lootbox_star: 'Контейнер за зірки',
+    profit_from_referrals: 'Прибуток від друзів',
+    skins_gallery: 'Галерея Скінів',
+    skins_gallery_desc: 'Виберіть розблокований скін, щоб отримати бонус до прибутку.',
+    select_skin: 'Обрати',
+    selected: 'Обрано',
+    profit_boost: 'Бонус до прибутку',
+    won_item: 'Ви виграли',
+    close: 'Закрити',
   },
   ru: {
     exchange: 'Биржа',
@@ -317,7 +377,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     your_referrals: 'Ваши рефералы',
     invite_friends: 'Пригласить друга',
     daily_combo: 'Ежедневное комбо',
-    daily_cipher: 'Ежедневный шифр',
+    daily_cipher: 'Ежедневный Шифр',
     find_cards: 'Найди и прокачай эти карты!',
     cipher_hint: 'Отстучи код: . короткий, - длинный',
     claimed_today: 'Сегодня забрано',
@@ -333,5 +393,21 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     turbo_mode: 'Турбо-режим',
     full_energy: 'Полная Энергия',
     boost_purchased: 'Буст приобретён!',
+    market: 'Рынок',
+    skins: 'Скины',
+    black_market: 'Черный рынок',
+    black_market_desc: 'Тратьте ресурсы, чтобы открывать контейнеры с эксклюзивными наградами!',
+    open_for: 'Открыть за',
+    open: 'Открыть',
+    lootbox_coin: 'Контейнер за монеты',
+    lootbox_star: 'Контейнер за звезды',
+    profit_from_referrals: 'Прибыль от друзей',
+    skins_gallery: 'Галерея Скинов',
+    skins_gallery_desc: 'Выберите разблокированный скин, чтобы получить бонус к прибыли.',
+    select_skin: 'Выбрать',
+    selected: 'Выбрано',
+    profit_boost: 'Бонус к прибыли',
+    won_item: 'Вы выиграли',
+    close: 'Закрыть',
   },
 };

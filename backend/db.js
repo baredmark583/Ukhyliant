@@ -1,6 +1,15 @@
 
 import pg from 'pg';
-import { INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, INITIAL_TASKS, INITIAL_UPGRADES, REFERRAL_BONUS } from './constants.js';
+import { 
+    INITIAL_BOOSTS, 
+    INITIAL_SPECIAL_TASKS, 
+    INITIAL_TASKS, 
+    INITIAL_UPGRADES, 
+    REFERRAL_BONUS, 
+    INITIAL_BLACK_MARKET_CARDS, 
+    INITIAL_COIN_SKINS,
+    DEFAULT_COIN_SKIN_ID
+} from './constants.js';
 
 const { Pool } = pg;
 export const pool = new Pool({
@@ -78,7 +87,8 @@ export const initializeDb = async () => {
         await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();`);
         await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(2);`);
         await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ;`);
-        console.log("'created_at', 'country', 'last_seen' columns checked/added to 'users' table.");
+        await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referrer_id VARCHAR(255);`);
+        console.log("'created_at', 'country', 'last_seen', 'referrer_id' columns checked/added to 'users' table.");
     } catch (e) {
         console.error("Could not add analytics columns to 'users' table.", e.message);
     }
@@ -91,15 +101,29 @@ export const initializeDb = async () => {
             upgrades: INITIAL_UPGRADES,
             tasks: INITIAL_TASKS,
             boosts: INITIAL_BOOSTS,
-            specialTasks: INITIAL_SPECIAL_TASKS
+            specialTasks: INITIAL_SPECIAL_TASKS,
+            blackMarketCards: INITIAL_BLACK_MARKET_CARDS,
+            coinSkins: INITIAL_COIN_SKINS,
+            loadingScreenImageUrl: '',
         };
         await saveConfig(initialConfig);
         console.log("Initial game config seeded to the database.");
+    } else {
+        // Ensure new config fields exist on old installations
+        const config = res.rows[0].value;
+        let needsUpdate = false;
+        if (!config.blackMarketCards) { config.blackMarketCards = INITIAL_BLACK_MARKET_CARDS; needsUpdate = true; }
+        if (!config.coinSkins) { config.coinSkins = INITIAL_COIN_SKINS; needsUpdate = true; }
+        if (config.loadingScreenImageUrl === undefined) { config.loadingScreenImageUrl = ''; needsUpdate = true; }
+        if (needsUpdate) {
+            await saveConfig(config);
+            console.log("Updated existing game config with new fields (skins, market, loading image).");
+        }
     }
 };
 
 // --- Config Functions ---
-export const getConfig = async () => {
+export const getGameConfig = async () => {
     const res = await executeQuery('SELECT value FROM game_config WHERE key = $1', ['default']);
     return res.rows[0]?.value || null;
 }
@@ -119,8 +143,8 @@ export const getUser = async (id) => {
     const res = await executeQuery('SELECT * FROM users WHERE id = $1', [id]);
     return res.rows[0] || null;
 }
-export const createUser = async (id, name, language) => {
-    const res = await executeQuery('INSERT INTO users (id, name, language) VALUES ($1, $2, $3) RETURNING *', [id, name, language]);
+export const createUser = async (id, name, language, referrerId) => {
+    const res = await executeQuery('INSERT INTO users (id, name, language, referrer_id) VALUES ($1, $2, $3, $4) RETURNING *', [id, name, language, referrerId]);
     return res.rows[0];
 }
 export const updateUserLanguage = async (id, language) => {
@@ -131,6 +155,16 @@ export const updateUserAccessInfo = async (id, { country }) => {
         'UPDATE users SET country = COALESCE($1, country), last_seen = NOW() WHERE id = $2', 
         [country, id]
     );
+};
+export const getReferredUsersProfit = async (referrerId) => {
+    const query = `
+        SELECT SUM((p.data->>'profitPerHour')::numeric) as total_profit
+        FROM players p
+        JOIN users u ON p.id = u.id
+        WHERE u.referrer_id = $1;
+    `;
+    const res = await executeQuery(query, [referrerId]);
+    return res.rows[0]?.total_profit || 0;
 };
 export const applyReferralBonus = async (referrerId) => {
     const client = await pool.connect();
@@ -193,9 +227,9 @@ const applyReward = (player, reward) => {
     if (reward.type === 'coins') {
         player.balance = (player.balance || 0) + reward.amount;
     } else if (reward.type === 'profit') {
-        const baseProfit = player.profitPerHour - (player.tasksProfitPerHour || 0);
+        const baseProfit = player.profitPerHour - (player.tasksProfitPerHour || 0) - (player.referralProfitPerHour || 0);
         player.tasksProfitPerHour = (player.tasksProfitPerHour || 0) + reward.amount;
-        player.profitPerHour = baseProfit + player.tasksProfitPerHour;
+        player.profitPerHour = baseProfit + player.tasksProfitPerHour + (player.referralProfitPerHour || 0);
     }
     return player;
 };
