@@ -39,7 +39,7 @@ import {
     getPlayerDetails,
     updatePlayerBalance
 } from './db.js';
-import { ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, MAX_ENERGY, ENERGY_REGEN_RATE, LEAGUES } from './constants.js';
+import { ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, LEAGUES } from './constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -158,16 +158,19 @@ app.post('/api/login', async (req, res) => {
         const userId = tgUser.id.toString();
         log('info', `Processing login for user ID: ${userId}`);
         
-        // --- Country Detection: IP First, Language as Fallback ---
-        const ip = req.ip;
-        const geo = geoip.lookup(ip);
-        let countryCode = geo ? geo.country : null;
-        log('info', `GeoIP lookup for IP '${ip}' for user ${userId} resolved to country: ${countryCode}`);
+        const forwardedIps = req.headers['x-forwarded-for'];
+        const clientIp = forwardedIps ? forwardedIps.split(',')[0].trim() : req.ip;
 
-        // If GeoIP fails, fall back to language code
+        log('info', `Attempting GeoIP lookup for user ${userId}. Header 'x-forwarded-for': '${forwardedIps}', req.ip: '${req.ip}'. Using IP: '${clientIp}'`);
+
+        const geo = geoip.lookup(clientIp);
+        let countryCode = geo ? geo.country : null;
+
+        log('info', `GeoIP lookup for IP '${clientIp}' for user ${userId} resolved to country: ${countryCode}`);
+
         if (!countryCode) {
             const lang = tgUser.language_code?.toLowerCase();
-            log('info', `GeoIP failed or returned null. Falling back to language code '${lang}' for user ${userId}.`);
+            log('info', `GeoIP failed or returned null for IP '${clientIp}'. Falling back to language code '${lang}' for user ${userId}.`);
             if (lang === 'ua' || lang === 'uk') {
                 countryCode = 'UA';
             } else if (lang === 'ru') {
@@ -194,12 +197,14 @@ app.post('/api/login', async (req, res) => {
             log('info', `User profile created for ${userId}. Language: ${userLang}`);
             
             player = {
-                balance: 500, energy: MAX_ENERGY, profitPerHour: 0, tasksProfitPerHour: 0, coinsPerTap: 1, lastLoginTimestamp: now,
+                balance: 500, energy: INITIAL_MAX_ENERGY, profitPerHour: 0, tasksProfitPerHour: 0, coinsPerTap: 1, lastLoginTimestamp: now,
                 upgrades: {}, referrals: 0, completedDailyTaskIds: [],
                 purchasedSpecialTaskIds: [], completedSpecialTaskIds: [],
                 dailyTaps: 0, lastDailyReset: today,
                 claimedComboToday: false, claimedCipherToday: false,
-                dailyUpgrades: []
+                dailyUpgrades: [],
+                tapGuruLevel: 0,
+                energyLimitLevel: 0
             };
             await savePlayer(userId, player);
             log('info', `Initial player state created for ${userId}.`);
@@ -214,7 +219,8 @@ app.post('/api/login', async (req, res) => {
             const offlineEarnings = (player.profitPerHour / 3600) * offlineSeconds;
             
             player.balance += offlineEarnings;
-            player.energy = Math.min(MAX_ENERGY, player.energy + (ENERGY_REGEN_RATE * offlineSeconds));
+            const effectiveMaxEnergy = INITIAL_MAX_ENERGY + (player.energyLimitLevel || 0) * 500;
+            player.energy = Math.min(effectiveMaxEnergy, player.energy + (ENERGY_REGEN_RATE * offlineSeconds));
             player.lastLoginTimestamp = now;
 
             if(player.lastDailyReset < today) {
@@ -249,7 +255,6 @@ app.post('/api/login', async (req, res) => {
 
         const finalConfig = { ...baseConfig, dailyEvent: clientDailyEvent };
 
-        // Sanitize config before sending to client to prevent crashes from data saved via admin panel
         finalConfig.upgrades = finalConfig.upgrades || [];
         finalConfig.tasks = finalConfig.tasks || [];
         finalConfig.boosts = finalConfig.boosts || [];
@@ -268,9 +273,6 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/player/:id', async (req, res) => {
     const userId = req.params.id;
     const clientState = req.body;
-    // This route is called frequently, so keep logging minimal.
-    // log('info', `Saving passive player state for ID: ${userId}`);
-
     try {
         const serverState = await getPlayer(userId);
         if (!serverState) {
@@ -356,7 +358,6 @@ app.post('/api/action/buy-upgrade', async (req, res) => {
         const baseProfitFromUpgrades = config.upgrades.reduce((total, u) => {
             const level = player.upgrades[u.id] || 0;
             if (level > 0) {
-                 // Match frontend compound calculation for consistency
                  const profitForThisUpgrade = u.profitPerHour * Math.pow(1.07, level);
                  return total + profitForThisUpgrade;
             }
@@ -373,6 +374,65 @@ app.post('/api/action/buy-upgrade', async (req, res) => {
         res.status(500).json({ error: "Internal server error during purchase." });
     }
 });
+
+app.post('/api/action/buy-boost', async (req, res) => {
+    const { userId, boostId } = req.body;
+    log('info', `Buy boost attempt: User ${userId}, Boost ${boostId}`);
+    try {
+        if (!userId || !boostId) {
+            return res.status(400).json({ error: 'User ID and Boost ID are required.' });
+        }
+        const player = await getPlayer(userId);
+        const config = await getConfig();
+        if (!player || !config) {
+            return res.status(404).json({ error: 'Player or game config not found.' });
+        }
+        const boostTemplate = config.boosts.find(b => b.id === boostId);
+        if (!boostTemplate) {
+            return res.status(404).json({ error: 'Boost not found.' });
+        }
+
+        let cost = boostTemplate.costCoins;
+        const effectiveMaxEnergy = INITIAL_MAX_ENERGY + (player.energyLimitLevel || 0) * 500;
+
+        switch(boostId) {
+            case 'boost_full_energy':
+                if (player.balance < cost) return res.status(400).json({ error: 'Insufficient funds.' });
+                player.balance -= cost;
+                player.energy = effectiveMaxEnergy;
+                break;
+            case 'boost_turbo_mode':
+                if (player.balance < cost) return res.status(400).json({ error: 'Insufficient funds.' });
+                player.balance -= cost;
+                break;
+            case 'boost_tap_guru':
+                const currentTapLevel = player.tapGuruLevel || 0;
+                cost = Math.floor(boostTemplate.costCoins * Math.pow(1.5, currentTapLevel));
+                if (player.balance < cost) return res.status(400).json({ error: 'Insufficient funds.' });
+                player.balance -= cost;
+                player.tapGuruLevel = currentTapLevel + 1;
+                break;
+            case 'boost_energy_limit':
+                const currentEnergyLevel = player.energyLimitLevel || 0;
+                cost = Math.floor(boostTemplate.costCoins * Math.pow(1.8, currentEnergyLevel));
+                if (player.balance < cost) return res.status(400).json({ error: 'Insufficient funds.' });
+                player.balance -= cost;
+                player.energyLimitLevel = currentEnergyLevel + 1;
+                break;
+            default:
+                return res.status(400).json({ error: 'Unknown boost ID.' });
+        }
+        
+        await savePlayer(userId, player);
+        log('info', `Boost ${boostId} purchased successfully for user ${userId}.`);
+        res.json(player);
+
+    } catch (error) {
+        log('error', `Buy boost error for User ${userId}, Boost ${boostId}:`, error);
+        res.status(500).json({ error: "Internal server error during boost purchase." });
+    }
+});
+
 
 app.post('/api/action/claim-task', async (req, res) => {
     const { userId, taskId, code } = req.body;

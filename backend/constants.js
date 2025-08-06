@@ -1,3 +1,4 @@
+
 // This file makes the backend self-contained by providing initial data.
 // It prevents the server from trying to import files from the frontend.
 
@@ -40,10 +41,12 @@ export const INITIAL_SPECIAL_TASKS = [
 ];
 
 export const INITIAL_BOOSTS = [
-    { id: 'boost1', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, iconUrl: 'https://api.iconify.design/twemoji/high-voltage.svg', costCoins: 5000 },
-    { id: 'boost2', name: { en: 'Turbo Taps (30s)', ua: 'Турбо-тапи (30с)', ru: 'Турбо-тапы (30с)' }, description: { en: 'Multiply coins per tap for 30 seconds.', ua: 'Помножити монети за тап на 30 секунд.', ru: 'Умножить монеты за тап на 30 секунд.' }, iconUrl: 'https://api.iconify.design/twemoji/fire.svg', costCoins: 10000 },
+    { id: 'boost_full_energy', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, iconUrl: 'https://api.iconify.design/twemoji/high-voltage.svg', costCoins: 2000 },
+    { id: 'boost_turbo_mode', name: { en: 'Turbo Mode', ua: 'Турбо-режим', ru: 'Турбо-режим' }, description: { en: 'x5 coins per tap for 20 seconds!', ua: 'x5 монет за тап протягом 20 секунд!', ru: 'x5 монет за тап в течение 20 секунд!' }, iconUrl: 'https://api.iconify.design/twemoji/fire.svg', costCoins: 2000 },
+    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+1 coin per each tap (permanent).', ua: '+1 монета за кожен тап (постійно).', ru: '+1 монета за каждый тап (постоянно).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000 },
+    { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: '+500 to your max energy capacity.', ua: '+500 до максимального запасу енергії.', ru: '+500 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000 },
 ];
 
 export const REFERRAL_BONUS = 5000;
-export const MAX_ENERGY = 1000;
+export const INITIAL_MAX_ENERGY = 1000;
 export const ENERGY_REGEN_RATE = 2; // per second

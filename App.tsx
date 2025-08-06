@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider, useGameContext } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -8,7 +9,7 @@ import { DailyTask, GameConfig, Language, Upgrade, Boost, SpecialTask, PlayerSta
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
 
-type Screen = 'exchange' | 'mine' | 'friends' | 'boost' | 'tasks' | 'earn';
+type Screen = 'exchange' | 'mine' | 'friends' | 'boost' | 'tasks' | 'airdrop';
 
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
@@ -54,7 +55,8 @@ const MainApp: React.FC = () => {
   const { 
       playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, 
       claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask,
-      claimDailyCombo, claimDailyCipher, getLeaderboard
+      claimDailyCombo, claimDailyCipher, getLeaderboard,
+      isTurboActive, effectiveMaxEnergy
   } = useGame();
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -78,6 +80,13 @@ const MainApp: React.FC = () => {
     if(result) {
         const upgrade = allUpgrades.find(u => u.id === upgradeId);
         showNotification(`${upgrade?.name?.[user.language]} Lvl ${result.upgrades[upgradeId]}`);
+    }
+  };
+  
+  const handleBuyBoost = async (boost: Boost) => {
+    const result = await buyBoost(boost);
+    if(result) {
+        showNotification(t('boost_purchased'), 'success');
     }
   };
 
@@ -183,19 +192,19 @@ const MainApp: React.FC = () => {
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} />;
       case 'mine':
         return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} />;
       case 'friends':
         return <FriendsScreen playerState={playerState} user={user} />;
       case 'boost':
-        return <BoostScreen balance={playerState.balance} boosts={config.boosts} onBuyBoost={buyBoost} lang={user.language} />;
+        return <BoostScreen playerState={playerState} boosts={config.boosts} onBuyBoost={handleBuyBoost} lang={user.language} />;
       case 'tasks':
         return <TasksScreen tasks={config.tasks} playerState={playerState} onClaim={handleClaimTask} lang={user.language} startedVideoTasks={startedVideoTasks} />;
-      case 'earn':
-        return <EarnScreen tasks={config.specialTasks} playerState={playerState} onPurchase={purchaseSpecialTask} onComplete={handleClaimTask} lang={user.language} startedVideoTasks={startedVideoTasks}/>;
+      case 'airdrop':
+        return <AirdropScreen tasks={config.specialTasks} playerState={playerState} onPurchase={purchaseSpecialTask} onComplete={handleClaimTask} lang={user.language} startedVideoTasks={startedVideoTasks}/>;
       default:
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} />;
     }
   };
 
@@ -240,7 +249,7 @@ const MainApp: React.FC = () => {
           <NavItem screen="exchange" label={t('exchange')} icon={<ExchangeIcon active={activeScreen === 'exchange'} />} />
           <NavItem screen="mine" label={t('mine')} icon={<MineIcon active={activeScreen === 'mine'} />} />
           <NavItem screen="friends" label={t('friends')} icon={<FriendsIcon active={activeScreen === 'friends'} />} />
-          <NavItem screen="earn" label={t('earn')} icon={<EarnIcon active={activeScreen === 'earn'} />} />
+          <NavItem screen="airdrop" label={t('airdrop')} icon={<EarnIcon active={activeScreen === 'airdrop'} />} />
           <NavItem screen="tasks" label={t('tasks')} icon={<TasksIcon active={activeScreen === 'tasks'} />} />
           <NavItem screen="boost" label={t('boosts')} icon={<BoostIcon active={activeScreen === 'boost'} />} />
         </div>
@@ -257,8 +266,8 @@ const MainApp: React.FC = () => {
             user-select: none; /* Non-prefixed version */
         }
         @keyframes floatUp {
-          0% { transform: translateY(0); opacity: 1; }
-          100% { transform: translateY(-50px); opacity: 0; }
+          0% { transform: translateY(0) translateX(var(--x-offset)) scale(1); opacity: 1; }
+          100% { transform: translateY(-60px) translateX(var(--x-offset)) scale(0.8); opacity: 0; }
         }
       `}</style>
     </div>
@@ -384,12 +393,14 @@ const TasksScreen = ({ tasks, playerState, onClaim, lang, startedVideoTasks }: {
     );
 };
 
-const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang, startedVideoTasks }: { tasks: SpecialTask[], playerState: PlayerState, onPurchase: (task: SpecialTask) => void, onComplete: (task: SpecialTask) => void, lang: Language, startedVideoTasks: Set<string> }) => {
+const AirdropScreen = ({ tasks, playerState, onPurchase, onComplete, lang, startedVideoTasks }: { tasks: SpecialTask[], playerState: PlayerState, onPurchase: (task: SpecialTask) => void, onComplete: (task: SpecialTask) => void, lang: Language, startedVideoTasks: Set<string> }) => {
     const t = useTranslation();
     
     return (
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
-            <h1 className="text-3xl font-bold text-center mb-6">{t('special_tasks')}</h1>
+            <h1 className="text-3xl font-bold text-center">{t('airdrop')}</h1>
+            <p className="text-center text-gray-400 mt-2 mb-6 max-w-xs">{t('airdrop_description')}</p>
+            
             <div className="w-full max-w-md space-y-3 overflow-y-auto no-scrollbar">
                 {(tasks || []).map(task => {
                     const isPurchased = playerState.purchasedSpecialTaskIds.includes(task.id);

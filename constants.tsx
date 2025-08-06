@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { League, Upgrade, UpgradeCategory, Boost, DailyTask, LocalizedString, SpecialTask } from './types';
 
@@ -21,7 +22,7 @@ export const NAV_ICON_URLS = {
     exchange: 'https://api.iconify.design/ph/chart-line-up-bold.svg?color=white',
     mine: 'https://api.iconify.design/ph/hammer-bold.svg?color=white',
     friends: 'https://api.iconify.design/ph/users-three-bold.svg?color=white',
-    earn: 'https://api.iconify.design/ph/star-bold.svg?color=white',
+    earn: 'https://api.iconify.design/ph/parachute-bold.svg?color=white',
     boost: 'https://api.iconify.design/ph/rocket-launch-bold.svg?color=white',
     tasks: 'https://api.iconify.design/ph/list-bold.svg?color=white'
 };
@@ -70,13 +71,15 @@ export const INITIAL_SPECIAL_TASKS: SpecialTask[] = [
 ];
 
 export const INITIAL_BOOSTS: Boost[] = [
-    { id: 'boost1', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, iconUrl: 'https://api.iconify.design/twemoji/high-voltage.svg', costCoins: 5000 },
-    { id: 'boost2', name: { en: 'Turbo Taps (30s)', ua: 'Турбо-тапи (30с)', ru: 'Турбо-тапы (30с)' }, description: { en: 'Multiply coins per tap for 30 seconds.', ua: 'Помножити монети за тап на 30 секунд.', ru: 'Умножить монеты за тап на 30 секунд.' }, iconUrl: 'https://api.iconify.design/twemoji/fire.svg', costCoins: 10000 },
+    { id: 'boost_full_energy', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, iconUrl: 'https://api.iconify.design/twemoji/high-voltage.svg', costCoins: 2000 },
+    { id: 'boost_turbo_mode', name: { en: 'Turbo Mode', ua: 'Турбо-режим', ru: 'Турбо-режим' }, description: { en: 'x5 coins per tap for 20 seconds!', ua: 'x5 монет за тап протягом 20 секунд!', ru: 'x5 монет за тап в течение 20 секунд!' }, iconUrl: 'https://api.iconify.design/twemoji/fire.svg', costCoins: 2000 },
+    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+1 coin per each tap (permanent).', ua: '+1 монета за кожен тап (постійно).', ru: '+1 монета за каждый тап (постоянно).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000 },
+    { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: '+500 to your max energy capacity.', ua: '+500 до максимального запасу енергії.', ru: '+500 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000 },
 ];
 
 
 // --- GAME MECHANICS ---
-export const MAX_ENERGY = 1000;
+export const INITIAL_MAX_ENERGY = 1000;
 export const ENERGY_REGEN_RATE = 2; // per second
 export const SAVE_DEBOUNCE_MS = 1000;
 export const REFERRAL_BONUS = 5000; // Coins for each referral
@@ -90,12 +93,14 @@ type TranslationKey =
   | 'add_new_upgrade' | 'edit_upgrades' | 'edit_tasks' | 'task_name' | 'reward_coins'
   | 'required_taps' | 'add_new_task' | 'edit_boosts' | 'boost_name' | 'description' | 'cost' | 'add_new_boost'
   | 'login_with_telegram' | 'login' | 'logout' | 'enter_telegram_id' | 'copy_referral_link' | 'copied'
-  | 'claim_reward' | 'completed' | 'earn' | 'special_tasks' | 'unlock_for' | 'go_to_task' | 'claim'
+  | 'claim_reward' | 'completed' | 'airdrop' | 'airdrop_tasks' | 'airdrop_description' | 'unlock_for' | 'go_to_task' | 'claim'
   | 'edit_special_tasks' | 'task_type' | 'url' | 'price_stars' | 'add_new_special_task' | 'translate'
   | 'telegram_join' | 'social_follow' | 'video_watch' | 'referral_bonus' | 'your_referrals' | 'invite_friends'
   // Daily Events
   | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today'
-  | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard' | 'your_league' | 'total_players';
+  | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard' | 'your_league' | 'total_players'
+  // Boosts
+  | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased';
 
 export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
   en: {
@@ -139,8 +144,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     copied: 'Copied!',
     claim_reward: 'Claim Reward',
     completed: 'Completed',
-    earn: 'Earn',
-    special_tasks: 'Special Tasks',
+    airdrop: 'Airdrop',
+    airdrop_tasks: 'Airdrop Tasks',
+    airdrop_description: 'Complete tasks to get rewarded in a future airdrop!',
     unlock_for: 'Unlock for',
     go_to_task: 'Go to Task',
     claim: 'Claim',
@@ -168,6 +174,11 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     leaderboard: 'Leaderboard',
     your_league: 'Your League',
     total_players: 'Total Players',
+    guru_tapper: 'Guru Tapper',
+    energy_limit: 'Energy Limit',
+    turbo_mode: 'Turbo Mode',
+    full_energy: 'Full Energy',
+    boost_purchased: 'Boost purchased!',
   },
   ua: {
     exchange: 'Біржа',
@@ -210,8 +221,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     copied: 'Скопійовано!',
     claim_reward: 'Отримати нагороду',
     completed: 'Виконано',
-    earn: 'Заробіток',
-    special_tasks: 'Спеціальні Завдання',
+    airdrop: 'Airdrop',
+    airdrop_tasks: 'Завдання Airdrop',
+    airdrop_description: 'Виконуйте завдання та отримуйте нагороди у майбутньому ейрдропі!',
     unlock_for: 'Розблокувати за',
     go_to_task: 'Перейти до завдання',
     claim: 'Забрати',
@@ -239,6 +251,11 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     leaderboard: 'Таблиця лідерів',
     your_league: 'Ваша ліга',
     total_players: 'Всього гравців',
+    guru_tapper: 'Гуру Тапів',
+    energy_limit: 'Ліміт Енергії',
+    turbo_mode: 'Турбо-режим',
+    full_energy: 'Повна Енергія',
+    boost_purchased: 'Буст придбано!',
   },
   ru: {
     exchange: 'Биржа',
@@ -281,8 +298,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     copied: 'Скопировано!',
     claim_reward: 'Получить награду',
     completed: 'Выполнено',
-    earn: 'Заработок',
-    special_tasks: 'Специальные Задания',
+    airdrop: 'Airdrop',
+    airdrop_tasks: 'Задания Airdrop',
+    airdrop_description: 'Выполняйте задания и получайте награды в будущем эйрдропе!',
     unlock_for: 'Разблокировать за',
     go_to_task: 'Перейти к заданию',
     claim: 'Забрать',
@@ -310,5 +328,10 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     leaderboard: 'Таблица лидеров',
     your_league: 'Ваша лига',
     total_players: 'Всего игроков',
+    guru_tapper: 'Гуру Тапов',
+    energy_limit: 'Лимит Энергии',
+    turbo_mode: 'Турбо-режим',
+    full_energy: 'Полная Энергия',
+    boost_purchased: 'Буст приобретён!',
   },
 };

@@ -110,6 +110,8 @@ export interface PlayerState {
   claimedComboToday: boolean;
   claimedCipherToday: boolean;
   dailyUpgrades: string[];
+  tapGuruLevel: number;
+  energyLimitLevel: number;
 }
 
 // For Leaderboard

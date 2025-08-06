@@ -1,7 +1,8 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language, GameConfig } from '../types';
-import { MAX_ENERGY, COIN_ICON_URL, NAV_ICON_URLS } from '../constants';
+import { COIN_ICON_URL } from '../constants';
 import { useTranslation, useAuth } from '../hooks/useGameLogic';
 import coinSvg from '../assets/coin.svg';
 
@@ -13,11 +14,13 @@ const MORSE_CODE_MAP: { [key: string]: string } = {
 interface ExchangeProps {
   playerState: PlayerState;
   currentLeague: League;
-  onTap: () => boolean;
+  onTap: () => number;
   user: User;
   onClaimCipher: (cipher: string) => Promise<boolean>;
   config: GameConfig;
   onOpenLeaderboard: () => void;
+  isTurboActive: boolean;
+  effectiveMaxEnergy: number;
 }
 
 const formatNumber = (num: number): string => {
@@ -39,11 +42,12 @@ interface ClickFx {
   x: number;
   y: number;
   value: number;
+  xOffset: number;
 }
 
-const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard }) => {
+const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy }) => {
   const t = useTranslation();
-  const { balance, profitPerHour, energy, coinsPerTap } = playerState;
+  const { balance, profitPerHour, energy } = playerState;
   const [clicks, setClicks] = useState<ClickFx[]>([]);
   const [scale, setScale] = useState(1);
   const { switchLanguage } = useAuth();
@@ -113,16 +117,18 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
          }
       }
     } else {
-      if (onTap()) { 
+      const tapValue = onTap();
+      if (tapValue > 0) { 
         const newClick: ClickFx = {
           id: Date.now() + Math.random(),
           x: lastClickPos.current.x,
           y: lastClickPos.current.y,
-          value: coinsPerTap
+          value: tapValue,
+          xOffset: (Math.random() - 0.5) * 40,
         };
         setClicks(prev => [...prev, newClick]);
-        setScale(0.95);
-        setTimeout(() => setScale(1), 100);
+        setScale(0.92);
+        setTimeout(() => setScale(1), 120);
         setTimeout(() => setClicks(prev => prev.filter(c => c.id !== newClick.id)), 1000);
       }
     }
@@ -198,20 +204,28 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
       >
         <div 
             className="w-full h-full"
-            style={{ transform: `scale(${scale})`, transition: 'transform 0.1s ease' }}
+            style={{ transform: `scale(${scale})`, transition: 'transform 0.1s cubic-bezier(0.22, 1, 0.36, 1)' }}
         >
+          {isTurboActive && (
+             <div className="absolute inset-0 rounded-full animate-pulse-fire" style={{boxShadow: '0 0 40px 10px #f59e0b, 0 0 60px 20px #ef4444'}}></div>
+          )}
           <img 
             src={coinSvg} 
             alt="Clickable Coin" 
             draggable="false"
-            className="w-full h-full pointer-events-none"
+            className="w-full h-full pointer-events-none relative z-10"
           />
         </div>
         {clicks.map(click => (
           <div
             key={click.id}
             className="absolute text-3xl font-bold text-white pointer-events-none"
-            style={{ left: click.x, top: click.y, animation: 'floatUp 1s ease-out forwards' }}
+            style={{
+              left: click.x,
+              top: click.y,
+              animation: 'floatUp 1s ease-out forwards',
+              '--x-offset': `${click.xOffset}px`,
+            } as React.CSSProperties}
           >
             +{click.value}
           </div>
@@ -222,12 +236,27 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
       <div className="w-full mt-4">
         <ProgressBar
           value={energy}
-          max={MAX_ENERGY}
+          max={effectiveMaxEnergy}
           colorClass="bg-gradient-to-r from-cyan-400 to-blue-500"
           label={t('energy')}
           icon={<span className="text-xl">⚡</span>}
         />
       </div>
+        <style>{`
+            @keyframes pulse-fire {
+                0%, 100% {
+                    transform: scale(1);
+                    opacity: 0.7;
+                }
+                50% {
+                    transform: scale(1.05);
+                    opacity: 1;
+                }
+            }
+            .animate-pulse-fire {
+                animation: pulse-fire 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+        `}</style>
     </div>
   );
 };

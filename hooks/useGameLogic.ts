@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer } from '../types';
-import { LEAGUES, MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS } from '../constants';
+import { LEAGUES, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS } from '../constants';
 
 declare global {
   interface Window {
@@ -51,6 +52,17 @@ const API = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, upgradeId }),
+    });
+    if (!response.ok) return null;
+    return response.json();
+  },
+  
+  buyBoost: async (userId: string, boostId: string): Promise<PlayerState | null> => {
+    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
+    const response = await fetch(`${API_BASE_URL}/api/action/buy-boost`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, boostId }),
     });
     if (!response.ok) return null;
     return response.json();
@@ -273,6 +285,7 @@ export const useTranslation = () => {
 export const useGame = () => {
     const { user } = useAuth();
     const { playerState, setPlayerState, config } = useGameContext();
+    const [isTurboActive, setIsTurboActive] = useState(false);
 
     // Persist state to backend with debounce
     useEffect(() => {
@@ -284,14 +297,24 @@ export const useGame = () => {
         return () => clearTimeout(handler);
     }, [playerState, user]);
 
+    const effectiveMaxEnergy = useMemo(() => {
+        if (!playerState) return INITIAL_MAX_ENERGY;
+        return INITIAL_MAX_ENERGY + (playerState.energyLimitLevel || 0) * 500;
+    }, [playerState?.energyLimitLevel]);
+
+    const effectiveCoinsPerTap = useMemo(() => {
+        if (!playerState) return 1;
+        return playerState.coinsPerTap + (playerState.tapGuruLevel || 0);
+    }, [playerState?.coinsPerTap, playerState?.tapGuruLevel]);
+
     // Game loop for energy regen
     useEffect(() => {
         if (!playerState) return;
         const gameTick = setInterval(() => {
-            setPlayerState(p => p ? { ...p, energy: Math.min(MAX_ENERGY, p.energy + ENERGY_REGEN_RATE) } : null);
+            setPlayerState(p => p ? { ...p, energy: Math.min(effectiveMaxEnergy, p.energy + ENERGY_REGEN_RATE) } : null);
         }, 1000);
         return () => clearInterval(gameTick);
-    }, [playerState, setPlayerState]);
+    }, [playerState, setPlayerState, effectiveMaxEnergy]);
     
     // Listener for successful payments
     useEffect(() => {
@@ -329,7 +352,6 @@ export const useGame = () => {
     const buyUpgrade = useCallback(async (upgradeId: string): Promise<PlayerState | null> => {
         if (!user) return null;
 
-        // Client-side check for immediate feedback
         const upgrade = allUpgrades.find(u => u.id === upgradeId);
         if (!upgrade || !playerState || playerState.balance < upgrade.price) {
             window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
@@ -350,18 +372,25 @@ export const useGame = () => {
     }, [user, allUpgrades, playerState, setPlayerState]);
 
     const handleTap = useCallback(() => {
-        if (playerState && playerState.energy >= playerState.coinsPerTap) {
+        if (!playerState) return 0;
+        
+        const tapValue = effectiveCoinsPerTap;
+        const turboMultiplier = isTurboActive ? 5 : 1;
+        const totalTapValue = tapValue * turboMultiplier;
+        
+        // Energy cost is always the base tap value, not multiplied by turbo
+        if (playerState.energy >= tapValue) {
              window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
             setPlayerState(p => p ? {
                 ...p,
-                balance: p.balance + p.coinsPerTap,
-                energy: p.energy - p.coinsPerTap,
+                balance: p.balance + totalTapValue,
+                energy: p.energy - tapValue,
                 dailyTaps: p.dailyTaps + 1,
             } : null);
-            return true;
+            return totalTapValue;
         }
-        return false;
-    }, [playerState, setPlayerState]);
+        return 0;
+    }, [playerState, setPlayerState, effectiveCoinsPerTap, isTurboActive]);
 
     const claimTaskReward = useCallback(async (task: DailyTask, code?: string): Promise<{player?: PlayerState, error?: string}> => {
         if (!user) return { error: "User not logged in" };
@@ -375,13 +404,38 @@ export const useGame = () => {
         return result;
     }, [user, setPlayerState]);
 
-    const buyBoost = useCallback((boost: Boost) => {
-        if (!playerState || playerState.balance < boost.costCoins) return;
-        if (boost.id === 'boost1') { // Full energy
-            window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
-            setPlayerState(p => p ? { ...p, energy: MAX_ENERGY, balance: p.balance - boost.costCoins } : null);
+    const buyBoost = useCallback(async (boost: Boost): Promise<PlayerState | null> => {
+        if (!user || !playerState) return null;
+    
+        const baseCost = boost.costCoins;
+        let cost = baseCost;
+        if(boost.id === 'boost_tap_guru') {
+            cost = Math.floor(baseCost * Math.pow(1.5, playerState.tapGuruLevel || 0));
+        } else if (boost.id === 'boost_energy_limit') {
+            cost = Math.floor(baseCost * Math.pow(1.8, playerState.energyLimitLevel || 0));
         }
-    }, [playerState, setPlayerState]);
+    
+        if (playerState.balance < cost) {
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            return null;
+        }
+    
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+    
+        const updatedPlayerState = await API.buyBoost(user.id, boost.id);
+    
+        if (updatedPlayerState) {
+            setPlayerState(updatedPlayerState);
+            if (boost.id === 'boost_turbo_mode') {
+                setIsTurboActive(true);
+                setTimeout(() => setIsTurboActive(false), 20000); // 20 seconds turbo
+            }
+            return updatedPlayerState;
+        } else {
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            return null;
+        }
+    }, [user, playerState, setPlayerState]);
 
     const purchaseSpecialTask = useCallback(async (task: SpecialTask) => {
         if (!user || !playerState) return;
@@ -456,6 +510,9 @@ export const useGame = () => {
         completeSpecialTask,
         claimDailyCombo,
         claimDailyCipher,
-        getLeaderboard
+        getLeaderboard,
+        isTurboActive,
+        effectiveMaxEnergy,
+        effectiveCoinsPerTap
     };
 };
