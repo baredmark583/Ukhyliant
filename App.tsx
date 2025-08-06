@@ -85,8 +85,10 @@ const MainApp: React.FC = () => {
   
   const handleBuyBoost = async (boost: Boost) => {
     const result = await buyBoost(boost);
-    if(result) {
+    if (result.player) {
         showNotification(t('boost_purchased'), 'success');
+    } else if (result.error) {
+        showNotification(result.error, 'error');
     }
   };
 

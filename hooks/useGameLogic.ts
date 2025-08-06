@@ -57,15 +57,23 @@ const API = {
     return response.json();
   },
   
-  buyBoost: async (userId: string, boostId: string): Promise<PlayerState | null> => {
-    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
-    const response = await fetch(`${API_BASE_URL}/api/action/buy-boost`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, boostId }),
-    });
-    if (!response.ok) return null;
-    return response.json();
+  buyBoost: async (userId: string, boostId: string): Promise<{player?: PlayerState, error?: string}> => {
+    if (!API_BASE_URL) return { error: "VITE_API_BASE_URL is not set." };
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/action/buy-boost`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, boostId }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            return { error: data.error || 'Failed to buy boost.' };
+        }
+        return { player: data };
+    } catch(e) {
+        console.error('Buy boost API call failed', e);
+        return { error: 'Server connection failed while buying boost.' };
+    }
   },
 
   claimDailyTask: async (userId: string, taskId: string, code?: string): Promise<{player?: PlayerState, error?: string}> => {
@@ -404,8 +412,8 @@ export const useGame = () => {
         return result;
     }, [user, setPlayerState]);
 
-    const buyBoost = useCallback(async (boost: Boost): Promise<PlayerState | null> => {
-        if (!user || !playerState) return null;
+    const buyBoost = useCallback(async (boost: Boost): Promise<{player?: PlayerState, error?: string}> => {
+        if (!user || !playerState) return { error: "User not logged in."};
     
         const baseCost = boost.costCoins;
         let cost = baseCost;
@@ -417,24 +425,21 @@ export const useGame = () => {
     
         if (playerState.balance < cost) {
             window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-            return null;
+            return { error: "Insufficient funds" };
         }
     
         window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
     
-        const updatedPlayerState = await API.buyBoost(user.id, boost.id);
+        const result = await API.buyBoost(user.id, boost.id);
     
-        if (updatedPlayerState) {
-            setPlayerState(updatedPlayerState);
+        if (result.player) {
+            setPlayerState(result.player);
             if (boost.id === 'boost_turbo_mode') {
                 setIsTurboActive(true);
                 setTimeout(() => setIsTurboActive(false), 20000); // 20 seconds turbo
             }
-            return updatedPlayerState;
-        } else {
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-            return null;
         }
+        return result;
     }, [user, playerState, setPlayerState]);
 
     const purchaseSpecialTask = useCallback(async (task: SpecialTask) => {

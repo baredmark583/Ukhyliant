@@ -39,7 +39,7 @@ import {
     getPlayerDetails,
     updatePlayerBalance
 } from './db.js';
-import { ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, LEAGUES } from './constants.js';
+import { ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, LEAGUES, INITIAL_BOOSTS } from './constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -676,9 +676,35 @@ adminApiRouter.get('/config', async (req, res) => {
     }
 });
 adminApiRouter.post('/config', async (req, res) => {
-    const { config } = req.body;
+    const { config: clientConfig } = req.body;
     try {
-        await saveConfig(config);
+        // The list of boosts from constants is the source of truth for what boosts EXIST.
+        // The database stores editable properties like name, cost, etc.
+        const serverBoostTemplates = INITIAL_BOOSTS;
+        const clientSavedBoosts = clientConfig.boosts || [];
+
+        // Reconcile the two lists. This ensures no boosts can be permanently deleted
+        // and new boosts added to constants will appear on next save.
+        const finalBoosts = serverBoostTemplates.map(template => {
+            const savedBoost = clientSavedBoosts.find(b => b.id === template.id);
+            if (savedBoost) {
+                // If we found the boost in the saved config, use its values,
+                // but fall back to the template's defaults if a property is missing.
+                return {
+                    id: template.id, // ID is non-negotiable
+                    name: savedBoost.name || template.name,
+                    description: savedBoost.description || template.description,
+                    costCoins: savedBoost.costCoins ?? template.costCoins,
+                    iconUrl: savedBoost.iconUrl || template.iconUrl,
+                };
+            }
+            // If the boost wasn't in the saved config at all, use the template version.
+            return template;
+        });
+
+        const finalConfig = { ...clientConfig, boosts: finalBoosts };
+
+        await saveConfig(finalConfig);
         res.json({ message: 'Config saved' });
     } catch(e) {
         log('error', 'Failed to save config', e);
