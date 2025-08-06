@@ -223,6 +223,17 @@ app.post('/api/login', async (req, res) => {
         } else { // Existing user
             log('info', `Existing user login: ${userId}. Calculating offline progress.`);
 
+            // Gracefully handle data structure updates for existing players
+            if (player.unlockedSkins === undefined) {
+                player.unlockedSkins = [DEFAULT_COIN_SKIN_ID];
+            }
+            if (player.currentSkinId === undefined) {
+                player.currentSkinId = DEFAULT_COIN_SKIN_ID;
+            }
+            if (player.referralProfitPerHour === undefined) {
+                player.referralProfitPerHour = 0;
+            }
+
             // Recalculate profitPerHour with referral and skin bonuses before calculating offline earnings
             const [referralProfit, skinProfitBoost] = await Promise.all([
                  getReferredUsersProfit(userId).then(p => p * REFERRAL_PROFIT_SHARE),
@@ -556,6 +567,11 @@ app.post('/api/action/open-lootbox', async (req, res) => {
         }
 
         player.balance -= cost;
+
+        // Ensure unlockedSkins is an array
+        if (!player.unlockedSkins) {
+            player.unlockedSkins = [];
+        }
 
         // Create a weighted pool of possible rewards
         const rewardPool = [
