@@ -12,6 +12,7 @@ const LOCALES = {
         'nav_daily_tasks': 'Daily Tasks',
         'nav_boosts': 'Boosts',
         // Common
+        'loading': 'Loading...',
         'save_all_changes': 'Save All Changes',
         'saving': 'Saving...',
         'logout': 'Logout',
@@ -102,6 +103,7 @@ const LOCALES = {
         'nav_daily_tasks': 'Ежедневные Задания',
         'nav_boosts': 'Бусты',
         // Common
+        'loading': 'Загрузка...',
         'save_all_changes': 'Сохранить все изменения',
         'saving': 'Сохранение...',
         'logout': 'Выйти',

@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalsContainer = document.getElementById('modals-container');
     
     // --- TRANSLATION FUNCTION ---
-    const t = (key) => LOCALES[currentLang]?.[key] || LOCALES['en'][key];
+    const t = (key) => LOCALES[currentLang]?.[key] || LOCALES['en']?.[key] || `[${key}]`;
 
     // --- UTILS ---
     const escapeHtml = (unsafe) => {
@@ -47,12 +47,12 @@ document.addEventListener('DOMContentLoaded', () => {
         charts = {};
     };
 
-    const showLoading = (message = 'Loading...') => {
+    const showLoading = (messageKey = 'loading') => {
         tabContainer.innerHTML = `
             <div class="d-flex justify-content-center align-items-center" style="min-height: 50vh;">
                 <div>
                     <div class="spinner-border" role="status"></div>
-                    <p class="mt-2 text-muted">${message}</p>
+                    <p class="mt-2 text-muted">${t(messageKey)}</p>
                 </div>
             </div>`;
     };
@@ -668,6 +668,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const init = async () => {
+        currentLang = localStorage.getItem('adminLang') || 'ru';
+        applyTranslations();
+        showLoading();
+        
         try {
             [localConfig, allPlayers, dashboardStats, dailyEvent, playerLocations] = await Promise.all([
                 fetchData('/admin/api/config'),

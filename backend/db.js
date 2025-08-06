@@ -416,9 +416,11 @@ export const getDashboardStats = async () => {
     const newPlayersTodayRes = await executeQuery("SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '24 hours'");
     const totalCoinsRes = await executeQuery("SELECT SUM((data->>'balance')::numeric) as total_coins FROM players");
     
+    // Optimized query to prevent performance issues on large datasets
     const popularUpgradesRes = await executeQuery(`
         SELECT key as upgrade_id, COUNT(*) as purchase_count
         FROM players, jsonb_object_keys(data->'upgrades') key
+        WHERE jsonb_typeof(data->'upgrades') = 'object'
         GROUP BY key
         ORDER BY purchase_count DESC
         LIMIT 5;
