@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider, useGameContext } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -132,19 +131,15 @@ const MainApp: React.FC = () => {
             return;
         } else {
             // Second click: Show prompt for code entry
-            window.Telegram.WebApp.showPrompt({
-                title: t('enter_secret_code'),
-                message: task.name[user.language],
-                buttons: [
-                    { id: 'submit', type: 'default', text: t('check') },
-                    { type: 'cancel' },
-                ]
-            }, async (text) => {
-                if (text) {
+            // The showPrompt function expects a string message, not an object with buttons.
+            const promptMessage = `${task.name[user.language]}\n${t('enter_secret_code')}`;
+            window.Telegram.WebApp.showPrompt(promptMessage, async (enteredCode) => {
+                // The callback receives the entered text, or null if cancelled.
+                if (enteredCode !== null) {
                     if ('isOneTime' in task) { // Special task
-                        await handleCompleteSpecialTask(task, text);
+                        await handleCompleteSpecialTask(task, enteredCode);
                     } else { // Daily task
-                        await handleClaimDailyTaskReward(task, text);
+                        await handleClaimDailyTaskReward(task, enteredCode);
                     }
                 }
             });
