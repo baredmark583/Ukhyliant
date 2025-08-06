@@ -6,6 +6,7 @@ import BoostScreen from './sections/Boost';
 import { ExchangeIcon, MineIcon, FriendsIcon, BoostIcon, TasksIcon, StarIcon, EarnIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon, MINI_APP_NAME, LEAGUES } from './constants';
 import { DailyTask, GameConfig, Language, Upgrade, Boost, SpecialTask, PlayerState, User, LeaderboardPlayer, TaskType, Reward } from './types';
 import NotificationToast from './components/NotificationToast';
+import SecretCodeModal from './components/SecretCodeModal';
 
 type Screen = 'exchange' | 'mine' | 'friends' | 'boost' | 'tasks' | 'earn';
 
@@ -60,6 +61,7 @@ const MainApp: React.FC = () => {
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const t = useTranslation();
   const [startedVideoTasks, setStartedVideoTasks] = useState<Set<string>>(new Set());
+  const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
 
 
   if (!user || !playerState || !config) return <LoadingScreen />;
@@ -120,7 +122,6 @@ const MainApp: React.FC = () => {
     const isVideoCodeTask = task.type === 'video_code';
     const isVideoTaskStarted = isVideoCodeTask && startedVideoTasks.has(task.id);
 
-    // --- Two-step logic for video_code tasks ---
     if (isVideoCodeTask) {
         if (!isVideoTaskStarted) {
             // First click: Open link and set state to wait for code entry
@@ -130,27 +131,9 @@ const MainApp: React.FC = () => {
             setStartedVideoTasks(prev => new Set(prev).add(task.id));
             return;
         } else {
-            // Second click: Show prompt for code entry
-            
-            // Define an async function to handle the logic after code is entered.
-            // This decouples the async logic from the direct callback.
-            const processEnteredCode = async (code: string) => {
-                if ('isOneTime' in task) { // Special task
-                    await handleCompleteSpecialTask(task, code);
-                } else { // Daily task
-                    await handleClaimDailyTaskReward(task, code);
-                }
-            };
-
-            // Use a simple message for the prompt to avoid issues with special characters.
-            window.Telegram.WebApp.showPrompt(t('enter_secret_code'), (enteredCode) => {
-                // The callback receives the entered text, or null if cancelled.
-                const trimmedCode = enteredCode?.trim();
-                if (trimmedCode) {
-                    processEnteredCode(trimmedCode);
-                }
-            });
-            return; // Stop further execution, as claim is handled in the callback.
+            // Second click: Open our custom modal
+            setSecretCodeTask(task);
+            return; // Stop further execution, claim is handled in the modal's onSubmit
         }
     }
 
@@ -233,6 +216,22 @@ const MainApp: React.FC = () => {
       </div>
       
       {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} />}
+
+      {secretCodeTask && (
+          <SecretCodeModal
+              task={secretCodeTask}
+              lang={user.language}
+              onClose={() => setSecretCodeTask(null)}
+              onSubmit={(code) => {
+                  if ('isOneTime' in secretCodeTask) {
+                      handleCompleteSpecialTask(secretCodeTask, code);
+                  } else {
+                      handleClaimDailyTaskReward(secretCodeTask, code);
+                  }
+                  setSecretCodeTask(null);
+              }}
+          />
+      )}
 
       <NotificationToast notification={notification} />
 
