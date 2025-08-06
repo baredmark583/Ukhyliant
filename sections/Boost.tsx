@@ -23,17 +23,17 @@ const BoostScreen: React.FC<BoostProps> = ({ balance, boosts, onBuyBoost, lang }
       </p>
 
       <div className="w-full max-w-md space-y-4 overflow-y-auto no-scrollbar">
-        {boosts.map(boost => {
+        {(boosts || []).map(boost => {
           const canAfford = balance >= boost.costCoins;
           return (
             <div key={boost.id} className="bg-gray-800 p-4 rounded-lg flex items-center justify-between">
                 <div className="flex items-center">
                     <div className="w-12 h-12 mr-4 flex-shrink-0 flex items-center justify-center">
-                        <img src={boost.iconUrl} alt={boost.name[lang]} className="w-10 h-10 object-contain" />
+                        <img src={boost.iconUrl} alt={boost.name?.[lang]} className="w-10 h-10 object-contain" />
                     </div>
                     <div>
-                        <h2 className="text-lg font-bold">{boost.name[lang]}</h2>
-                        <p className="text-sm text-gray-400">{boost.description[lang]}</p>
+                        <h2 className="text-lg font-bold">{boost.name?.[lang]}</h2>
+                        <p className="text-sm text-gray-400">{boost.description?.[lang]}</p>
                     </div>
                 </div>
 

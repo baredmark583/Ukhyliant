@@ -34,10 +34,10 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
     >
       <div className="flex items-center space-x-3">
         <div className="bg-gray-700/50 p-2 rounded-lg w-16 h-16 flex-shrink-0">
-          <img src={upgrade.iconUrl} alt={upgrade.name[lang]} className="w-full h-full object-contain" />
+          <img src={upgrade.iconUrl} alt={upgrade.name?.[lang]} className="w-full h-full object-contain" />
         </div>
         <div>
-          <p className="text-white text-left text-base font-semibold">{upgrade.name[lang]}</p>
+          <p className="text-white text-left text-base font-semibold">{upgrade.name?.[lang]}</p>
           <div className="text-gray-400 text-xs text-left mt-1">
             <span>lvl {upgrade.level}</span>
             <span className="mx-2">|</span>

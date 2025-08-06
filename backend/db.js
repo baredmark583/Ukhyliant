@@ -8,11 +8,26 @@ export const pool = new Pool({
 });
 
 const executeQuery = async (query, params) => {
+    const start = Date.now();
     const client = await pool.connect();
     try {
-        return await client.query(query, params);
+        const result = await client.query(query, params);
+        const duration = Date.now() - start;
+        console.log('[DB_QUERY]', { 
+            query: query.replace(/\s\s+/g, ' ').trim(), 
+            params: params, 
+            duration: `${duration}ms`, 
+            rows: result.rowCount 
+        });
+        return result;
     } catch (error) {
-        console.error('Database query error', error);
+        const duration = Date.now() - start;
+        console.error('[DB_ERROR]', { 
+            query: query.replace(/\s\s+/g, ' ').trim(), 
+            params: params,
+            duration: `${duration}ms`,
+            error: error.message
+        });
         throw error;
     } finally {
         client.release();

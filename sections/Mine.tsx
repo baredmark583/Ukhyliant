@@ -36,7 +36,7 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
           return (
             <div key={index} className="w-20 h-20 bg-black/30 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-600 p-2">
               {isUpgradedToday && upgrade ? (
-                <img src={upgrade.iconUrl} alt={upgrade.name[lang]} className="w-full h-full object-contain" />
+                <img src={upgrade.iconUrl} alt={upgrade.name?.[lang]} className="w-full h-full object-contain" />
               ) : (
                 <span className="text-4xl text-gray-500">?</span>
               )}

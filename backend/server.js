@@ -1,6 +1,3 @@
-
-
-
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -104,6 +101,7 @@ app.use('/admin', express.static(path.join(__dirname, 'public')));
 
 // --- AUTH MIDDLEWARE FOR ADMIN PANEL ---
 const isAdminAuthenticated = (req, res, next) => {
+    log('info', `Admin auth check for: ${req.originalUrl}`, { sessionId: req.sessionID, isAdmin: req.session.isAdmin });
     if (req.session.isAdmin) {
         return next();
     }
@@ -223,8 +221,14 @@ app.post('/api/login', async (req, res) => {
         }
 
         const finalConfig = { ...baseConfig, dailyEvent: clientDailyEvent };
+
+        // Sanitize config before sending to client to prevent crashes from data saved via admin panel
+        finalConfig.upgrades = finalConfig.upgrades || [];
+        finalConfig.tasks = finalConfig.tasks || [];
+        finalConfig.boosts = finalConfig.boosts || [];
+        finalConfig.specialTasks = finalConfig.specialTasks || [];
         
-        log('info', `Login successful for ${userId}. Sending config.`);
+        log('info', `Login successful for ${userId}. Sending sanitized config.`);
         res.json({ user: userWithRole, player, config: finalConfig });
 
     } catch (error) {
@@ -237,7 +241,8 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/player/:id', async (req, res) => {
     const userId = req.params.id;
     const clientState = req.body;
-    log('info', `Saving passive player state for ID: ${userId}`);
+    // This route is called frequently, so keep logging minimal.
+    // log('info', `Saving passive player state for ID: ${userId}`);
 
     try {
         const serverState = await getPlayer(userId);
@@ -415,6 +420,7 @@ app.post('/admin/login', async (req, res) => {
     if (password === process.env.ADMIN_PASSWORD) {
         req.session.isAdmin = true;
         log('info', `Admin login successful from IP: ${req.ip}`);
+        log('info', 'Session data after login:', req.session);
         res.redirect('/admin/');
     } else {
         log('warn', `Failed admin login attempt from IP: ${req.ip}`);
@@ -438,8 +444,10 @@ const adminApiRouter = express.Router();
 adminApiRouter.use(isAdminAuthenticated); // Protect all routes in this router
 
 adminApiRouter.get('/dashboard-stats', async (req, res) => {
+    log('info', 'Admin request: /api/dashboard-stats');
     try {
         const stats = await getDashboardStats();
+        log('info', 'Raw dashboard stats from DB:', stats);
         res.json(stats);
     } catch(e) {
         log('error', 'Failed to get dashboard stats', e);
@@ -447,8 +455,10 @@ adminApiRouter.get('/dashboard-stats', async (req, res) => {
     }
 });
 adminApiRouter.get('/daily-events', async (req, res) => {
+    log('info', 'Admin request: /api/daily-events');
     try {
         const event = await getDailyEvent(getTodayDate());
+        log('info', 'Raw daily event data from DB:', event);
         res.json(event);
     } catch(e) {
         log('error', 'Failed to get daily events', e);
@@ -466,8 +476,10 @@ adminApiRouter.post('/daily-events', async (req, res) => {
     }
 });
 adminApiRouter.get('/players', async (req, res) => {
+    log('info', 'Admin request: /api/players');
     try {
         const players = await getAllPlayersForAdmin();
+        log('info', `Raw players data from DB. Count: ${players.length}`);
         res.json(players);
     } catch(e) {
         log('error', 'Failed to get players list', e);
@@ -499,8 +511,10 @@ adminApiRouter.post('/player/:id/reset-daily', async (req, res) => {
 });
 
 adminApiRouter.get('/config', async (req, res) => {
+    log('info', 'Admin request: /api/config');
     try {
         const config = await getConfig();
+        log('info', 'Raw config data from DB fetched for admin.');
         res.json(config);
     } catch(e) {
         log('error', 'Failed to get config', e);

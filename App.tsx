@@ -75,7 +75,7 @@ const MainApp: React.FC = () => {
     const result = await buyUpgrade(upgradeId);
     if(result) {
         const upgrade = allUpgrades.find(u => u.id === upgradeId);
-        showNotification(`${upgrade?.name[user.language]} Lvl ${result.upgrades[upgradeId]}`);
+        showNotification(`${upgrade?.name?.[user.language]} Lvl ${result.upgrades[upgradeId]}`);
     }
   };
 
@@ -83,10 +83,10 @@ const MainApp: React.FC = () => {
     const result = await claimTaskReward(task, code);
     if (result.player) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-        const rewardText = task.reward.type === 'coins'
-            ? `+${task.reward.amount.toLocaleString()} 🪙`
-            : `+${task.reward.amount.toLocaleString()}/hr ⚡`;
-        showNotification(`${task.name[user.language]} выполнено! ${rewardText}`, 'success');
+        const rewardText = task.reward?.type === 'coins'
+            ? `+${task.reward?.amount?.toLocaleString() ?? 0} 🪙`
+            : `+${task.reward?.amount?.toLocaleString() ?? 0}/hr ⚡`;
+        showNotification(`${task.name?.[user.language]} выполнено! ${rewardText}`, 'success');
         
         if (task.type === 'video_code') {
             setStartedVideoTasks(prev => {
@@ -132,7 +132,7 @@ const MainApp: React.FC = () => {
         } else {
             // Second click: Show prompt for code entry
             // The showPrompt function expects a string message, not an object with buttons.
-            const promptMessage = `${task.name[user.language]}\n${t('enter_secret_code')}`;
+            const promptMessage = `${task.name?.[user.language]}\n${t('enter_secret_code')}`;
             window.Telegram.WebApp.showPrompt(promptMessage, async (enteredCode) => {
                 // The callback receives the entered text, or null if cancelled.
                 if (enteredCode !== null) {
@@ -310,7 +310,7 @@ const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks }: { tas
         progressText = `${progress}/${task.requiredTaps}`;
     }
 
-    const rewardIcon = task.reward.type === 'profit' ? '⚡' : '🪙';
+    const rewardIcon = task.reward?.type === 'profit' ? '⚡' : '🪙';
     
     const getButtonText = () => {
         if (isCompleted) return t('completed');
@@ -330,7 +330,7 @@ const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks }: { tas
 
     const getTaskIcon = () => {
         if (task.imageUrl) {
-            return <img src={task.imageUrl} alt={task.name[lang]} className="w-12 h-12 object-contain"/>;
+            return <img src={task.imageUrl} alt={task.name?.[lang]} className="w-12 h-12 object-contain"/>;
         }
         switch (task.type) {
             case 'taps': return '👆';
@@ -348,9 +348,9 @@ const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks }: { tas
                 {getTaskIcon()}
             </div>
             <div className="flex-grow">
-                <h2 className="text-base font-bold">{task.name[lang]}</h2>
+                <h2 className="text-base font-bold">{task.name?.[lang]}</h2>
                 <div className="text-sm text-yellow-300 my-1 flex items-center">
-                    <span>+ {task.reward.amount.toLocaleString()} {rewardIcon}</span>
+                    <span>+ {(task.reward?.amount || 0).toLocaleString()} {rewardIcon}</span>
                 </div>
             </div>
             <button 
@@ -370,7 +370,7 @@ const TasksScreen = ({ tasks, playerState, onClaim, lang, startedVideoTasks }: {
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
             <h1 className="text-3xl font-bold text-center mb-6">{t('tasks')}</h1>
             <div className="w-full max-w-md space-y-3 overflow-y-auto no-scrollbar">
-                {tasks.map(task => (
+                {(tasks || []).map(task => (
                     <TaskCard key={task.id} task={task} playerState={playerState} onClaim={onClaim} lang={lang} startedVideoTasks={startedVideoTasks} />
                 ))}
             </div>
@@ -385,10 +385,10 @@ const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang, startedV
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
             <h1 className="text-3xl font-bold text-center mb-6">{t('special_tasks')}</h1>
             <div className="w-full max-w-md space-y-3 overflow-y-auto no-scrollbar">
-                {tasks.map(task => {
+                {(tasks || []).map(task => {
                     const isPurchased = playerState.purchasedSpecialTaskIds.includes(task.id);
                     const isCompleted = playerState.completedSpecialTaskIds.includes(task.id);
-                    const rewardIcon = task.reward.type === 'profit' ? '⚡' : '🪙';
+                    const rewardIcon = task.reward?.type === 'profit' ? '⚡' : '🪙';
                     
                     let button;
                     if (isCompleted) {
@@ -411,15 +411,15 @@ const EarnScreen = ({ tasks, playerState, onPurchase, onComplete, lang, startedV
                         <div key={task.id} className={`bg-gray-800 p-4 rounded-lg ${isCompleted ? 'opacity-60' : ''}`}>
                             <div className="flex items-center mb-2">
                                 <div className="w-12 h-12 bg-gray-700/50 rounded-lg flex items-center justify-center mr-3">
-                                     {task.imageUrl ? <img src={task.imageUrl} alt={task.name[lang]} className="w-10 h-10 object-contain"/> : <span className="text-3xl">🔗</span>}
+                                     {task.imageUrl ? <img src={task.imageUrl} alt={task.name?.[lang]} className="w-10 h-10 object-contain"/> : <span className="text-3xl">🔗</span>}
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-bold">{task.name[lang]}</h2>
-                                    <p className="text-sm text-gray-400">{task.description[lang]}</p>
+                                    <h2 className="text-lg font-bold">{task.name?.[lang]}</h2>
+                                    <p className="text-sm text-gray-400">{task.description?.[lang]}</p>
                                 </div>
                             </div>
                             <div className="text-sm text-yellow-300 my-2 flex items-center space-x-4">
-                                <span>+ {task.reward.amount.toLocaleString()} {rewardIcon}</span>
+                                <span>+ {(task.reward?.amount || 0).toLocaleString()} {rewardIcon}</span>
                             </div>
                             {button}
                         </div>
@@ -460,7 +460,7 @@ const LeaderboardScreen = ({ onClose, getLeaderboard, user }: { onClose: () => v
                      <p className="text-sm text-gray-400">{t('your_league')}</p>
                      <div className="flex items-center space-x-2">
                         {currentLeague?.iconUrl && <img src={currentLeague.iconUrl} alt="" className="w-8 h-8"/>}
-                        <span className="text-lg font-bold">{currentLeague?.name[user.language]}</span>
+                        <span className="text-lg font-bold">{currentLeague?.name?.[user.language]}</span>
                      </div>
                      <p className="text-xs text-gray-500 mt-1">{t('total_players')}: {leaderboardData?.totalPlayers?.toLocaleString() || '...'}</p>
                 </div>
@@ -477,7 +477,7 @@ const LeaderboardScreen = ({ onClose, getLeaderboard, user }: { onClose: () => v
                                         <p className="font-semibold truncate">{player.name}</p>
                                         <p className="text-xs text-gray-400 flex items-center space-x-1">
                                             {player.leagueIconUrl && <img src={player.leagueIconUrl} alt="" className="w-4 h-4 mr-1"/>}
-                                            <span>{player.leagueName[user.language]}</span>
+                                            <span>{player.leagueName?.[user.language]}</span>
                                         </p>
                                     </div>
                                     <div className="text-right">

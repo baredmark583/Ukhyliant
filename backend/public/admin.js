@@ -350,13 +350,28 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const addNewItem = (e) => {
         const { section } = e.target.dataset;
+
+        // Ensure the section array exists before trying to access it.
+        if (!localConfig[section] || !Array.isArray(localConfig[section])) {
+            localConfig[section] = [];
+        }
+
         const newItem = JSON.parse(JSON.stringify(localConfig[section][0] || {}));
         
-        // Create a default structure if the section is empty
+        // Create a default structure if the section was empty
         if (Object.keys(newItem).length === 0) {
             newItem.id = `${section.slice(0, 4)}_${Date.now()}`;
             newItem.name = { en: '', ua: '', ru: '' };
-            if (section === 'tasks' || section === 'specialTasks') {
+            if (section === 'upgrades') {
+                newItem.price = 0;
+                newItem.profitPerHour = 0;
+                newItem.category = 'Documents';
+                newItem.iconUrl = '';
+            } else if (section === 'boosts') {
+                newItem.description = { en: '', ua: '', ru: '' };
+                newItem.costCoins = 0;
+                newItem.iconUrl = '';
+            } else if (section === 'tasks' || section === 'specialTasks') {
                 newItem.type = 'taps';
                 newItem.reward = { type: 'coins', amount: 0 };
                 newItem.imageUrl = '';
@@ -364,6 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 newItem.requiredTaps = 0;
                 newItem.secretCode = '';
             }
+
              if (section === 'specialTasks') {
                  newItem.description = { en: '', ua: '', ru: '' };
                  newItem.priceStars = 0;
@@ -378,6 +394,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (typeof newItem[key] === 'number') newItem[key] = 0;
                 else if (typeof newItem[key] === 'string') newItem[key] = '';
             });
+        }
+        
+        // Ensure some boolean values are set correctly on new/cloned items
+        if (section === 'specialTasks') {
+            newItem.isOneTime = true;
         }
 
         localConfig[section].push(newItem);
@@ -461,23 +482,27 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const init = async () => {
         try {
-            tabContainer.innerHTML = `<div class="flex items-center justify-center h-full"><p class="text-gray-500 animate-pulse">Загрузка данных...</p></div>`;
-            const data = await Promise.all([
-                fetchData('/admin/api/config', 'Не удалось загрузить конфигурацию.'),
-                fetchData('/admin/api/players', 'Не удалось загрузить список игроков.'),
-                fetchData('/admin/api/dashboard-stats', 'Не удалось загрузить статистику.'),
-                fetchData('/admin/api/daily-events', 'Не удалось загрузить события дня.')
-            ]);
-            
-            if (data.some(d => d === null)) return; // Stop if any fetch failed due to auth
+            tabContainer.innerHTML = `<div class="flex items-center justify-center h-full"><p class="text-gray-500 animate-pulse">Загрузка конфигурации...</p></div>`;
+            localConfig = await fetchData('/admin/api/config', 'Не удалось загрузить конфигурацию.');
+            if (!localConfig) return;
 
-            [localConfig, allPlayers, dashboardStats, dailyEvent] = data;
+            tabContainer.innerHTML = `<div class="flex items-center justify-center h-full"><p class="text-gray-500 animate-pulse">Загрузка игроков...</p></div>`;
+            allPlayers = await fetchData('/admin/api/players', 'Не удалось загрузить список игроков.');
+            if (!allPlayers) return;
+
+            tabContainer.innerHTML = `<div class="flex items-center justify-center h-full"><p class="text-gray-500 animate-pulse">Загрузка статистики...</p></div>`;
+            dashboardStats = await fetchData('/admin/api/dashboard-stats', 'Не удалось загрузить статистику.');
+            if (!dashboardStats) return;
+
+            tabContainer.innerHTML = `<div class="flex items-center justify-center h-full"><p class="text-gray-500 animate-pulse">Загрузка событий дня...</p></div>`;
+            dailyEvent = await fetchData('/admin/api/daily-events', 'Не удалось загрузить события дня.');
             
+            // Ensure dailyEvent has a default structure if it's null
             dailyEvent = dailyEvent || { combo_ids: [], cipher_word: '', combo_reward: 5000000, cipher_reward: 1000000 };
             dailyEvent.combo_ids = dailyEvent.combo_ids || [];
             dailyEvent.combo_reward = dailyEvent.combo_reward || 5000000;
             dailyEvent.cipher_reward = dailyEvent.cipher_reward || 1000000;
-
+            
             render();
         } catch (error) {
             tabContainer.innerHTML = `<div class="bg-red-900/50 border border-red-700 p-4 rounded-lg"><p class="text-red-300 font-bold">Критическая ошибка загрузки.</p><p class="text-red-400 text-sm mt-2">${error.message}. Попробуйте обновить страницу.</p></div>`;

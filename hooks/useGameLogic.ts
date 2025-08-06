@@ -194,12 +194,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
 
                 const loginData = await API.login(tgUser, startParam);
                 
-                if (loginData) {
+                if (loginData && loginData.user && loginData.player && loginData.config) {
                     setUser(loginData.user);
                     setPlayerState(loginData.player);
                     setConfig(loginData.config);
                 } else {
-                    throw new Error("Failed to get login data from backend.");
+                    throw new Error("Failed to get complete login data from backend.");
                 }
             } catch (err: any) {
                 console.error("Initialization failed:", err);
@@ -313,13 +313,15 @@ export const useGame = () => {
     
     const allUpgrades = useMemo((): (Upgrade & {level: number})[] => {
         if (!config || !playerState) return [];
-        return config.upgrades.map(u => {
-            const level = playerState.upgrades[u.id] || 0;
+        return (config.upgrades || []).map(u => {
+            const level = playerState.upgrades?.[u.id] || 0;
+            const basePrice = u.price ?? 0;
+            const baseProfit = u.profitPerHour ?? 0;
             return {
                 ...u,
                 level,
-                price: Math.floor(u.price * Math.pow(1.15, level)),
-                profitPerHour: u.profitPerHour * (level > 0 ? Math.pow(1.07, level) : 1),
+                price: Math.floor(basePrice * Math.pow(1.15, level)),
+                profitPerHour: baseProfit * (level > 0 ? Math.pow(1.07, level) : 1),
             };
         });
     }, [playerState, config]);
