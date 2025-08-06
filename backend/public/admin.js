@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -154,29 +153,35 @@ document.addEventListener('DOMContentLoaded', () => {
             options: { responsive: true, maintainAspectRatio: true }
         });
 
-        // Initialize jVectorMap
+        // Initialize jsVectorMap
         const mapData = playerLocations.reduce((acc, loc) => {
             acc[loc.country] = loc.player_count;
             return acc;
         }, {});
-        $('#map-world').vectorMap({
-            map: 'world_mill',
-            backgroundColor: 'transparent',
-            regionStyle: {
-                initial: { fill: '#3A445D' },
-                hover: { fill: '#2A3347' }
-            },
-            series: {
-                regions: [{
-                    values: mapData,
-                    scale: ['#C8EEFF', '#0071A4'],
-                    normalizeFunction: 'polynomial'
-                }]
-            },
-             onRegionTipShow: function(e, el, code){
-                el.html(el.html() + ': ' + (mapData[code] || 0) + ' ' + t('players'));
-            }
-        });
+        
+        const mapEl = document.getElementById('map-world');
+        if (mapEl) {
+            charts.map = new jsVectorMap({
+                selector: '#map-world',
+                map: 'world',
+                backgroundColor: 'transparent',
+                regionStyle: {
+                    initial: { fill: '#3A445D' },
+                    hover: { fill: '#2A3347' }
+                },
+                series: {
+                    regions: [{
+                        values: mapData,
+                        scale: ['#C8EEFF', '#0071A4'],
+                        normalizeFunction: 'polynomial'
+                    }]
+                },
+                onRegionTooltipShow(event, tooltip, code) {
+                    const playerCount = mapData[code] || 0;
+                    tooltip.text(`${tooltip.text()} - ${formatNumber(playerCount)} ${t('players')}`);
+                }
+            });
+        }
     };
 
     const renderDailyEvents = () => {
