@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory } from '../types';
 import { LEAGUES, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -188,6 +189,23 @@ const API = {
         return { error: 'Server connection failed.' };
     }
   },
+  
+  createStarInvoice: async(userId: string, boxType: BoxType): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
+    if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/create-star-invoice`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, boxType }),
+        });
+        const data = await response.json();
+        if (!response.ok) return { ok: false, error: data.error || 'Failed to create invoice.' };
+        return { ok: true, invoiceLink: data.invoiceLink };
+    } catch(e) {
+        console.error("Create invoice API error", e);
+        return { ok: false, error: 'Server connection failed.' };
+    }
+  },
 
   setSkin: async(userId: string, skinId: string): Promise<PlayerState | null> => {
     if (!API_BASE_URL) return null;
@@ -372,7 +390,13 @@ export const useGame = () => {
 
     const allUpgrades = useMemo(() => {
         const regularUpgrades = (config?.upgrades || []).map(u => ({...u, price: Math.floor(u.price * Math.pow(1.15, playerState?.upgrades[u.id] || 0))}));
-        const marketCards = (config?.blackMarketCards || []).filter(c => playerState?.upgrades[c.id]).map(c => ({...c, category: UpgradeCategory.Special, price: Math.floor((c.price || 50000) * Math.pow(1.15, playerState?.upgrades[c.id] || 0))}));
+        const marketCards: (BlackMarketCard & { category: UpgradeCategory, price: number })[] = (config?.blackMarketCards || [])
+          .filter(c => playerState?.upgrades[c.id])
+          .map(c => ({
+              ...c, 
+              category: UpgradeCategory.Special, 
+              price: Math.floor((c.price || 50000) * Math.pow(1.15, playerState?.upgrades[c.id] || 0))
+          }));
         
         const combined = [...regularUpgrades, ...marketCards];
         return combined.map(u => ({...u, level: playerState?.upgrades[u.id] || 0}));
@@ -465,7 +489,7 @@ export const useGame = () => {
 
     const getLeaderboard = useCallback(() => API.getLeaderboard(), []);
     
-    const openLootbox = useCallback(async (boxType: BoxType) => {
+    const openCoinLootbox = useCallback(async (boxType: 'coin') => {
         if (!user) return { error: 'User not found' };
         const result = await API.openLootbox(user.id, boxType);
         if (result.player) {
@@ -473,6 +497,16 @@ export const useGame = () => {
         }
         return result;
     }, [user, setPlayerState]);
+
+    const purchaseLootboxWithStars = useCallback(async (boxType: 'star') => {
+        if (!user) return { error: 'User not found' };
+        const result = await API.createStarInvoice(user.id, boxType);
+        if (result.ok && result.invoiceLink) {
+            window.Telegram.WebApp.openInvoice(result.invoiceLink);
+            return {}; // Success, invoice opened.
+        }
+        return { error: result.error || 'Failed to start payment.' };
+    }, [user]);
 
     const setSkin = useCallback(async (skinId: string) => {
         if (!user) return;
@@ -498,7 +532,8 @@ export const useGame = () => {
         claimDailyCombo,
         claimDailyCipher,
         getLeaderboard,
-        openLootbox,
+        openCoinLootbox,
+        purchaseLootboxWithStars,
         setSkin,
         isTurboActive,
         effectiveMaxEnergy,

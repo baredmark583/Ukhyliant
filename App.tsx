@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider, useGameContext } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -62,7 +63,9 @@ const MainApp: React.FC = () => {
   const { 
       playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, 
       claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask,
-      claimDailyCombo, claimDailyCipher, getLeaderboard, openLootbox, setSkin,
+      claimDailyCombo, claimDailyCipher, getLeaderboard, 
+      openCoinLootbox, purchaseLootboxWithStars, 
+      setSkin,
       isTurboActive, effectiveMaxEnergy
   } = useGame();
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
@@ -198,11 +201,18 @@ const MainApp: React.FC = () => {
     return false;
   };
 
-  const handleOpenLootbox = async (boxType: 'coin' | 'star') => {
-      const result = await openLootbox(boxType);
+  const handleOpenCoinLootbox = async (boxType: 'coin') => {
+      const result = await openCoinLootbox(boxType);
       if(result.wonItem) {
           setLootboxResult(result.wonItem);
       } else if (result.error) {
+          showNotification(result.error, 'error');
+      }
+  };
+  
+  const handlePurchaseStarLootbox = async (boxType: 'star') => {
+      const result = await purchaseLootboxWithStars(boxType);
+      if (result?.error) {
           showNotification(result.error, 'error');
       }
   };
@@ -230,7 +240,7 @@ const MainApp: React.FC = () => {
       case 'airdrop':
         return <AirdropScreen tasks={config.specialTasks} playerState={playerState} onPurchase={purchaseSpecialTask} onComplete={handleClaimTask} lang={user.language} startedVideoTasks={startedVideoTasks}/>;
       case 'market':
-        return <MarketScreen onOpenLootbox={handleOpenLootbox} />;
+        return <MarketScreen onOpenCoinLootbox={handleOpenCoinLootbox} onPurchaseStarLootbox={handlePurchaseStarLootbox} />;
       case 'skins':
         return <SkinsScreen playerState={playerState} skins={config.coinSkins} onSetSkin={handleSetSkin} lang={user.language} />;
       default:
@@ -488,7 +498,7 @@ const AirdropScreen = ({ tasks, playerState, onPurchase, onComplete, lang, start
     );
 };
 
-const MarketScreen = ({ onOpenLootbox }: { onOpenLootbox: (boxType: 'coin' | 'star') => void }) => {
+const MarketScreen = ({ onOpenCoinLootbox, onPurchaseStarLootbox }: { onOpenCoinLootbox: (boxType: 'coin') => void, onPurchaseStarLootbox: (boxType: 'star') => void }) => {
     const t = useTranslation();
     return (
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
@@ -499,7 +509,7 @@ const MarketScreen = ({ onOpenLootbox }: { onOpenLootbox: (boxType: 'coin' | 'st
                 <div className="bg-gray-800 p-6 rounded-lg text-center border-2 border-yellow-500/50">
                     <div className="text-6xl mb-4">📦</div>
                     <h2 className="text-2xl font-bold mb-2">{t('lootbox_coin')}</h2>
-                    <button onClick={() => onOpenLootbox('coin')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
+                    <button onClick={() => onOpenCoinLootbox('coin')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
                         <span>{t('open_for')} {LOOTBOX_COST_COINS.toLocaleString()}</span>
                         <div className="w-6 h-6"><CoinIcon/></div>
                     </button>
@@ -508,7 +518,7 @@ const MarketScreen = ({ onOpenLootbox }: { onOpenLootbox: (boxType: 'coin' | 'st
                 <div className="bg-gray-800 p-6 rounded-lg text-center border-2 border-blue-500/50">
                     <div className="text-6xl mb-4">🌟</div>
                     <h2 className="text-2xl font-bold mb-2">{t('lootbox_star')}</h2>
-                    <button onClick={() => onOpenLootbox('star')} className="w-full bg-blue-500 hover:bg-blue-400 text-white font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
+                    <button onClick={() => onPurchaseStarLootbox('star')} className="w-full bg-blue-500 hover:bg-blue-400 text-white font-bold py-3 px-4 rounded-lg text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
                         <span>{t('open_for')} {LOOTBOX_COST_STARS}</span>
                         <div className="w-6 h-6"><StarIcon/></div>
                     </button>
@@ -520,35 +530,29 @@ const MarketScreen = ({ onOpenLootbox }: { onOpenLootbox: (boxType: 'coin' | 'st
 
 const SkinsScreen = ({ playerState, skins, onSetSkin, lang }: { playerState: PlayerState, skins: CoinSkin[], onSetSkin: (skinId: string) => void, lang: Language }) => {
     const t = useTranslation();
+    const unlockedSkins = (skins || []).filter(skin => playerState.unlockedSkins.includes(skin.id));
+    
     return (
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
             <h1 className="text-3xl font-bold text-center">{t('skins_gallery')}</h1>
             <p className="text-center text-gray-400 mt-2 mb-6 max-w-xs">{t('skins_gallery_desc')}</p>
             <div className="w-full max-w-md grid grid-cols-3 gap-4 overflow-y-auto no-scrollbar">
-                {(skins || []).map(skin => {
-                    const isUnlocked = playerState.unlockedSkins.includes(skin.id);
+                {unlockedSkins.map(skin => {
                     const isSelected = playerState.currentSkinId === skin.id;
                     return (
-                        <div key={skin.id} className={`bg-gray-800 rounded-lg p-3 flex flex-col items-center text-center relative ${!isUnlocked ? 'opacity-50' : ''} ${isSelected ? 'border-2 border-yellow-400' : ''}`}>
+                        <div key={skin.id} className={`bg-gray-800 rounded-lg p-3 flex flex-col items-center text-center ${isSelected ? 'border-2 border-yellow-400' : ''}`}>
                             <div className="w-16 h-16 mb-2 flex items-center justify-center">
                                 <img src={skin.iconUrl} alt={skin.name[lang]} className="w-full h-full object-contain" />
                             </div>
                             <p className="text-xs font-bold leading-tight">{skin.name[lang]}</p>
                             <p className="text-xs text-green-400 mt-1">+{skin.profitBoostPercent}%</p>
-                            {isUnlocked && (
-                                <button
-                                    onClick={() => onSetSkin(skin.id)}
-                                    disabled={isSelected}
-                                    className="w-full mt-2 py-1 text-xs rounded-md font-bold disabled:bg-yellow-500 disabled:text-black bg-blue-600 hover:bg-blue-500 text-white"
-                                >
-                                    {isSelected ? t('selected') : t('select_skin')}
-                                </button>
-                            )}
-                            {!isUnlocked && (
-                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-lg">
-                                    <span className="text-4xl">🔒</span>
-                                </div>
-                            )}
+                            <button
+                                onClick={() => onSetSkin(skin.id)}
+                                disabled={isSelected}
+                                className="w-full mt-2 py-1 text-xs rounded-md font-bold disabled:bg-yellow-500 disabled:text-black bg-blue-600 hover:bg-blue-500 text-white"
+                            >
+                                {isSelected ? t('selected') : t('select_skin')}
+                            </button>
                         </div>
                     );
                 })}

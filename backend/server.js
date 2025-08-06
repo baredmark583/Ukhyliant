@@ -65,6 +65,7 @@ const log = (level, message, data = '') => {
 const app = express();
 const PORT = process.env.PORT || 3001;
 const BOT_TOKEN = process.env.BOT_TOKEN;
+const TELEGRAM_PROVIDER_TOKEN = process.env.TELEGRAM_PROVIDER_TOKEN;
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 let ai;
@@ -224,15 +225,12 @@ app.post('/api/login', async (req, res) => {
             log('info', `Existing user login: ${userId}. Calculating offline progress.`);
 
             // Gracefully handle data structure updates for existing players
-            if (player.unlockedSkins === undefined) {
-                player.unlockedSkins = [DEFAULT_COIN_SKIN_ID];
-            }
-            if (player.currentSkinId === undefined) {
-                player.currentSkinId = DEFAULT_COIN_SKIN_ID;
-            }
-            if (player.referralProfitPerHour === undefined) {
-                player.referralProfitPerHour = 0;
-            }
+            if (player.unlockedSkins === undefined) player.unlockedSkins = [DEFAULT_COIN_SKIN_ID];
+            if (player.currentSkinId === undefined) player.currentSkinId = DEFAULT_COIN_SKIN_ID;
+            if (player.referralProfitPerHour === undefined) player.referralProfitPerHour = 0;
+            if (player.tapGuruLevel === undefined) player.tapGuruLevel = 0;
+            if (player.energyLimitLevel === undefined) player.energyLimitLevel = 0;
+
 
             // Recalculate profitPerHour with referral and skin bonuses before calculating offline earnings
             const [referralProfit, skinProfitBoost] = await Promise.all([
@@ -549,87 +547,74 @@ app.post('/api/action/claim-cipher', async (req, res) => {
     }
 });
 
+const grantLootboxReward = async (userId, boxType, config, player) => {
+    const rewardPool = [
+        ...(config.blackMarketCards || []).filter(c => c.boxType === boxType).map(c => ({ ...c, itemType: 'card' })),
+        ...(config.coinSkins || []).filter(s => s.boxType === boxType && !player.unlockedSkins.includes(s.id)).map(s => ({ ...s, itemType: 'skin' })),
+        { id: 'coins_small', name: {en: 'Small Coin Pouch', ru: 'Малый мешок монет', ua: 'Малий мішок монет'}, itemType: 'coins', amount: LOOTBOX_COST_COINS * 0.5, chance: 40, iconUrl: 'https://api.iconify.design/twemoji/pouch.svg' },
+        { id: 'coins_medium', name: {en: 'Medium Coin Pouch', ru: 'Средний мешок монет', ua: 'Середній мішок монет'}, itemType: 'coins', amount: LOOTBOX_COST_COINS * 1.2, chance: 20, iconUrl: 'https://api.iconify.design/twemoji/pouch.svg' },
+        { id: 'coins_large', name: {en: 'Large Coin Pouch', ru: 'Большой мешок монет', ua: 'Великий мішок монет'}, itemType: 'coins', amount: LOOTBOX_COST_COINS * 2, chance: 5, iconUrl: 'https://api.iconify.design/twemoji/pouch.svg' },
+    ];
+    
+    const totalChance = rewardPool.reduce((sum, item) => sum + (item.chance || 1), 0);
+    let random = Math.random() * totalChance;
+    
+    let wonItem = null;
+    for (const item of rewardPool) {
+        random -= (item.chance || 1);
+        if (random <= 0) {
+            wonItem = item;
+            break;
+        }
+    }
+    
+    if (!wonItem) wonItem = rewardPool.find(i => i.id === 'coins_small');
+
+    switch(wonItem.itemType) {
+        case 'card':
+            player.upgrades[wonItem.id] = (player.upgrades[wonItem.id] || 0) + 1;
+            break;
+        case 'skin':
+            player.unlockedSkins.push(wonItem.id);
+            break;
+        case 'coins':
+            player.balance += wonItem.amount;
+            break;
+    }
+
+    if(wonItem.itemType === 'card' || wonItem.itemType === 'skin') {
+        const baseProfitFromUpgrades = [...config.upgrades, ...config.blackMarketCards].reduce((total, u) => {
+            const level = player.upgrades[u.id] || 0;
+            if (level > 0) return total + (u.profitPerHour * Math.pow(1.07, level-1));
+            return total;
+        }, 0);
+        const baseTotalProfit = baseProfitFromUpgrades + (player.tasksProfitPerHour || 0);
+        const skin = config.coinSkins.find(s => s.id === player.currentSkinId);
+        const skinBoost = skin ? skin.profitBoostPercent / 100 : 0;
+        player.profitPerHour = (baseTotalProfit * (1 + skinBoost)) + (player.referralProfitPerHour || 0);
+    }
+
+    return { player, wonItem };
+};
+
 app.post('/api/action/open-lootbox', async (req, res) => {
     const { userId, boxType } = req.body;
-    log('info', `Lootbox open attempt: User ${userId}, Type ${boxType}`);
+    log('info', `Coin Lootbox open attempt: User ${userId}`);
     try {
+        if (boxType !== 'coin') return res.status(400).json({ error: 'This endpoint is for coin purchases only.' });
+
         const player = await getPlayer(userId);
         const config = await getGameConfig();
         if (!player || !config) return res.status(404).json({ error: 'Player or config not found' });
         
-        const cost = boxType === 'coin' ? LOOTBOX_COST_COINS : LOOTBOX_COST_STARS;
-        if (boxType === 'coin' && player.balance < cost) {
-            return res.status(400).json({ error: 'Insufficient coins' });
-        }
-        // TODO: Implement Telegram Stars payment check
-        if (boxType === 'star') {
-            return res.status(501).json({ error: 'Star payments not implemented yet.' });
-        }
+        if (player.balance < LOOTBOX_COST_COINS) return res.status(400).json({ error: 'Insufficient coins' });
+        player.balance -= LOOTBOX_COST_COINS;
 
-        player.balance -= cost;
+        const { player: updatedPlayer, wonItem } = await grantLootboxReward(userId, boxType, config, player);
 
-        // Ensure unlockedSkins is an array
-        if (!player.unlockedSkins) {
-            player.unlockedSkins = [];
-        }
-
-        // Create a weighted pool of possible rewards
-        const rewardPool = [
-            ...(config.blackMarketCards || []).filter(c => c.boxType === boxType).map(c => ({ ...c, itemType: 'card' })),
-            ...(config.coinSkins || []).filter(s => s.boxType === boxType && !player.unlockedSkins.includes(s.id)).map(s => ({ ...s, itemType: 'skin' })),
-            { id: 'coins_small', name: {en: 'Small Coin Pouch', ru: 'Малый мешок монет', ua: 'Малий мішок монет'}, itemType: 'coins', amount: cost * 0.5, chance: 40 },
-            { id: 'coins_medium', name: {en: 'Medium Coin Pouch', ru: 'Средний мешок монет', ua: 'Середній мішок монет'}, itemType: 'coins', amount: cost * 1.2, chance: 20 },
-            { id: 'coins_large', name: {en: 'Large Coin Pouch', ru: 'Большой мешок монет', ua: 'Великий мішок монет'}, itemType: 'coins', amount: cost * 2, chance: 5 },
-        ];
-        
-        const totalChance = rewardPool.reduce((sum, item) => sum + (item.chance || 1), 0);
-        let random = Math.random() * totalChance;
-        
-        let wonItem = null;
-        for (const item of rewardPool) {
-            random -= (item.chance || 1);
-            if (random <= 0) {
-                wonItem = item;
-                break;
-            }
-        }
-        
-        if (!wonItem) wonItem = rewardPool.find(i => i.id === 'coins_small'); // Fallback
-
-        // Apply reward
-        switch(wonItem.itemType) {
-            case 'card':
-                player.upgrades[wonItem.id] = (player.upgrades[wonItem.id] || 0) + 1;
-                break;
-            case 'skin':
-                player.unlockedSkins.push(wonItem.id);
-                break;
-            case 'coins':
-                player.balance += wonItem.amount;
-                break;
-        }
-
-        // Recalculate profit if a card or skin was won
-         if(wonItem.itemType === 'card' || wonItem.itemType === 'skin') {
-            const baseProfitFromUpgrades = [...config.upgrades, ...config.blackMarketCards].reduce((total, u) => {
-                const level = player.upgrades[u.id] || 0;
-                if (level > 0) {
-                     const profitForThisUpgrade = u.profitPerHour * Math.pow(1.07, level-1);
-                     return total + profitForThisUpgrade;
-                }
-                return total;
-            }, 0);
-            
-            const baseTotalProfit = baseProfitFromUpgrades + (player.tasksProfitPerHour || 0);
-            const skin = config.coinSkins.find(s => s.id === player.currentSkinId);
-            const skinBoost = skin ? skin.profitBoostPercent / 100 : 0;
-            
-            player.profitPerHour = (baseTotalProfit * (1 + skinBoost)) + (player.referralProfitPerHour || 0);
-        }
-
-        await savePlayer(userId, player);
-        log('info', `User ${userId} opened ${boxType} lootbox and won: ${wonItem.id}`);
-        res.json({ player, wonItem });
+        await savePlayer(userId, updatedPlayer);
+        log('info', `User ${userId} opened COIN lootbox and won: ${wonItem.id}`);
+        res.json({ player: updatedPlayer, wonItem });
     } catch (error) {
         log('error', `Lootbox error for User ${userId}, Type ${boxType}:`, error);
         res.status(500).json({ error: "Internal server error during lootbox opening." });
@@ -676,8 +661,77 @@ app.post('/api/action/set-skin', async (req, res) => {
     }
 });
 
-// --- TELEGRAM WEBHOOK ---
-// Webhook logic would go here if needed.
+// --- TELEGRAM PAYMENTS ---
+app.post('/api/create-star-invoice', async (req, res) => {
+    const { userId, boxType } = req.body;
+    if (!BOT_TOKEN || !TELEGRAM_PROVIDER_TOKEN) {
+        log('error', 'Missing BOT_TOKEN or TELEGRAM_PROVIDER_TOKEN for star payment.');
+        return res.status(500).json({ error: 'Payment system is not configured.' });
+    }
+    
+    const payload = JSON.stringify({ userId, boxType, ts: Date.now() });
+    
+    try {
+        const tgResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: 'Star Container',
+                description: 'A container with exclusive rewards!',
+                payload: payload,
+                provider_token: TELEGRAM_PROVIDER_TOKEN,
+                currency: 'XTR',
+                prices: [{ label: 'Star Container', amount: LOOTBOX_COST_STARS }]
+            })
+        });
+        const tgData = await tgResponse.json();
+        if (!tgData.ok) {
+            log('error', 'Telegram API error creating invoice link:', tgData);
+            return res.status(500).json({ error: 'Failed to create payment invoice.' });
+        }
+        res.json({ invoiceLink: tgData.result });
+    } catch (e) {
+        log('error', 'Network error creating invoice link', e);
+        res.status(500).json({ error: 'Server could not contact Telegram.' });
+    }
+});
+
+app.post('/api/telegram-webhook', async (req, res) => {
+    const update = req.body;
+
+    if (update.pre_checkout_query) {
+        log('info', 'Received pre_checkout_query', update.pre_checkout_query.id);
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerPreCheckoutQuery`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pre_checkout_query_id: update.pre_checkout_query.id, ok: true })
+        });
+        return res.sendStatus(200);
+    }
+
+    if (update.message && update.message.successful_payment) {
+        log('info', 'Received successful_payment', update.message.successful_payment.invoice_payload);
+        try {
+            const payload = JSON.parse(update.message.successful_payment.invoice_payload);
+            const { userId, boxType } = payload;
+            
+            const player = await getPlayer(userId);
+            const config = await getGameConfig();
+            if (!player || !config) throw new Error(`Player ${userId} or config not found for webhook payment.`);
+            
+            const { player: updatedPlayer, wonItem } = await grantLootboxReward(userId, boxType, config, player);
+            
+            await savePlayer(userId, updatedPlayer);
+            log('info', `User ${userId} STAR lootbox reward granted: ${wonItem.id}`);
+        } catch(e) {
+            log('error', 'Failed to process successful_payment webhook', e);
+        }
+        return res.sendStatus(200);
+    }
+
+    res.sendStatus(200);
+});
+
 
 // --- ADMIN WEB PANEL ROUTES ---
 app.get('/admin/', isAdminAuthenticated, (req, res) => {
