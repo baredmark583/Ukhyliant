@@ -22,10 +22,10 @@ const formatNumber = (num: number): string => {
 
 const AppContainer: React.FC = () => {
     const { user, isInitializing } = useAuth();
-    const { config } = useGameContext();
     
     if (isInitializing) {
-        return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
+        // Return a simple blank container to avoid flashing the default loading screen
+        return <div className="h-screen w-screen bg-gray-900" />;
     }
 
     if (!user) {
@@ -75,9 +75,20 @@ const MainApp: React.FC = () => {
   const [startedVideoTasks, setStartedVideoTasks] = useState<Set<string>>(new Set());
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [lootboxResult, setLootboxResult] = useState<any>(null);
+  const [isAppReady, setIsAppReady] = useState(false);
 
+  useEffect(() => {
+    // Once MainApp mounts, it means initial data is loaded.
+    // We show the loading screen for a fixed time to display any custom image.
+    const timer = setTimeout(() => {
+        setIsAppReady(true);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
-  if (!user || !playerState || !config) return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
+  if (!isAppReady || !user || !playerState || !config) {
+    return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
+  }
   
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
