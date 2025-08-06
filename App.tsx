@@ -5,7 +5,7 @@ import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
 import { ExchangeIcon, MineIcon, StarIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon, MINI_APP_NAME, LEAGUES, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID, MissionsIcon, ProfileIcon } from './constants';
-import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost } from './types';
+import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin } from './types';
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
 
@@ -69,6 +69,18 @@ const TabButton = ({ label, isActive, onClick }: { label: string, isActive: bool
         {label}
     </button>
 );
+
+interface ProfileScreenProps {
+  playerState: PlayerState;
+  user: User;
+  boosts: Boost[];
+  onBuyBoost: (boost: Boost) => void;
+  lang: Language;
+  skins: CoinSkin[];
+  onSetSkin: (skinId: string) => void;
+  onOpenCoinLootbox: (boxType: 'coin') => void;
+  onPurchaseStarLootbox: (boxType: 'star') => void;
+}
 
 const MainApp: React.FC = () => {
   const { user } = useAuth();
@@ -252,7 +264,7 @@ const MainApp: React.FC = () => {
                     playerState={playerState}
                     user={user}
                     boosts={config.boosts}
-                    onBuyBoost={onBuyBoost}
+                    onBuyBoost={handleBuyBoost}
                     lang={user.language}
                     skins={config.coinSkins}
                     onSetSkin={handleSetSkin}
@@ -423,7 +435,7 @@ const MissionsScreen = ({ tasks, specialTasks, playerState, onClaim, onPurchase,
     );
 };
 
-const ProfileScreen = ({ playerState, user, boosts, onBuyBoost, lang, skins, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox } : any) => {
+const ProfileScreen = ({ playerState, user, boosts, onBuyBoost, lang, skins, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox } : ProfileScreenProps) => {
     const t = useTranslation();
     const [activeTab, setActiveTab] = useState<'friends' | 'boosts' | 'skins' | 'market'>('friends');
     
