@@ -1,3 +1,4 @@
+
 import pg from 'pg';
 import { INITIAL_BOOSTS, INITIAL_SPECIAL_TASKS, INITIAL_TASKS, INITIAL_UPGRADES, REFERRAL_BONUS } from './constants.js';
 
@@ -423,12 +424,28 @@ export const getDashboardStats = async () => {
         LIMIT 5;
     `);
 
+    const registrationsRes = await getDashboardRegistrations();
+
     return {
         totalPlayers: totalPlayersRes.rows[0].count,
         newPlayersToday: newPlayersTodayRes.rows[0].count,
         totalCoins: totalCoinsRes.rows[0].total_coins,
-        popularUpgrades: popularUpgradesRes.rows
+        popularUpgrades: popularUpgradesRes.rows,
+        registrations: registrationsRes
     };
+};
+
+export const getDashboardRegistrations = async () => {
+    const res = await executeQuery(`
+        SELECT 
+            date_trunc('day', created_at)::date as date, 
+            COUNT(*) as count
+        FROM users
+        WHERE created_at >= NOW() - INTERVAL '7 days'
+        GROUP BY 1
+        ORDER BY 1;
+    `);
+    return res.rows.map(r => ({ ...r, count: parseInt(r.count) }));
 };
 
 export const getOnlinePlayerCount = async () => {
@@ -447,6 +464,34 @@ export const getPlayerLocations = async () => {
         ...row,
         player_count: parseInt(row.player_count, 10)
     }));
+};
+
+export const getPlayerDetails = async (id) => {
+    const userRes = await executeQuery('SELECT * FROM users WHERE id = $1', [id]);
+    const playerRes = await executeQuery('SELECT data FROM players WHERE id = $1', [id]);
+    if (!userRes.rows[0] || !playerRes.rows[0]) return null;
+    return { ...userRes.rows[0], ...playerRes.rows[0].data };
+};
+
+export const updatePlayerBalance = async (id, amount) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [id]);
+        if (playerRes.rows.length === 0) {
+            throw new Error('Player not found');
+        }
+        const player = playerRes.rows[0].data;
+        player.balance = (player.balance || 0) + amount;
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, id]);
+        await client.query('COMMIT');
+        return player;
+    } catch(e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
 };
 
 export const resetPlayerDailyProgress = async (userId) => {

@@ -1,3 +1,4 @@
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -33,7 +34,9 @@ import {
     resetPlayerDailyProgress,
     claimDailyTaskReward,
     getLeaderboardData,
-    getTotalPlayerCount
+    getTotalPlayerCount,
+    getPlayerDetails,
+    updatePlayerBalance
 } from './db.js';
 import { ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, MAX_ENERGY, ENERGY_REGEN_RATE, LEAGUES } from './constants.js';
 
@@ -538,6 +541,39 @@ adminApiRouter.delete('/player/:id', async (req, res) => {
         res.json({ message: `Player ${userId} deleted.` });
     } catch (e) {
         log('error', `Failed to delete player ${userId} from admin panel.`, e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+adminApiRouter.get('/player/:id/details', async (req, res) => {
+    const { id } = req.params;
+    log('info', `Admin requesting details for player ${id}`);
+    try {
+        const details = await getPlayerDetails(id);
+        if (details) {
+            res.json(details);
+        } else {
+            res.status(404).json({ error: 'Player not found' });
+        }
+    } catch (e) {
+        log('error', `Failed to get details for player ${id}`, e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+adminApiRouter.post('/player/:id/update-balance', async (req, res) => {
+    const { id } = req.params;
+    const { amount } = req.body;
+    log('info', `Admin updating balance for player ${id} by ${amount}`);
+    try {
+        const numericAmount = parseFloat(amount);
+        if (isNaN(numericAmount)) {
+            return res.status(400).json({ error: 'Invalid amount' });
+        }
+        const updatedPlayer = await updatePlayerBalance(id, numericAmount);
+        res.json(updatedPlayer);
+    } catch (e) {
+        log('error', `Failed to update balance for player ${id}`, e);
         res.status(500).json({ error: 'Server error' });
     }
 });

@@ -1,64 +1,138 @@
 
-<!DOCTYPE html>
-<html lang="ru">
+<!doctype html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Панель администратора</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
+    <title>Ukhyliant Admin</title>
+    <!-- Tabler Core -->
+    <link href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler.min.css" rel="stylesheet"/>
+    <link href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler-flags.min.css" rel="stylesheet"/>
+    <!-- jVectorMap -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jvectormap/2.0.5/jquery-jvectormap.css" type="text/css" media="screen"/>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .tab-button.active {
-            background-color: rgb(59 130 246 / 1); /* bg-blue-600 */
-            color: rgb(255 255 255 / 1);
-        }
-        input, select, textarea {
-            --tw-ring-color: rgb(59 130 246 / 1);
-        }
+        :root { --tblr-font-sans-serif: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; }
+        .page-link { box-shadow: none !important; }
+        .table-responsive { min-height: 400px; }
+        .player-row { cursor: pointer; }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-200">
-    <div id="app-container" class="min-h-screen flex">
-        <!-- Sidebar -->
-        <nav class="w-64 bg-gray-800 p-4 flex flex-col">
-            <h1 class="text-2xl font-bold text-white mb-8">Ukhyliant Админ</h1>
-            <div class="flex flex-col space-y-2">
-                <button data-tab="dashboard" class="tab-button w-full text-left px-4 py-2 rounded-lg font-semibold transition-colors hover:bg-gray-700">Дашборд</button>
-                <button data-tab="players" class="tab-button w-full text-left px-4 py-2 rounded-lg font-semibold transition-colors hover:bg-gray-700">Игроки</button>
-                <hr class="border-gray-700 my-2">
-                <h2 class="px-4 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase">Игровые События</h2>
-                <button data-tab="dailyEvents" class="tab-button w-full text-left px-4 py-2 rounded-lg font-semibold transition-colors hover:bg-gray-700">События Дня</button>
-                <button data-tab="special" class="tab-button w-full text-left px-4 py-2 rounded-lg font-semibold transition-colors hover:bg-gray-700">Спец. Задания</button>
-                <hr class="border-gray-700 my-2">
-                <h2 class="px-4 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase">Конфигурация</h2>
-                <button data-tab="upgrades" class="tab-button w-full text-left px-4 py-2 rounded-lg font-semibold transition-colors hover:bg-gray-700">Улучшения</button>
-                <button data-tab="tasks" class="tab-button w-full text-left px-4 py-2 rounded-lg font-semibold transition-colors hover:bg-gray-700">Ежедневные Задания</button>
-                <button data-tab="boosts" class="tab-button w-full text-left px-4 py-2 rounded-lg font-semibold transition-colors hover:bg-gray-700">Бусты</button>
+<body>
+<div class="page">
+    <!-- Sidebar -->
+    <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+        <div class="container-fluid">
+            <h1 class="navbar-brand navbar-brand-autodark">
+                <a href="#">Ukhyliant Admin</a>
+            </h1>
+            <div class="collapse navbar-collapse" id="sidebar-menu">
+                <ul class="navbar-nav pt-lg-3">
+                    <li class="nav-item">
+                        <a class="nav-link tab-button" href="#dashboard" data-tab="dashboard">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l-2 0l9 -9l9 9l-2 0" /><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /><path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></svg>
+                            </span>
+                            <span class="nav-link-title" data-translate="nav_dashboard">Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link tab-button" href="#players" data-tab="players">
+                             <span class="nav-link-icon d-md-none d-lg-inline-block">
+                               <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-users" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /><path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /><path d="M21 21v-2a4 4 0 0 0 -3 -3.85" /></svg>
+                            </span>
+                            <span class="nav-link-title" data-translate="nav_players">Players</span>
+                        </a>
+                    </li>
+                     <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#navbar-events" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="false" >
+                           <span class="nav-link-icon d-md-none d-lg-inline-block">
+                               <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-event" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M16 3l0 4" /><path d="M8 3l0 4" /><path d="M4 11l16 0" /><path d="M8 15h2v2h-2z" /></svg>
+                           </span>
+                           <span class="nav-link-title" data-translate="nav_game_events">Game Events</span>
+                        </a>
+                        <div class="dropdown-menu">
+                             <a class="dropdown-item tab-button" href="#dailyEvents" data-tab="dailyEvents" data-translate="nav_daily_events">Daily Events</a>
+                             <a class="dropdown-item tab-button" href="#specialTasks" data-tab="specialTasks" data-translate="nav_special_tasks">Special Tasks</a>
+                        </div>
+                    </li>
+                     <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#navbar-config" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="false" >
+                           <span class="nav-link-icon d-md-none d-lg-inline-block">
+                               <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-settings" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /></svg>
+                           </span>
+                           <span class="nav-link-title" data-translate="nav_configuration">Configuration</span>
+                        </a>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item tab-button" href="#upgrades" data-tab="upgrades" data-translate="nav_upgrades">Upgrades</a>
+                            <a class="dropdown-item tab-button" href="#tasks" data-tab="tasks" data-translate="nav_daily_tasks">Daily Tasks</a>
+                            <a class="dropdown-item tab-button" href="#boosts" data-tab="boosts" data-translate="nav_boosts">Boosts</a>
+                        </div>
+                    </li>
+                </ul>
             </div>
-            <div class="mt-auto">
-                <a href="/admin/logout" class="w-full text-center block px-4 py-2 rounded-lg font-semibold transition-colors bg-red-800/50 hover:bg-red-700">Выйти</a>
-            </div>
-        </nav>
-
-        <!-- Main Content -->
-        <main class="flex-1 p-8 overflow-y-auto">
-            <header class="flex justify-between items-center mb-6">
-                <h2 id="tab-title" class="text-3xl font-bold text-white">Дашборд</h2>
-                <button id="save-main-button" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded-lg text-lg transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">
-                    Сохранить все изменения
-                </button>
-            </header>
-            <div id="tab-content-container" class="bg-gray-800 p-6 rounded-lg min-h-[75vh]">
-                <!-- Content will be injected by admin.js -->
-                <div class="flex items-center justify-center h-full">
-                    <p class="text-gray-500 animate-pulse">Загрузка данных...</p>
+        </div>
+    </aside>
+    <!-- Header -->
+    <header class="navbar navbar-expand-md d-none d-lg-flex d-print-none" >
+        <div class="container-xl">
+            <div class="navbar-nav flex-row order-md-last">
+                <div class="nav-item dropdown">
+                    <a href="#" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" aria-label="Open user menu">
+                        <span id="lang-switcher-flag" class="flag flag-country-us"></span>
+                    </a>
+                    <div id="lang-menu" class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+                        <a href="#" class="dropdown-item lang-select-btn" data-lang="en"><span class="flag flag-country-us me-2"></span> English</a>
+                        <a href="#" class="dropdown-item lang-select-btn" data-lang="ru"><span class="flag flag-country-ru me-2"></span> Русский</a>
+                    </div>
+                </div>
+                <div class="nav-item">
+                    <a href="/admin/logout" class="nav-link" >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-logout" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /><path d="M9 12h12l-3 -3" /><path d="M18 15l3 -3" /></svg>
+                        <span data-translate="logout">Logout</span>
+                    </a>
                 </div>
             </div>
-        </main>
+            <div class="collapse navbar-collapse" id="navbar-menu">
+            </div>
+        </div>
+    </header>
+    <div class="page-wrapper">
+        <!-- Page header -->
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <h2 class="page-title" id="tab-title" data-translate="dashboard">Dashboard</h2>
+                    </div>
+                    <div class="col-auto ms-auto d-print-none">
+                         <button id="save-main-button" class="btn btn-success d-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M14 4l0 4l-6 0l0 -4" /></svg>
+                            <span data-translate="save_all_changes">Save All Changes</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Page body -->
+        <div class="page-body">
+            <div class="container-xl" id="tab-content-container">
+                <div class="d-flex justify-content-center align-items-center" style="min-height: 50vh;">
+                    <div class="spinner-border" role="status"></div>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <script src="/admin/admin.js"></script>
+</div>
+<div id="modals-container"></div>
+<!-- Libs -->
+<script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/js/tabler.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jvectormap/2.0.5/jquery-jvectormap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jvectormap/2.0.5/maps/jquery-jvectormap-world-mill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- App -->
+<script src="/admin/locales.js"></script>
+<script src="/admin/admin.js"></script>
 </body>
 </html>
