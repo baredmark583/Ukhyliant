@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider, useGameContext } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -17,6 +18,16 @@ const formatNumber = (num: number): string => {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
   return num.toLocaleString('en-US');
+};
+
+const useWindowSize = () => {
+  const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+  useEffect(() => {
+    const handleResize = () => setSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  return size;
 };
 
 const AppContainer: React.FC = () => {
@@ -83,7 +94,7 @@ interface ProfileScreenProps {
 }
 
 const MainApp: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isGlitching, setIsGlitching } = useAuth();
   const { 
       playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, 
       claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask,
@@ -100,11 +111,19 @@ const MainApp: React.FC = () => {
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [lootboxResult, setLootboxResult] = useState<any>(null);
   const [isAppReady, setIsAppReady] = useState(false);
+  const { height: windowHeight } = useWindowSize();
 
   useEffect(() => {
     const timer = setTimeout(() => setIsAppReady(true), 1500);
     return () => clearTimeout(timer);
   }, []);
+  
+  const topSectionHeight = 100;
+  const bottomNavHeight = 70;
+  const progressBarHeight = 40;
+  const verticalPadding = 30;
+  const availableHeight = windowHeight - topSectionHeight - bottomNavHeight - progressBarHeight - verticalPadding;
+  const clickerSize = Math.max(200, Math.min(availableHeight, 288));
 
   if (!isAppReady || !user || !playerState || !config) {
     return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
@@ -246,7 +265,7 @@ const MainApp: React.FC = () => {
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} clickerSize={clickerSize} />;
       case 'mine':
         return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} />;
       case 'missions':
@@ -272,9 +291,27 @@ const MainApp: React.FC = () => {
                     onPurchaseStarLootbox={handlePurchaseStarLootbox}
                 />;
       default:
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} clickerSize={clickerSize} />;
     }
   };
+  
+  const LanguageGlitchModal = () => (
+    <>
+        <div className="glitch-effect">
+            <div className="glitch-noise"></div>
+        </div>
+        <div className="glitch-modal themed-container p-6 text-center border-2 border-red-500/50 w-80">
+            <h2 className="text-2xl font-display mb-4 text-red-400">ПОМИЛКА</h2>
+            <p className="text-xl text-white mb-6">чому не державною?</p>
+            <button 
+                onClick={() => setIsGlitching(false)}
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2"
+            >
+                OK
+            </button>
+        </div>
+    </>
+  );
 
   const NavItem = ({ screen, label, icon }: { screen: Screen, label: string, icon: React.ReactNode}) => (
     <button
@@ -300,6 +337,7 @@ const MainApp: React.FC = () => {
         }} />
       }
       {lootboxResult && <LootboxResultModal item={lootboxResult} onClose={() => setLootboxResult(null)} lang={user.language} />}
+      {isGlitching && <LanguageGlitchModal />}
       <NotificationToast notification={notification} />
 
       <div className="fixed bottom-0 left-0 right-0 bg-black/50 backdrop-blur-md border-t border-[var(--border-color)]">

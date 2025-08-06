@@ -225,6 +225,8 @@ interface AuthContextType {
   logout: () => void;
   switchLanguage: (lang: Language) => void;
   isInitializing: boolean;
+  isGlitching: boolean;
+  setIsGlitching: React.Dispatch<React.SetStateAction<boolean>>;
 }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -244,6 +246,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
     const [playerState, setPlayerState] = useState<PlayerState | null>(null);
     const [config, setConfig] = useState<GameConfig | null>(null);
     const [isInitializing, setIsInitializing] = useState(true);
+    const [isGlitching, setIsGlitching] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -279,6 +282,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
 
     const switchLanguage = async (lang: Language) => {
         if (user) {
+            if (lang === 'ua' && user.language !== 'ua') {
+                setIsGlitching(true);
+            }
             setUser({ ...user, language: lang }); // Optimistic update
             await API.updateUserLanguage(user.id, lang);
         }
@@ -299,7 +305,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
         user,
         logout,
         switchLanguage,
-        isInitializing
+        isInitializing,
+        isGlitching,
+        setIsGlitching
     };
 
     const gameContextValue: GameContextType = {

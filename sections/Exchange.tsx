@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language, GameConfig } from '../types';
@@ -20,6 +21,7 @@ interface ExchangeProps {
   onOpenLeaderboard: () => void;
   isTurboActive: boolean;
   effectiveMaxEnergy: number;
+  clickerSize: number;
 }
 
 const formatNumber = (num: number): string => {
@@ -44,7 +46,7 @@ interface ClickFx {
   xOffset: number;
 }
 
-const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy }) => {
+const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, clickerSize }) => {
   const t = useTranslation();
   const { balance, profitPerHour, energy } = playerState;
   const [clicks, setClicks] = useState<ClickFx[]>([]);
@@ -196,7 +198,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
       {/* Clicker Area */}
       <div 
-        className="relative w-64 h-64 md:w-72 md:h-72 my-auto cursor-pointer select-none"
+        className="relative my-auto cursor-pointer select-none"
+        style={{ width: `${clickerSize}px`, height: `${clickerSize}px` }}
         onMouseDown={handlePressStart}
         onMouseUp={handlePressEnd}
         onTouchStart={handlePressStart}
