@@ -131,16 +131,23 @@ const MainApp: React.FC = () => {
             return;
         } else {
             // Second click: Show prompt for code entry
-            // The showPrompt function expects a string message, not an object with buttons.
-            const promptMessage = `${task.name?.[user.language]}\n${t('enter_secret_code')}`;
-            window.Telegram.WebApp.showPrompt(promptMessage, async (enteredCode) => {
+            
+            // Define an async function to handle the logic after code is entered.
+            // This decouples the async logic from the direct callback.
+            const processEnteredCode = async (code: string) => {
+                if ('isOneTime' in task) { // Special task
+                    await handleCompleteSpecialTask(task, code);
+                } else { // Daily task
+                    await handleClaimDailyTaskReward(task, code);
+                }
+            };
+
+            // Use a simple message for the prompt to avoid issues with special characters.
+            window.Telegram.WebApp.showPrompt(t('enter_secret_code'), (enteredCode) => {
                 // The callback receives the entered text, or null if cancelled.
-                if (enteredCode !== null) {
-                    if ('isOneTime' in task) { // Special task
-                        await handleCompleteSpecialTask(task, enteredCode);
-                    } else { // Daily task
-                        await handleClaimDailyTaskReward(task, enteredCode);
-                    }
+                const trimmedCode = enteredCode?.trim();
+                if (trimmedCode) {
+                    processEnteredCode(trimmedCode);
                 }
             });
             return; // Stop further execution, as claim is handled in the callback.
