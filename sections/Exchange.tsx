@@ -10,7 +10,9 @@ import { useTranslation, useAuth, useGameContext } from '../hooks/useGameLogic';
 
 const MORSE_CODE_MAP: { [key: string]: string } = {
     'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--', 'Z': '--..',
-    '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.', '0': '-----'
+    '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.', '0': '-----',
+    // Russian Morse Code
+    'А': '.-', 'Б': '-...', 'В': '.--', 'Г': '--.', 'Д': '-..', 'Е': '.', 'Ж': '...-', 'З': '--..', 'И': '..', 'Й': '.---', 'К': '-.-', 'Л': '.-..', 'М': '--', 'Н': '-.', 'О': '---', 'П': '.--.', 'Р': '.-.', 'С': '...', 'Т': '-', 'У': '..-', 'Ф': '..-.', 'Х': '....', 'Ц': '-.-.', 'Ч': '---.', 'Ш': '----', 'Щ': '--.-', 'Ы': '-.--', 'Ь': '-..-', 'Э': '..-..', 'Ю': '..--', 'Я': '.-.-'
 };
 
 interface ExchangeProps {
@@ -63,8 +65,14 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const lastClickPos = useRef({ x: 0, y: 0 });
   const lastTapTime = useRef(0);
 
-  const dailyCipherWord = (config.dailyEvent?.cipherWord || '').toUpperCase();
-  const dailyCipherMorseTarget = dailyCipherWord.split('').map(letter => MORSE_CODE_MAP[letter]).join('');
+  const dailyCipherWord = (config.dailyEvent?.cipherWord || '');
+  const dailyCipherMorseTarget = dailyCipherWord
+    .toUpperCase()
+    .split('')
+    .filter(letter => MORSE_CODE_MAP[letter] !== undefined) // Keep only valid mappable characters
+    .map(letter => MORSE_CODE_MAP[letter])
+    .join('');
+    
   const claimedCipher = playerState.claimedCipherToday;
 
   const currentSkin = config.coinSkins.find(s => s.id === playerState.currentSkinId) || config.coinSkins.find(s => s.id === DEFAULT_COIN_SKIN_ID);

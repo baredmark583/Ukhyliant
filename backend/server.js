@@ -1,4 +1,5 @@
 
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -49,7 +50,6 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const FRONTEND_ROOT = path.resolve(__dirname, '..');
 
 // --- Simple Logger ---
 const log = (level, message, data = '') => {
@@ -72,8 +72,9 @@ app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(express.static(FRONTEND_ROOT)); // Serve frontend from root
-app.use(express.static(path.join(__dirname, 'public'))); // Serve admin files
+
+// Serve admin files under the /admin route. These files are inside the backend directory.
+app.use('/admin', express.static(path.join(__dirname, 'public')));
 
 // Session middleware
 const PgStore = connectPgSimple(session);
@@ -205,6 +206,12 @@ app.post('/api/login', async (req, res) => {
             }
         }
         
+        // Transform user object for the client
+        if (user) {
+            user.referrerId = user.referrer_id;
+            delete user.referrer_id;
+        }
+        
         if (!player) {
              const baseProfitFromReferrals = await getReferredUsersProfit(userId);
              const referralProfitPerHour = Math.floor(baseProfitFromReferrals * REFERRAL_PROFIT_SHARE);
@@ -253,7 +260,18 @@ app.post('/api/login', async (req, res) => {
         
         // Fetch daily event for today
         const today = new Date().toISOString().split('T')[0];
-        const dailyEventData = await getDailyEvent(today);
+        let dailyEventData = await getDailyEvent(today);
+
+        // Manually map snake_case from DB to camelCase for the client
+        if (dailyEventData) {
+            dailyEventData = {
+                // combo_ids is already expected as snake_case by the frontend
+                combo_ids: dailyEventData.combo_ids, 
+                cipherWord: dailyEventData.cipher_word,
+                comboReward: dailyEventData.combo_reward,
+                cipherReward: dailyEventData.cipher_reward,
+            }
+        }
 
         res.json({ user, player, config: { ...config, dailyEvent: dailyEventData } });
 
@@ -696,15 +714,6 @@ app.post('/admin/api/player/:id/reset-progress', checkAdminAuth, async (req, res
     res.sendStatus(200);
 });
 
-
-// Fallback to serve the main app
-app.get('*', (req, res) => {
-    if (req.path.startsWith('/admin')) {
-        res.redirect('/admin/admin.html');
-    } else {
-        res.sendFile(path.join(FRONTEND_ROOT, 'index.html'));
-    }
-});
 
 // --- SERVER START ---
 (async () => {

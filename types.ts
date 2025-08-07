@@ -109,6 +109,8 @@ export interface SpecialTask {
 export interface DailyEvent {
     combo_ids: string[];
     cipherWord: string;
+    comboReward: number;
+    cipherReward: number;
 }
 
 export interface UiIcons {
