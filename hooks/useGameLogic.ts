@@ -1,8 +1,8 @@
 
 
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
-import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory } from '../types';
-import { LEAGUES, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
+import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League } from '../types';
+import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
 
 declare global {
   interface Window {
@@ -412,9 +412,10 @@ export const useGame = () => {
     }, [config?.upgrades, config?.blackMarketCards, playerState?.upgrades]);
 
     const currentLeague = useMemo(() => {
-        const balance = playerState?.balance || 0;
-        return LEAGUES.find(l => balance >= l.minBalance) || LEAGUES[LEAGUES.length - 1];
-    }, [playerState?.balance]);
+        const profit = playerState?.profitPerHour || 0;
+        const sortedLeagues = [...(config?.leagues || [])].sort((a, b) => b.minProfitPerHour - a.minProfitPerHour);
+        return sortedLeagues.find(l => profit >= l.minProfitPerHour) || sortedLeagues[sortedLeagues.length - 1] || null;
+    }, [playerState?.profitPerHour, config?.leagues]);
 
     const handleTap = useCallback(() => {
         if (!playerState || playerState.energy <= 0) return 0;

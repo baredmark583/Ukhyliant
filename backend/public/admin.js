@@ -10,6 +10,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentLang = localStorage.getItem('adminLang') || 'ru';
     let charts = {}; // To hold chart instances
 
+    // --- CONFIG META (for dynamic table rendering) ---
+    const configMeta = {
+        leagues: { title: 'leagues', cols: ['id', 'name', 'description', 'minProfitPerHour', 'iconUrl'] },
+        upgrades: { title: 'upgrades', cols: ['id', 'name', 'price', 'profitPerHour', 'category', 'iconUrl'] },
+        tasks: { title: 'tasks', cols: ['id', 'name', 'type', 'reward', 'requiredTaps', 'url', 'secretCode', 'imageUrl'] },
+        specialTasks: { title: 'specialTasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'url', 'secretCode', 'imageUrl'] },
+        blackMarketCards: { title: 'blackMarketCards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'iconUrl'] },
+        coinSkins: { title: 'coinSkins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'iconUrl'] }
+    };
+
     // --- DOM ELEMENTS ---
     const tabContainer = document.getElementById('tab-content-container');
     const tabTitle = document.getElementById('tab-title');
@@ -21,7 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- UTILS ---
     const escapeHtml = (unsafe) => {
-        if (typeof unsafe !== 'string' && typeof unsafe !== 'number') return unsafe || '';
+        if (unsafe === null || unsafe === undefined) return '';
+        if (typeof unsafe !== 'string' && typeof unsafe !== 'number') return unsafe;
         return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     };
 
@@ -78,13 +89,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tabTitle.dataset.translate = activeTab;
 
-        const configTabs = ['upgrades', 'tasks', 'specialTasks', 'dailyEvents', 'boosts', 'blackMarketCards', 'coinSkins'];
+        const configTabs = ['upgrades', 'tasks', 'specialTasks', 'dailyEvents', 'boosts', 'blackMarketCards', 'coinSkins', 'leagues'];
         saveMainButton.classList.toggle('d-none', !configTabs.includes(activeTab));
 
         switch (activeTab) {
             case 'dashboard': renderDashboard(); break;
             case 'players': renderPlayersTab(); break;
             case 'dailyEvents': renderDailyEvents(); break;
+            case 'leagues': renderConfigTable('leagues'); break;
             case 'specialTasks': renderConfigTable('specialTasks'); break;
             case 'upgrades': renderConfigTable('upgrades'); break;
             case 'tasks': renderConfigTable('tasks'); break;
@@ -350,13 +362,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderConfigTable = (configKey) => {
         const items = localConfig[configKey] || [];
-        const configMeta = {
-            upgrades: { title: 'upgrades', cols: ['id', 'name', 'price', 'profitPerHour', 'category', 'iconUrl'] },
-            tasks: { title: 'tasks', cols: ['id', 'name', 'type', 'reward', 'requiredTaps', 'url', 'secretCode', 'imageUrl'] },
-            specialTasks: { title: 'specialTasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'url', 'secretCode', 'imageUrl'] },
-            blackMarketCards: { title: 'blackMarketCards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'iconUrl'] },
-            coinSkins: { title: 'coinSkins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'iconUrl'] }
-        };
         const meta = configMeta[configKey];
 
         const renderCell = (item, col) => {
@@ -556,6 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
             button.addEventListener('click', e => {
                 e.preventDefault();
                 activeTab = e.currentTarget.dataset.tab;
+                history.pushState(null, '', `#${activeTab}`);
                 render();
             });
         });
@@ -582,7 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Config table input changes
         document.querySelectorAll('#tab-content-container input, #tab-content-container select, #tab-content-container textarea').forEach(input => {
             input.addEventListener('change', e => {
-                const { id, field, lang } = e.target.dataset;
+                const { id, field } = e.target.dataset;
                 const value = e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value;
                 const configKey = activeTab;
 
@@ -620,204 +626,213 @@ document.addEventListener('DOMContentLoaded', () => {
         saveMainButton.addEventListener('click', handleSave);
 
         // Add/Delete/Translate/Upload/Download buttons
-        document.querySelectorAll('.add-new-btn').forEach(btn => btn.addEventListener('click', handleAddNew));
-        document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', e => handleDelete(e.currentTarget.dataset.id)));
-        document.querySelectorAll('.translate-btn').forEach(btn => btn.addEventListener('click', e => handleTranslate(e.currentTarget)));
-        document.querySelectorAll('.upload-config-input').forEach(input => input.addEventListener('change', handleUploadConfig));
-        document.querySelectorAll('.download-config-btn').forEach(btn => btn.addEventListener('click', handleDownloadConfig));
+        document.querySelectorAll('.add-new-btn').forEach(btn => btn.addEventListener('click', e => {
+            const configKey = activeTab;
+            if(!localConfig[configKey]) localConfig[configKey] = [];
+            
+            const newItem = { id: `new_${configKey}_${Date.now()}` };
+            const meta = configMeta[configKey];
+            const sampleItem = localConfig[configKey]?.[0] || {};
+        
+            meta.cols.forEach(col => {
+                if (col === 'id') return;
+                const sampleValue = sampleItem[col];
+        
+                if (col === 'name' || col === 'description') {
+                    newItem[col] = { en: '', ru: '' };
+                } else if (col === 'reward') {
+                    newItem[col] = { type: 'coins', amount: 0 };
+                } else if (typeof sampleValue === 'number') {
+                    newItem[col] = 0;
+                } else if (typeof sampleValue === 'boolean') {
+                    newItem[col] = false;
+                } else {
+                    newItem[col] = '';
+                }
+            });
+            localConfig[configKey].push(newItem);
+            render();
+        }));
 
-        // Lang switcher
+        document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', e => {
+            if (confirm(t('confirm_delete'))) {
+                const id = e.currentTarget.dataset.id;
+                const configKey = activeTab;
+                localConfig[configKey] = localConfig[configKey].filter(item => item.id !== id);
+                render();
+            }
+        }));
+
+        document.querySelectorAll('.translate-btn').forEach(btn => btn.addEventListener('click', async e => {
+            const { id, field } = e.currentTarget.dataset;
+            const item = localConfig[activeTab].find(i => i.id === id);
+            if (!item) return;
+
+            const sourceLang = item[field].en ? 'en' : 'ru';
+            const sourceText = item[field][sourceLang];
+            if (!sourceText) {
+                alert(t('enter_text_to_translate'));
+                return;
+            }
+
+            const targetLang = sourceLang === 'en' ? 'ru' : 'en';
+            
+            e.currentTarget.disabled = true;
+            try {
+                const response = await postApi('/admin/api/translate', { text: sourceText, from: sourceLang, to: targetLang });
+                if (response.ok) {
+                    const data = await response.json();
+                    item[field][targetLang] = data.translatedText;
+                    render();
+                } else {
+                    alert(t('translation_error'));
+                }
+            } catch(err) {
+                 alert(t('translation_error'));
+            } finally {
+                e.currentTarget.disabled = false;
+            }
+        }));
+        
+        document.querySelectorAll('.download-config-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                const configKey = e.currentTarget.dataset.configKey;
+                const data = JSON.stringify(localConfig[configKey], null, 2);
+                const blob = new Blob([data], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${configKey}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        });
+
+        document.querySelectorAll('.upload-config-input').forEach(input => {
+            input.addEventListener('change', e => {
+                const file = e.target.files[0];
+                if (file) {
+                    if(!confirm(t('confirm_upload'))) return;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const data = JSON.parse(event.target.result);
+                            const configKey = e.target.dataset.configKey;
+                            localConfig[configKey] = data;
+                            render();
+                        } catch (err) {
+                            alert('Invalid JSON file.');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            });
+        });
+        
         document.querySelectorAll('.lang-select-btn').forEach(btn => {
             btn.addEventListener('click', e => {
                 e.preventDefault();
                 currentLang = e.currentTarget.dataset.lang;
                 localStorage.setItem('adminLang', currentLang);
-                init(); // Re-fetch data and re-render
+                applyTranslations();
+                if(activeTab === 'dashboard') render();
             });
         });
     }
 
-    // --- HANDLERS ---
-    const handleSave = async () => {
+    // --- API & SAVE FUNCTIONS ---
+    async function handleSave() {
         saveMainButton.disabled = true;
-        saveMainButton.querySelector('span').textContent = t('saving');
-
-        // Validate daily combo before saving
-        if(activeTab === 'dailyEvents'){
-            const uniqueIds = new Set(dailyEvent.combo_ids.filter(id => id));
-            if(uniqueIds.size !== 3){
-                alert(t('error_3_unique_cards'));
-                saveMainButton.disabled = false;
-                saveMainButton.querySelector('span').textContent = t('save_all_changes');
-                return;
-            }
-        }
-
+        const originalText = saveMainButton.innerHTML;
+        saveMainButton.innerHTML = `<div class="spinner-border spinner-border-sm" role="status"></div><span class="ms-2">${t('saving')}</span>`;
+        
         try {
-            await Promise.all([
-                postApi('/admin/api/config', { config: localConfig }),
-                postApi('/admin/api/daily-events', dailyEvent)
-            ]);
-            // Re-fetch data after saving to ensure consistency
-            await init();
+            if (activeTab === 'dailyEvents') {
+                if (new Set(dailyEvent.combo_ids.filter(id => id)).size !== 3) {
+                     alert(t('error_3_unique_cards'));
+                     return;
+                }
+                await postApi('/admin/api/daily-events', dailyEvent);
+            } else {
+                 await postApi('/admin/api/config', { config: localConfig });
+            }
+            alert('Saved successfully!');
         } catch (e) {
-            console.error('Save failed:', e);
-            alert('Save failed!');
+            alert('Error saving data.');
+            console.error(e);
         } finally {
             saveMainButton.disabled = false;
-            saveMainButton.querySelector('span').textContent = t('save_all_changes');
+            saveMainButton.innerHTML = originalText;
+            applyTranslations();
         }
-    };
-
-    const handleAddNew = () => {
-        const configKey = activeTab;
-        const newItem = { id: `${configKey.slice(0, 4)}_${Date.now()}` };
-        // Populate with default structure based on configKey
-        const firstItem = localConfig[configKey]?.[0];
-        if (firstItem) {
-            Object.keys(firstItem).forEach(key => {
-                if (key === 'id') return;
-                const value = firstItem[key];
-                if (typeof value === 'string') newItem[key] = '';
-                else if (typeof value === 'number') newItem[key] = 0;
-                else if (typeof value === 'object' && value !== null) {
-                    newItem[key] = {};
-                    Object.keys(value).forEach(subKey => {
-                       newItem[key][subKey] = typeof value[subKey] === 'number' ? 0 : '';
-                    });
-                }
-            });
-        }
-        localConfig[configKey].push(newItem);
-        render();
-    };
+    }
     
-    const handleDelete = (id) => {
-        showConfirmationModal(t('confirm_delete'), () => {
-            const configKey = activeTab;
-            localConfig[configKey] = localConfig[configKey].filter(item => item.id !== id);
-            render();
-        });
-    };
-    
-    const handleTranslate = async (button) => {
-        const { id, field } = button.dataset;
-        const row = button.closest('tr');
-        const sourceInput = row.querySelector(`[data-id="${id}"][data-field="${field}.en"]`);
-        const targetInput = row.querySelector(`[data-id="${id}"][data-field="${field}.ru"]`);
-        
-        if (!sourceInput.value) {
-            alert(t('enter_text_to_translate'));
-            return;
-        }
-
-        button.classList.add('btn-loading');
+    async function fetchApi(url, options = {}) {
         try {
-            const { translatedText } = await postApi('/admin/api/translate', { text: sourceInput.value, from: 'en', to: 'ru' });
-            if (translatedText) {
-                targetInput.value = translatedText;
-                // Manually trigger change event to update local state
-                targetInput.dispatchEvent(new Event('change', { bubbles: true }));
-            } else {
-                 alert(t('translation_error'));
+            const response = await fetch(url, options);
+            if (response.status === 401) {
+                window.location.href = '/admin/login.html';
+                throw new Error('Unauthorized');
             }
-        } catch(e) {
-             alert(t('translation_error'));
-        } finally {
-            button.classList.remove('btn-loading');
-        }
-    };
-    
-    const handleUploadConfig = (e) => {
-        showConfirmationModal(t('confirm_upload'), () => {
-            const file = e.target.files[0];
-            const configKey = e.target.dataset.configKey;
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const uploadedData = JSON.parse(event.target.result);
-                        if (Array.isArray(uploadedData)) {
-                            localConfig[configKey] = uploadedData;
-                            render();
-                        }
-                    } catch (err) {
-                        alert('Invalid JSON file.');
-                    }
-                };
-                reader.readAsText(file);
+            if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
+                return response.json();
             }
-        });
-    };
-
-    const handleDownloadConfig = (e) => {
-        const configKey = e.currentTarget.dataset.configKey;
-        const data = localConfig[configKey];
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", `${configKey}.json`);
-        document.body.appendChild(downloadAnchorNode);
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
-    };
-
-    // --- API HELPERS ---
-    const fetchApi = async (url, options = {}) => {
-        const response = await fetch(url, options);
-        if (response.status === 401) {
-            window.location.href = '/admin/login.html';
-            throw new Error('Unauthorized');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response;
+        } catch (error) {
+            console.error(`Fetch API failed for ${url}:`, error);
+            throw error;
         }
-        if (response.ok) {
-            return response.json();
-        }
-        throw new Error(`API call failed: ${response.statusText}`);
-    };
+    }
 
-    const postApi = async (url, body) => {
-        return await fetch(url, {
+    async function postApi(url, data) {
+        return fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+            body: JSON.stringify(data),
         });
-    };
+    }
 
     // --- INITIALIZATION ---
-    const init = async () => {
+    async function init() {
         showLoading();
         applyTranslations();
         try {
-            const [configData, playersData, statsData, locationsData, eventsData] = await Promise.all([
+            const [config, players, stats, locations, events] = await Promise.all([
                 fetchApi('/admin/api/config'),
                 fetchApi('/admin/api/players'),
                 fetchApi('/admin/api/dashboard-stats'),
                 fetchApi('/admin/api/player-locations'),
                 fetchApi('/admin/api/daily-events')
             ]);
-            localConfig = configData;
-            allPlayers = playersData;
-            dashboardStats = statsData;
-            playerLocations = locationsData;
-            if (eventsData) { // Handle case where no event is set for today
-                 dailyEvent = {
-                    combo_ids: eventsData.combo_ids || [],
-                    cipher_word: eventsData.cipher_word || '',
-                    combo_reward: eventsData.combo_reward || 5000000,
-                    cipher_reward: eventsData.cipher_reward || 1000000,
-                 };
-            }
-           
-            // Determine active tab from URL hash or default to dashboard
-            activeTab = window.location.hash.substring(1) || 'dashboard';
+            localConfig = config;
+            allPlayers = players;
+            dashboardStats = stats;
+            playerLocations = locations;
+            if(events) dailyEvent = { ...dailyEvent, ...events };
+
+            const hash = window.location.hash.substring(1);
+            if (hash) activeTab = hash;
+            
             render();
+
         } catch (error) {
-            console.error('Initialization failed:', error);
+            console.error("Initialization failed", error);
             if (error.message !== 'Unauthorized') {
-                 tabContainer.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+                tabContainer.innerHTML = `<div class="alert alert-danger" data-translate="error_loading_data">${t('error_loading_data')}</div>`;
             }
         }
-    };
+    }
+
+    window.addEventListener('hashchange', () => {
+        const hash = window.location.hash.substring(1);
+        if (hash) {
+            activeTab = hash;
+            render();
+        }
+    });
 
     init();
 });

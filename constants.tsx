@@ -36,13 +36,6 @@ export const CoinIcon = () => <img src={COIN_ICON_URL} alt="coin" className="w-f
 
 
 // --- GAME CONFIGURATION ---
-export const LEAGUES: League[] = [
-  { name: { en: 'In The City', ua: 'В місті', ru: 'В городе' }, minBalance: 0, iconUrl: 'https://api.iconify.design/twemoji/passport-control.svg' },
-  { name: { en: 'Grandma\'s Village', ua: 'В селі у бабці', ru: 'В деревне у бабушки' }, minBalance: 50000, iconUrl: 'https://api.iconify.design/twemoji/briefcase.svg' },
-  { name: { en: 'Across the Tisza', ua: 'Переплив Тису', ru: 'Переплыл Тиссу' }, minBalance: 1000000, iconUrl: 'https://api.iconify.design/twemoji/european-castle.svg' },
-  { name: { en: 'European Baron', ua: 'Європейський Барон', ru: 'Европейский Барон' }, minBalance: 50000000, iconUrl: 'https://api.iconify.design/twemoji/crown.svg' },
-].reverse();
-
 export const INITIAL_UPGRADES: Upgrade[] = [
     { id: 'doc1', name: { en: 'Student ID', ua: 'Студентський квиток', ru: 'Студенческий билет' }, price: 100, profitPerHour: 10, category: UpgradeCategory.Documents, iconUrl: 'https://api.iconify.design/twemoji/graduation-cap.svg' },
     { id: 'doc2', name: { en: 'Disability Certificate', ua: 'Довідка про інвалідність', ru: 'Справка об инвалидности' }, price: 1500, profitPerHour: 80, category: UpgradeCategory.Documents, iconUrl: 'https://api.iconify.design/twemoji/wheelchair-symbol.svg' },
@@ -409,6 +402,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     energy_limit: 'Лимит Энергии',
     turbo_mode: 'Турбо-режим',
     full_energy: 'Полная Энергия',
+
     boost_purchased: 'Буст приобретён!',
     market: 'Рынок',
     skins: 'Скины',

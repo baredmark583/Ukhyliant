@@ -1,4 +1,5 @@
 
+
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -8,7 +9,8 @@ import {
     REFERRAL_BONUS, 
     INITIAL_BLACK_MARKET_CARDS, 
     INITIAL_COIN_SKINS,
-    DEFAULT_COIN_SKIN_ID
+    DEFAULT_COIN_SKIN_ID,
+    INITIAL_LEAGUES
 } from './constants.js';
 
 const { Pool } = pg;
@@ -104,6 +106,7 @@ export const initializeDb = async () => {
             specialTasks: INITIAL_SPECIAL_TASKS,
             blackMarketCards: INITIAL_BLACK_MARKET_CARDS,
             coinSkins: INITIAL_COIN_SKINS,
+            leagues: INITIAL_LEAGUES,
             loadingScreenImageUrl: '',
         };
         await saveConfig(initialConfig);
@@ -115,9 +118,11 @@ export const initializeDb = async () => {
         if (!config.blackMarketCards) { config.blackMarketCards = INITIAL_BLACK_MARKET_CARDS; needsUpdate = true; }
         if (!config.coinSkins) { config.coinSkins = INITIAL_COIN_SKINS; needsUpdate = true; }
         if (config.loadingScreenImageUrl === undefined) { config.loadingScreenImageUrl = ''; needsUpdate = true; }
+        if (!config.leagues) { config.leagues = INITIAL_LEAGUES; needsUpdate = true; }
+        
         if (needsUpdate) {
             await saveConfig(config);
-            console.log("Updated existing game config with new fields (skins, market, loading image).");
+            console.log("Updated existing game config with new fields (skins, market, loading image, leagues).");
         }
     }
 };
@@ -558,7 +563,7 @@ export const resetPlayerDailyProgress = async (userId) => {
 
 export const getLeaderboardData = async () => {
     const res = await executeQuery(`
-        SELECT u.id, u.name, p.data->>'profitPerHour' as "profitPerHour", p.data->>'balance' as "balance"
+        SELECT u.id, u.name, p.data->>'profitPerHour' as "profitPerHour"
         FROM users u
         JOIN players p ON u.id = p.id
         ORDER BY (p.data->>'profitPerHour')::numeric DESC
@@ -566,8 +571,7 @@ export const getLeaderboardData = async () => {
     `);
     return res.rows.map(row => ({
         ...row,
-        profitPerHour: parseFloat(row.profitPerHour),
-        balance: parseFloat(row.balance)
+        profitPerHour: parseFloat(row.profitPerHour || 0),
     }));
 };
 

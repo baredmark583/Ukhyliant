@@ -13,7 +13,7 @@ const MORSE_CODE_MAP: { [key: string]: string } = {
 
 interface ExchangeProps {
   playerState: PlayerState;
-  currentLeague: League;
+  currentLeague: League | null;
   onTap: () => number;
   user: User;
   onClaimCipher: (cipher: string) => Promise<boolean>;
@@ -150,21 +150,24 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
   return (
     <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
-      {/* Top Section: League Icon & Profit/hr */}
-      <div className="w-full flex justify-between items-start">
-        <button onClick={onOpenLeaderboard} className="themed-container flex flex-col items-center p-2 w-20 h-20 justify-center">
-            <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-12 h-12" />
-        </button>
-        <div className="flex-grow flex items-center justify-between themed-container p-2 mx-2">
-            <div className="flex flex-col items-start">
+      {/* Top Section: League, Profit/hr, Language */}
+       <div className="w-full flex items-center justify-between themed-container p-2 text-center">
+            <button onClick={onOpenLeaderboard} className="flex-1 flex flex-col items-center justify-center p-1 text-center transition-opacity hover:opacity-80">
+                {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-10 h-10 mb-1" />}
+                <span className="text-xs text-gray-300">{t('league')}</span>
+            </button>
+
+            <div className="flex-1 flex flex-col items-center border-x border-gray-700/50">
                 <span className="text-xs text-gray-400">{t('profit_per_hour')}</span>
                 <span className="font-bold text-green-400 text-lg">+{formatProfit(profitPerHour)}</span>
             </div>
-            <button onClick={handleSwitchLanguage} className="border border-gray-700 hover:border-gray-500 text-white p-2 font-bold w-10 h-10 flex items-center justify-center text-sm">
-                {user.language.toUpperCase()}
-            </button>
+
+            <div className="flex-1 flex items-center justify-center">
+                 <button onClick={handleSwitchLanguage} className="border border-gray-700 hover:border-gray-500 text-white font-bold w-12 h-12 flex items-center justify-center text-sm transition-colors">
+                    {user.language.toUpperCase()}
+                </button>
+            </div>
         </div>
-      </div>
 
       {/* Balance */}
       <div className="flex items-center justify-center space-x-2 my-2">

@@ -5,8 +5,8 @@ import { useGame, useAuth, useTranslation, AuthProvider, useGameContext } from '
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
-import { ExchangeIcon, MineIcon, StarIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon, MINI_APP_NAME, LEAGUES, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID, MissionsIcon, ProfileIcon } from './constants';
-import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin } from './types';
+import { ExchangeIcon, MineIcon, StarIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon, MINI_APP_NAME, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID, MissionsIcon, ProfileIcon } from './constants';
+import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League } from './types';
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
 
@@ -329,7 +329,7 @@ const MainApp: React.FC = () => {
         {renderScreen()}
       </div>
       
-      {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} />}
+      {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
       {secretCodeTask && <SecretCodeModal task={secretCodeTask} lang={user.language} onClose={() => setSecretCodeTask(null)} onSubmit={(code) => {
           if ('isOneTime' in secretCodeTask) handleCompleteSpecialTask(secretCodeTask, code);
           else handleClaimDailyTaskReward(secretCodeTask, code);
@@ -586,12 +586,10 @@ const ProfileScreen = ({ playerState, user, boosts, onBuyBoost, lang, skins, onS
     );
 };
 
-const LeaderboardScreen = ({ onClose, getLeaderboard, user }: { onClose: () => void, getLeaderboard: () => Promise<{topPlayers: LeaderboardPlayer[], totalPlayers: number} | null>, user: User }) => {
+const LeaderboardScreen = ({ onClose, getLeaderboard, user, currentLeague }: { onClose: () => void, getLeaderboard: () => Promise<{topPlayers: LeaderboardPlayer[], totalPlayers: number} | null>, user: User, currentLeague: League | null }) => {
     const [leaderboardData, setLeaderboardData] = useState<{topPlayers: LeaderboardPlayer[], totalPlayers: number} | null>(null);
     const [loading, setLoading] = useState(true);
     const t = useTranslation();
-    const { playerState } = useGameContext();
-    const currentLeague = LEAGUES.find(l => (playerState?.balance || 0) >= l.minBalance);
 
     useEffect(() => {
         const fetchData = async () => {

@@ -18,8 +18,10 @@ export interface User {
 }
 
 export interface League {
+  id: string;
   name: LocalizedString;
-  minBalance: number;
+  description: LocalizedString;
+  minProfitPerHour: number;
   iconUrl: string;
 }
 
@@ -115,6 +117,7 @@ export interface GameConfig {
     specialTasks: SpecialTask[];
     blackMarketCards: BlackMarketCard[];
     coinSkins: CoinSkin[];
+    leagues: League[];
     dailyEvent: DailyEvent | null;
     loadingScreenImageUrl?: string;
 }

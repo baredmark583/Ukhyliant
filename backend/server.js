@@ -41,7 +41,7 @@ import {
     getReferredUsersProfit
 } from './db.js';
 import { 
-    ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, LEAGUES, INITIAL_BOOSTS,
+    ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, INITIAL_BOOSTS,
     REFERRAL_PROFIT_SHARE, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID, INITIAL_UPGRADES, INITIAL_BLACK_MARKET_CARDS, INITIAL_COIN_SKINS
 } from './constants.js';
 
@@ -303,6 +303,7 @@ app.post('/api/login', async (req, res) => {
         finalConfig.specialTasks = finalConfig.specialTasks || [];
         finalConfig.blackMarketCards = finalConfig.blackMarketCards || [];
         finalConfig.coinSkins = finalConfig.coinSkins || [];
+        finalConfig.leagues = finalConfig.leagues || [];
 
         log('info', `Login successful for ${userId}. Sending sanitized config.`);
         res.json({ user: userWithRole, player, config: finalConfig });
@@ -347,13 +348,17 @@ app.post('/api/user/:id/language', async (req, res) => {
 
 app.get('/api/leaderboard', async (req, res) => {
     try {
-        const [topPlayers, totalPlayers] = await Promise.all([
+        const [topPlayers, totalPlayers, config] = await Promise.all([
             getLeaderboardData(),
-            getTotalPlayerCount()
+            getTotalPlayerCount(),
+            getGameConfig()
         ]);
+        
+        const sortedLeagues = [...(config.leagues || [])].sort((a, b) => b.minProfitPerHour - a.minProfitPerHour);
+
         const playersWithLeagues = topPlayers.map(p => {
-            const balance = p.balance || 0;
-            const league = LEAGUES.find(l => balance >= l.minBalance) || LEAGUES[LEAGUES.length - 1];
+            const profit = p.profitPerHour || 0;
+            const league = sortedLeagues.find(l => profit >= l.minProfitPerHour) || sortedLeagues[sortedLeagues.length - 1];
             return {
                 id: p.id,
                 name: p.name,
