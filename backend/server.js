@@ -49,6 +49,7 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const FRONTEND_ROOT = path.resolve(__dirname, '..');
 
 // --- Simple Logger ---
 const log = (level, message, data = '') => {
@@ -71,7 +72,7 @@ app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, '../'))); // Serve frontend from root
+app.use(express.static(FRONTEND_ROOT)); // Serve frontend from root
 app.use(express.static(path.join(__dirname, 'public'))); // Serve admin files
 
 // Session middleware
@@ -701,7 +702,7 @@ app.get('*', (req, res) => {
     if (req.path.startsWith('/admin')) {
         res.redirect('/admin/admin.html');
     } else {
-        res.sendFile(path.join(__dirname, '../', 'index.html'));
+        res.sendFile(path.join(FRONTEND_ROOT, 'index.html'));
     }
 });
 
