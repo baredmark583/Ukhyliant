@@ -19,7 +19,7 @@ export interface User {
 }
 
 export interface League {
-  id: string;
+  id:string;
   name: LocalizedString;
   description: LocalizedString;
   minProfitPerHour: number;
@@ -107,7 +107,7 @@ export interface SpecialTask {
 }
 
 export interface DailyEvent {
-    comboIds: string[];
+    combo_ids: string[];
     cipherWord: string;
 }
 

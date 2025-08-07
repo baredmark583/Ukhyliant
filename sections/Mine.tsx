@@ -18,9 +18,9 @@ interface MineProps {
 const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'onClaimCombo' | 'upgrades' | 'lang'>> =
   ({ playerState, config, onClaimCombo, upgrades, lang }) => {
   const t = useTranslation();
-  const comboIds = config.dailyEvent?.comboIds || [];
+  const combo_ids = config.dailyEvent?.combo_ids || [];
 
-  if (!config.dailyEvent || comboIds.length !== 3) {
+  if (!config.dailyEvent || combo_ids.length !== 3) {
       return (
         <div className="mb-6 p-4 bg-green-900/20 border border-green-500/50 text-center">
             <h2 className="text-xl font-display text-green-300 mb-2">{t('daily_combo')}</h2>
@@ -30,7 +30,7 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
   }
 
   const upgradedCardsToday = playerState.dailyUpgrades || [];
-  const allComboCardsUpgradedToday = comboIds.every(id => upgradedCardsToday.includes(id));
+  const allComboCardsUpgradedToday = combo_ids.every(id => upgradedCardsToday.includes(id));
   const isClaimed = playerState.claimedComboToday;
 
   return (
@@ -38,7 +38,7 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
       <h2 className="text-xl font-display text-center text-green-300 mb-2">{t('daily_combo')}</h2>
       <p className="text-center text-gray-300 text-sm mb-4">{t('find_cards')}</p>
       <div className="flex justify-around items-center mb-4">
-        {comboIds.map((id, index) => {
+        {combo_ids.map((id, index) => {
           const isUpgradedToday = upgradedCardsToday.includes(id);
           const upgrade = upgrades.find(u => u.id === id);
           return (
