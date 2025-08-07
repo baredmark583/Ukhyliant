@@ -1,4 +1,5 @@
 
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -18,7 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
         specialTasks: { title: 'specialTasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'url', 'secretCode', 'imageUrl'] },
         blackMarketCards: { title: 'blackMarketCards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'iconUrl'] },
         coinSkins: { title: 'coinSkins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'iconUrl'] },
-        uiIcons: { title: 'ui_icons' }
+        uiIcons: { title: 'ui_icons' },
+        socials: { title: 'socials_config' },
     };
 
     // --- DOM ELEMENTS ---
@@ -90,8 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tabTitle.dataset.translate = activeTab;
 
-        const configTabs = ['upgrades', 'tasks', 'specialTasks', 'dailyEvents', 'boosts', 'blackMarketCards', 'coinSkins', 'leagues', 'uiIcons'];
-        saveMainButton.classList.toggle('d-none', !configTabs.includes(activeTab));
+        const configTabs = ['upgrades', 'tasks', 'specialTasks', 'dailyEvents', 'boosts', 'blackMarketCards', 'coinSkins', 'leagues', 'uiIcons', 'socials'];
+        saveMainButton.classList.toggle('d-none', !(configTabs.includes(activeTab) || activeTab === 'dashboard'));
 
         switch (activeTab) {
             case 'dashboard': renderDashboard(); break;
@@ -105,6 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'blackMarketCards': renderConfigTable('blackMarketCards'); break;
             case 'coinSkins': renderConfigTable('coinSkins'); break;
             case 'uiIcons': renderUiIcons(); break;
+            case 'socials': renderSocialsConfig(); break;
             default: renderDashboard();
         }
         applyTranslations();
@@ -113,52 +116,78 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- RENDER FUNCTIONS ---
     const renderDashboard = () => {
-        tabContainer.innerHTML = `
-            <div class="row row-deck row-cards">
-                <!-- Stats Cards -->
-                <div class="col-sm-6 col-lg-3"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="total_players"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.totalPlayers)}</div></div></div></div>
-                <div class="col-sm-6 col-lg-3"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="new_players_24h"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.newPlayersToday)}</div></div></div></div>
-                <div class="col-sm-6 col-lg-3"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="online_now"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.onlineNow)}</div></div></div></div>
-                <div class="col-sm-6 col-lg-3"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="total_coins_in_game"></div></div><div class="h1 mb-3 text-green">${formatNumber(dashboardStats.totalCoins)}</div></div></div></div>
-                
-                <!-- Charts -->
-                 <div class="col-lg-6">
-                    <div class="card">
-                        <div class="card-body">
-                            <h3 class="card-title" data-translate="new_users_last_7_days"></h3>
-                            <canvas id="chart-registrations" height="175"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <div class="card">
-                        <div class="card-body">
-                           <h3 class="card-title" data-translate="top_5_upgrades"></h3>
-                           <canvas id="chart-upgrades" height="175"></canvas>
-                        </div>
-                    </div>
-                </div>
+        const socialStats = dashboardStats.socialStats || {};
+        const socialConfig = localConfig.socials || {};
 
-                 <!-- General Settings -->
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header"><h3 class="card-title" data-translate="general_settings"></h3></div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label class="form-label" data-translate="loading_screen_image_url"></label>
-                                <input type="text" class="form-control" id="loading-screen-url-input" value="${escapeHtml(localConfig.loadingScreenImageUrl || '')}">
-                                <div class="form-text" data-translate="loading_screen_image_url_desc"></div>
+        const socialStatCards = [
+            { key: 'telegram_subs', label: 'social_telegram_subs', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-telegram" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 10l-4 4l6 6l4 -16l-18 7l4 2l2 6l3 -4" /></svg>', value: socialStats.telegram_subs, url: socialConfig.telegramUrl },
+            { key: 'youtube_subs', label: 'social_youtube_subs', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-youtube" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M2 8a4 4 0 0 1 4 -4h12a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-12a4 4 0 0 1 -4 -4v-8z" /><path d="M10 9l5 3l-5 3z" /></svg>', value: socialStats.youtube_subs, url: socialConfig.youtubeUrl },
+            { key: 'youtube_views', label: 'social_youtube_views', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-eye" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6s-6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6s6.6 2 9 6" /></svg>', value: socialStats.youtube_views, url: socialConfig.youtubeUrl },
+        ].map(s => {
+            const linkAttributes = s.url ? `href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer"` : 'href="#"';
+            return `
+            <div class="col">
+                <a ${linkAttributes} class="card card-sm social-stat-card" data-social-key="${s.key}">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <span class="text-white avatar">${s.icon}</span>
+                            </div>
+                            <div class="col">
+                                <div class="font-weight-medium">${formatNumber(s.value || 0)}</div>
+                                <div class="text-secondary" data-translate="${s.label}"></div>
                             </div>
                         </div>
                     </div>
-                </div>
+                </a>
+            </div>
+        `}).join('');
 
-                <!-- Map -->
-                <div class="col-12">
+        tabContainer.innerHTML = `
+            <div class="row row-deck row-cards">
+                <!-- Stats Cards -->
+                <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="total_players"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.totalPlayers)}</div></div></div></div>
+                <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="new_players_24h"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.newPlayersToday)}</div></div></div></div>
+                <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="online_now"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.onlineNow)}</div></div></div></div>
+                <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="total_coins_in_game"></div></div><div class="h1 mb-3 text-green">${formatNumber(dashboardStats.totalCoins)}</div></div></div></div>
+                <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="earned_stars"></div></div><div class="h1 mb-3 text-yellow">${formatNumber(dashboardStats.totalStarsEarned)}</div></div></div></div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header"><h3 class="card-title" data-translate="social_stats"></h3></div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        ${socialStatCards}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row row-cards mt-4">
+                <div class="col-lg-5">
+                    <div class="card mb-3">
+                        <div class="card-body" style="padding: 1rem;">
+                           <label class="form-label" data-translate="loading_screen_image_url"></label>
+                           <input type="text" class="form-control" id="loading-screen-url-input" value="${escapeHtml(localConfig.loadingScreenImageUrl || '')}">
+                        </div>
+                    </div>
                     <div class="card">
                         <div class="card-body">
                             <h3 class="card-title" data-translate="player_map"></h3>
-                            <div id="map-world" style="height: 350px;"></div>
+                            <div id="map-world" style="height: 250px;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-7">
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h3 class="card-title" data-translate="new_users_last_7_days"></h3>
+                            <canvas id="chart-registrations" style="height: 120px;"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">
+                           <h3 class="card-title" data-translate="top_5_upgrades"></h3>
+                           <canvas id="chart-upgrades" style="height: 120px;"></canvas>
                         </div>
                     </div>
                 </div>
@@ -174,21 +203,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         charts.upgrades = new Chart(document.getElementById('chart-upgrades'), {
             type: 'bar',
-            data: { labels: upgradeNames, datasets: [{ label: t('purchases'), data: upgradeCounts }] },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: true }
+            data: { labels: upgradeNames, datasets: [{ label: t('purchases'), data: upgradeCounts, backgroundColor: '#206bc4' }] },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
 
         const regDates = (dashboardStats.registrations || []).map(r => new Date(r.date).toLocaleDateString(currentLang));
         const regCounts = (dashboardStats.registrations || []).map(r => r.count);
         charts.registrations = new Chart(document.getElementById('chart-registrations'), {
             type: 'line',
-            data: { labels: regDates, datasets: [{ label: t('new_players_24h'), data: regCounts, tension: 0.1, pointRadius: 4 }] },
-            options: { responsive: true, maintainAspectRatio: true }
+            data: { labels: regDates, datasets: [{ label: t('new_players_24h'), data: regCounts, tension: 0.1, pointRadius: 4, borderColor: '#2fb344', backgroundColor: '#2fb344' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
 
         // Initialize jsVectorMap
         const mapData = (playerLocations || []).reduce((acc, loc) => {
-            if (loc.country) { // Ensure country code is not null/empty
+            if (loc.country) {
                 acc[loc.country] = loc.player_count;
             }
             return acc;
@@ -287,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </thead>
                     <tbody id="players-table-body">
                         ${playersToRender.map(p => `
-                            <tr class="player-row" data-id="${escapeHtml(p.id)}" data-name="${escapeHtml(p.name?.toLowerCase())}">
+                            <tr class="player-row" data-id="${escapeHtml(p.id)}" data-name="${escapeHtml(p.name?.toLowerCase() ?? '')}">
                                 <td>${escapeHtml(p.id)}</td>
                                 <td>${escapeHtml(p.name)}</td>
                                 <td>${formatNumber(p.balance)}</td>
@@ -459,6 +488,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     { key: 'coin', label: 'icon_coin' },
                     { key: 'star', label: 'icon_star' }
                 ]
+            },
+            {
+                title: 'icon_group_market',
+                icons: [
+                    { key: 'marketCoinBox', label: 'icon_market_coin_box' },
+                    { key: 'marketStarBox', label: 'icon_market_star_box' }
+                ]
             }
         ];
 
@@ -490,6 +526,43 @@ document.addEventListener('DOMContentLoaded', () => {
                     `).join('')}
                 </div>
             </div>`;
+    };
+
+    const renderSocialsConfig = () => {
+        const socials = localConfig.socials || {};
+        tabContainer.innerHTML = `
+        <div class="card">
+            <div class="card-header"><h3 class="card-title" data-translate="socials_config"></h3></div>
+            <div class="card-body">
+                <fieldset class="form-fieldset">
+                    <legend>YouTube</legend>
+                    <div class="mb-3">
+                        <label class="form-label" data-translate="youtube_channel_url"></label>
+                        <input type="text" class="form-control" data-field="socials.youtubeUrl" value="${escapeHtml(socials.youtubeUrl || '')}" placeholder="https://www.youtube.com/channel/...">
+                        <div class="form-text" data-translate="youtube_channel_url_desc"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" data-translate="youtube_channel_id"></label>
+                        <input type="text" class="form-control" data-field="socials.youtubeChannelId" value="${escapeHtml(socials.youtubeChannelId || '')}">
+                        <div class="form-text" data-translate="youtube_channel_id_desc"></div>
+                    </div>
+                </fieldset>
+                <fieldset class="form-fieldset mt-4">
+                    <legend>Telegram</legend>
+                     <div class="mb-3">
+                        <label class="form-label" data-translate="telegram_channel_url"></label>
+                        <input type="text" class="form-control" data-field="socials.telegramUrl" value="${escapeHtml(socials.telegramUrl || '')}" placeholder="https://t.me/yourchannel">
+                         <div class="form-text" data-translate="telegram_channel_url_desc"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" data-translate="telegram_channel_id"></label>
+                        <input type="text" class="form-control" data-field="socials.telegramChannelId" value="${escapeHtml(socials.telegramChannelId || '')}">
+                        <div class="form-text" data-translate="telegram_channel_id_desc"></div>
+                    </div>
+                </fieldset>
+            </div>
+        </div>
+        `;
     };
 
     // --- MODALS ---
@@ -571,7 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     };
-
+    
     const showConfirmationModal = (message, onConfirm) => {
         const modalId = `confirm-modal-${Date.now()}`;
         const modalHtml = `
@@ -625,7 +698,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (playerSearch) {
             playerSearch.addEventListener('input', e => {
                 const searchTerm = e.target.value.toLowerCase();
-                const filtered = allPlayers.filter(p => p.id.includes(searchTerm) || p.name?.toLowerCase().includes(searchTerm));
+                const filtered = allPlayers.filter(p => p.id.includes(searchTerm) || (p.name && p.name.toLowerCase().includes(searchTerm)));
                 renderPlayersTab(filtered);
             });
         }
@@ -643,8 +716,16 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('#tab-content-container input, #tab-content-container select, #tab-content-container textarea').forEach(input => {
             input.addEventListener('change', e => {
                 const { id, field } = e.target.dataset;
-                const value = e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value;
+                let value = e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value;
+                if (isNaN(value) && e.target.type === 'number') value = 0;
                 const configKey = activeTab;
+                
+                if (field && field.startsWith('socials.')) {
+                    const key = field.split('.')[1];
+                    if (!localConfig.socials) localConfig.socials = {};
+                    localConfig.socials[key] = value;
+                    return;
+                }
                 
                 if (configKey === 'uiIcons' && field) {
                     const fieldParts = field.split('.');
@@ -688,6 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('[data-event="combo"]').forEach(select => {
             select.addEventListener('change', e => {
                 const index = parseInt(e.target.dataset.index);
+                if (!dailyEvent.combo_ids) dailyEvent.combo_ids = [];
                 dailyEvent.combo_ids[index] = e.target.value;
             });
         });
@@ -822,7 +904,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             if (activeTab === 'dailyEvents') {
-                if (new Set(dailyEvent.combo_ids.filter(id => id)).size !== 3) {
+                if (dailyEvent.combo_ids && new Set(dailyEvent.combo_ids.filter(id => id)).size !== 3) {
                      alert(t('error_3_unique_cards'));
                      return;
                 }
@@ -830,9 +912,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                  await postApi('/admin/api/config', { config: localConfig });
             }
-            alert('Saved successfully!');
+            alert(t('save_success'));
         } catch (e) {
-            alert('Error saving data.');
+            alert(t('save_error'));
             console.error(e);
         } finally {
             saveMainButton.disabled = false;

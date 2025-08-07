@@ -66,6 +66,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const TELEGRAM_PROVIDER_TOKEN = process.env.TELEGRAM_PROVIDER_TOKEN;
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 let ai;
@@ -772,14 +773,78 @@ app.get('/admin/logout', (req, res) => {
 const adminApiRouter = express.Router();
 adminApiRouter.use(isAdminAuthenticated); // Protect all routes in this router
 
+// --- Social Stats Fetching with Cache ---
+const socialStatsCache = {
+    data: null,
+    timestamp: 0,
+};
+
+const fetchSocialStats = async (config) => {
+    const CACHE_DURATION = 3600 * 1000; // 1 hour
+    if (Date.now() - socialStatsCache.timestamp < CACHE_DURATION && socialStatsCache.data) {
+        log('info', 'Returning social stats from cache.');
+        return socialStatsCache.data;
+    }
+
+    log('info', 'Fetching fresh social stats.');
+    const socials = config.socials || {};
+    const { youtubeChannelId, telegramChannelId } = socials;
+
+    let stats = {
+        youtube_subs: 0,
+        youtube_views: 0,
+        telegram_subs: 0
+    };
+
+    // Fetch YouTube Stats
+    if (YOUTUBE_API_KEY && youtubeChannelId) {
+        try {
+            const ytUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${youtubeChannelId}&key=${YOUTUBE_API_KEY}`;
+            const ytResponse = await fetch(ytUrl);
+            const ytData = await ytResponse.json();
+            const channelStats = ytData?.items?.[0]?.statistics;
+            if (channelStats) {
+                stats.youtube_subs = parseInt(channelStats.subscriberCount, 10) || 0;
+                stats.youtube_views = parseInt(channelStats.viewCount, 10) || 0;
+                log('info', `YouTube stats fetched for ${youtubeChannelId}`, channelStats);
+            }
+        } catch (e) {
+            log('error', 'Failed to fetch YouTube stats', e);
+        }
+    }
+
+    // Fetch Telegram Stats
+    if (BOT_TOKEN && telegramChannelId) {
+        try {
+            const tgUrl = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMembersCount?chat_id=${telegramChannelId}`;
+            const tgResponse = await fetch(tgUrl);
+            const tgData = await tgResponse.json();
+            if (tgData.ok) {
+                stats.telegram_subs = tgData.result || 0;
+                log('info', `Telegram stats fetched for ${telegramChannelId}`, { count: tgData.result });
+            }
+        } catch (e) {
+            log('error', 'Failed to fetch Telegram stats', e);
+        }
+    }
+    
+    socialStatsCache.data = stats;
+    socialStatsCache.timestamp = Date.now();
+    
+    return stats;
+};
+
+
 adminApiRouter.get('/dashboard-stats', async (req, res) => {
     log('info', 'Admin request: /api/dashboard-stats');
     try {
-        const [stats, onlineNow] = await Promise.all([
+        const [dbStats, onlineNow, config] = await Promise.all([
             getDashboardStats(),
-            getOnlinePlayerCount()
+            getOnlinePlayerCount(),
+            getGameConfig()
         ]);
-        const fullStats = { ...stats, onlineNow };
+        const socialStats = await fetchSocialStats(config);
+        const fullStats = { ...dbStats, onlineNow, socialStats };
         log('info', 'Raw dashboard stats from DB:', fullStats);
         res.json(fullStats);
     } catch(e) {
@@ -977,9 +1042,12 @@ app.use('/admin/api', adminApiRouter);
 // --- SERVER INITIALIZATION ---
 const startServer = async () => {
     try {
-        if (!process.env.SESSION_SECRET || !process.env.ADMIN_PASSWORD || !process.env.DATABASE_URL) {
-            log("error", "FATAL ERROR: Missing required environment variables (SESSION_SECRET, ADMIN_PASSWORD, DATABASE_URL).");
+        if (!process.env.SESSION_SECRET || !process.env.ADMIN_PASSWORD || !process.env.DATABASE_URL || !process.env.BOT_TOKEN) {
+            log("error", "FATAL ERROR: Missing required environment variables (SESSION_SECRET, ADMIN_PASSWORD, DATABASE_URL, BOT_TOKEN).");
             process.exit(1);
+        }
+        if (!YOUTUBE_API_KEY) {
+            log("warn", "Warning: YOUTUBE_API_KEY is not set. YouTube stats will not be available.");
         }
         await initializeDb();
         log("info", "Database initialized successfully.");

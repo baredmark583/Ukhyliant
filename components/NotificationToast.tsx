@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState } from 'react';
 
 interface NotificationToastProps {
@@ -35,7 +36,7 @@ const NotificationToast: React.FC<NotificationToastProps> = ({ notification }) =
                   ${bgColor} ${visible ? 'animate-toast-in' : 'animate-toast-out'}`}
     >
       <span className="text-xl">{icon}</span>
-      <span>{notification.message}</span>
+      <span dangerouslySetInnerHTML={{ __html: notification.message }} />
       <style>{`
         @keyframes toast-in {
           0% { transform: translate(-50%, 100%); opacity: 0; }

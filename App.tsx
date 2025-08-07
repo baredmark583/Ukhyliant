@@ -560,7 +560,9 @@ const ProfileScreen = ({ playerState, user, boosts, onBuyBoost, lang, skins, onS
         <div className="w-full max-w-md space-y-6">
             <p className="text-center text-gray-400 max-w-xs mx-auto">{t('black_market_desc')}</p>
             <div className="themed-container p-6 text-center border-2 border-yellow-500/50">
-                <div className="text-6xl mb-4">📦</div>
+                <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
+                    <img src={uiIcons.marketCoinBox} alt={t('lootbox_coin')} className="w-full h-full object-contain" />
+                </div>
                 <h2 className="text-2xl font-display mb-2">{t('lootbox_coin')}</h2>
                 <button onClick={() => onOpenCoinLootbox('coin')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-4 text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
                     <span>{t('open_for')} {LOOTBOX_COST_COINS.toLocaleString()}</span>
@@ -568,7 +570,9 @@ const ProfileScreen = ({ playerState, user, boosts, onBuyBoost, lang, skins, onS
                 </button>
             </div>
             <div className="themed-container p-6 text-center border-2 border-blue-500/50">
-                <div className="text-6xl mb-4">🌟</div>
+                 <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
+                    <img src={uiIcons.marketStarBox} alt={t('lootbox_star')} className="w-full h-full object-contain" />
+                </div>
                 <h2 className="text-2xl font-display mb-2">{t('lootbox_star')}</h2>
                 <button onClick={() => onPurchaseStarLootbox('star')} className="w-full bg-blue-500 hover:bg-blue-400 text-white font-bold py-3 px-4 text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
                     <span>{t('open_for')} {LOOTBOX_COST_STARS}</span>

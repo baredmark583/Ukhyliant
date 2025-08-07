@@ -1,4 +1,5 @@
 
+
 const LOCALES = {
     'en': {
         // Nav
@@ -14,6 +15,8 @@ const LOCALES = {
         'nav_market_cards': 'Black Market Cards',
         'nav_coin_skins': 'Coin Skins',
         'nav_ui_icons': 'UI Icons',
+        'nav_leagues': 'Leagues',
+        'nav_socials': 'Socials',
         'logout': 'Logout',
 
         // Titles
@@ -27,6 +30,8 @@ const LOCALES = {
         'blackMarketCards': 'Black Market Cards',
         'coinSkins': 'Coin Skins',
         'uiIcons': 'UI Icons',
+        'leagues': 'Leagues',
+        'socials': 'Socials',
         
         // Buttons & Actions
         'save': 'Save',
@@ -47,14 +52,28 @@ const LOCALES = {
         'new_players_24h': 'New Players (24h)',
         'online_now': 'Online Now',
         'total_coins_in_game': 'Total Coins',
-        'new_users_last_7_days': 'New Users (Last 7 Days)',
-        'top_5_upgrades': 'Top 5 Upgrades by Purchases',
+        'earned_stars': 'Stars Earned',
+        'new_users_last_7_days': 'New Users (7 Days)',
+        'top_5_upgrades': 'Top 5 Upgrades',
         'purchases': 'Purchases',
         'player_map': 'Player Map',
-        'general_settings': 'General Settings',
         'loading_screen_image_url': 'Loading Screen Image URL',
-        'loading_screen_image_url_desc': 'Provide a URL for a custom loading screen image (PNG, SVG, GIF).',
+        'social_stats': 'Social Media Stats',
+        'social_telegram_subs': 'Telegram Subs',
+        'social_youtube_subs': 'YouTube Subs',
+        'social_youtube_views': 'YouTube Views',
         
+        // Socials Config
+        'socials_config': 'Socials Configuration',
+        'youtube_channel_url': 'YouTube Channel URL',
+        'youtube_channel_url_desc': 'The public link to your channel for users to click on.',
+        'youtube_channel_id': 'YouTube Channel ID',
+        'youtube_channel_id_desc': 'The ID used to fetch statistics (e.g., UC_...). Found in advanced settings.',
+        'telegram_channel_url': 'Telegram Channel URL',
+        'telegram_channel_url_desc': 'The public link to your channel (e.g., https://t.me/yourchannel).',
+        'telegram_channel_id': 'Telegram Channel ID/Username',
+        'telegram_channel_id_desc': 'The username used to fetch statistics (e.g., @yourchannel).',
+
         // Daily Events
         'daily_events_setup': 'Daily Events Setup',
         'daily_combo': 'Daily Combo',
@@ -80,6 +99,7 @@ const LOCALES = {
         // Config Tables
         'price': 'Price',
         'profitPerHour': 'Profit/Hour',
+        'minProfitPerHour': 'Min Profit/Hour',
         'category': 'Category',
         'iconUrl': 'Icon URL',
         'type': 'Type',
@@ -89,11 +109,13 @@ const LOCALES = {
         'url': 'URL',
         'requiredTaps': 'Required Taps',
         'secretCode': 'Secret Code',
+        'imageUrl': 'Image URL',
         'priceStars': 'Price (Stars)',
         'description': 'Description',
         'boxType': 'Box Type',
         'chance': 'Chance (%)',
         'profitBoostPercent': 'Profit Boost (%)',
+        'count': 'Count',
         
         // Boosts Config
         'id_readonly_note': 'ID is read-only and cannot be changed.',
@@ -108,6 +130,7 @@ const LOCALES = {
         // UI Icons
         'icon_group_nav': 'Navigation Bar',
         'icon_group_gameplay': 'Gameplay & Currencies',
+        'icon_group_market': 'Market Icons',
         'icon_nav_exchange': 'Stockpile Icon (Nav)',
         'icon_nav_mine': 'Mine Icon (Nav)',
         'icon_nav_missions': 'Missions Icon (Nav)',
@@ -115,6 +138,8 @@ const LOCALES = {
         'icon_energy': 'Energy Icon',
         'icon_coin': 'Coin Icon',
         'icon_star': 'Star Icon',
+        'icon_market_coin_box': 'Coin Box Icon',
+        'icon_market_star_box': 'Star Box Icon',
 
         // Player Details Modal
         'player_details': 'Player Details',
@@ -122,6 +147,7 @@ const LOCALES = {
         'bonus_amount': 'Bonus Amount (can be negative)',
         'player_upgrades': 'Player Upgrades',
         'level': 'Level',
+        'edit_social_stat': 'Edit Social Stat',
         
         // Alerts & Confirmations
         'confirm_delete': 'Are you sure you want to delete this item?',
@@ -135,6 +161,8 @@ const LOCALES = {
         'enter_text_to_translate': 'Please enter text in the source field to translate.',
         'translation_error': 'Translation failed.',
         'error_3_unique_cards': 'Please select exactly 3 unique cards for the combo.',
+        'save_success': 'Saved successfully!',
+        'save_error': 'Error saving data.',
         'loading': 'Loading, please wait...',
         'no_data': 'No data available.',
     },
@@ -152,6 +180,8 @@ const LOCALES = {
         'nav_market_cards': 'Карты Чёрного Рынка',
         'nav_coin_skins': 'Скины Монет',
         'nav_ui_icons': 'Иконки интерфейса',
+        'nav_leagues': 'Лиги',
+        'nav_socials': 'Соцсети',
         'logout': 'Выйти',
 
         // Titles
@@ -165,6 +195,8 @@ const LOCALES = {
         'blackMarketCards': 'Карты Чёрного Рынка',
         'coinSkins': 'Скины Монет',
         'uiIcons': 'Иконки интерфейса',
+        'leagues': 'Лиги',
+        'socials': 'Соцсети',
         
         // Buttons & Actions
         'save': 'Сохранить',
@@ -185,13 +217,27 @@ const LOCALES = {
         'new_players_24h': 'Новые игроки (24ч)',
         'online_now': 'Онлайн сейчас',
         'total_coins_in_game': 'Всего монет в игре',
+        'earned_stars': 'Начислено звезд',
         'new_users_last_7_days': 'Новые игроки (7 дней)',
         'top_5_upgrades': 'Топ 5 улучшений по покупкам',
         'purchases': 'Покупки',
         'player_map': 'Карта игроков',
-        'general_settings': 'Общие настройки',
         'loading_screen_image_url': 'URL изображения экрана загрузки',
-        'loading_screen_image_url_desc': 'Укажите URL для кастомного изображения экрана загрузки (PNG, SVG, GIF).',
+        'social_stats': 'Статистика соц. сетей',
+        'social_telegram_subs': 'Подписчики Telegram',
+        'social_youtube_subs': 'Подписчики YouTube',
+        'social_youtube_views': 'Просмотры YouTube',
+        
+        // Socials Config
+        'socials_config': 'Настройка Соцсетей',
+        'youtube_channel_url': 'URL YouTube Канала',
+        'youtube_channel_url_desc': 'Публичная ссылка на ваш канал, на которую будут нажимать пользователи.',
+        'youtube_channel_id': 'ID YouTube Канала',
+        'youtube_channel_id_desc': 'ID, используемый для получения статистики (например, UC_...). Находится в расширенных настройках.',
+        'telegram_channel_url': 'URL Telegram Канала',
+        'telegram_channel_url_desc': 'Публичная ссылка на ваш канал (например, https://t.me/yourchannel).',
+        'telegram_channel_id': 'ID/Имя пользователя Telegram Канала',
+        'telegram_channel_id_desc': 'Имя пользователя для получения статистики (например, @yourchannel).',
 
         // Daily Events
         'daily_events_setup': 'Настройка ежедневных событий',
@@ -218,6 +264,7 @@ const LOCALES = {
         // Config Tables
         'price': 'Цена',
         'profitPerHour': 'Прибыль/час',
+        'minProfitPerHour': 'Мин. Прибыль/час',
         'category': 'Категория',
         'iconUrl': 'URL иконки',
         'type': 'Тип',
@@ -227,11 +274,13 @@ const LOCALES = {
         'url': 'URL',
         'requiredTaps': 'Нужно тапов',
         'secretCode': 'Секретный код',
+        'imageUrl': 'URL изображения',
         'priceStars': 'Цена (звёзды)',
         'description': 'Описание',
         'boxType': 'Тип коробки',
         'chance': 'Шанс (%)',
         'profitBoostPercent': 'Бонус к прибыли (%)',
+        'count': 'Количество',
 
         // Boosts Config
         'id_readonly_note': 'ID нельзя изменить.',
@@ -246,6 +295,7 @@ const LOCALES = {
         // UI Icons
         'icon_group_nav': 'Панель навигации',
         'icon_group_gameplay': 'Геймплей и Валюты',
+        'icon_group_market': 'Иконки Рынка',
         'icon_nav_exchange': 'Иконка Схрона (Нав)',
         'icon_nav_mine': 'Иконка Майнинга (Нав)',
         'icon_nav_missions': 'Иконка Директив (Нав)',
@@ -253,6 +303,8 @@ const LOCALES = {
         'icon_energy': 'Иконка Выносливости',
         'icon_coin': 'Иконка Монеты',
         'icon_star': 'Иконка Звезды',
+        'icon_market_coin_box': 'Иконка Коробки за монеты',
+        'icon_market_star_box': 'Иконка Коробки за звезды',
         
         // Player Details Modal
         'player_details': 'Детали игрока',
@@ -260,6 +312,7 @@ const LOCALES = {
         'bonus_amount': 'Сумма бонуса (может быть отрицательной)',
         'player_upgrades': 'Улучшения игрока',
         'level': 'Уровень',
+        'edit_social_stat': 'Редактировать статистику',
 
         // Alerts & Confirmations
         'confirm_delete': 'Вы уверены, что хотите удалить этот элемент?',
@@ -273,6 +326,8 @@ const LOCALES = {
         'enter_text_to_translate': 'Пожалуйста, введите текст в поле-источник для перевода.',
         'translation_error': 'Ошибка перевода.',
         'error_3_unique_cards': 'Пожалуйста, выберите ровно 3 уникальные карты для комбо.',
+        'save_success': 'Успешно сохранено!',
+        'save_error': 'Ошибка при сохранении.',
         'saving': 'Сохранение...',
         'loading': 'Загрузка, подождите...',
         'no_data': 'Нет данных.',

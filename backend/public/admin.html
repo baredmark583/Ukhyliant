@@ -1,4 +1,5 @@
 
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -12,10 +13,26 @@
     <!-- jsvectormap -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/css/jsvectormap.min.css"/>
     <style>
-        :root { --tblr-font-sans-serif: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; }
+        :root { 
+            --tblr-font-sans-serif: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; 
+            --tblr-card-bg: #1f2937; /* gray-800 */
+            --tblr-body-color: #e5e7eb; /* gray-200 */
+            --tblr-body-bg: #111827; /* gray-900 */
+            --tblr-border-color: #374151; /* gray-700 */
+            --tblr-link-color: #6ee7b7; /* emerald-300 */
+            --tblr-link-hover-color: #a7f3d0; /* emerald-200 */
+        }
         .page-link { box-shadow: none !important; }
         .table-responsive { min-height: 400px; }
         .player-row { cursor: pointer; }
+        .social-stat-card {
+            text-decoration: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .social-stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
     </style>
 </head>
 <body>
@@ -64,6 +81,7 @@
                            <span class="nav-link-title" data-translate="nav_configuration">Configuration</span>
                         </a>
                         <div class="dropdown-menu">
+                            <a class="dropdown-item tab-button" href="#socials" data-tab="socials" data-translate="nav_socials">Socials</a>
                             <a class="dropdown-item tab-button" href="#leagues" data-tab="leagues" data-translate="nav_leagues">Leagues</a>
                             <a class="dropdown-item tab-button" href="#upgrades" data-tab="upgrades" data-translate="nav_upgrades">Upgrades</a>
                             <a class="dropdown-item tab-button" href="#tasks" data-tab="tasks" data-translate="nav_daily_tasks">Daily Tasks</a>

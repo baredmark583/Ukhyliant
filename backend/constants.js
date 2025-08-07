@@ -1,5 +1,6 @@
 
 
+
 // This file makes the backend self-contained by providing initial data.
 // It prevents the server from trying to import files from the frontend.
 
@@ -26,7 +27,9 @@ export const INITIAL_UI_ICONS = {
   },
   energy: "https://api.iconify.design/ph/lightning-bold.svg?color=%2367e8f9", // cyan-300
   coin: "/assets/coin.svg",
-  star: "https://api.iconify.design/ph/star-four-bold.svg?color=%2360a5fa" // blue-400
+  star: "https://api.iconify.design/ph/star-four-bold.svg?color=%2360a5fa", // blue-400
+  marketCoinBox: 'https://api.iconify.design/twemoji/package.svg',
+  marketStarBox: 'https://api.iconify.design/twemoji/glowing-star.svg'
 };
 
 

@@ -403,7 +403,7 @@ export const useGame = () => {
           .map(c => ({
               ...c, 
               category: UpgradeCategory.Special, 
-              price: Math.floor((c.price || 50000) * Math.pow(1.15, playerState?.upgrades[c.id] || 0))
+              price: Math.floor((c.price || c.profitPerHour * 10) * Math.pow(1.15, playerState?.upgrades[c.id] || 0))
           }));
         
         const combined = [...regularUpgrades, ...marketCards];

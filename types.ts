@@ -120,6 +120,8 @@ export interface UiIcons {
   energy: string;
   coin: string;
   star: string;
+  marketCoinBox: string;
+  marketStarBox: string;
 }
 
 export interface GameConfig {

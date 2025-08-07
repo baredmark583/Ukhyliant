@@ -96,6 +96,12 @@ export const initializeDb = async () => {
         console.error("Could not add analytics columns to 'users' table.", e.message);
     }
 
+    const initialSocials = {
+        youtubeUrl: '',
+        youtubeChannelId: '',
+        telegramUrl: '',
+        telegramChannelId: '',
+    };
 
     // Seed initial config if it doesn't exist
     const res = await executeQuery('SELECT * FROM game_config WHERE key = $1', ['default']);
@@ -110,6 +116,7 @@ export const initializeDb = async () => {
             leagues: INITIAL_LEAGUES,
             loadingScreenImageUrl: '',
             uiIcons: INITIAL_UI_ICONS,
+            socials: initialSocials,
         };
         await saveConfig(initialConfig);
         console.log("Initial game config seeded to the database.");
@@ -121,11 +128,28 @@ export const initializeDb = async () => {
         if (!config.coinSkins) { config.coinSkins = INITIAL_COIN_SKINS; needsUpdate = true; }
         if (config.loadingScreenImageUrl === undefined) { config.loadingScreenImageUrl = ''; needsUpdate = true; }
         if (!config.leagues) { config.leagues = INITIAL_LEAGUES; needsUpdate = true; }
-        if (!config.uiIcons) { config.uiIcons = INITIAL_UI_ICONS; needsUpdate = true; }
+        if (!config.socials || config.socials.twitter !== undefined) { // Check for old structure to migrate
+             config.socials = initialSocials; 
+             needsUpdate = true; 
+        }
+        if (!config.uiIcons) { 
+            config.uiIcons = INITIAL_UI_ICONS; 
+            needsUpdate = true; 
+        } else {
+            // Check for newly added icons specifically
+            if (config.uiIcons.marketCoinBox === undefined) {
+                config.uiIcons.marketCoinBox = INITIAL_UI_ICONS.marketCoinBox;
+                needsUpdate = true;
+            }
+            if (config.uiIcons.marketStarBox === undefined) {
+                config.uiIcons.marketStarBox = INITIAL_UI_ICONS.marketStarBox;
+                needsUpdate = true;
+            }
+        }
         
         if (needsUpdate) {
             await saveConfig(config);
-            console.log("Updated existing game config with new fields (skins, market, loading image, leagues, icons).");
+            console.log("Updated existing game config with new fields (skins, market, loading image, leagues, icons, socials).");
         }
     }
 };
@@ -458,7 +482,6 @@ export const getDashboardStats = async () => {
     const newPlayersTodayRes = await executeQuery("SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '24 hours'");
     const totalCoinsRes = await executeQuery("SELECT SUM((data->>'balance')::numeric) as total_coins FROM players");
     
-    // Optimized query to prevent performance issues on large datasets
     const popularUpgradesRes = await executeQuery(`
         SELECT key as upgrade_id, COUNT(*) as purchase_count
         FROM players, jsonb_object_keys(data->'upgrades') key
@@ -470,12 +493,27 @@ export const getDashboardStats = async () => {
 
     const registrationsRes = await getDashboardRegistrations();
 
+    const config = await getGameConfig();
+    const players = await executeQuery("SELECT data FROM players");
+    
+    let totalStarsEarned = 0;
+    if (config && config.specialTasks && players.rows.length > 0) {
+        const specialTasksMap = new Map(config.specialTasks.map(t => [t.id, t.priceStars || 0]));
+        for (const playerRow of players.rows) {
+            const purchasedIds = playerRow.data?.purchasedSpecialTaskIds || [];
+            for (const taskId of purchasedIds) {
+                totalStarsEarned += specialTasksMap.get(taskId) || 0;
+            }
+        }
+    }
+
     return {
         totalPlayers: totalPlayersRes.rows[0].count,
         newPlayersToday: newPlayersTodayRes.rows[0].count,
         totalCoins: totalCoinsRes.rows[0].total_coins,
         popularUpgrades: popularUpgradesRes.rows,
-        registrations: registrationsRes
+        registrations: registrationsRes,
+        totalStarsEarned,
     };
 };
 
