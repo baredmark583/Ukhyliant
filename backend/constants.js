@@ -17,6 +17,18 @@ export const INITIAL_LEAGUES = [
   { id: 'league1', name: { en: 'In The City', ua: 'В місті', ru: 'В городе' }, description: { en: 'Just starting your journey.', ua: 'Тільки починаєте свій шлях.', ru: 'Только начинаете свой путь.' }, minProfitPerHour: 0, iconUrl: 'https://api.iconify.design/twemoji/passport-control.svg' },
 ];
 
+export const INITIAL_UI_ICONS = {
+  nav: {
+    exchange: "https://api.iconify.design/ph/bank-bold.svg?color=white",
+    mine: "https://api.iconify.design/ph/hammer-bold.svg?color=white",
+    missions: "https://api.iconify.design/ph/list-checks-bold.svg?color=white",
+    profile: "https://api.iconify.design/ph/user-bold.svg?color=white"
+  },
+  energy: "https://api.iconify.design/ph/lightning-bold.svg?color=%2367e8f9", // cyan-300
+  coin: "/assets/coin.svg",
+  star: "https://api.iconify.design/ph/star-four-bold.svg?color=%2360a5fa" // blue-400
+};
+
 
 export const INITIAL_UPGRADES = [
     { id: 'doc1', name: { en: 'Student ID', ua: 'Студентський квиток', ru: 'Студенческий билет' }, price: 100, profitPerHour: 10, category: 'Documents', iconUrl: 'https://api.iconify.design/twemoji/graduation-cap.svg' },

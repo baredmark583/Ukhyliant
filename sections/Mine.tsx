@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Upgrade, UpgradeCategory, Language, PlayerState, GameConfig } from '../types';
+import { Upgrade, UpgradeCategory, Language, PlayerState, GameConfig, UiIcons } from '../types';
 import UpgradeCard from '../components/UpgradeCard';
 import { useTranslation } from '../hooks/useGameLogic';
 
@@ -12,6 +12,7 @@ interface MineProps {
   playerState: PlayerState;
   config: GameConfig;
   onClaimCombo: () => void;
+  uiIcons: UiIcons;
 }
 
 const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'onClaimCombo' | 'upgrades' | 'lang'>> =
@@ -61,7 +62,7 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
   );
 };
 
-const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang, playerState, config, onClaimCombo }) => {
+const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang, playerState, config, onClaimCombo, uiIcons }) => {
   const t = useTranslation();
   const categories = Object.values(UpgradeCategory);
 
@@ -95,6 +96,7 @@ const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang
                     balance={balance}
                     onBuy={onBuyUpgrade}
                     lang={lang}
+                    uiIcons={uiIcons}
                   />
                 ))}
               </div>

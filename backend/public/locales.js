@@ -13,6 +13,7 @@ const LOCALES = {
         'nav_boosts': 'Boosts',
         'nav_market_cards': 'Black Market Cards',
         'nav_coin_skins': 'Coin Skins',
+        'nav_ui_icons': 'UI Icons',
         'logout': 'Logout',
 
         // Titles
@@ -25,7 +26,8 @@ const LOCALES = {
         'boosts': 'Boosts',
         'blackMarketCards': 'Black Market Cards',
         'coinSkins': 'Coin Skins',
-
+        'uiIcons': 'UI Icons',
+        
         // Buttons & Actions
         'save': 'Save',
         'save_all_changes': 'Save All Changes',
@@ -103,6 +105,17 @@ const LOCALES = {
         'boost_effect_tap_guru': '+1 coin per each tap (permanent).',
         'boost_effect_energy_limit': '+500 to max energy capacity (permanent).',
         
+        // UI Icons
+        'icon_group_nav': 'Navigation Bar',
+        'icon_group_gameplay': 'Gameplay & Currencies',
+        'icon_nav_exchange': 'Stockpile Icon (Nav)',
+        'icon_nav_mine': 'Mine Icon (Nav)',
+        'icon_nav_missions': 'Missions Icon (Nav)',
+        'icon_nav_profile': 'Profile Icon (Nav)',
+        'icon_energy': 'Energy Icon',
+        'icon_coin': 'Coin Icon',
+        'icon_star': 'Star Icon',
+
         // Player Details Modal
         'player_details': 'Player Details',
         'current_balance': 'Current Balance',
@@ -138,6 +151,7 @@ const LOCALES = {
         'nav_boosts': 'Бусты',
         'nav_market_cards': 'Карты Чёрного Рынка',
         'nav_coin_skins': 'Скины Монет',
+        'nav_ui_icons': 'Иконки интерфейса',
         'logout': 'Выйти',
 
         // Titles
@@ -150,6 +164,7 @@ const LOCALES = {
         'boosts': 'Бусты',
         'blackMarketCards': 'Карты Чёрного Рынка',
         'coinSkins': 'Скины Монет',
+        'uiIcons': 'Иконки интерфейса',
         
         // Buttons & Actions
         'save': 'Сохранить',
@@ -228,6 +243,17 @@ const LOCALES = {
         'boost_effect_tap_guru': '+1 монета за каждый тап (постоянно).',
         'boost_effect_energy_limit': '+500 к макс. запасу энергии (постоянно).',
 
+        // UI Icons
+        'icon_group_nav': 'Панель навигации',
+        'icon_group_gameplay': 'Геймплей и Валюты',
+        'icon_nav_exchange': 'Иконка Схрона (Нав)',
+        'icon_nav_mine': 'Иконка Майнинга (Нав)',
+        'icon_nav_missions': 'Иконка Директив (Нав)',
+        'icon_nav_profile': 'Иконка Досье (Нав)',
+        'icon_energy': 'Иконка Выносливости',
+        'icon_coin': 'Иконка Монеты',
+        'icon_star': 'Иконка Звезды',
+        
         // Player Details Modal
         'player_details': 'Детали игрока',
         'current_balance': 'Текущий баланс',

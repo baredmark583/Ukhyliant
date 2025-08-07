@@ -10,7 +10,8 @@ import {
     INITIAL_BLACK_MARKET_CARDS, 
     INITIAL_COIN_SKINS,
     DEFAULT_COIN_SKIN_ID,
-    INITIAL_LEAGUES
+    INITIAL_LEAGUES,
+    INITIAL_UI_ICONS
 } from './constants.js';
 
 const { Pool } = pg;
@@ -108,6 +109,7 @@ export const initializeDb = async () => {
             coinSkins: INITIAL_COIN_SKINS,
             leagues: INITIAL_LEAGUES,
             loadingScreenImageUrl: '',
+            uiIcons: INITIAL_UI_ICONS,
         };
         await saveConfig(initialConfig);
         console.log("Initial game config seeded to the database.");
@@ -119,10 +121,11 @@ export const initializeDb = async () => {
         if (!config.coinSkins) { config.coinSkins = INITIAL_COIN_SKINS; needsUpdate = true; }
         if (config.loadingScreenImageUrl === undefined) { config.loadingScreenImageUrl = ''; needsUpdate = true; }
         if (!config.leagues) { config.leagues = INITIAL_LEAGUES; needsUpdate = true; }
+        if (!config.uiIcons) { config.uiIcons = INITIAL_UI_ICONS; needsUpdate = true; }
         
         if (needsUpdate) {
             await saveConfig(config);
-            console.log("Updated existing game config with new fields (skins, market, loading image, leagues).");
+            console.log("Updated existing game config with new fields (skins, market, loading image, leagues, icons).");
         }
     }
 };

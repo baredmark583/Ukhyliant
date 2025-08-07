@@ -5,17 +5,20 @@ interface ProgressBarProps {
   value: number;
   max: number;
   label?: string;
-  icon?: React.ReactNode;
+  iconUrl?: string;
 }
 
-const ProgressBar: React.FC<ProgressBarProps> = ({ value, max, label, icon }) => {
+const ProgressBar: React.FC<ProgressBarProps> = ({ value, max, label, iconUrl }) => {
   const percentage = max > 0 ? (value / max) * 100 : 0;
 
   return (
     <div className="w-full">
       {label && (
         <div className="flex justify-between items-center text-sm mb-1 px-1">
-          <span className="font-bold flex items-center gap-2 text-gray-200">{icon}{label}</span>
+          <span className="font-bold flex items-center gap-2 text-gray-200">
+            {iconUrl && <img src={iconUrl} alt="icon" className="w-5 h-5" />}
+            {label}
+          </span>
           <span className="font-mono text-gray-400">{Math.floor(value)} / {max}</span>
         </div>
       )}

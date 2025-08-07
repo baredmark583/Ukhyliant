@@ -15,26 +15,6 @@ export const TELEGRAM_BOT_NAME = 'Ukhyliantbot';
 export const MINI_APP_NAME = 'ukhyliant_game';
 
 
-// --- ICONS ---
-export const COIN_ICON_URL = `data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23FBBF24'%3e%3cpath fill-rule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z' clip-rule='evenodd' /%3e%3c/svg%3e`;
-export const STAR_ICON_URL = `data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23FBBF24'%3e%3cpath d='M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z'/%3e%3c/svg%3e`;
-export const NAV_ICON_URLS = {
-    exchange: 'https://api.iconify.design/tabler/timeline-event-text.svg?color=white',
-    mine: 'https://api.iconify.design/tabler/building-factory-2.svg?color=white',
-    missions: 'https://api.iconify.design/tabler/notebook.svg?color=white',
-    profile: 'https://api.iconify.design/tabler/id.svg?color=white',
-};
-
-// --- ICON COMPONENTS ---
-export const ExchangeIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.exchange} className={`w-8 h-8 transition-all duration-200 ${active ? 'opacity-100' : 'opacity-60'}`} alt="Exchange" style={active ? {filter: 'drop-shadow(0 0 4px var(--accent-green-glow))'} : {}} />;
-export const MineIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.mine} className={`w-8 h-8 transition-all duration-200 ${active ? 'opacity-100' : 'opacity-60'}`} alt="Mine" style={active ? {filter: 'drop-shadow(0 0 4px var(--accent-green-glow))'} : {}} />;
-export const MissionsIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.missions} className={`w-8 h-8 transition-all duration-200 ${active ? 'opacity-100' : 'opacity-60'}`} alt="Missions" style={active ? {filter: 'drop-shadow(0 0 4px var(--accent-green-glow))'} : {}} />;
-export const ProfileIcon = ({ active }: { active: boolean }) => <img src={NAV_ICON_URLS.profile} className={`w-8 h-8 transition-all duration-200 ${active ? 'opacity-100' : 'opacity-60'}`} alt="Profile" style={active ? {filter: 'drop-shadow(0 0 4px var(--accent-green-glow))'} : {}} />;
-
-export const StarIcon = () => <img src={STAR_ICON_URL} alt="star" className="w-4 h-4" />;
-export const CoinIcon = () => <img src={COIN_ICON_URL} alt="coin" className="w-full h-full" />;
-
-
 // --- GAME CONFIGURATION ---
 export const INITIAL_UPGRADES: Upgrade[] = [
     { id: 'doc1', name: { en: 'Student ID', ua: 'Студентський квиток', ru: 'Студенческий билет' }, price: 100, profitPerHour: 10, category: UpgradeCategory.Documents, iconUrl: 'https://api.iconify.design/twemoji/graduation-cap.svg' },

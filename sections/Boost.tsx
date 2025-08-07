@@ -1,7 +1,6 @@
 
 import React from 'react';
-import { Boost, Language, PlayerState } from '../types';
-import { CoinIcon } from '../constants';
+import { Boost, Language, PlayerState, UiIcons } from '../types';
 import { useTranslation } from '../hooks/useGameLogic';
 
 interface BoostProps {
@@ -9,9 +8,10 @@ interface BoostProps {
   boosts: Boost[];
   onBuyBoost: (boost: Boost) => void;
   lang: Language;
+  uiIcons: UiIcons;
 }
 
-const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, lang }) => {
+const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, lang, uiIcons }) => {
   const t = useTranslation();
   const { balance } = playerState;
 
@@ -35,7 +35,7 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
     <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
       <h1 className="text-3xl font-display text-center mb-2">{t('boosts')}</h1>
       <p className="text-lg text-gray-400 mb-6 flex items-center space-x-2">
-        <span className="w-6 h-6 text-yellow-400"><CoinIcon/></span>
+        <img src={uiIcons.coin} alt="coin" className="w-6 h-6" />
         <span className="font-bold text-white">{balance.toLocaleString()}</span>
       </p>
 
@@ -65,7 +65,7 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
                         : 'bg-green-600 border-green-500 hover:bg-green-500 text-white'
                     }`}
                 >
-                    <div className="w-5 h-5 text-yellow-400"><CoinIcon /></div>
+                    <img src={uiIcons.coin} alt="coin" className="w-5 h-5"/>
                     <div className="flex flex-col items-start leading-tight">
                         <span>{cost.toLocaleString()}</span>
                         {isMultiLevel && <span className="text-xs text-white/70">{t('lvl')} {level}</span>}

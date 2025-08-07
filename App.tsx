@@ -1,12 +1,12 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { useGame, useAuth, useTranslation, AuthProvider, useGameContext } from './hooks/useGameLogic';
+import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
-import { ExchangeIcon, MineIcon, StarIcon, REFERRAL_BONUS, TELEGRAM_BOT_NAME, CoinIcon, MINI_APP_NAME, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID, MissionsIcon, ProfileIcon } from './constants';
-import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League } from './types';
+import { REFERRAL_BONUS, TELEGRAM_BOT_NAME, MINI_APP_NAME, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS } from './constants';
+import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League, UiIcons } from './types';
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
 
@@ -91,6 +91,7 @@ interface ProfileScreenProps {
   onSetSkin: (skinId: string) => void;
   onOpenCoinLootbox: (boxType: 'coin') => void;
   onPurchaseStarLootbox: (boxType: 'star') => void;
+  uiIcons: UiIcons;
 }
 
 const MainApp: React.FC = () => {
@@ -157,10 +158,10 @@ const MainApp: React.FC = () => {
     const result = await claimTaskReward(task, code);
     if (result.player) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-        const rewardText = task.reward?.type === 'coins'
-            ? `+${task.reward?.amount?.toLocaleString() ?? 0} 🪙`
-            : `+${task.reward?.amount?.toLocaleString() ?? 0}/hr ⚡`;
-        showNotification(`${task.name?.[user.language]} выполнено! ${rewardText}`, 'success');
+        const rewardText = task.reward?.type === 'profit'
+            ? `+${task.reward?.amount?.toLocaleString() ?? 0}/hr <img src="${config.uiIcons.energy}" class="w-4 h-4 inline-block -mt-1"/>`
+            : `+${task.reward?.amount?.toLocaleString() ?? 0} <img src="${config.uiIcons.coin}" class="w-4 h-4 inline-block -mt-1"/>`;
+        showNotification(`${task.name?.[user.language]} выполнено! <span class="whitespace-nowrap">${rewardText}</span>`, 'success');
         
         if (task.type === 'video_code') {
             setStartedVideoTasks(prev => {
@@ -267,7 +268,7 @@ const MainApp: React.FC = () => {
       case 'exchange':
         return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} clickerSize={clickerSize} />;
       case 'mine':
-        return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} />;
+        return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} />;
       case 'missions':
         return <MissionsScreen
                     tasks={config.tasks}
@@ -277,6 +278,7 @@ const MainApp: React.FC = () => {
                     onPurchase={purchaseSpecialTask}
                     lang={user.language}
                     startedVideoTasks={startedVideoTasks}
+                    uiIcons={config.uiIcons}
                 />;
       case 'profile':
         return <ProfileScreen
@@ -289,6 +291,7 @@ const MainApp: React.FC = () => {
                     onSetSkin={handleSetSkin}
                     onOpenCoinLootbox={handleOpenCoinLootbox}
                     onPurchaseStarLootbox={handlePurchaseStarLootbox}
+                    uiIcons={config.uiIcons}
                 />;
       default:
         return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} clickerSize={clickerSize} />;
@@ -313,13 +316,19 @@ const MainApp: React.FC = () => {
     </>
   );
 
-  const NavItem = ({ screen, label, icon }: { screen: Screen, label: string, icon: React.ReactNode}) => (
+  const NavItem = ({ screen, label, iconUrl, active }: { screen: Screen, label: string, iconUrl: string, active: boolean }) => (
     <button
       onClick={() => setActiveScreen(screen)}
-      className={`flex flex-col items-center justify-center text-xs w-full pt-2 pb-1 transition-colors duration-200 ${activeScreen === screen ? 'text-green-400' : 'text-gray-400'}`}
+      className={`flex flex-col items-center justify-center text-xs w-full pt-2 pb-1 transition-colors duration-200 ${active ? 'text-green-400' : 'text-gray-400'}`}
     >
-      {icon}
-      <span>{label}</span>
+        <div className="w-8 h-8 flex items-center justify-center">
+            <img 
+                src={iconUrl} 
+                alt={label} 
+                className={`w-7 h-7 transition-all duration-200 ${active ? 'filter-green' : ''}`} 
+            />
+        </div>
+        <span>{label}</span>
     </button>
   );
 
@@ -336,16 +345,16 @@ const MainApp: React.FC = () => {
           setSecretCodeTask(null);
         }} />
       }
-      {lootboxResult && <LootboxResultModal item={lootboxResult} onClose={() => setLootboxResult(null)} lang={user.language} />}
+      {lootboxResult && <LootboxResultModal item={lootboxResult} onClose={() => setLootboxResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
       {isGlitching && <LanguageGlitchModal />}
       <NotificationToast notification={notification} />
 
       <div className="fixed bottom-0 left-0 right-0 bg-black/50 backdrop-blur-md border-t border-[var(--border-color)]">
         <div className="grid grid-cols-4 justify-around items-center max-w-xl mx-auto">
-          <NavItem screen="exchange" label={t('exchange')} icon={<ExchangeIcon active={activeScreen === 'exchange'} />} />
-          <NavItem screen="mine" label={t('mine')} icon={<MineIcon active={activeScreen === 'mine'} />} />
-          <NavItem screen="missions" label={t('missions')} icon={<MissionsIcon active={activeScreen === 'missions'} />} />
-          <NavItem screen="profile" label={t('profile')} icon={<ProfileIcon active={activeScreen === 'profile'} />} />
+          <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} />
+          <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} />
+          <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} />
+          <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} />
         </div>
       </div>
        <style>{`
@@ -356,12 +365,15 @@ const MainApp: React.FC = () => {
           0% { transform: translateY(0) translateX(var(--x-offset)) scale(1); opacity: 1; }
           100% { transform: translateY(-60px) translateX(var(--x-offset)) scale(0.8); opacity: 0; }
         }
+        .filter-green {
+            filter: brightness(0) saturate(100%) invert(68%) sepia(85%) saturate(545%) hue-rotate(85deg) brightness(97%) contrast(92%);
+        }
       `}</style>
     </div>
   );
 };
 
-const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks }: { task: DailyTask | SpecialTask, playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, lang: Language, startedVideoTasks: Set<string> }) => {
+const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks, uiIcons }: { task: DailyTask | SpecialTask, playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, lang: Language, startedVideoTasks: Set<string>, uiIcons: UiIcons }) => {
     const t = useTranslation();
     const isSpecial = 'isOneTime' in task;
     const isCompleted = isSpecial 
@@ -377,7 +389,7 @@ const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks }: { tas
         progressText = `${progress}/${task.requiredTaps}`;
     }
 
-    const rewardIcon = task.reward?.type === 'profit' ? '⚡' : '🪙';
+    const rewardIconUrl = task.reward?.type === 'profit' ? uiIcons.energy : uiIcons.coin;
     
     const getButtonText = () => {
         if (isCompleted) return t('completed');
@@ -395,7 +407,8 @@ const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks }: { tas
             <div className="flex-grow">
                 <h2 className="text-base font-bold">{task.name?.[lang]}</h2>
                 <div className="text-sm text-yellow-300 my-1 flex items-center">
-                    <span>+ {(task.reward?.amount || 0).toLocaleString()} {rewardIcon}</span>
+                    <span>+ {(task.reward?.amount || 0).toLocaleString()}</span>
+                    <img src={rewardIconUrl} alt="reward" className="w-4 h-4 ml-1" />
                 </div>
             </div>
             <button 
@@ -409,7 +422,7 @@ const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks }: { tas
     );
 };
 
-const MissionsScreen = ({ tasks, specialTasks, playerState, onClaim, onPurchase, lang, startedVideoTasks }: { tasks: DailyTask[], specialTasks: SpecialTask[], playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, onPurchase: (task: SpecialTask) => void, lang: Language, startedVideoTasks: Set<string> }) => {
+const MissionsScreen = ({ tasks, specialTasks, playerState, onClaim, onPurchase, lang, startedVideoTasks, uiIcons }: { tasks: DailyTask[], specialTasks: SpecialTask[], playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, onPurchase: (task: SpecialTask) => void, lang: Language, startedVideoTasks: Set<string>, uiIcons: UiIcons }) => {
     const t = useTranslation();
     const [activeTab, setActiveTab] = useState<'daily' | 'airdrop'>('daily');
 
@@ -425,7 +438,7 @@ const MissionsScreen = ({ tasks, specialTasks, playerState, onClaim, onPurchase,
 
             <div className="w-full max-w-md flex-grow space-y-3 overflow-y-auto no-scrollbar pt-2">
                 {activeTab === 'daily' && (
-                    (tasks || []).map(task => <TaskCard key={task.id} task={task} playerState={playerState} onClaim={onClaim} lang={lang} startedVideoTasks={startedVideoTasks} />)
+                    (tasks || []).map(task => <TaskCard key={task.id} task={task} playerState={playerState} onClaim={onClaim} lang={lang} startedVideoTasks={startedVideoTasks} uiIcons={uiIcons} />)
                 )}
                 {activeTab === 'airdrop' && (
                     <>
@@ -433,7 +446,7 @@ const MissionsScreen = ({ tasks, specialTasks, playerState, onClaim, onPurchase,
                          {(specialTasks || []).map(task => {
                             const isPurchased = playerState.purchasedSpecialTaskIds.includes(task.id);
                             const isCompleted = playerState.completedSpecialTaskIds.includes(task.id);
-                            const rewardIcon = task.reward?.type === 'profit' ? '⚡' : '🪙';
+                            const rewardIconUrl = task.reward?.type === 'profit' ? uiIcons.energy : uiIcons.coin;
                             
                             let button;
                             if (isCompleted) {
@@ -444,7 +457,7 @@ const MissionsScreen = ({ tasks, specialTasks, playerState, onClaim, onPurchase,
                             } else {
                                 button = <button onClick={() => onPurchase(task)} className="w-full mt-2 py-2 font-bold bg-purple-600 hover:bg-purple-500 flex justify-center items-center space-x-2">
                                             <span>{task.priceStars > 0 ? `${t('unlock_for')} ${task.priceStars}` : t('get')}</span>
-                                            {task.priceStars > 0 && <StarIcon />}
+                                            {task.priceStars > 0 && <img src={uiIcons.star} alt="star" className="w-4 h-4" />}
                                          </button>;
                             }
 
@@ -459,8 +472,9 @@ const MissionsScreen = ({ tasks, specialTasks, playerState, onClaim, onPurchase,
                                             <p className="text-sm text-gray-400">{task.description?.[lang]}</p>
                                         </div>
                                     </div>
-                                    <div className="text-sm text-yellow-300 my-2 flex items-center space-x-4">
-                                        <span>+ {(task.reward?.amount || 0).toLocaleString()} {rewardIcon}</span>
+                                    <div className="text-sm text-yellow-300 my-2 flex items-center space-x-2">
+                                        <span>+ {(task.reward?.amount || 0).toLocaleString()}</span>
+                                        <img src={rewardIconUrl} alt="reward" className="w-4 h-4" />
                                     </div>
                                     {button}
                                 </div>
@@ -473,7 +487,7 @@ const MissionsScreen = ({ tasks, specialTasks, playerState, onClaim, onPurchase,
     );
 };
 
-const ProfileScreen = ({ playerState, user, boosts, onBuyBoost, lang, skins, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox } : ProfileScreenProps) => {
+const ProfileScreen = ({ playerState, user, boosts, onBuyBoost, lang, skins, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox, uiIcons } : ProfileScreenProps) => {
     const t = useTranslation();
     const [activeTab, setActiveTab] = useState<'friends' | 'boosts' | 'skins' | 'market'>('friends');
     
@@ -495,14 +509,14 @@ const ProfileScreen = ({ playerState, user, boosts, onBuyBoost, lang, skins, onS
                     <p className="text-gray-400 text-lg">{t('referral_bonus')}</p>
                     <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2">
                         <span>+{REFERRAL_BONUS.toLocaleString()}</span>
-                        <div className="w-6 h-6 text-yellow-400"><CoinIcon/></div>
+                        <img src={uiIcons.coin} alt="coin" className="w-6 h-6" />
                     </p>
                 </div>
                  <div className="themed-container p-4">
                     <p className="text-gray-400 text-lg">{t('profit_from_referrals')}</p>
                     <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2 text-green-400">
                         <span>+{formatNumber(playerState.referralProfitPerHour)}/hr</span>
-                        <span>⚡</span>
+                        <img src={uiIcons.energy} alt="energy" className="w-6 h-6" />
                     </p>
                 </div>
                 <button onClick={handleCopyReferral} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 text-lg transition-transform duration-100 active:scale-95">
@@ -550,7 +564,7 @@ const ProfileScreen = ({ playerState, user, boosts, onBuyBoost, lang, skins, onS
                 <h2 className="text-2xl font-display mb-2">{t('lootbox_coin')}</h2>
                 <button onClick={() => onOpenCoinLootbox('coin')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-4 text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
                     <span>{t('open_for')} {LOOTBOX_COST_COINS.toLocaleString()}</span>
-                    <div className="w-6 h-6"><CoinIcon/></div>
+                    <img src={uiIcons.coin} alt="coin" className="w-6 h-6" />
                 </button>
             </div>
             <div className="themed-container p-6 text-center border-2 border-blue-500/50">
@@ -558,7 +572,7 @@ const ProfileScreen = ({ playerState, user, boosts, onBuyBoost, lang, skins, onS
                 <h2 className="text-2xl font-display mb-2">{t('lootbox_star')}</h2>
                 <button onClick={() => onPurchaseStarLootbox('star')} className="w-full bg-blue-500 hover:bg-blue-400 text-white font-bold py-3 px-4 text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
                     <span>{t('open_for')} {LOOTBOX_COST_STARS}</span>
-                    <div className="w-6 h-6"><StarIcon/></div>
+                    <img src={uiIcons.star} alt="star" className="w-6 h-6" />
                 </button>
             </div>
         </div>
@@ -578,7 +592,7 @@ const ProfileScreen = ({ playerState, user, boosts, onBuyBoost, lang, skins, onS
             
             <div className="w-full max-w-md flex-grow overflow-y-auto no-scrollbar pt-4 flex justify-center">
                 {activeTab === 'friends' && <FriendsContent />}
-                {activeTab === 'boosts' && <BoostScreen playerState={playerState} boosts={boosts} onBuyBoost={onBuyBoost} lang={lang} />}
+                {activeTab === 'boosts' && <BoostScreen playerState={playerState} boosts={boosts} onBuyBoost={onBuyBoost} lang={lang} uiIcons={uiIcons} />}
                 {activeTab === 'skins' && <SkinsContent />}
                 {activeTab === 'market' && <MarketContent />}
             </div>
@@ -646,7 +660,7 @@ const LeaderboardScreen = ({ onClose, getLeaderboard, user, currentLeague }: { o
     );
 };
 
-const LootboxResultModal = ({ item, onClose, lang }: { item: any, onClose: () => void, lang: Language }) => {
+const LootboxResultModal = ({ item, onClose, lang, uiIcons }: { item: any, onClose: () => void, lang: Language, uiIcons: UiIcons }) => {
     const t = useTranslation();
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -658,7 +672,12 @@ const LootboxResultModal = ({ item, onClose, lang }: { item: any, onClose: () =>
                 <p className="text-xl font-bold text-center mb-1">{item.name[lang]}</p>
                 {item.itemType === 'card' && <p className="text-green-400 text-center mb-4">+{item.profitPerHour}/hr</p>}
                 {item.itemType === 'skin' && <p className="text-green-400 text-center mb-4">+{item.profitBoostPercent}% {t('profit_boost')}</p>}
-                {item.itemType === 'coins' && <p className="text-yellow-400 text-center mb-4">+{item.amount.toLocaleString()} 🪙</p>}
+                {item.itemType === 'coins' && (
+                    <p className="text-yellow-400 text-center mb-4 flex items-center space-x-1">
+                        <span>+{item.amount.toLocaleString()}</span>
+                        <img src={uiIcons.coin} alt="coin" className="w-5 h-5"/>
+                    </p>
+                )}
                 <button onClick={onClose} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2">{t('close')}</button>
             </div>
         </div>

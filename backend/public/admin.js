@@ -17,7 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
         tasks: { title: 'tasks', cols: ['id', 'name', 'type', 'reward', 'requiredTaps', 'url', 'secretCode', 'imageUrl'] },
         specialTasks: { title: 'specialTasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'url', 'secretCode', 'imageUrl'] },
         blackMarketCards: { title: 'blackMarketCards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'iconUrl'] },
-        coinSkins: { title: 'coinSkins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'iconUrl'] }
+        coinSkins: { title: 'coinSkins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'iconUrl'] },
+        uiIcons: { title: 'ui_icons' }
     };
 
     // --- DOM ELEMENTS ---
@@ -89,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tabTitle.dataset.translate = activeTab;
 
-        const configTabs = ['upgrades', 'tasks', 'specialTasks', 'dailyEvents', 'boosts', 'blackMarketCards', 'coinSkins', 'leagues'];
+        const configTabs = ['upgrades', 'tasks', 'specialTasks', 'dailyEvents', 'boosts', 'blackMarketCards', 'coinSkins', 'leagues', 'uiIcons'];
         saveMainButton.classList.toggle('d-none', !configTabs.includes(activeTab));
 
         switch (activeTab) {
@@ -103,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'boosts': renderBoostsConfig(); break;
             case 'blackMarketCards': renderConfigTable('blackMarketCards'); break;
             case 'coinSkins': renderConfigTable('coinSkins'); break;
+            case 'uiIcons': renderUiIcons(); break;
             default: renderDashboard();
         }
         applyTranslations();
@@ -437,6 +439,58 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>`;
     };
+    
+    const renderUiIcons = () => {
+        const icons = localConfig.uiIcons || {};
+        const iconGroups = [
+            {
+                title: 'icon_group_nav',
+                icons: [
+                    { key: 'nav.exchange', label: 'icon_nav_exchange' },
+                    { key: 'nav.mine', label: 'icon_nav_mine' },
+                    { key: 'nav.missions', label: 'icon_nav_missions' },
+                    { key: 'nav.profile', label: 'icon_nav_profile' }
+                ]
+            },
+            {
+                title: 'icon_group_gameplay',
+                icons: [
+                    { key: 'energy', label: 'icon_energy' },
+                    { key: 'coin', label: 'icon_coin' },
+                    { key: 'star', label: 'icon_star' }
+                ]
+            }
+        ];
+
+        const renderInputRow = (icon) => {
+             const keyParts = icon.key.split('.');
+             const value = keyParts.length > 1 ? icons[keyParts[0]]?.[keyParts[1]] : icons[keyParts[0]];
+             return `
+                <div class="row align-items-center mb-3">
+                    <label class="col-sm-3 col-form-label" data-translate="${icon.label}"></label>
+                    <div class="col-sm-7">
+                        <input type="text" class="form-control" data-field="${icon.key}" value="${escapeHtml(value || '')}">
+                    </div>
+                    <div class="col-sm-2">
+                        <img src="${escapeHtml(value || '')}" class="avatar" alt="Preview" onerror="this.style.display='none'">
+                    </div>
+                </div>
+             `;
+        };
+
+        tabContainer.innerHTML = `
+            <div class="card">
+                <div class="card-header"><h3 class="card-title" data-translate="ui_icons"></h3></div>
+                <div class="card-body">
+                    ${iconGroups.map(group => `
+                        <fieldset class="form-fieldset">
+                            <legend data-translate="${group.title}"></legend>
+                            ${group.icons.map(renderInputRow).join('')}
+                        </fieldset>
+                    `).join('')}
+                </div>
+            </div>`;
+    };
 
     // --- MODALS ---
     const showPlayerDetailsModal = (player) => {
@@ -591,16 +645,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 const { id, field } = e.target.dataset;
                 const value = e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value;
                 const configKey = activeTab;
-
-                let item = localConfig[configKey].find(i => i.id === id);
-                if (item) {
-                    // Handle nested objects like name.en or reward.amount
+                
+                if (configKey === 'uiIcons' && field) {
                     const fieldParts = field.split('.');
+                    if (!localConfig.uiIcons) localConfig.uiIcons = {};
                     if (fieldParts.length > 1) {
-                        if (!item[fieldParts[0]]) item[fieldParts[0]] = {};
-                        item[fieldParts[0]][fieldParts[1]] = value;
+                         if (!localConfig.uiIcons[fieldParts[0]]) localConfig.uiIcons[fieldParts[0]] = {};
+                         localConfig.uiIcons[fieldParts[0]][fieldParts[1]] = value;
                     } else {
-                        item[field] = value;
+                         localConfig.uiIcons[field] = value;
+                    }
+                     // Update preview
+                    const previewImg = e.target.closest('.row').querySelector('img');
+                    if (previewImg) {
+                        previewImg.src = value;
+                        previewImg.style.display = 'block';
+                    }
+                    return;
+                }
+
+                if (configKey in configMeta && id) {
+                    let item = localConfig[configKey].find(i => i.id === id);
+                    if (item) {
+                        // Handle nested objects like name.en or reward.amount
+                        const fieldParts = field.split('.');
+                        if (fieldParts.length > 1) {
+                            if (!item[fieldParts[0]]) item[fieldParts[0]] = {};
+                            item[fieldParts[0]][fieldParts[1]] = value;
+                        } else {
+                            item[field] = value;
+                        }
                     }
                 }
             });

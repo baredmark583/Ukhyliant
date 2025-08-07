@@ -110,6 +110,18 @@ export interface DailyEvent {
     cipherWord: string;
 }
 
+export interface UiIcons {
+  nav: {
+    exchange: string;
+    mine: string;
+    missions: string;
+    profile: string;
+  };
+  energy: string;
+  coin: string;
+  star: string;
+}
+
 export interface GameConfig {
     upgrades: Upgrade[];
     tasks: DailyTask[];
@@ -120,6 +132,7 @@ export interface GameConfig {
     leagues: League[];
     dailyEvent: DailyEvent | null;
     loadingScreenImageUrl?: string;
+    uiIcons: UiIcons;
 }
 
 export interface PlayerState {

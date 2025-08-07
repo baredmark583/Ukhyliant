@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language, GameConfig } from '../types';
-import { COIN_ICON_URL, DEFAULT_COIN_SKIN_ID } from '../constants';
+import { DEFAULT_COIN_SKIN_ID } from '../constants';
 import { useTranslation, useAuth, useGameContext } from '../hooks/useGameLogic';
 
 const MORSE_CODE_MAP: { [key: string]: string } = {
@@ -171,7 +171,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
       {/* Balance */}
       <div className="flex items-center justify-center space-x-2 my-2">
-        <img src={COIN_ICON_URL} alt="coin" className="w-8 h-8"/>
+        <img src={config.uiIcons.coin} alt="coin" className="w-8 h-8"/>
         <h1 className="text-4xl font-display">{formatNumber(balance)}</h1>
       </div>
 
@@ -247,7 +247,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
           value={energy}
           max={effectiveMaxEnergy}
           label={t('energy')}
-          icon={<span className="text-xl text-cyan-300">⚡</span>}
+          iconUrl={config.uiIcons.energy}
         />
       </div>
         <style>{`

@@ -1,13 +1,13 @@
 
 import React from 'react';
-import { Upgrade, Language } from '../types';
-import { COIN_ICON_URL } from '../constants';
+import { Upgrade, Language, UiIcons } from '../types';
 
 interface UpgradeCardProps {
   upgrade: Upgrade & { level: number };
   onBuy: (id: string) => void;
   balance: number;
   lang: Language;
+  uiIcons: UiIcons;
 }
 
 const formatNumber = (num: number) => {
@@ -20,7 +20,7 @@ const formatNumber = (num: number) => {
 };
 
 
-const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang }) => {
+const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang, uiIcons }) => {
   const canAfford = balance >= upgrade.price;
 
   return (
@@ -45,7 +45,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
         </div>
       </div>
       <div className="flex items-center space-x-2">
-         <img src={COIN_ICON_URL} alt="coin" className="w-5 h-5"/>
+         <img src={uiIcons.coin} alt="coin" className="w-5 h-5"/>
         <span className="text-white font-bold text-sm">{formatNumber(upgrade.price)}</span>
       </div>
     </button>
