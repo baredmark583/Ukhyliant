@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
         blackMarketCards: { title: 'blackMarketCards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'iconUrl'] },
         coinSkins: { title: 'coinSkins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'iconUrl'] },
         uiIcons: { title: 'ui_icons' },
-        socials: { title: 'socials_config' },
     };
 
     // --- DOM ELEMENTS ---
@@ -65,8 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
         tabContainer.innerHTML = `
             <div class="d-flex justify-content-center align-items-center" style="min-height: 50vh;">
                 <div>
-                    <div class="spinner-border" role="status"></div>
-                    <p class="mt-2 text-muted">${t(messageKey)}</p>
+                    <div class="spinner-border text-success" role="status"></div>
+                    <p class="mt-2 text-secondary">${t(messageKey)}</p>
                 </div>
             </div>`;
     };
@@ -76,7 +75,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.tab-button').forEach(btn => {
             const isActive = btn.dataset.tab === activeTab;
             btn.classList.toggle('active', isActive);
-            // Handle dropdown parents
             const dropdownToggle = btn.closest('.dropdown-menu')?.previousElementSibling;
             if(dropdownToggle) {
                  const parentNavItem = dropdownToggle.closest('.nav-item');
@@ -91,8 +89,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         tabTitle.dataset.translate = activeTab;
+        tabTitle.classList.add('font-display');
 
-        const configTabs = ['upgrades', 'tasks', 'specialTasks', 'dailyEvents', 'boosts', 'blackMarketCards', 'coinSkins', 'leagues', 'uiIcons', 'socials'];
+        const configTabs = ['upgrades', 'tasks', 'specialTasks', 'dailyEvents', 'boosts', 'blackMarketCards', 'coinSkins', 'leagues', 'uiIcons'];
         saveMainButton.classList.toggle('d-none', !(configTabs.includes(activeTab) || activeTab === 'dashboard'));
 
         switch (activeTab) {
@@ -107,7 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'blackMarketCards': renderConfigTable('blackMarketCards'); break;
             case 'coinSkins': renderConfigTable('coinSkins'); break;
             case 'uiIcons': renderUiIcons(); break;
-            case 'socials': renderSocialsConfig(); break;
             default: renderDashboard();
         }
         applyTranslations();
@@ -117,32 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- RENDER FUNCTIONS ---
     const renderDashboard = () => {
         const socialStats = dashboardStats.socialStats || {};
-        const socialConfig = localConfig.socials || {};
-
-        const socialStatCards = [
-            { key: 'telegram_subs', label: 'social_telegram_subs', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-telegram" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 10l-4 4l6 6l4 -16l-18 7l4 2l2 6l3 -4" /></svg>', value: socialStats.telegram_subs, url: socialConfig.telegramUrl },
-            { key: 'youtube_subs', label: 'social_youtube_subs', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-youtube" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M2 8a4 4 0 0 1 4 -4h12a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-12a4 4 0 0 1 -4 -4v-8z" /><path d="M10 9l5 3l-5 3z" /></svg>', value: socialStats.youtube_subs, url: socialConfig.youtubeUrl },
-            { key: 'youtube_views', label: 'social_youtube_views', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-eye" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6s-6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6s6.6 2 9 6" /></svg>', value: socialStats.youtube_views, url: socialConfig.youtubeUrl },
-        ].map(s => {
-            const linkAttributes = s.url ? `href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer"` : 'href="#"';
-            return `
-            <div class="col">
-                <a ${linkAttributes} class="card card-sm social-stat-card" data-social-key="${s.key}">
-                    <div class="card-body">
-                        <div class="row align-items-center">
-                            <div class="col-auto">
-                                <span class="text-white avatar">${s.icon}</span>
-                            </div>
-                            <div class="col">
-                                <div class="font-weight-medium">${formatNumber(s.value || 0)}</div>
-                                <div class="text-secondary" data-translate="${s.label}"></div>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-            </div>
-        `}).join('');
-
+        
         tabContainer.innerHTML = `
             <div class="row row-deck row-cards">
                 <!-- Stats Cards -->
@@ -153,45 +126,77 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="earned_stars"></div></div><div class="h1 mb-3 text-yellow">${formatNumber(dashboardStats.totalStarsEarned)}</div></div></div></div>
             </div>
             
-            <div class="card mt-4">
-                <div class="card-header"><h3 class="card-title" data-translate="social_stats"></h3></div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        ${socialStatCards}
-                    </div>
-                </div>
-            </div>
-
             <div class="row row-cards mt-4">
                 <div class="col-lg-5">
                     <div class="card mb-3">
                         <div class="card-body" style="padding: 1rem;">
-                           <label class="form-label" data-translate="loading_screen_image_url"></label>
+                           <label class="form-label font-display" data-translate="loading_screen_image_url"></label>
                            <input type="text" class="form-control" id="loading-screen-url-input" value="${escapeHtml(localConfig.loadingScreenImageUrl || '')}">
                         </div>
                     </div>
                     <div class="card">
-                        <div class="card-body">
-                            <h3 class="card-title" data-translate="player_map"></h3>
-                            <div id="map-world" style="height: 250px;"></div>
+                        <div class="card-body" style="height: 284px;">
+                            <h3 class="card-title font-display" data-translate="player_map"></h3>
+                            <div id="map-world" class="w-100 h-100"></div>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-7">
                     <div class="card mb-3">
-                        <div class="card-body">
-                            <h3 class="card-title" data-translate="new_users_last_7_days"></h3>
-                            <canvas id="chart-registrations" style="height: 120px;"></canvas>
+                        <div class="card-body" style="height: 142px;">
+                            <h3 class="card-title font-display" data-translate="new_users_last_7_days"></h3>
+                            <canvas id="chart-registrations"></canvas>
                         </div>
                     </div>
                     <div class="card">
-                        <div class="card-body">
-                           <h3 class="card-title" data-translate="top_5_upgrades"></h3>
-                           <canvas id="chart-upgrades" style="height: 120px;"></canvas>
+                        <div class="card-body" style="height: 250px;">
+                           <h3 class="card-title font-display" data-translate="top_5_upgrades"></h3>
+                           <canvas id="chart-upgrades"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row row-cards mt-4">
+                 <div class="col-md-6">
+                    <div class="card" style="height: 300px;">
+                         <div class="card-body d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-center">
+                               <h3 class="card-title font-display" data-translate="youtube_stats"></h3>
+                               <button class="btn btn-sm btn-ghost-secondary social-edit-btn" data-social="youtube">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /></svg>
+                               </button>
+                            </div>
+                            <div class="flex-grow-1"><canvas id="chart-youtube"></canvas></div>
+                        </div>
+                    </div>
+                 </div>
+                 <div class="col-md-6">
+                    <div class="card" style="height: 300px;">
+                        <div class="card-body d-flex flex-column">
+                             <div class="d-flex justify-content-between align-items-center">
+                               <h3 class="card-title font-display" data-translate="telegram_stats"></h3>
+                               <button class="btn btn-sm btn-ghost-secondary social-edit-btn" data-social="telegram">
+                                   <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /></svg>
+                               </button>
+                            </div>
+                            <div class="flex-grow-1"><canvas id="chart-telegram"></canvas></div>
                         </div>
                     </div>
                 </div>
             </div>`;
+
+        // Chart Options
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(156, 163, 175, 0.2)' } },
+                x: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(156, 163, 175, 0.2)' } }
+            }
+        };
+        const barChartOptions = { ...chartOptions, indexAxis: 'y' };
 
         // Initialize Charts
         const upgradeNames = (dashboardStats.popularUpgrades || []).map(upg => {
@@ -200,20 +205,32 @@ document.addEventListener('DOMContentLoaded', () => {
             return details?.name?.[currentLang] || details?.name?.en || upg.upgrade_id;
         });
         const upgradeCounts = (dashboardStats.popularUpgrades || []).map(upg => parseInt(upg.purchase_count));
-        
         charts.upgrades = new Chart(document.getElementById('chart-upgrades'), {
             type: 'bar',
-            data: { labels: upgradeNames, datasets: [{ label: t('purchases'), data: upgradeCounts, backgroundColor: '#206bc4' }] },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            data: { labels: upgradeNames, datasets: [{ label: t('purchases'), data: upgradeCounts, backgroundColor: '#4ade80' }] },
+            options: barChartOptions
         });
 
         const regDates = (dashboardStats.registrations || []).map(r => new Date(r.date).toLocaleDateString(currentLang));
         const regCounts = (dashboardStats.registrations || []).map(r => r.count);
         charts.registrations = new Chart(document.getElementById('chart-registrations'), {
             type: 'line',
-            data: { labels: regDates, datasets: [{ label: t('new_players_24h'), data: regCounts, tension: 0.1, pointRadius: 4, borderColor: '#2fb344', backgroundColor: '#2fb344' }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            data: { labels: regDates, datasets: [{ label: t('new_players_24h'), data: regCounts, tension: 0.1, pointRadius: 4, borderColor: '#4ade80', backgroundColor: 'rgba(74, 222, 128, 0.2)', fill: true }] },
+            options: chartOptions
         });
+        
+        // Social charts using same registration data for trend visualization
+        charts.youtube = new Chart(document.getElementById('chart-youtube'), {
+            type: 'line',
+            data: { labels: regDates, datasets: [{ label: t('social_youtube_subs'), data: regCounts, tension: 0.1, pointRadius: 4, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.2)', fill: true }] },
+            options: chartOptions
+        });
+        charts.telegram = new Chart(document.getElementById('chart-telegram'), {
+            type: 'line',
+            data: { labels: regDates, datasets: [{ label: t('social_telegram_subs'), data: regCounts, tension: 0.1, pointRadius: 4, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.2)', fill: true }] },
+            options: chartOptions
+        });
+
 
         // Initialize jsVectorMap
         const mapData = (playerLocations || []).reduce((acc, loc) => {
@@ -225,18 +242,19 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const mapEl = document.getElementById('map-world');
         if (mapEl && window.jsVectorMap) {
+            mapEl.innerHTML = ''; // Clear previous map
             charts.map = new jsVectorMap({
                 selector: '#map-world',
                 map: 'world',
                 backgroundColor: 'transparent',
                 regionStyle: {
-                    initial: { fill: '#3A445D' },
-                    hover: { fill: '#2A3347' }
+                    initial: { fill: '#374151' }, // gray-700
+                    hover: { fill: '#4ade80' } // green-400
                 },
                 series: {
                     regions: [{
                         values: mapData,
-                        scale: ['#C8EEFF', '#0071A4'],
+                        scale: ['#374151', '#16a34a'], // gray-700 to green-600
                         normalizeFunction: 'polynomial'
                     }]
                 },
@@ -251,11 +269,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderDailyEvents = () => {
         tabContainer.innerHTML = `
          <div class="card">
-            <div class="card-header"><h3 class="card-title" data-translate="daily_events_setup"></h3></div>
+            <div class="card-header"><h3 class="card-title font-display" data-translate="daily_events_setup"></h3></div>
             <div class="card-body">
                 <div class="row g-4">
                     <div class="col-lg-6">
-                        <h4 data-translate="daily_combo"></h4>
+                        <h4 class="font-display" data-translate="daily_combo"></h4>
                         <p class="text-secondary" data-translate="select_3_cards_for_combo"></p>
                         <div class="row g-2 mb-3">
                            ${[0, 1, 2].map(i => `
@@ -273,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                      <div class="col-lg-6">
-                        <h4 data-translate="daily_cipher"></h4>
+                        <h4 class="font-display" data-translate="daily_cipher"></h4>
                         <p class="text-secondary" data-translate="enter_cipher_word"></p>
                         <div class="mb-3">
                             <label class="form-label" data-translate="cipher_word"></label>
@@ -295,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tabContainer.innerHTML = `
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title" data-translate="players"></h3>
+                <h3 class="card-title font-display" data-translate="players"></h3>
                 <div class="ms-auto text-secondary">
                     <input type="text" id="player-search" class="form-control form-control-sm" placeholder="${t('search_by_id_name')}">
                 </div>
@@ -317,10 +335,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <tbody id="players-table-body">
                         ${playersToRender.map(p => `
                             <tr class="player-row" data-id="${escapeHtml(p.id)}" data-name="${escapeHtml(p.name?.toLowerCase() ?? '')}">
-                                <td>${escapeHtml(p.id)}</td>
-                                <td>${escapeHtml(p.name)}</td>
-                                <td>${formatNumber(p.balance)}</td>
-                                <td>+${formatNumber(p.profitPerHour)}</td>
+                                <td><span class="text-secondary">${escapeHtml(p.id)}</span></td>
+                                <td class="font-bold">${escapeHtml(p.name)}</td>
+                                <td><span class="text-yellow-400 font-bold">${formatNumber(p.balance)}</span></td>
+                                <td><span class="text-green-400">+${formatNumber(p.profitPerHour)}</span></td>
                                 <td>${formatNumber(p.starsSpent)}</td>
                                 <td>${formatNumber(p.referrals)}</td>
                                 <td>${escapeHtml(p.language)}</td>
@@ -344,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const boosts = localConfig.boosts || [];
         tabContainer.innerHTML = `
          <div class="card">
-            <div class="card-header"><h3 class="card-title" data-translate="boosts"></h3></div>
+            <div class="card-header"><h3 class="card-title font-display" data-translate="boosts"></h3></div>
             <div class="table-responsive">
                 <table class="table card-table table-vcenter">
                     <thead>
@@ -441,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tabContainer.innerHTML = `
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title" data-translate="${meta.title}"></h3>
+                    <h3 class="card-title font-display" data-translate="${meta.title}"></h3>
                     <div class="ms-auto btn-list">
                         <button class="btn btn-sm download-config-btn" data-config-key="${configKey}"><span data-translate="download_config"></span></button>
                         <label class="btn btn-sm"><span data-translate="upload_config"></span> <input type="file" class="d-none upload-config-input" data-config-key="${configKey}"></label>
@@ -516,53 +534,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tabContainer.innerHTML = `
             <div class="card">
-                <div class="card-header"><h3 class="card-title" data-translate="ui_icons"></h3></div>
+                <div class="card-header"><h3 class="card-title font-display" data-translate="ui_icons"></h3></div>
                 <div class="card-body">
                     ${iconGroups.map(group => `
                         <fieldset class="form-fieldset">
-                            <legend data-translate="${group.title}"></legend>
+                            <legend class="font-display" data-translate="${group.title}"></legend>
                             ${group.icons.map(renderInputRow).join('')}
                         </fieldset>
                     `).join('')}
                 </div>
             </div>`;
-    };
-
-    const renderSocialsConfig = () => {
-        const socials = localConfig.socials || {};
-        tabContainer.innerHTML = `
-        <div class="card">
-            <div class="card-header"><h3 class="card-title" data-translate="socials_config"></h3></div>
-            <div class="card-body">
-                <fieldset class="form-fieldset">
-                    <legend>YouTube</legend>
-                    <div class="mb-3">
-                        <label class="form-label" data-translate="youtube_channel_url"></label>
-                        <input type="text" class="form-control" data-field="socials.youtubeUrl" value="${escapeHtml(socials.youtubeUrl || '')}" placeholder="https://www.youtube.com/channel/...">
-                        <div class="form-text" data-translate="youtube_channel_url_desc"></div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label" data-translate="youtube_channel_id"></label>
-                        <input type="text" class="form-control" data-field="socials.youtubeChannelId" value="${escapeHtml(socials.youtubeChannelId || '')}">
-                        <div class="form-text" data-translate="youtube_channel_id_desc"></div>
-                    </div>
-                </fieldset>
-                <fieldset class="form-fieldset mt-4">
-                    <legend>Telegram</legend>
-                     <div class="mb-3">
-                        <label class="form-label" data-translate="telegram_channel_url"></label>
-                        <input type="text" class="form-control" data-field="socials.telegramUrl" value="${escapeHtml(socials.telegramUrl || '')}" placeholder="https://t.me/yourchannel">
-                         <div class="form-text" data-translate="telegram_channel_url_desc"></div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label" data-translate="telegram_channel_id"></label>
-                        <input type="text" class="form-control" data-field="socials.telegramChannelId" value="${escapeHtml(socials.telegramChannelId || '')}">
-                        <div class="form-text" data-translate="telegram_channel_id_desc"></div>
-                    </div>
-                </fieldset>
-            </div>
-        </div>
-        `;
     };
 
     // --- MODALS ---
@@ -572,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content">
                   <div class="modal-header">
-                    <h5 class="modal-title" data-translate="player_details"></h5>
+                    <h5 class="modal-title font-display" data-translate="player_details"></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                   </div>
                   <div class="modal-body">
@@ -681,6 +662,62 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    const showSocialsEditModal = (socialType) => {
+        const socials = localConfig.socials || {};
+        const isYouTube = socialType === 'youtube';
+        const titleKey = isYouTube ? 'edit_youtube_settings' : 'edit_telegram_settings';
+        const urlKey = isYouTube ? 'youtubeUrl' : 'telegramUrl';
+        const idKey = isYouTube ? 'youtubeChannelId' : 'telegramChannelId';
+        const urlLabelKey = isYouTube ? 'youtube_channel_url' : 'telegram_channel_url';
+        const urlDescKey = isYouTube ? 'youtube_channel_url_desc' : 'telegram_channel_url_desc';
+        const idLabelKey = isYouTube ? 'youtube_channel_id' : 'telegram_channel_id';
+        const idDescKey = isYouTube ? 'youtube_channel_id_desc' : 'telegram_channel_id_desc';
+
+        modalsContainer.innerHTML = `
+        <div class="modal modal-blur fade show" style="display: block;" tabindex="-1" id="socials-edit-modal">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title font-display" data-translate="${titleKey}"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label" data-translate="${urlLabelKey}"></label>
+                    <input type="text" class="form-control" id="social-url-input" value="${escapeHtml(socials[urlKey] || '')}">
+                    <div class="form-text" data-translate="${urlDescKey}"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" data-translate="${idLabelKey}"></label>
+                    <input type="text" class="form-control" id="social-id-input" value="${escapeHtml(socials[idKey] || '')}">
+                    <div class="form-text" data-translate="${idDescKey}"></div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn me-auto" data-bs-dismiss="modal">${t('close')}</button>
+                <button type="button" class="btn btn-primary" id="save-socials-btn">${t('save')}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        `;
+        applyTranslations();
+
+        const modalElement = document.getElementById('socials-edit-modal');
+        modalElement.querySelector('.btn-close').addEventListener('click', () => modalElement.remove());
+        modalElement.querySelector('[data-bs-dismiss="modal"]').addEventListener('click', () => modalElement.remove());
+        modalElement.querySelector('#save-socials-btn').addEventListener('click', () => {
+            if (!localConfig.socials) localConfig.socials = {};
+            localConfig.socials[urlKey] = document.getElementById('social-url-input').value;
+            localConfig.socials[idKey] = document.getElementById('social-id-input').value;
+            
+            // Trigger main save
+            handleSave();
+            modalElement.remove();
+        });
+    };
+
+
     // --- EVENT LISTENERS ---
     function addEventListeners() {
         // Tab switching
@@ -720,13 +757,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isNaN(value) && e.target.type === 'number') value = 0;
                 const configKey = activeTab;
                 
-                if (field && field.startsWith('socials.')) {
-                    const key = field.split('.')[1];
-                    if (!localConfig.socials) localConfig.socials = {};
-                    localConfig.socials[key] = value;
-                    return;
-                }
-                
                 if (configKey === 'uiIcons' && field) {
                     const fieldParts = field.split('.');
                     if (!localConfig.uiIcons) localConfig.uiIcons = {};
@@ -736,7 +766,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                          localConfig.uiIcons[field] = value;
                     }
-                     // Update preview
                     const previewImg = e.target.closest('.row').querySelector('img');
                     if (previewImg) {
                         previewImg.src = value;
@@ -748,7 +777,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (configKey in configMeta && id) {
                     let item = localConfig[configKey].find(i => i.id === id);
                     if (item) {
-                        // Handle nested objects like name.en or reward.amount
                         const fieldParts = field.split('.');
                         if (fieldParts.length > 1) {
                             if (!item[fieldParts[0]]) item[fieldParts[0]] = {};
@@ -776,6 +804,14 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('cipher-word-input')?.addEventListener('input', e => dailyEvent.cipher_word = e.target.value);
         document.getElementById('combo-reward-input')?.addEventListener('input', e => dailyEvent.combo_reward = parseInt(e.target.value));
         document.getElementById('cipher-reward-input')?.addEventListener('input', e => dailyEvent.cipher_reward = parseInt(e.target.value));
+
+        // Socials edit button
+        document.querySelectorAll('.social-edit-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const socialType = e.currentTarget.dataset.social;
+                showSocialsEditModal(socialType);
+            });
+        });
 
 
         // Save button

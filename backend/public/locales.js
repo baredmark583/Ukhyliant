@@ -16,7 +16,6 @@ const LOCALES = {
         'nav_coin_skins': 'Coin Skins',
         'nav_ui_icons': 'UI Icons',
         'nav_leagues': 'Leagues',
-        'nav_socials': 'Socials',
         'logout': 'Logout',
 
         // Titles
@@ -31,7 +30,6 @@ const LOCALES = {
         'coinSkins': 'Coin Skins',
         'uiIcons': 'UI Icons',
         'leagues': 'Leagues',
-        'socials': 'Socials',
         
         // Buttons & Actions
         'save': 'Save',
@@ -58,13 +56,14 @@ const LOCALES = {
         'purchases': 'Purchases',
         'player_map': 'Player Map',
         'loading_screen_image_url': 'Loading Screen Image URL',
-        'social_stats': 'Social Media Stats',
-        'social_telegram_subs': 'Telegram Subs',
+        'youtube_stats': 'YouTube Stats',
+        'telegram_stats': 'Telegram Stats',
         'social_youtube_subs': 'YouTube Subs',
-        'social_youtube_views': 'YouTube Views',
+        'social_telegram_subs': 'Telegram Subs',
         
-        // Socials Config
-        'socials_config': 'Socials Configuration',
+        // Socials Edit Modal
+        'edit_youtube_settings': 'Edit YouTube Settings',
+        'edit_telegram_settings': 'Edit Telegram Settings',
         'youtube_channel_url': 'YouTube Channel URL',
         'youtube_channel_url_desc': 'The public link to your channel for users to click on.',
         'youtube_channel_id': 'YouTube Channel ID',
@@ -181,7 +180,6 @@ const LOCALES = {
         'nav_coin_skins': 'Скины Монет',
         'nav_ui_icons': 'Иконки интерфейса',
         'nav_leagues': 'Лиги',
-        'nav_socials': 'Соцсети',
         'logout': 'Выйти',
 
         // Titles
@@ -196,7 +194,6 @@ const LOCALES = {
         'coinSkins': 'Скины Монет',
         'uiIcons': 'Иконки интерфейса',
         'leagues': 'Лиги',
-        'socials': 'Соцсети',
         
         // Buttons & Actions
         'save': 'Сохранить',
@@ -223,13 +220,14 @@ const LOCALES = {
         'purchases': 'Покупки',
         'player_map': 'Карта игроков',
         'loading_screen_image_url': 'URL изображения экрана загрузки',
-        'social_stats': 'Статистика соц. сетей',
-        'social_telegram_subs': 'Подписчики Telegram',
+        'youtube_stats': 'Статистика YouTube',
+        'telegram_stats': 'Статистика Telegram',
         'social_youtube_subs': 'Подписчики YouTube',
-        'social_youtube_views': 'Просмотры YouTube',
-        
-        // Socials Config
-        'socials_config': 'Настройка Соцсетей',
+        'social_telegram_subs': 'Подписчики Telegram',
+
+        // Socials Edit Modal
+        'edit_youtube_settings': 'Настройки YouTube',
+        'edit_telegram_settings': 'Настройки Telegram',
         'youtube_channel_url': 'URL YouTube Канала',
         'youtube_channel_url_desc': 'Публичная ссылка на ваш канал, на которую будут нажимать пользователи.',
         'youtube_channel_id': 'ID YouTube Канала',
