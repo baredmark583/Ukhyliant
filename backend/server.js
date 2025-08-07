@@ -1,6 +1,7 @@
 
 
 
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -841,12 +842,22 @@ const fetchSocialStats = async (config) => {
     // Fetch Telegram Stats
     if (BOT_TOKEN && telegramChannelId) {
         try {
-            const tgUrl = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMembersCount?chat_id=${telegramChannelId}`;
+            let chatId = telegramChannelId;
+            if (chatId.includes('t.me/')) {
+                const parts = chatId.split('t.me/');
+                chatId = `@${parts[parts.length - 1]}`;
+            } else if (chatId && !chatId.startsWith('@')) {
+                chatId = `@${chatId}`;
+            }
+
+            const tgUrl = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMembersCount?chat_id=${chatId}`;
             const tgResponse = await fetch(tgUrl);
             const tgData = await tgResponse.json();
             if (tgData.ok) {
                 stats.telegram_subs = tgData.result || 0;
-                log('info', `Telegram stats fetched for ${telegramChannelId}`, { count: tgData.result });
+                log('info', `Telegram stats fetched for ${chatId}`, { count: tgData.result });
+            } else {
+                log('warn', `Failed to fetch Telegram stats for ${chatId}`, tgData);
             }
         } catch (e) {
             log('error', 'Failed to fetch Telegram stats', e);

@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language, GameConfig } from '../types';
@@ -60,6 +61,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const pressTimer = useRef<number | null>(null);
   const resetMorseTimer = useRef<number | null>(null);
   const lastClickPos = useRef({ x: 0, y: 0 });
+  const lastTapTime = useRef(0);
 
   const dailyCipherWord = (config.dailyEvent?.cipherWord || '').toUpperCase();
   const dailyCipherMorseTarget = dailyCipherWord.split('').map(letter => MORSE_CODE_MAP[letter]).join('');
@@ -120,6 +122,10 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
          }
       }
     } else {
+      const now = Date.now();
+      if (now - lastTapTime.current < 20) return; // Prevent double taps
+      lastTapTime.current = now;
+
       const tapValue = onTap();
       if (tapValue > 0) { 
         const newClick: ClickFx = {

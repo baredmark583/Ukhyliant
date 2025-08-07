@@ -1,5 +1,6 @@
 
 
+
 import React from 'react';
 import { League, Upgrade, UpgradeCategory, Boost, DailyTask, LocalizedString, SpecialTask, BlackMarketCard, CoinSkin } from './types';
 
@@ -87,7 +88,7 @@ type TranslationKey =
   | 'edit_special_tasks' | 'task_type' | 'url' | 'price_stars' | 'add_new_special_task' | 'translate'
   | 'telegram_join' | 'social_follow' | 'video_watch' | 'referral_bonus' | 'your_referrals' | 'invite_friends'
   // Daily Events
-  | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today'
+  | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today' | 'combo_not_active'
   | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard' | 'your_league' | 'total_players'
   // Boosts
   | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased'
@@ -170,6 +171,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     find_cards: 'Find and upgrade these cards!',
     cipher_hint: 'Tap the code: . is short, - is long',
     claimed_today: 'Claimed Today',
+    combo_not_active: 'Combo is not active today.',
     enter_morse_mode: 'Enter Code',
     cancel_morse_mode: 'Cancel',
     enter_secret_code: 'Enter Secret Code',
@@ -271,6 +273,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     find_cards: 'Знайди та прокачай ці картки!',
     cipher_hint: 'Відстукай код: . короткий, - довгий',
     claimed_today: 'Сьогодні забрано',
+    combo_not_active: 'Комбо сьогодні неактивне.',
     enter_morse_mode: 'Ввести код',
     cancel_morse_mode: 'Скасувати',
     enter_secret_code: 'Введіть секретний код',
@@ -372,6 +375,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     find_cards: 'Найди и прокачай эти карты!',
     cipher_hint: 'Отстучи код: . короткий, - длинный',
     claimed_today: 'Сегодня забрано',
+    combo_not_active: 'Комбо сегодня неактивно.',
     enter_morse_mode: 'Ввести код',
     cancel_morse_mode: 'Отмена',
     enter_secret_code: 'Введите секретный код',

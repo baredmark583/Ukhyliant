@@ -20,7 +20,14 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
   const t = useTranslation();
   const comboIds = config.dailyEvent?.comboIds || [];
 
-  if (comboIds.length !== 3) return null;
+  if (!config.dailyEvent || comboIds.length !== 3) {
+      return (
+        <div className="mb-6 p-4 bg-green-900/20 border border-green-500/50 text-center">
+            <h2 className="text-xl font-display text-green-300 mb-2">{t('daily_combo')}</h2>
+            <p className="text-gray-400">{t('combo_not_active')}</p>
+        </div>
+      );
+  }
 
   const upgradedCardsToday = playerState.dailyUpgrades || [];
   const allComboCardsUpgradedToday = comboIds.every(id => upgradedCardsToday.includes(id));
