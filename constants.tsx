@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { League, Upgrade, UpgradeCategory, Boost, DailyTask, LocalizedString, SpecialTask, BlackMarketCard, CoinSkin } from './types';
 
@@ -75,14 +76,14 @@ export const LOOTBOX_COST_STARS = 5;
 // --- TRANSLATIONS ---
 type TranslationKey = 
   | 'exchange' | 'mine' | 'friends' | 'boosts' | 'tasks' | 'admin' | 'player' | 'league'
-  | 'missions' | 'profile'
+  | 'missions' | 'profile' | 'airdrop'
   | 'sub_daily' | 'sub_airdrop' | 'sub_contacts' | 'sub_boosts' | 'sub_disguise' | 'sub_market'
   | 'profit_per_hour' | 'energy' | 'mine_upgrades' | 'lvl'
   | 'get' | 'level' | 'price' | 'profit' | 'category' | 'icon' | 'actions' | 'save'
   | 'add_new_upgrade' | 'edit_upgrades' | 'edit_tasks' | 'task_name' | 'reward_coins'
   | 'required_taps' | 'add_new_task' | 'edit_boosts' | 'boost_name' | 'description' | 'cost' | 'add_new_boost'
   | 'login_with_telegram' | 'login' | 'logout' | 'enter_telegram_id' | 'copy_referral_link' | 'copied'
-  | 'claim_reward' | 'completed' | 'airdrop' | 'airdrop_tasks' | 'airdrop_description' | 'unlock_for' | 'go_to_task' | 'claim'
+  | 'claim_reward' | 'completed' | 'airdrop_tasks' | 'airdrop_description' | 'unlock_for' | 'go_to_task' | 'claim'
   | 'edit_special_tasks' | 'task_type' | 'url' | 'price_stars' | 'add_new_special_task' | 'translate'
   | 'telegram_join' | 'social_follow' | 'video_watch' | 'referral_bonus' | 'your_referrals' | 'invite_friends'
   // Daily Events
@@ -101,6 +102,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     exchange: 'Stockpile',
     mine: 'Mine',
     missions: 'Directives',
+    airdrop: 'Airdrop',
     profile: 'Dossier',
     sub_daily: 'Daily',
     sub_airdrop: 'Airdrop',
@@ -146,7 +148,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     copied: 'Copied!',
     claim_reward: 'Claim Reward',
     completed: 'Completed',
-    airdrop: 'Airdrop',
     airdrop_tasks: 'Airdrop Tasks',
     airdrop_description: 'Complete tasks to get rewarded in a future airdrop!',
     unlock_for: 'Unlock for',
@@ -202,6 +203,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     exchange: 'Схрон',
     mine: 'Майнінг',
     missions: 'Директиви',
+    airdrop: 'Airdrop',
     profile: 'Досьє',
     sub_daily: 'Щоденні',
     sub_airdrop: 'Airdrop',
@@ -247,7 +249,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     copied: 'Скопійовано!',
     claim_reward: 'Отримати нагороду',
     completed: 'Виконано',
-    airdrop: 'Airdrop',
     airdrop_tasks: 'Завдання Airdrop',
     airdrop_description: 'Виконуйте завдання та отримуйте нагороди у майбутньому ейрдропі!',
     unlock_for: 'Розблокувати за',
@@ -303,6 +304,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     exchange: 'Схрон',
     mine: 'Майнинг',
     missions: 'Директивы',
+    airdrop: 'Airdrop',
     profile: 'Досье',
     sub_daily: 'Ежедневные',
     sub_airdrop: 'Airdrop',
@@ -348,7 +350,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     copied: 'Скопировано!',
     claim_reward: 'Получить награду',
     completed: 'Выполнено',
-    airdrop: 'Airdrop',
     airdrop_tasks: 'Задания Airdrop',
     airdrop_description: 'Выполняйте задания и получайте награды в будущем эйрдропе!',
     unlock_for: 'Разблокировать за',

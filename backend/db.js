@@ -1,6 +1,7 @@
 
 
 
+
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -144,6 +145,10 @@ export const initializeDb = async () => {
             }
             if (config.uiIcons.marketStarBox === undefined) {
                 config.uiIcons.marketStarBox = INITIAL_UI_ICONS.marketStarBox;
+                needsUpdate = true;
+            }
+            if (config.uiIcons.nav.airdrop === undefined) {
+                config.uiIcons.nav.airdrop = INITIAL_UI_ICONS.nav.airdrop;
                 needsUpdate = true;
             }
         }

@@ -1,6 +1,7 @@
 
 
 
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -120,11 +121,11 @@ document.addEventListener('DOMContentLoaded', () => {
         tabContainer.innerHTML = `
             <div class="row row-deck row-cards">
                 <!-- Stats Cards -->
-                <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="total_players"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.totalPlayers)}</div></div></div></div>
-                <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="new_players_24h"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.newPlayersToday)}</div></div></div></div>
-                <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="online_now"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.onlineNow)}</div></div></div></div>
-                <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="total_profit_per_hour"></div></div><div class="h1 mb-3 text-green">${formatNumber(dashboardStats.totalProfitPerHour)}</div></div></div></div>
-                <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="earned_stars"></div></div><div class="h1 mb-3 text-yellow">${formatNumber(dashboardStats.totalStarsEarned)}</div></div></div></div>
+                <div class="col-lg-2-4 col-sm-6"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="total_players"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.totalPlayers)}</div></div></div></div>
+                <div class="col-lg-2-4 col-sm-6"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="new_players_24h"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.newPlayersToday)}</div></div></div></div>
+                <div class="col-lg-2-4 col-sm-6"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="online_now"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.onlineNow)}</div></div></div></div>
+                <div class="col-lg-2-4 col-sm-6"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="total_profit_per_hour"></div></div><div class="h1 mb-3 text-green">${formatNumber(dashboardStats.totalProfitPerHour)}</div></div></div></div>
+                <div class="col-lg-2-4 col-sm-6"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="earned_stars"></div></div><div class="h1 mb-3 text-yellow">${formatNumber(dashboardStats.totalStarsEarned)}</div></div></div></div>
             </div>
             
             <div class="row row-cards mt-4">
@@ -405,6 +406,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
+    const formatCellContent = (item, col) => {
+        const value = item[col];
+        if (value === null || value === undefined) return '';
+
+        if (typeof value === 'object') {
+            if (col === 'name' || col === 'description') {
+                return escapeHtml(value[currentLang] || value.en || JSON.stringify(value));
+            }
+            if (col === 'reward') {
+                const typeText = t(`reward_type_${value.type}`);
+                return `${formatNumber(value.amount)} (${typeText})`;
+            }
+            return escapeHtml(JSON.stringify(value));
+        }
+        return escapeHtml(value);
+    };
+
     const renderConfigTable = (configKey) => {
         const items = localConfig[configKey] || [];
         const meta = configMeta[configKey];
@@ -431,7 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <tbody>
                             ${items.map(item => `
                                 <tr data-id="${item.id}">
-                                    ${meta.cols.map(col => `<td>${escapeHtml(item[col])}</td>`).join('')}
+                                    ${meta.cols.map(col => `<td>${formatCellContent(item, col)}</td>`).join('')}
                                     <td>
                                         <button class="btn btn-sm btn-icon edit-item-btn" data-config-key="${configKey}" data-id="${item.id}" title="${t('edit')}">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-pencil" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" /></svg>
@@ -457,6 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     { key: 'nav.exchange', label: 'icon_nav_exchange' },
                     { key: 'nav.mine', label: 'icon_nav_mine' },
                     { key: 'nav.missions', label: 'icon_nav_missions' },
+                    { key: 'nav.airdrop', label: 'icon_nav_airdrop' },
                     { key: 'nav.profile', label: 'icon_nav_profile' }
                 ]
             },

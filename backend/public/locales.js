@@ -1,6 +1,7 @@
 
 
 
+
 const LOCALES = {
     'en': {
         // Nav
@@ -146,6 +147,7 @@ const LOCALES = {
         'icon_nav_exchange': 'Stockpile Icon (Nav)',
         'icon_nav_mine': 'Mine Icon (Nav)',
         'icon_nav_missions': 'Missions Icon (Nav)',
+        'icon_nav_airdrop': 'Airdrop Icon (Nav)',
         'icon_nav_profile': 'Profile Icon (Nav)',
         'icon_energy': 'Energy Icon',
         'icon_coin': 'Coin Icon',
@@ -324,6 +326,7 @@ const LOCALES = {
         'icon_nav_exchange': 'Иконка Схрона (Нав)',
         'icon_nav_mine': 'Иконка Майнинга (Нав)',
         'icon_nav_missions': 'Иконка Директив (Нав)',
+        'icon_nav_airdrop': 'Иконка Airdrop (Нав)',
         'icon_nav_profile': 'Иконка Досье (Нав)',
         'icon_energy': 'Иконка Выносливости',
         'icon_coin': 'Иконка Монеты',

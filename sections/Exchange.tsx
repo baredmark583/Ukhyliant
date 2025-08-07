@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import { PlayerState, League, User, Language, GameConfig } from '../types';
@@ -59,7 +60,6 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const pressTimer = useRef<number | null>(null);
   const resetMorseTimer = useRef<number | null>(null);
   const lastClickPos = useRef({ x: 0, y: 0 });
-  const pressEndDebounce = useRef(false);
 
   const dailyCipherWord = (config.dailyEvent?.cipherWord || '').toUpperCase();
   const dailyCipherMorseTarget = dailyCipherWord.split('').map(letter => MORSE_CODE_MAP[letter]).join('');
@@ -95,8 +95,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   };
 
   const handlePressEnd = async () => {
-    if (pressEndDebounce.current || !pressTimer.current) return;
-    pressEndDebounce.current = true;
+    if (!pressTimer.current) return;
 
     const pressDuration = Date.now() - pressTimer.current;
     pressTimer.current = null;
@@ -136,8 +135,6 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
         setTimeout(() => setClicks(prev => prev.filter(c => c.id !== newClick.id)), 1000);
       }
     }
-
-    setTimeout(() => { pressEndDebounce.current = false; }, 50);
   };
   
   const handleSwitchLanguage = () => {

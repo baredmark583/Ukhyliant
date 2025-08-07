@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -10,7 +11,7 @@ import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, Player
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
 
-type Screen = 'exchange' | 'mine' | 'missions' | 'profile';
+type Screen = 'exchange' | 'mine' | 'missions' | 'airdrop' | 'profile';
 
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
@@ -272,6 +273,14 @@ const MainApp: React.FC = () => {
       case 'missions':
         return <MissionsScreen
                     tasks={config.tasks}
+                    playerState={playerState}
+                    onClaim={handleClaimTask}
+                    lang={user.language}
+                    startedVideoTasks={startedVideoTasks}
+                    uiIcons={config.uiIcons}
+                />;
+       case 'airdrop':
+        return <AirdropScreen
                     specialTasks={config.specialTasks}
                     playerState={playerState}
                     onClaim={handleClaimTask}
@@ -350,10 +359,11 @@ const MainApp: React.FC = () => {
       <NotificationToast notification={notification} />
 
       <div className="fixed bottom-0 left-0 right-0 bg-black/50 backdrop-blur-md border-t border-[var(--border-color)]">
-        <div className="grid grid-cols-4 justify-around items-center max-w-xl mx-auto">
+        <div className="grid grid-cols-5 justify-around items-center max-w-xl mx-auto">
           <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} />
           <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} />
           <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} />
+          <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} />
           <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} />
         </div>
       </div>
@@ -373,17 +383,14 @@ const MainApp: React.FC = () => {
   );
 };
 
-const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks, uiIcons }: { task: DailyTask | SpecialTask, playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, lang: Language, startedVideoTasks: Set<string>, uiIcons: UiIcons }) => {
+const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks, uiIcons }: { task: DailyTask, playerState: PlayerState, onClaim: (task: DailyTask) => void, lang: Language, startedVideoTasks: Set<string>, uiIcons: UiIcons }) => {
     const t = useTranslation();
-    const isSpecial = 'isOneTime' in task;
-    const isCompleted = isSpecial 
-        ? playerState.completedSpecialTaskIds.includes(task.id)
-        : playerState.completedDailyTaskIds.includes(task.id);
+    const isCompleted = playerState.completedDailyTaskIds.includes(task.id);
     
     let canClaim = !isCompleted;
     let progressText = t('get');
 
-    if (task.type === 'taps' && !isSpecial) {
+    if (task.type === 'taps') {
         const progress = Math.min(playerState.dailyTaps, task.requiredTaps || 0);
         canClaim = progress >= (task.requiredTaps || 0) && !isCompleted;
         progressText = `${progress}/${task.requiredTaps}`;
@@ -422,66 +429,69 @@ const TaskCard = ({ task, playerState, onClaim, lang, startedVideoTasks, uiIcons
     );
 };
 
-const MissionsScreen = ({ tasks, specialTasks, playerState, onClaim, onPurchase, lang, startedVideoTasks, uiIcons }: { tasks: DailyTask[], specialTasks: SpecialTask[], playerState: PlayerState, onClaim: (task: DailyTask | SpecialTask) => void, onPurchase: (task: SpecialTask) => void, lang: Language, startedVideoTasks: Set<string>, uiIcons: UiIcons }) => {
+const MissionsScreen = ({ tasks, playerState, onClaim, lang, startedVideoTasks, uiIcons }: { tasks: DailyTask[], playerState: PlayerState, onClaim: (task: DailyTask) => void, lang: Language, startedVideoTasks: Set<string>, uiIcons: UiIcons }) => {
     const t = useTranslation();
-    const [activeTab, setActiveTab] = useState<'daily' | 'airdrop'>('daily');
 
     return (
         <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
             <div className="w-full max-w-md sticky top-0 bg-gray-900/80 backdrop-blur-sm py-4 z-10">
                 <h1 className="text-3xl font-display text-center mb-4">{t('missions')}</h1>
-                <div className="flex space-x-2 themed-container p-1">
-                    <TabButton label={t('sub_daily')} isActive={activeTab === 'daily'} onClick={() => setActiveTab('daily')} />
-                    <TabButton label={t('sub_airdrop')} isActive={activeTab === 'airdrop'} onClick={() => setActiveTab('airdrop')} />
-                </div>
             </div>
 
             <div className="w-full max-w-md flex-grow space-y-3 overflow-y-auto no-scrollbar pt-2">
-                {activeTab === 'daily' && (
-                    (tasks || []).map(task => <TaskCard key={task.id} task={task} playerState={playerState} onClaim={onClaim} lang={lang} startedVideoTasks={startedVideoTasks} uiIcons={uiIcons} />)
-                )}
-                {activeTab === 'airdrop' && (
-                    <>
-                         <p className="text-center text-gray-400 max-w-xs mx-auto mb-2">{t('airdrop_description')}</p>
-                         {(specialTasks || []).map(task => {
-                            const isPurchased = playerState.purchasedSpecialTaskIds.includes(task.id);
-                            const isCompleted = playerState.completedSpecialTaskIds.includes(task.id);
-                            const rewardIconUrl = task.reward?.type === 'profit' ? uiIcons.energy : uiIcons.coin;
-                            
-                            let button;
-                            if (isCompleted) {
-                                button = <button disabled className="w-full mt-2 py-2 font-bold bg-gray-700 text-gray-500 cursor-not-allowed">{t('completed')}</button>;
-                            } else if (isPurchased) {
-                                const buttonText = task.type === 'video_code' ? (startedVideoTasks.has(task.id) ? t('enter_secret_code') : t('go_to_task')) : t('go_to_task');
-                                button = <button onClick={() => onClaim(task)} className="w-full mt-2 py-2 font-bold bg-blue-600 hover:bg-blue-500">{buttonText}</button>;
-                            } else {
-                                button = <button onClick={() => onPurchase(task)} className="w-full mt-2 py-2 font-bold bg-purple-600 hover:bg-purple-500 flex justify-center items-center space-x-2">
-                                            <span>{task.priceStars > 0 ? `${t('unlock_for')} ${task.priceStars}` : t('get')}</span>
-                                            {task.priceStars > 0 && <img src={uiIcons.star} alt="star" className="w-4 h-4" />}
-                                         </button>;
-                            }
+                {(tasks || []).map(task => <TaskCard key={task.id} task={task} playerState={playerState} onClaim={onClaim} lang={lang} startedVideoTasks={startedVideoTasks} uiIcons={uiIcons} />)}
+            </div>
+        </div>
+    );
+};
 
-                            return (
-                                <div key={task.id} className={`themed-container p-4 ${isCompleted ? 'opacity-60' : ''}`}>
-                                    <div className="flex items-center mb-2">
-                                        <div className="w-12 h-12 border border-gray-700 flex items-center justify-center mr-3">
-                                             {task.imageUrl ? <img src={task.imageUrl} alt={task.name?.[lang]} className="w-10 h-10 object-contain"/> : <span className="text-3xl">🔗</span>}
-                                        </div>
-                                        <div>
-                                            <h2 className="text-lg font-bold">{task.name?.[lang]}</h2>
-                                            <p className="text-sm text-gray-400">{task.description?.[lang]}</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-sm text-yellow-300 my-2 flex items-center space-x-2">
-                                        <span>+ {(task.reward?.amount || 0).toLocaleString()}</span>
-                                        <img src={rewardIconUrl} alt="reward" className="w-4 h-4" />
-                                    </div>
-                                    {button}
+const AirdropScreen = ({ specialTasks, playerState, onClaim, onPurchase, lang, startedVideoTasks, uiIcons }: { specialTasks: SpecialTask[], playerState: PlayerState, onClaim: (task: SpecialTask) => void, onPurchase: (task: SpecialTask) => void, lang: Language, startedVideoTasks: Set<string>, uiIcons: UiIcons }) => {
+    const t = useTranslation();
+
+    return (
+        <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
+            <div className="w-full max-w-md sticky top-0 bg-gray-900/80 backdrop-blur-sm py-4 z-10">
+                <h1 className="text-3xl font-display text-center mb-4">{t('airdrop')}</h1>
+            </div>
+            <div className="w-full max-w-md flex-grow space-y-3 overflow-y-auto no-scrollbar pt-2">
+                <p className="text-center text-gray-400 max-w-xs mx-auto mb-2">{t('airdrop_description')}</p>
+                 {(specialTasks || []).map(task => {
+                    const isPurchased = playerState.purchasedSpecialTaskIds.includes(task.id);
+                    const isCompleted = playerState.completedSpecialTaskIds.includes(task.id);
+                    const rewardIconUrl = task.reward?.type === 'profit' ? uiIcons.energy : uiIcons.coin;
+                    
+                    let button;
+                    if (isCompleted) {
+                        button = <button disabled className="w-full mt-2 py-2 font-bold bg-gray-700 text-gray-500 cursor-not-allowed">{t('completed')}</button>;
+                    } else if (isPurchased) {
+                        const buttonText = task.type === 'video_code' ? (startedVideoTasks.has(task.id) ? t('enter_secret_code') : t('go_to_task')) : t('go_to_task');
+                        button = <button onClick={() => onClaim(task)} className="w-full mt-2 py-2 font-bold bg-blue-600 hover:bg-blue-500">{buttonText}</button>;
+                    } else {
+                        button = <button onClick={() => onPurchase(task)} className="w-full mt-2 py-2 font-bold bg-purple-600 hover:bg-purple-500 flex justify-center items-center space-x-2">
+                                    <span>{task.priceStars > 0 ? `${t('unlock_for')} ${task.priceStars}` : t('get')}</span>
+                                    {task.priceStars > 0 && <img src={uiIcons.star} alt="star" className="w-4 h-4" />}
+                                 </button>;
+                    }
+
+                    return (
+                        <div key={task.id} className={`themed-container p-4 ${isCompleted ? 'opacity-60' : ''}`}>
+                            <div className="flex items-center mb-2">
+                                <div className="w-12 h-12 border border-gray-700 flex items-center justify-center mr-3">
+                                     {task.imageUrl ? <img src={task.imageUrl} alt={task.name?.[lang]} className="w-10 h-10 object-contain"/> : <span className="text-3xl">🔗</span>}
                                 </div>
-                            );
-                        })}
-                    </>
-                )}
+                                <div>
+                                    <h2 className="text-lg font-bold">{task.name?.[lang]}</h2>
+                                    <p className="text-sm text-gray-400">{task.description?.[lang]}</p>
+                                </div>
+                            </div>
+                            <div className="text-sm text-yellow-300 my-2 flex items-center space-x-2">
+                                <span>+ {(task.reward?.amount || 0).toLocaleString()}</span>
+                                <img src={rewardIconUrl} alt="reward" className="w-4 h-4" />
+                            </div>
+                            {button}
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );

@@ -1,4 +1,5 @@
 
+
 export type Language = 'en' | 'ua' | 'ru';
 
 export interface LocalizedString {
@@ -116,6 +117,7 @@ export interface UiIcons {
     mine: string;
     missions: string;
     profile: string;
+    airdrop: string;
   };
   energy: string;
   coin: string;
