@@ -84,3 +84,7 @@ export const INITIAL_MAX_ENERGY = 1000;
 export const ENERGY_REGEN_RATE = 2; // per second
 export const LOOTBOX_COST_COINS = 50000;
 export const LOOTBOX_COST_STARS = 5;
+
+// --- ANTI-CHEAT ---
+export const CHEAT_DETECTION_THRESHOLD_TPS = 25; // Taps per second
+export const CHEAT_DETECTION_STRIKES_TO_FLAG = 5; // Number of times the threshold can be exceeded before flagging

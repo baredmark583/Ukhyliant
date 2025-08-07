@@ -1,5 +1,6 @@
 
 
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -38,11 +39,14 @@ import {
     getTotalPlayerCount,
     getPlayerDetails,
     updatePlayerBalance,
-    getReferredUsersProfit
+    getReferredUsersProfit,
+    getCheaters,
+    resetPlayerProgress
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, INITIAL_BOOSTS,
-    REFERRAL_PROFIT_SHARE, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID, INITIAL_UPGRADES, INITIAL_BLACK_MARKET_CARDS, INITIAL_COIN_SKINS
+    REFERRAL_PROFIT_SHARE, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID, INITIAL_UPGRADES, INITIAL_BLACK_MARKET_CARDS, INITIAL_COIN_SKINS,
+    CHEAT_DETECTION_THRESHOLD_TPS, CHEAT_DETECTION_STRIKES_TO_FLAG
 } from './constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -325,6 +329,27 @@ app.post('/api/player/:id', async (req, res) => {
             log('warn', `Player not found during save attempt for ID: ${userId}, performing full save.`);
             await savePlayer(userId, clientState);
             return res.status(200).send();
+        }
+        
+        // Anti-cheat logic
+        if (clientState.dailyTaps > (serverState.dailyTaps || 0) && clientState.lastLoginTimestamp > (serverState.lastLoginTimestamp || 0)) {
+            const tapsSinceLastSave = clientState.dailyTaps - serverState.dailyTaps;
+            const timeSinceLastSaveMs = clientState.lastLoginTimestamp - serverState.lastLoginTimestamp;
+
+            if (timeSinceLastSaveMs > 500) { // Avoid false positives from very short intervals
+                const tapsPerSecond = (tapsSinceLastSave * 1000) / timeSinceLastSaveMs;
+
+                if (tapsPerSecond > CHEAT_DETECTION_THRESHOLD_TPS) {
+                    serverState.cheatStrikes = (serverState.cheatStrikes || 0) + 1;
+                    if (!serverState.cheatLog) serverState.cheatLog = [];
+                    serverState.cheatLog.push(`[${new Date().toISOString()}] Flagged: ${tapsPerSecond.toFixed(1)} TPS.`);
+                    
+                    if (serverState.cheatStrikes >= CHEAT_DETECTION_STRIKES_TO_FLAG) {
+                        serverState.isCheater = true;
+                        log('warn', `User ${userId} has been flagged as a cheater. Strikes: ${serverState.cheatStrikes}`);
+                    }
+                }
+            }
         }
         
         serverState.balance = clientState.balance;
@@ -863,6 +888,30 @@ adminApiRouter.get('/player-locations', async (req, res) => {
         res.status(500).json({ error: 'Server error'});
     }
 });
+
+adminApiRouter.get('/cheaters', async (req, res) => {
+    log('info', 'Admin request: /api/cheaters');
+    try {
+        const cheaters = await getCheaters();
+        res.json(cheaters);
+    } catch (e) {
+        log('error', 'Failed to get cheaters list', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+adminApiRouter.post('/player/:id/reset-progress', async (req, res) => {
+    const userId = req.params.id;
+    log('info', `Attempting to reset progress for flagged cheater ${userId}`);
+    try {
+        await resetPlayerProgress(userId);
+        res.json({ message: `Player ${userId} progress has been reset.` });
+    } catch (e) {
+        log('error', `Failed to reset progress for cheater ${userId}`, e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 
 adminApiRouter.get('/daily-events', async (req, res) => {
     log('info', 'Admin request: /api/daily-events');

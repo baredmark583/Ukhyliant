@@ -1,5 +1,6 @@
 
 
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -20,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
         blackMarketCards: { title: 'blackMarketCards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'iconUrl'] },
         coinSkins: { title: 'coinSkins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'iconUrl'] },
         uiIcons: { title: 'ui_icons' },
+        boosts: { title: 'boosts', cols: ['id', 'name', 'description', 'costCoins', 'iconUrl'] },
     };
 
     // --- DOM ELEMENTS ---
@@ -34,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- UTILS ---
     const escapeHtml = (unsafe) => {
         if (unsafe === null || unsafe === undefined) return '';
-        if (typeof unsafe !== 'string' && typeof unsafe !== 'number') return unsafe;
+        if (typeof unsafe !== 'string' && typeof unsafe !== 'number') return JSON.stringify(unsafe);
         return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     };
 
@@ -97,12 +99,13 @@ document.addEventListener('DOMContentLoaded', () => {
         switch (activeTab) {
             case 'dashboard': renderDashboard(); break;
             case 'players': renderPlayersTab(); break;
+            case 'cheaters': renderCheatersTab(); break;
             case 'dailyEvents': renderDailyEvents(); break;
             case 'leagues': renderConfigTable('leagues'); break;
             case 'specialTasks': renderConfigTable('specialTasks'); break;
             case 'upgrades': renderConfigTable('upgrades'); break;
             case 'tasks': renderConfigTable('tasks'); break;
-            case 'boosts': renderBoostsConfig(); break;
+            case 'boosts': renderConfigTable('boosts'); break;
             case 'blackMarketCards': renderConfigTable('blackMarketCards'); break;
             case 'coinSkins': renderConfigTable('coinSkins'); break;
             case 'uiIcons': renderUiIcons(); break;
@@ -114,15 +117,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- RENDER FUNCTIONS ---
     const renderDashboard = () => {
-        const socialStats = dashboardStats.socialStats || {};
-        
         tabContainer.innerHTML = `
             <div class="row row-deck row-cards">
                 <!-- Stats Cards -->
                 <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="total_players"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.totalPlayers)}</div></div></div></div>
                 <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="new_players_24h"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.newPlayersToday)}</div></div></div></div>
                 <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="online_now"></div></div><div class="h1 mb-3">${formatNumber(dashboardStats.onlineNow)}</div></div></div></div>
-                <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="total_coins_in_game"></div></div><div class="h1 mb-3 text-green">${formatNumber(dashboardStats.totalCoins)}</div></div></div></div>
+                <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="total_profit_per_hour"></div></div><div class="h1 mb-3 text-green">${formatNumber(dashboardStats.totalProfitPerHour)}</div></div></div></div>
                 <div class="col-12 col-sm-6 col-lg"><div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader" data-translate="earned_stars"></div></div><div class="h1 mb-3 text-yellow">${formatNumber(dashboardStats.totalStarsEarned)}</div></div></div></div>
             </div>
             
@@ -163,8 +164,8 @@ document.addEventListener('DOMContentLoaded', () => {
                          <div class="card-body d-flex flex-column">
                             <div class="d-flex justify-content-between align-items-center">
                                <h3 class="card-title font-display" data-translate="youtube_stats"></h3>
-                               <button class="btn btn-sm btn-ghost-secondary social-edit-btn" data-social="youtube">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /></svg>
+                               <button class="btn btn-sm btn-icon btn-ghost-secondary social-edit-btn" data-social="youtube" title="${t('edit')}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-pencil" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"></path><path d="M13.5 6.5l4 4"></path></svg>
                                </button>
                             </div>
                             <div class="flex-grow-1"><canvas id="chart-youtube"></canvas></div>
@@ -176,8 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="card-body d-flex flex-column">
                              <div class="d-flex justify-content-between align-items-center">
                                <h3 class="card-title font-display" data-translate="telegram_stats"></h3>
-                               <button class="btn btn-sm btn-ghost-secondary social-edit-btn" data-social="telegram">
-                                   <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /></svg>
+                               <button class="btn btn-sm btn-icon btn-ghost-secondary social-edit-btn" data-social="telegram" title="${t('edit')}">
+                                   <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-pencil" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"></path><path d="M13.5 6.5l4 4"></path></svg>
                                </button>
                             </div>
                             <div class="flex-grow-1"><canvas id="chart-telegram"></canvas></div>
@@ -358,112 +359,65 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    const renderBoostsConfig = () => {
-        const boosts = localConfig.boosts || [];
-        tabContainer.innerHTML = `
-         <div class="card">
-            <div class="card-header"><h3 class="card-title font-display" data-translate="boosts"></h3></div>
-            <div class="table-responsive">
-                <table class="table card-table table-vcenter">
-                    <thead>
-                        <tr>
-                            <th>ID <span class="form-help" data-bs-toggle="tooltip" title="${t('id_readonly_note')}">?</span></th>
-                            <th data-translate="boost_effect"></th>
-                            <th data-translate="name"> en / ru</th>
-                            <th data-translate="description"> en / ru</th>
-                            <th data-translate="cost_in_coins"></th>
-                            <th data-translate="iconUrl"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    ${boosts.map(boost => {
-                        let effectKey = 'boost_effect_full_energy';
-                        if (boost.id === 'boost_turbo_mode') effectKey = 'boost_effect_turbo_mode';
-                        if (boost.id === 'boost_tap_guru') effectKey = 'boost_effect_tap_guru';
-                        if (boost.id === 'boost_energy_limit') effectKey = 'boost_effect_energy_limit';
-                        const isMultiLevel = boost.id === 'boost_tap_guru' || boost.id === 'boost_energy_limit';
+    const renderCheatersTab = async () => {
+        showLoading('loading_cheaters');
+        try {
+            const cheaters = await fetchApi('/admin/api/cheaters');
+            tabContainer.innerHTML = `
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title font-display" data-translate="cheater_list"></h3></div>
+                    <div class="card-body">
+                        <p class="text-secondary" data-translate="cheater_list_desc"></p>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table card-table table-vcenter">
+                            <thead>
+                                <tr>
+                                    <th data-translate="id"></th>
+                                    <th data-translate="name"></th>
+                                    <th data-translate="cheat_log"></th>
+                                    <th data-translate="actions"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${cheaters.map(c => `
+                                    <tr>
+                                        <td><span class="text-secondary">${escapeHtml(c.id)}</span></td>
+                                        <td>${escapeHtml(c.name)}</td>
+                                        <td><pre class="text-xs text-danger" style="white-space: pre-wrap; word-break: break-all;">${escapeHtml(JSON.stringify(c.cheat_log, null, 2))}</pre></td>
+                                        <td>
+                                            <button class="btn btn-sm btn-danger reset-progress-btn" data-id="${c.id}" data-translate="reset_progress"></button>
+                                        </td>
+                                    </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
 
-                        return `
-                        <tr>
-                            <td><input type="text" class="form-control" value="${escapeHtml(boost.id)}" readonly></td>
-                            <td>
-                                <span class="badge bg-blue-lt">${t(effectKey)}</span>
-                                ${isMultiLevel ? `<div class="form-text text-yellow" data-translate="base_cost_note"></div>` : ''}
-                            </td>
-                            <td>
-                                <input type="text" class="form-control mb-1" data-id="${boost.id}" data-lang="en" data-field="name.en" value="${escapeHtml(boost.name.en)}">
-                                <input type="text" class="form-control" data-id="${boost.id}" data-lang="ru" data-field="name.ru" value="${escapeHtml(boost.name.ru)}">
-                            </td>
-                            <td>
-                                <textarea class="form-control mb-1" data-id="${boost.id}" data-lang="en" data-field="description.en">${escapeHtml(boost.description.en)}</textarea>
-                                <textarea class="form-control" data-id="${boost.id}" data-lang="ru" data-field="description.ru">${escapeHtml(boost.description.ru)}</textarea>
-                            </td>
-                            <td><input type="number" class="form-control" data-id="${boost.id}" data-field="costCoins" value="${escapeHtml(boost.costCoins)}"></td>
-                            <td><input type="text" class="form-control" data-id="${boost.id}" data-field="iconUrl" value="${escapeHtml(boost.iconUrl)}"></td>
-                        </tr>
-                        `;
-                    }).join('')}
-                    </tbody>
-                </table>
-            </div>
-         </div>`;
+            if (cheaters.length === 0) {
+                tabContainer.querySelector('tbody').innerHTML = `<tr><td colspan="4" class="text-center p-5 text-secondary" data-translate="no_cheaters_found"></td></tr>`;
+            }
+            applyTranslations();
+            addEventListeners();
+        } catch (e) {
+            tabContainer.innerHTML = `<div class="alert alert-danger">${t('error_loading_data')}</div>`;
+            applyTranslations();
+        }
     };
-
+    
     const renderConfigTable = (configKey) => {
         const items = localConfig[configKey] || [];
         const meta = configMeta[configKey];
-
-        const renderCell = (item, col) => {
-            const val = item[col];
-            const isReadonly = col === 'id';
-            const inputType = typeof val === 'number' ? 'number' : 'text';
-
-            if (col === 'name' || col === 'description') {
-                return `
-                <div class="input-group">
-                    <input type="text" class="form-control" data-id="${item.id}" data-lang="en" data-field="${col}.en" value="${escapeHtml(val.en)}">
-                    <input type="text" class="form-control" data-id="${item.id}" data-lang="ru" data-field="${col}.ru" value="${escapeHtml(val.ru)}">
-                    <button class="btn translate-btn" type="button" data-id="${item.id}" data-field="${col}" title="${t('translate')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5h7" /><path d="M9 3v2c0 4.418 -2.239 8 -5 8" /><path d="M5 9c0 2.144 2.952 3.908 6.7 4" /><path d="M12 20l4 -9l4 9" /><path d="M19.1 18h-6.2" /></svg>
-                    </button>
-                </div>`;
-            }
-
-            if (col === 'category') {
-                const categories = ['Documents', 'Legal', 'Lifestyle', 'Special'];
-                return `<select class="form-select" data-id="${item.id}" data-field="${col}">${categories.map(c => `<option value="${c}" ${val === c ? 'selected' : ''}>${c}</option>`).join('')}</select>`;
-            }
-            if (col === 'type') {
-                const types = ['taps', 'telegram_join', 'social_follow', 'video_watch', 'video_code'];
-                return `<select class="form-select" data-id="${item.id}" data-field="${col}">${types.map(t => `<option value="${t}" ${val === t ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
-            }
-            if (col === 'boxType') {
-                const types = ['coin', 'star', 'direct'];
-                return `<select class="form-select" data-id="${item.id}" data-field="${col}">${types.map(t => `<option value="${t}" ${val === t ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
-            }
-
-            if (col === 'reward') {
-                return `
-                <div class="input-group">
-                    <input type="number" class="form-control" data-id="${item.id}" data-field="reward.amount" value="${escapeHtml(val.amount)}" placeholder="Amount">
-                    <select class="form-select" data-id="${item.id}" data-field="reward.type">
-                        <option value="coins" ${val.type === 'coins' ? 'selected' : ''}>${t('reward_type_coins')}</option>
-                        <option value="profit" ${val.type === 'profit' ? 'selected' : ''}>${t('reward_type_profit')}</option>
-                    </select>
-                </div>`;
-            }
-
-            return `<input type="${inputType}" class="form-control" data-id="${item.id}" data-field="${col}" value="${escapeHtml(val)}" ${isReadonly ? 'readonly' : ''}>`;
-        };
 
         tabContainer.innerHTML = `
             <div class="card">
                 <div class="card-header">
                     <h3 class="card-title font-display" data-translate="${meta.title}"></h3>
                     <div class="ms-auto btn-list">
-                        <button class="btn btn-sm download-config-btn" data-config-key="${configKey}"><span data-translate="download_config"></span></button>
-                        <label class="btn btn-sm"><span data-translate="upload_config"></span> <input type="file" class="d-none upload-config-input" data-config-key="${configKey}"></label>
-                        <button class="btn btn-primary add-new-btn"><span data-translate="add_new"></span></button>
+                         <button class="btn btn-primary add-item-btn" data-config-key="${configKey}">
+                             <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M12 5l0 14"></path><path d="M5 12l14 0"></path></svg>
+                             <span data-translate="add_new"></span>
+                         </button>
                     </div>
                 </div>
                 <div class="table-responsive">
@@ -477,8 +431,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         <tbody>
                             ${items.map(item => `
                                 <tr data-id="${item.id}">
-                                    ${meta.cols.map(col => `<td>${renderCell(item, col)}</td>`).join('')}
-                                    <td><button class="btn btn-sm btn-danger delete-btn" data-id="${item.id}">${t('delete')}</button></td>
+                                    ${meta.cols.map(col => `<td>${escapeHtml(item[col])}</td>`).join('')}
+                                    <td>
+                                        <button class="btn btn-sm btn-icon edit-item-btn" data-config-key="${configKey}" data-id="${item.id}" title="${t('edit')}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-pencil" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" /></svg>
+                                        </button>
+                                        <button class="btn btn-sm btn-icon btn-danger delete-item-btn" data-config-key="${configKey}" data-id="${item.id}" title="${t('delete')}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-x" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                                        </button>
+                                    </td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -523,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="row align-items-center mb-3">
                     <label class="col-sm-3 col-form-label" data-translate="${icon.label}"></label>
                     <div class="col-sm-7">
-                        <input type="text" class="form-control" data-field="${icon.key}" value="${escapeHtml(value || '')}">
+                        <input type="text" class="form-control config-input" data-field="${icon.key}" value="${escapeHtml(value || '')}">
                     </div>
                     <div class="col-sm-2">
                         <img src="${escapeHtml(value || '')}" class="avatar" alt="Preview" onerror="this.style.display='none'">
@@ -592,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
               </div>
             </div>`;
-
+        applyTranslations();
         document.querySelector('.modal .btn-close').addEventListener('click', () => modalsContainer.innerHTML = '');
         document.getElementById('add-bonus-btn').addEventListener('click', async () => {
             const amount = document.getElementById('bonus-amount-input').value;
@@ -626,38 +587,145 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     
-    const showConfirmationModal = (message, onConfirm) => {
-        const modalId = `confirm-modal-${Date.now()}`;
+    const showConfirmationModal = (messageKey, onConfirm) => {
+        modalsContainer.innerHTML = ''; // Clear previous modals
         const modalHtml = `
-          <div class="modal modal-blur fade show" id="${modalId}" style="display: block;" tabindex="-1">
+          <div class="modal modal-blur fade show" style="display: block; background-color: rgba(0,0,0,0.5);" tabindex="-1">
             <div class="modal-dialog modal-sm modal-dialog-centered">
               <div class="modal-content">
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" aria-label="Close"></button>
                 <div class="modal-status bg-danger"></div>
                 <div class="modal-body text-center py-4">
-                  <h3>${message}</h3>
+                  <h3 data-translate="${messageKey}"></h3>
                 </div>
                 <div class="modal-footer">
                   <div class="w-100">
                     <div class="row">
-                      <div class="col"><a href="#" class="btn w-100" data-bs-dismiss="modal">Cancel</a></div>
-                      <div class="col"><a href="#" class="btn btn-danger w-100 confirm-btn">Confirm</a></div>
+                      <div class="col"><a href="#" class="btn w-100 cancel-btn" data-translate="cancel"></a></div>
+                      <div class="col"><a href="#" class="btn btn-danger w-100 confirm-btn" data-translate="confirm"></a></div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>`;
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = modalHtml;
-        const modalElement = tempDiv.firstElementChild;
-        document.body.appendChild(modalElement);
-
+        modalsContainer.innerHTML = modalHtml;
+        applyTranslations();
+        
+        const modalElement = modalsContainer.firstElementChild;
         modalElement.querySelector('.btn-close').addEventListener('click', () => modalElement.remove());
-        modalElement.querySelector('[data-bs-dismiss="modal"]').addEventListener('click', (e) => { e.preventDefault(); modalElement.remove(); });
+        modalElement.querySelector('.cancel-btn').addEventListener('click', (e) => { e.preventDefault(); modalElement.remove(); });
         modalElement.querySelector('.confirm-btn').addEventListener('click', (e) => {
             e.preventDefault();
             onConfirm();
+            modalElement.remove();
+        });
+    };
+
+    const showConfigItemModal = (configKey, itemId = null) => {
+        const isNew = itemId === null;
+        const meta = configMeta[configKey];
+        const items = localConfig[configKey] || [];
+        const item = isNew ? {} : items.find(i => i.id === itemId);
+
+        if (!isNew && !item) return;
+
+        const generateFieldHtml = (col) => {
+            const val = item[col] || '';
+            const isReadonly = col === 'id' && !isNew;
+            let inputHtml = '';
+            
+            if (col === 'name' || col === 'description') {
+                inputHtml = `
+                    <div class="row g-2">
+                        <div class="col">
+                             <input type="text" class="form-control" name="${col}.en" value="${escapeHtml(val.en || '')}" placeholder="EN">
+                        </div>
+                        <div class="col">
+                             <input type="text" class="form-control" name="${col}.ru" value="${escapeHtml(val.ru || '')}" placeholder="RU">
+                        </div>
+                    </div>`;
+            } else if (col === 'category') {
+                const categories = ['Documents', 'Legal', 'Lifestyle', 'Special'];
+                inputHtml = `<select class="form-select" name="${col}">${categories.map(c => `<option value="${c}" ${val === c ? 'selected' : ''}>${c}</option>`).join('')}</select>`;
+            } else if (col === 'type') {
+                const types = ['taps', 'telegram_join', 'social_follow', 'video_watch', 'video_code'];
+                inputHtml = `<select class="form-select" name="${col}">${types.map(t => `<option value="${t}" ${val === t ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+            } else if (col === 'boxType') {
+                const types = ['coin', 'star', 'direct'];
+                inputHtml = `<select class="form-select" name="${col}">${types.map(t => `<option value="${t}" ${val === t ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+            } else if (col === 'reward') {
+                 inputHtml = `
+                    <div class="input-group">
+                        <input type="number" class="form-control" name="reward.amount" value="${escapeHtml(val.amount || 0)}" placeholder="Amount">
+                        <select class="form-select" name="reward.type">
+                            <option value="coins" ${val.type === 'coins' ? 'selected' : ''}>${t('reward_type_coins')}</option>
+                            <option value="profit" ${val.type === 'profit' ? 'selected' : ''}>${t('reward_type_profit')}</option>
+                        </select>
+                    </div>`;
+            } else {
+                const inputType = typeof val === 'number' ? 'number' : 'text';
+                 inputHtml = `<input type="${inputType}" class="form-control" name="${col}" value="${escapeHtml(val)}" ${isReadonly ? 'readonly' : ''}>`;
+            }
+            return `<div class="mb-3"><label class="form-label" data-translate="${col}"></label>${inputHtml}</div>`;
+        };
+        
+        const formHtml = meta.cols.map(generateFieldHtml).join('');
+
+        modalsContainer.innerHTML = `
+        <div class="modal modal-blur fade show" style="display: block; background-color: rgba(0,0,0,0.5);" tabindex="-1">
+          <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title font-display" data-translate="${isNew ? 'config_add_item' : 'config_edit_item'}"></h5>
+                <button type="button" class="btn-close" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <form id="config-item-form">${formHtml}</form>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn me-auto cancel-btn" data-translate="cancel"></button>
+                <button type="button" class="btn btn-primary save-item-btn" data-translate="save"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+        `;
+        applyTranslations();
+        
+        const modalElement = modalsContainer.firstElementChild;
+        modalElement.querySelector('.btn-close').addEventListener('click', () => modalElement.remove());
+        modalElement.querySelector('.cancel-btn').addEventListener('click', () => modalElement.remove());
+        
+        modalElement.querySelector('.save-item-btn').addEventListener('click', () => {
+            const form = document.getElementById('config-item-form');
+            const formData = new FormData(form);
+            const newItemData = isNew ? { id: `new_${configKey}_${Date.now()}` } : { ...item };
+            
+            formData.forEach((value, key) => {
+                 const keys = key.split('.');
+                 let current = newItemData;
+                 keys.forEach((k, i) => {
+                     if (i === keys.length - 1) {
+                         current[k] = isNaN(Number(value)) || value === '' ? value : Number(value);
+                     } else {
+                         if (!current[k]) current[k] = {};
+                         current = current[k];
+                     }
+                 });
+            });
+
+            if (isNew) {
+                if (!localConfig[configKey]) localConfig[configKey] = [];
+                localConfig[configKey].push(newItemData);
+            } else {
+                const index = localConfig[configKey].findIndex(i => i.id === itemId);
+                if (index !== -1) {
+                    localConfig[configKey][index] = newItemData;
+                }
+            }
+            
+            render(); // Re-render the table
             modalElement.remove();
         });
     };
@@ -679,7 +747,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="modal-content">
               <div class="modal-header">
                 <h5 class="modal-title font-display" data-translate="${titleKey}"></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" aria-label="Close"></button>
               </div>
               <div class="modal-body">
                 <div class="mb-3">
@@ -694,8 +762,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
               </div>
               <div class="modal-footer">
-                <button type="button" class="btn me-auto" data-bs-dismiss="modal">${t('close')}</button>
-                <button type="button" class="btn btn-primary" id="save-socials-btn">${t('save')}</button>
+                <button type="button" class="btn me-auto" data-bs-dismiss="modal" data-translate="close"></button>
+                <button type="button" class="btn btn-primary" id="save-socials-btn" data-translate="save"></button>
               </div>
             </div>
           </div>
@@ -720,216 +788,124 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENERS ---
     function addEventListeners() {
-        // Tab switching
-        document.querySelectorAll('.tab-button').forEach(button => {
-            button.addEventListener('click', e => {
+        document.body.addEventListener('click', e => {
+            const tabButton = e.target.closest('.tab-button');
+            if(tabButton) {
                 e.preventDefault();
-                activeTab = e.currentTarget.dataset.tab;
+                activeTab = tabButton.dataset.tab;
                 history.pushState(null, '', `#${activeTab}`);
                 render();
-            });
-        });
+            }
 
-        // Player search
-        const playerSearch = document.getElementById('player-search');
-        if (playerSearch) {
-            playerSearch.addEventListener('input', e => {
-                const searchTerm = e.target.value.toLowerCase();
-                const filtered = allPlayers.filter(p => p.id.includes(searchTerm) || (p.name && p.name.toLowerCase().includes(searchTerm)));
-                renderPlayersTab(filtered);
-            });
-        }
-        
-        // Player details modal
-        document.querySelectorAll('.view-player-btn').forEach(btn => {
-            btn.addEventListener('click', async e => {
-                const playerId = e.currentTarget.dataset.id;
-                const playerDetails = await fetchApi(`/admin/api/player/${playerId}/details`);
-                if(playerDetails) showPlayerDetailsModal(playerDetails);
-            });
-        });
-
-        // Config table input changes
-        document.querySelectorAll('#tab-content-container input, #tab-content-container select, #tab-content-container textarea').forEach(input => {
-            input.addEventListener('change', e => {
-                const { id, field } = e.target.dataset;
-                let value = e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value;
-                if (isNaN(value) && e.target.type === 'number') value = 0;
-                const configKey = activeTab;
-                
-                if (configKey === 'uiIcons' && field) {
-                    const fieldParts = field.split('.');
-                    if (!localConfig.uiIcons) localConfig.uiIcons = {};
-                    if (fieldParts.length > 1) {
-                         if (!localConfig.uiIcons[fieldParts[0]]) localConfig.uiIcons[fieldParts[0]] = {};
-                         localConfig.uiIcons[fieldParts[0]][fieldParts[1]] = value;
+            const viewPlayerBtn = e.target.closest('.view-player-btn');
+            if(viewPlayerBtn) {
+                const playerId = viewPlayerBtn.dataset.id;
+                fetchApi(`/admin/api/player/${playerId}/details`).then(playerDetails => {
+                     if(playerDetails) showPlayerDetailsModal(playerDetails);
+                });
+            }
+            
+            const resetProgressBtn = e.target.closest('.reset-progress-btn');
+            if (resetProgressBtn) {
+                const playerId = resetProgressBtn.dataset.id;
+                showConfirmationModal('confirm_reset_progress', async () => {
+                    const response = await postApi(`/admin/api/player/${playerId}/reset-progress`, {});
+                    if(response.ok) {
+                        alert(t('progress_reset_success'));
+                        render(); // Re-render cheaters tab
                     } else {
-                         localConfig.uiIcons[field] = value;
+                        alert(t('error_resetting_progress'));
                     }
-                    const previewImg = e.target.closest('.row').querySelector('img');
-                    if (previewImg) {
-                        previewImg.src = value;
-                        previewImg.style.display = 'block';
-                    }
-                    return;
-                }
-
-                if (configKey in configMeta && id) {
-                    let item = localConfig[configKey].find(i => i.id === id);
-                    if (item) {
-                        const fieldParts = field.split('.');
-                        if (fieldParts.length > 1) {
-                            if (!item[fieldParts[0]]) item[fieldParts[0]] = {};
-                            item[fieldParts[0]][fieldParts[1]] = value;
-                        } else {
-                            item[field] = value;
-                        }
-                    }
-                }
-            });
-        });
-        
-        document.getElementById('loading-screen-url-input')?.addEventListener('input', e => {
-             localConfig.loadingScreenImageUrl = e.target.value;
-        });
-
-        // Daily events changes
-        document.querySelectorAll('[data-event="combo"]').forEach(select => {
-            select.addEventListener('change', e => {
-                const index = parseInt(e.target.dataset.index);
-                if (!dailyEvent.combo_ids) dailyEvent.combo_ids = [];
-                dailyEvent.combo_ids[index] = e.target.value;
-            });
-        });
-        document.getElementById('cipher-word-input')?.addEventListener('input', e => dailyEvent.cipher_word = e.target.value);
-        document.getElementById('combo-reward-input')?.addEventListener('input', e => dailyEvent.combo_reward = parseInt(e.target.value));
-        document.getElementById('cipher-reward-input')?.addEventListener('input', e => dailyEvent.cipher_reward = parseInt(e.target.value));
-
-        // Socials edit button
-        document.querySelectorAll('.social-edit-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const socialType = e.currentTarget.dataset.social;
-                showSocialsEditModal(socialType);
-            });
-        });
-
-
-        // Save button
-        saveMainButton.addEventListener('click', handleSave);
-
-        // Add/Delete/Translate/Upload/Download buttons
-        document.querySelectorAll('.add-new-btn').forEach(btn => btn.addEventListener('click', e => {
-            const configKey = activeTab;
-            if(!localConfig[configKey]) localConfig[configKey] = [];
-            
-            const newItem = { id: `new_${configKey}_${Date.now()}` };
-            const meta = configMeta[configKey];
-            const sampleItem = localConfig[configKey]?.[0] || {};
-        
-            meta.cols.forEach(col => {
-                if (col === 'id') return;
-                const sampleValue = sampleItem[col];
-        
-                if (col === 'name' || col === 'description') {
-                    newItem[col] = { en: '', ru: '' };
-                } else if (col === 'reward') {
-                    newItem[col] = { type: 'coins', amount: 0 };
-                } else if (typeof sampleValue === 'number') {
-                    newItem[col] = 0;
-                } else if (typeof sampleValue === 'boolean') {
-                    newItem[col] = false;
-                } else {
-                    newItem[col] = '';
-                }
-            });
-            localConfig[configKey].push(newItem);
-            render();
-        }));
-
-        document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', e => {
-            if (confirm(t('confirm_delete'))) {
-                const id = e.currentTarget.dataset.id;
-                const configKey = activeTab;
-                localConfig[configKey] = localConfig[configKey].filter(item => item.id !== id);
-                render();
-            }
-        }));
-
-        document.querySelectorAll('.translate-btn').forEach(btn => btn.addEventListener('click', async e => {
-            const { id, field } = e.currentTarget.dataset;
-            const item = localConfig[activeTab].find(i => i.id === id);
-            if (!item) return;
-
-            const sourceLang = item[field].en ? 'en' : 'ru';
-            const sourceText = item[field][sourceLang];
-            if (!sourceText) {
-                alert(t('enter_text_to_translate'));
-                return;
+                });
             }
 
-            const targetLang = sourceLang === 'en' ? 'ru' : 'en';
-            
-            e.currentTarget.disabled = true;
-            try {
-                const response = await postApi('/admin/api/translate', { text: sourceText, from: sourceLang, to: targetLang });
-                if (response.ok) {
-                    const data = await response.json();
-                    item[field][targetLang] = data.translatedText;
+            const editItemBtn = e.target.closest('.edit-item-btn');
+            if (editItemBtn) {
+                const { configKey, id } = editItemBtn.dataset;
+                showConfigItemModal(configKey, id);
+            }
+
+            const addItemBtn = e.target.closest('.add-item-btn');
+            if (addItemBtn) {
+                const { configKey } = addItemBtn.dataset;
+                showConfigItemModal(configKey, null);
+            }
+
+            const deleteItemBtn = e.target.closest('.delete-item-btn');
+            if(deleteItemBtn) {
+                const { configKey, id } = deleteItemBtn.dataset;
+                 showConfirmationModal('confirm_delete', () => {
+                    localConfig[configKey] = localConfig[configKey].filter(item => item.id !== id);
                     render();
-                } else {
-                    alert(t('translation_error'));
-                }
-            } catch(err) {
-                 alert(t('translation_error'));
-            } finally {
-                e.currentTarget.disabled = false;
+                });
             }
-        }));
-        
-        document.querySelectorAll('.download-config-btn').forEach(btn => {
-            btn.addEventListener('click', e => {
-                const configKey = e.currentTarget.dataset.configKey;
-                const data = JSON.stringify(localConfig[configKey], null, 2);
-                const blob = new Blob([data], {type: 'application/json'});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${configKey}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-            });
-        });
 
-        document.querySelectorAll('.upload-config-input').forEach(input => {
-            input.addEventListener('change', e => {
-                const file = e.target.files[0];
-                if (file) {
-                    if(!confirm(t('confirm_upload'))) return;
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        try {
-                            const data = JSON.parse(event.target.result);
-                            const configKey = e.target.dataset.configKey;
-                            localConfig[configKey] = data;
-                            render();
-                        } catch (err) {
-                            alert('Invalid JSON file.');
-                        }
-                    };
-                    reader.readAsText(file);
-                }
-            });
-        });
-        
-        document.querySelectorAll('.lang-select-btn').forEach(btn => {
-            btn.addEventListener('click', e => {
+            const socialEditBtn = e.target.closest('.social-edit-btn');
+            if(socialEditBtn) {
+                const socialType = socialEditBtn.dataset.social;
+                showSocialsEditModal(socialType);
+            }
+
+            const langSelectBtn = e.target.closest('.lang-select-btn');
+            if (langSelectBtn) {
                 e.preventDefault();
-                currentLang = e.currentTarget.dataset.lang;
+                currentLang = langSelectBtn.dataset.lang;
                 localStorage.setItem('adminLang', currentLang);
                 applyTranslations();
                 if(activeTab === 'dashboard') render();
-            });
+            }
         });
+        
+        // Use event delegation for inputs to simplify re-rendering
+        document.body.addEventListener('input', e => {
+            const playerSearch = e.target.closest('#player-search');
+            if (playerSearch) {
+                 const searchTerm = playerSearch.value.toLowerCase();
+                 const filtered = allPlayers.filter(p => p.id.includes(searchTerm) || (p.name && p.name.toLowerCase().includes(searchTerm)));
+                 renderPlayersTab(filtered);
+            }
+
+            const loadingScreenInput = e.target.closest('#loading-screen-url-input');
+            if (loadingScreenInput) {
+                localConfig.loadingScreenImageUrl = loadingScreenInput.value;
+            }
+
+            const dailyEventInput = e.target.closest('[data-event="combo"], #cipher-word-input, #combo-reward-input, #cipher-reward-input');
+            if (dailyEventInput) {
+                if (dailyEventInput.dataset.event === 'combo') {
+                    const index = parseInt(dailyEventInput.dataset.index);
+                    if (!dailyEvent.combo_ids) dailyEvent.combo_ids = [];
+                    dailyEvent.combo_ids[index] = dailyEventInput.value;
+                } else if (dailyEventInput.id === 'cipher-word-input') {
+                    dailyEvent.cipher_word = dailyEventInput.value;
+                } else if (dailyEventInput.id === 'combo-reward-input') {
+                    dailyEvent.combo_reward = parseInt(dailyEventInput.value) || 0;
+                } else if (dailyEventInput.id === 'cipher-reward-input') {
+                    dailyEvent.cipher_reward = parseInt(dailyEventInput.value) || 0;
+                }
+            }
+
+            const uiIconInput = e.target.closest('#tab-content-container .config-input');
+            if(uiIconInput && activeTab === 'uiIcons') {
+                const field = uiIconInput.dataset.field;
+                const value = uiIconInput.value;
+                 const fieldParts = field.split('.');
+                 if (!localConfig.uiIcons) localConfig.uiIcons = {};
+                 if (fieldParts.length > 1) {
+                      if (!localConfig.uiIcons[fieldParts[0]]) localConfig.uiIcons[fieldParts[0]] = {};
+                      localConfig.uiIcons[fieldParts[0]][fieldParts[1]] = value;
+                 } else {
+                      localConfig.uiIcons[field] = value;
+                 }
+                 const previewImg = uiIconInput.closest('.row').querySelector('img');
+                 if (previewImg) {
+                     previewImg.src = value;
+                     previewImg.style.display = 'block';
+                 }
+            }
+        });
+        
+        saveMainButton.addEventListener('click', handleSave);
     }
 
     // --- API & SAVE FUNCTIONS ---

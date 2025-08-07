@@ -1,10 +1,12 @@
 
 
+
 const LOCALES = {
     'en': {
         // Nav
         'nav_dashboard': 'Dashboard',
         'nav_players': 'Players',
+        'nav_cheaters': 'Cheaters',
         'nav_game_events': 'Game Events',
         'nav_daily_events': 'Daily Events',
         'nav_special_tasks': 'Special Tasks',
@@ -21,6 +23,7 @@ const LOCALES = {
         // Titles
         'dashboard': 'Dashboard',
         'players': 'Players',
+        'cheaters': 'Cheaters',
         'dailyEvents': 'Daily Events',
         'upgrades': 'Upgrades',
         'tasks': 'Daily Tasks',
@@ -41,15 +44,15 @@ const LOCALES = {
         'reset_daily': 'Reset Daily',
         'add_bonus': 'Add Bonus',
         'close': 'Close',
-        'upload_config': 'Upload',
-        'download_config': 'Download',
-        'translate': 'Translate',
+        'edit': 'Edit',
+        'confirm': 'Confirm',
+        'cancel': 'Cancel',
 
         // Dashboard
         'total_players': 'Total Players',
         'new_players_24h': 'New Players (24h)',
         'online_now': 'Online Now',
-        'total_coins_in_game': 'Total Coins',
+        'total_profit_per_hour': 'Total Profit/Hour',
         'earned_stars': 'Stars Earned',
         'new_users_last_7_days': 'New Users (7 Days)',
         'top_5_upgrades': 'Top 5 Upgrades',
@@ -60,6 +63,13 @@ const LOCALES = {
         'telegram_stats': 'Telegram Stats',
         'social_youtube_subs': 'YouTube Subs',
         'social_telegram_subs': 'Telegram Subs',
+
+        // Cheaters Tab
+        'cheater_list': 'Flagged Cheaters List',
+        'cheater_list_desc': 'These players have been automatically flagged for suspicious activity. Review and reset their progress if necessary.',
+        'cheat_log': 'Cheat Log',
+        'reset_progress': 'Reset Progress',
+        'no_cheaters_found': 'No cheaters found.',
         
         // Socials Edit Modal
         'edit_youtube_settings': 'Edit YouTube Settings',
@@ -95,7 +105,9 @@ const LOCALES = {
         'referrals': 'Referrals',
         'language': 'Language',
 
-        // Config Tables
+        // Config Modal & Table
+        'config_edit_item': 'Edit Item',
+        'config_add_item': 'Add New Item',
         'price': 'Price',
         'profitPerHour': 'Profit/Hour',
         'minProfitPerHour': 'Min Profit/Hour',
@@ -114,6 +126,7 @@ const LOCALES = {
         'boxType': 'Box Type',
         'chance': 'Chance (%)',
         'profitBoostPercent': 'Profit Boost (%)',
+        'costCoins': 'Cost (Coins)',
         'count': 'Count',
         
         // Boosts Config
@@ -152,23 +165,26 @@ const LOCALES = {
         'confirm_delete': 'Are you sure you want to delete this item?',
         'confirm_delete_player': 'Are you sure you want to permanently delete this player? This action cannot be undone.',
         'confirm_reset_daily': 'Are you sure you want to reset daily progress (combo/cipher) for this player?',
-        'confirm_upload': 'This will overwrite the current unsaved configuration on this page. Are you sure?',
+        'confirm_reset_progress': 'Are you sure you want to reset all progress for this player? Their balance and upgrades will be wiped.',
+        'progress_reset_success': 'Player progress has been reset.',
+        'error_resetting_progress': 'Error resetting progress.',
         'daily_progress_reset_success': 'Daily progress has been reset.',
         'daily_progress_reset_error': 'Error resetting daily progress.',
         'error_updating_balance': 'Error updating balance.',
         'balance_updated': 'Balance updated successfully.',
-        'enter_text_to_translate': 'Please enter text in the source field to translate.',
         'translation_error': 'Translation failed.',
         'error_3_unique_cards': 'Please select exactly 3 unique cards for the combo.',
         'save_success': 'Saved successfully!',
         'save_error': 'Error saving data.',
         'loading': 'Loading, please wait...',
+        'loading_cheaters': 'Loading cheater list...',
         'no_data': 'No data available.',
     },
     'ru': {
         // Nav
         'nav_dashboard': 'Дашборд',
         'nav_players': 'Игроки',
+        'nav_cheaters': 'Читеры',
         'nav_game_events': 'События игры',
         'nav_daily_events': 'Ежедневные события',
         'nav_special_tasks': 'Спец. Задания',
@@ -185,6 +201,7 @@ const LOCALES = {
         // Titles
         'dashboard': 'Дашборд',
         'players': 'Игроки',
+        'cheaters': 'Читеры',
         'dailyEvents': 'Ежедневные События',
         'upgrades': 'Улучшения',
         'tasks': 'Ежедневные Задания',
@@ -200,20 +217,20 @@ const LOCALES = {
         'save_all_changes': 'Сохранить все изменения',
         'saving': 'Сохранение...',
         'actions': 'Действия',
-        'add_new': 'Добавить новый',
+        'add_new': 'Добавить',
         'delete': 'Удалить',
         'reset_daily': 'Сбросить день',
         'add_bonus': 'Добавить бонус',
         'close': 'Закрыть',
-        'upload_config': 'Загрузить',
-        'download_config': 'Скачать',
-        'translate': 'Перевести',
+        'edit': 'Редактировать',
+        'confirm': 'Подтвердить',
+        'cancel': 'Отмена',
 
         // Dashboard
         'total_players': 'Всего игроков',
         'new_players_24h': 'Новые игроки (24ч)',
         'online_now': 'Онлайн сейчас',
-        'total_coins_in_game': 'Всего монет в игре',
+        'total_profit_per_hour': 'Всего прибыли в час',
         'earned_stars': 'Начислено звезд',
         'new_users_last_7_days': 'Новые игроки (7 дней)',
         'top_5_upgrades': 'Топ 5 улучшений по покупкам',
@@ -225,6 +242,13 @@ const LOCALES = {
         'social_youtube_subs': 'Подписчики YouTube',
         'social_telegram_subs': 'Подписчики Telegram',
 
+        // Cheaters Tab
+        'cheater_list': 'Список помеченных читеров',
+        'cheater_list_desc': 'Эти игроки были автоматически помечены из-за подозрительной активности. Проверьте и сбросьте их прогресс при необходимости.',
+        'cheat_log': 'Лог нарушений',
+        'reset_progress': 'Сбросить прогресс',
+        'no_cheaters_found': 'Читеры не найдены.',
+        
         // Socials Edit Modal
         'edit_youtube_settings': 'Настройки YouTube',
         'edit_telegram_settings': 'Настройки Telegram',
@@ -259,7 +283,9 @@ const LOCALES = {
         'referrals': 'Рефералы',
         'language': 'Язык',
         
-        // Config Tables
+        // Config Modal & Table
+        'config_edit_item': 'Редактировать элемент',
+        'config_add_item': 'Добавить новый элемент',
         'price': 'Цена',
         'profitPerHour': 'Прибыль/час',
         'minProfitPerHour': 'Мин. Прибыль/час',
@@ -278,6 +304,7 @@ const LOCALES = {
         'boxType': 'Тип коробки',
         'chance': 'Шанс (%)',
         'profitBoostPercent': 'Бонус к прибыли (%)',
+        'costCoins': 'Стоимость (монеты)',
         'count': 'Количество',
 
         // Boosts Config
@@ -316,18 +343,20 @@ const LOCALES = {
         'confirm_delete': 'Вы уверены, что хотите удалить этот элемент?',
         'confirm_delete_player': 'Вы уверены, что хотите навсегда удалить этого игрока? Это действие необратимо.',
         'confirm_reset_daily': 'Вы уверены, что хотите сбросить дневной прогресс (комбо/шифр) для этого игрока?',
-        'confirm_upload': 'Это перезапишет текущую несохраненную конфигурацию на этой странице. Вы уверены?',
+        'confirm_reset_progress': 'Вы уверены, что хотите сбросить весь прогресс этого игрока? Его баланс и улучшения будут обнулены.',
+        'progress_reset_success': 'Прогресс игрока сброшен.',
+        'error_resetting_progress': 'Ошибка при сбросе прогресса.',
         'daily_progress_reset_success': 'Дневной прогресс сброшен.',
         'daily_progress_reset_error': 'Ошибка при сбросе дневного прогресса.',
         'error_updating_balance': 'Ошибка при обновлении баланса.',
         'balance_updated': 'Баланс успешно обновлен.',
-        'enter_text_to_translate': 'Пожалуйста, введите текст в поле-источник для перевода.',
         'translation_error': 'Ошибка перевода.',
         'error_3_unique_cards': 'Пожалуйста, выберите ровно 3 уникальные карты для комбо.',
         'save_success': 'Успешно сохранено!',
         'save_error': 'Ошибка при сохранении.',
         'saving': 'Сохранение...',
         'loading': 'Загрузка, подождите...',
+        'loading_cheaters': 'Загрузка списка читеров...',
         'no_data': 'Нет данных.',
     }
 };

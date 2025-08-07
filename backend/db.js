@@ -1,5 +1,6 @@
 
 
+
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -480,7 +481,7 @@ export const getAllPlayersForAdmin = async () => {
 export const getDashboardStats = async () => {
     const totalPlayersRes = await executeQuery('SELECT COUNT(*) FROM users');
     const newPlayersTodayRes = await executeQuery("SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '24 hours'");
-    const totalCoinsRes = await executeQuery("SELECT SUM((data->>'balance')::numeric) as total_coins FROM players");
+    const totalProfitRes = await executeQuery("SELECT SUM((data->>'profitPerHour')::numeric) as total_profit FROM players");
     
     const popularUpgradesRes = await executeQuery(`
         SELECT key as upgrade_id, COUNT(*) as purchase_count
@@ -510,7 +511,7 @@ export const getDashboardStats = async () => {
     return {
         totalPlayers: totalPlayersRes.rows[0].count,
         newPlayersToday: newPlayersTodayRes.rows[0].count,
-        totalCoins: totalCoinsRes.rows[0].total_coins,
+        totalProfitPerHour: totalProfitRes.rows[0].total_profit,
         popularUpgrades: popularUpgradesRes.rows,
         registrations: registrationsRes,
         totalStarsEarned,
@@ -589,6 +590,8 @@ export const resetPlayerDailyProgress = async (userId) => {
         player.claimedComboToday = false;
         player.claimedCipherToday = false;
         player.dailyUpgrades = [];
+        player.completedDailyTaskIds = [];
+        player.dailyTaps = 0;
 
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
@@ -619,4 +622,49 @@ export const getLeaderboardData = async () => {
 export const getTotalPlayerCount = async () => {
     const res = await executeQuery('SELECT COUNT(*) FROM users');
     return parseInt(res.rows[0].count, 10);
+};
+
+export const getCheaters = async () => {
+    const res = await executeQuery("SELECT u.id, u.name, p.data->'cheatLog' as cheat_log FROM users u JOIN players p ON u.id = p.id WHERE p.data->>'isCheater' = 'true'");
+    return res.rows;
+};
+
+export const resetPlayerProgress = async (userId) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) {
+            throw new Error('Player not found');
+        }
+        let player = playerRes.rows[0].data;
+
+        // Reset progress but keep identity and referrals
+        player.balance = 0;
+        player.profitPerHour = 0;
+        player.tasksProfitPerHour = 0;
+        player.upgrades = {};
+        player.completedDailyTaskIds = [];
+        player.purchasedSpecialTaskIds = [];
+        player.completedSpecialTaskIds = [];
+        player.dailyTaps = 0;
+        player.tapGuruLevel = 0;
+        player.energyLimitLevel = 0;
+        player.unlockedSkins = [DEFAULT_COIN_SKIN_ID];
+        player.currentSkinId = DEFAULT_COIN_SKIN_ID;
+        
+        // Reset cheat flags
+        delete player.isCheater;
+        delete player.cheatStrikes;
+        delete player.cheatLog;
+        
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
+        await client.query('COMMIT');
+        return player;
+    } catch(e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
 };
