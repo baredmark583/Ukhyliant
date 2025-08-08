@@ -101,9 +101,17 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   };
 
   const handlePressEnd = async () => {
+    // Universal debounce to prevent processing both touch and emulated mouse events
+    const now = Date.now();
+    if (now - lastTapTime.current < 50) {
+        if(pressTimer.current) pressTimer.current = null; // still null out timer to prevent triple clicks
+        return;
+    }
+    lastTapTime.current = now;
+
     if (!pressTimer.current) return;
 
-    const pressDuration = Date.now() - pressTimer.current;
+    const pressDuration = now - pressTimer.current;
     pressTimer.current = null;
     
     if (morseMode && !claimedCipher && dailyCipherMorseTarget) {
@@ -126,10 +134,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
          }
       }
     } else {
-      const now = Date.now();
-      if (now - lastTapTime.current < 20) return; // Prevent double taps
-      lastTapTime.current = now;
-
+      // The old, specific debounce is now removed.
       const tapValue = onTap();
       if (tapValue > 0) { 
         const newClick: ClickFx = {

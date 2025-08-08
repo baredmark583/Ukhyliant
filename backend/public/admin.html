@@ -51,21 +51,26 @@
       }
       .modal-header, .modal-footer { border-color: var(--border-color); }
       .navbar-brand { font-family: 'Russo One', sans-serif; }
-      .nav-link {
-        color: #d1d5db; /* gray-300 - Lighter color for readability */
-      }
-      .dropdown-item {
-        color: var(--text-secondary);
-      }
-      .nav-link, .dropdown-item {
+      
+      .navbar-vertical .nav-link, .dropdown-item {
         font-family: 'Russo One', sans-serif;
         text-transform: uppercase;
+        color: var(--text-secondary); /* Set a readable base color: gray-400 */
       }
-      .nav-link.active, .nav-link:hover, .dropdown-item:hover {
-        color: var(--accent-green);
+      .navbar-vertical .nav-link:hover, .dropdown-item:hover {
+        color: var(--text-primary); /* Brighter on hover: gray-200 */
         background: transparent;
       }
-      .nav-link.active .icon { color: var(--accent-green); }
+      .navbar-vertical .nav-link.active,
+      .navbar-vertical .nav-link.show { /* .show is added by bootstrap on active dropdowns */
+        color: var(--accent-green); /* Active link color */
+      }
+      .navbar-vertical .nav-link.active .icon, 
+      .navbar-vertical .nav-link.show .icon, 
+      .navbar-vertical .nav-link:hover .icon {
+        color: var(--accent-green);
+      }
+
       .page-title, .card-title, .modal-title {
         font-family: 'Russo One', sans-serif;
         color: var(--text-primary);
