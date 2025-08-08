@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import SuspicionMeter from '../components/SuspicionMeter';
@@ -173,7 +174,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
 
   return (
-    <div className="flex flex-col h-full text-white pt-4 px-4 items-center">
+    <div className="flex flex-col h-full text-white pt-4 px-4">
       {/* Top Section: League, Profit/hr, Language */}
        <div className="w-full flex items-center justify-between themed-container p-2 text-center flex-shrink-0">
             <button onClick={onOpenLeaderboard} className="flex-1 flex flex-col items-center justify-center p-1 text-center transition-opacity hover:opacity-80">
@@ -193,96 +194,114 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             </div>
         </div>
 
-      {/* Balance & Cipher Section */}
-      <div className="w-full flex items-start justify-between gap-4 my-2 flex-shrink-0 px-2">
-        {/* Left Side: Balance */}
-        <div className="flex items-center space-x-2 pt-1">
-            <img src={config.uiIcons.coin} alt="coin" className="w-7 h-7"/>
-            <h1 className="text-2xl font-display">{formatNumber(balance)}</h1>
+      {/* Main Content Area */}
+      <div className="flex-grow w-full flex items-stretch justify-center relative my-2 min-h-0 gap-3">
+        
+        {/* Left Bar: Stamina */}
+        <div className="flex-shrink-0 py-4">
+            <ProgressBar
+                value={energy}
+                max={effectiveMaxEnergy}
+                label={t('energy')}
+                iconUrl={config.uiIcons.energy}
+                orientation="vertical"
+            />
         </div>
 
-        {/* Right Side: Cipher */}
-        {dailyCipherWord && (
-            <div className="flex-shrink-0 text-center p-2 bg-green-900/20 border border-green-500/50 w-44">
-                <h3 className="font-display text-xs text-green-300">{t('daily_cipher')}</h3>
-                {claimedCipher ? (
-                  <p className="text-green-400 font-bold text-xs mt-1">{t('claimed_today')}</p>
-                ) : morseMode ? (
-                  <>
-                    <p className="text-gray-300 text-[10px] my-1 leading-tight">{t('cipher_hint')}</p>
-                    <div className="font-mono text-base h-7 tracking-widest text-white bg-black/50 border border-gray-600 flex items-center justify-center">
-                        {decodedWord}<span className="text-gray-500">{morseSequence}</span>
+        {/* Center Area: Coin and Balance */}
+        <div className="flex-grow flex flex-col items-center justify-between min-w-0 py-2">
+            {/* Balance & Cipher */}
+            <div className="w-full flex items-start justify-between gap-4 flex-shrink-0">
+                {/* Left Side: Balance */}
+                <div className="flex items-center space-x-2 pt-1">
+                    <img src={config.uiIcons.coin} alt="coin" className="w-7 h-7"/>
+                    <h1 className="text-2xl font-display">{formatNumber(balance)}</h1>
+                </div>
+
+                {/* Right Side: Cipher */}
+                {dailyCipherWord && (
+                    <div className="flex-shrink-0 text-center p-2 bg-green-900/20 border border-green-500/50 w-44">
+                        <h3 className="font-display text-xs text-green-300">{t('daily_cipher')}</h3>
+                        {claimedCipher ? (
+                        <p className="text-green-400 font-bold text-xs mt-1">{t('claimed_today')}</p>
+                        ) : morseMode ? (
+                        <>
+                            <p className="text-gray-300 text-[10px] my-1 leading-tight">{t('cipher_hint')}</p>
+                            <div className="font-mono text-base h-7 tracking-widest text-white bg-black/50 border border-gray-600 flex items-center justify-center">
+                                {decodedWord}<span className="text-gray-500">{morseSequence}</span>
+                            </div>
+                            <button onClick={handleCancelMorse} className="text-[10px] text-gray-400 hover:text-white mt-0.5">
+                                {t('cancel_morse_mode')}
+                            </button>
+                        </>
+                        ) : (
+                            <button onClick={() => setMorseMode(true)} className="bg-green-600 hover:bg-green-500 text-white font-bold py-1 px-2 mt-1 text-xs transition-transform active:scale-95">
+                                {t('enter_morse_mode')}
+                            </button>
+                        )}
                     </div>
-                    <button onClick={handleCancelMorse} className="text-[10px] text-gray-400 hover:text-white mt-0.5">
-                        {t('cancel_morse_mode')}
-                    </button>
-                  </>
-                ) : (
-                    <button onClick={() => setMorseMode(true)} className="bg-green-600 hover:bg-green-500 text-white font-bold py-1 px-2 mt-1 text-xs transition-transform active:scale-95">
-                        {t('enter_morse_mode')}
-                    </button>
                 )}
             </div>
-        )}
-      </div>
-
-
-      {/* Clicker Area */}
-      <div className="flex-grow w-full flex items-center justify-center relative my-2 min-h-0">
-        <div
-          className="relative cursor-pointer select-none w-full h-full max-w-[210px] max-h-[210px]"
-          onMouseDown={handlePressStart}
-          onMouseUp={handlePressEnd}
-          onTouchStart={handlePressStart}
-          onTouchEnd={handlePressEnd}
-          onContextMenu={(e) => e.preventDefault()}
-          onMouseLeave={pressTimer.current ? handlePressEnd : undefined}
-        >
-          <div
-            className="w-full h-full"
-            style={{ transform: `scale(${scale})`, transition: 'transform 0.1s cubic-bezier(0.22, 1, 0.36, 1)' }}
-          >
-            {isTurboActive && (
-              <div className="absolute inset-0 rounded-full animate-pulse-fire" style={{ boxShadow: '0 0 40px 10px var(--accent-green), 0 0 60px 20px var(--accent-green-glow)' }}></div>
-            )}
-            <img
-              src={coinSkinUrl}
-              alt="Clickable Coin"
-              draggable="false"
-              className="w-full h-full pointer-events-none relative z-10"
-            />
-          </div>
-          {clicks.map(click => (
-            <div
-              key={click.id}
-              className="absolute text-3xl font-bold text-white pointer-events-none"
-              style={{
-                left: click.x,
-                top: click.y,
-                animation: 'floatUp 1s ease-out forwards',
-                '--x-offset': `${click.xOffset}px`,
-                textShadow: '0px 0px 8px rgba(0, 0, 0, 0.7)'
-              } as React.CSSProperties}
-            >
-              +{click.value}
+            
+            {/* Clicker Area */}
+            <div className="relative w-full flex-grow flex items-center justify-center my-2">
+                <div className="w-full h-full max-w-full max-h-full aspect-square">
+                    <div
+                        className="relative cursor-pointer select-none w-full h-full"
+                        onMouseDown={handlePressStart}
+                        onMouseUp={handlePressEnd}
+                        onTouchStart={handlePressStart}
+                        onTouchEnd={handlePressEnd}
+                        onContextMenu={(e) => e.preventDefault()}
+                        onMouseLeave={pressTimer.current ? handlePressEnd : undefined}
+                     >
+                        <div
+                            className="w-full h-full"
+                            style={{ transform: `scale(${scale})`, transition: 'transform 0.1s cubic-bezier(0.22, 1, 0.36, 1)' }}
+                          >
+                            {isTurboActive && (
+                            <div className="absolute inset-0 rounded-full animate-pulse-fire" style={{ boxShadow: '0 0 40px 10px var(--accent-green), 0 0 60px 20px var(--accent-green-glow)' }}></div>
+                            )}
+                            <img
+                                src={coinSkinUrl}
+                                alt="Clickable Coin"
+                                draggable="false"
+                                className="w-full h-full pointer-events-none relative z-10"
+                            />
+                        </div>
+                        {clicks.map(click => (
+                            <div
+                            key={click.id}
+                            className="absolute text-3xl font-bold text-white pointer-events-none"
+                            style={{
+                                left: click.x,
+                                top: click.y,
+                                animation: 'floatUp 1s ease-out forwards',
+                                '--x-offset': `${click.xOffset}px`,
+                                textShadow: '0px 0px 8px rgba(0, 0, 0, 0.7)'
+                            } as React.CSSProperties}
+                            >
+                            +{click.value}
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
-          ))}
+            
+            {/* Empty spacer to push coin up */}
+             <div className="h-8 flex-shrink-0"></div>
         </div>
-      </div>
-      
-      {/* Progress Bars */}
-      <div className="w-full space-y-3 pb-2 flex-shrink-0">
-        <SuspicionMeter
-          value={suspicion}
-          max={100}
-          iconUrl={config.uiIcons.suspicion}
-        />
-        <ProgressBar
-          value={energy}
-          max={effectiveMaxEnergy}
-          label={t('energy')}
-          iconUrl={config.uiIcons.energy}
-        />
+
+        {/* Right Bar: Suspicion */}
+        <div className="flex-shrink-0 py-4">
+            <SuspicionMeter
+                value={suspicion}
+                max={100}
+                iconUrl={config.uiIcons.suspicion}
+                orientation="vertical"
+            />
+        </div>
+
       </div>
         <style>{`
             @keyframes pulse-fire {

@@ -6,9 +6,10 @@ interface SuspicionMeterProps {
   value: number;
   max: number;
   iconUrl?: string;
+  orientation?: 'horizontal' | 'vertical';
 }
 
-const SuspicionMeter: React.FC<SuspicionMeterProps> = ({ value, max, iconUrl }) => {
+const SuspicionMeter: React.FC<SuspicionMeterProps> = ({ value, max, iconUrl, orientation = 'horizontal' }) => {
   const t = useTranslation();
   const percentage = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   
@@ -17,6 +18,27 @@ const SuspicionMeter: React.FC<SuspicionMeterProps> = ({ value, max, iconUrl }) 
     if (percentage > 40) return 'bg-yellow-500';
     return 'bg-green-500';
   };
+
+  if (orientation === 'vertical') {
+    return (
+      <div className="h-full flex flex-col items-center">
+        <div className="text-center text-sm mb-2">
+          {iconUrl && <img src={iconUrl} alt="icon" className="w-6 h-6 mx-auto mb-1" />}
+          <span className="font-bold text-gray-200">{t('suspicion')}</span>
+        </div>
+        <div className="h-full w-4 bg-black/30 border border-gray-600 flex-grow flex flex-col-reverse">
+          <div
+            className={`w-full ${getColor()}`}
+            style={{
+              height: `${percentage}%`,
+              transition: 'height 0.3s ease-in-out, background-color 0.3s ease-in-out',
+            }}
+          ></div>
+        </div>
+        <span className="font-mono text-gray-400 text-xs mt-2">{Math.floor(value)}/{max}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">
