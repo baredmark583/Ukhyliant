@@ -89,6 +89,8 @@ type TranslationKey =
   // Daily Events
   | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today' | 'combo_not_active'
   | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard' | 'your_league' | 'total_players'
+  // Notifications
+  | 'task_completed' | 'combo_collected' | 'cipher_solved'
   // Boosts
   | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased'
   // Market & Skins
@@ -99,7 +101,7 @@ type TranslationKey =
   // Suspicion & Cells
   | 'suspicion' | 'suspicion_modifier' | 'cell' | 'cell_info' | 'create_cell' | 'join_cell' | 'leave_cell' | 'no_cell_info'
   | 'cell_name' | 'enter_cell_name' | 'create' | 'enter_invite_code' | 'join' | 'members'
-  | 'total_cell_profit' | 'invite_code' | 'copy' | 'confirm_leave_cell'
+  | 'total_cell_profit' | 'total_cell_profit' | 'invite_code' | 'copy' | 'confirm_leave_cell'
   // Informants
   | 'recruit_informant' | 'informants' | 'no_informants_recruited' | 'informant_dossier' | 'recruit' | 'recruiting'
   // Generic
@@ -188,6 +190,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     leaderboard: 'Leaderboard',
     your_league: 'Your League',
     total_players: 'Total Players',
+    task_completed: 'completed!',
+    combo_collected: 'Combo collected!',
+    cipher_solved: 'Cipher solved!',
     guru_tapper: 'Guru Tapper',
     energy_limit: 'Energy Limit',
     turbo_mode: 'Turbo Mode',
@@ -317,6 +322,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     leaderboard: 'Таблиця лідерів',
     your_league: 'Ваша ліга',
     total_players: 'Всього гравців',
+    task_completed: 'виконано!',
+    combo_collected: 'Комбо зібрано!',
+    cipher_solved: 'Шифр розгадано!',
     guru_tapper: 'Гуру Тапів',
     energy_limit: 'Ліміт Енергії',
     turbo_mode: 'Турбо-режим',
@@ -446,6 +454,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     leaderboard: 'Таблица лидеров',
     your_league: 'Ваша лига',
     total_players: 'Всего игроков',
+    task_completed: 'выполнено!',
+    combo_collected: 'Комбо собрано!',
+    cipher_solved: 'Шифр разгадан!',
     guru_tapper: 'Гуру Тапов',
     energy_limit: 'Лимит Энергии',
     turbo_mode: 'Турбо-режим',

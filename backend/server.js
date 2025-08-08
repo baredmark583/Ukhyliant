@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import connectPgSimple from 'connect-pg-simple';
 import geoip from 'geoip-lite';
 import { 
@@ -55,9 +55,9 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const ai = process.env.API_KEY ? new GoogleGenAI({ apiKey: process.env.API_KEY }) : null;
+const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 if (!ai) {
-    console.warn("API_KEY for Gemini is not set. Informant recruitment will be disabled.");
+    console.warn("GEMINI_API_KEY for Gemini is not set. Informant recruitment will be disabled.");
 }
 
 // --- Simple Logger ---
@@ -435,9 +435,20 @@ app.post('/api/action/:action', async (req, res) => {
             return res.status(404).json({ error: "Action not found" });
         }
         
-        const player = await getPlayer(userId);
+        let player = await getPlayer(userId);
         const config = await getGameConfig();
         if (!player || !config) return res.status(404).json({ error: "Player or config not found" });
+        
+        // --- Daily Reset Logic ---
+        const now = Date.now();
+        const lastResetDate = new Date(player.lastDailyReset || 0).toDateString();
+        const todayDate = new Date(now).toDateString();
+
+        if (lastResetDate !== todayDate) {
+            log('info', `Performing daily reset for user ${userId}`);
+            player = await resetPlayerDailyProgress(userId);
+        }
+        // --- End Daily Reset Logic ---
 
         const result = await gameActions[action](req.body, player, config);
         res.json(result.player ? result.player : result);
@@ -503,12 +514,32 @@ app.post('/api/informant/recruit', async (req, res) => {
     
     try {
         const { userId } = req.body;
-        const prompt = `You are a curator of an agent network in a grim dystopian world in the spirit of '1984'. Create a short, encrypted dossier for a new informant. The output must be a valid JSON object. The JSON should contain fields: "name" (a string with a codename), "dossier" (a string with the dossier text, including a detail from the past and a potential weakness, in a dry and bureaucratic tone), and "specialization" (a string, must be one of: 'finance', 'counter-intel', 'logistics').`;
         
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: prompt,
-            config: { responseMimeType: "application/json" }
+            contents: "You are a curator of an agent network in a grim dystopian world in the spirit of '1984'. Create a short, encrypted dossier for a new informant. Include a codename, a detail from the past, and a potential weakness.",
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        name: {
+                            type: Type.STRING,
+                            description: "A codename for the informant."
+                        },
+                        dossier: {
+                            type: Type.STRING,
+                            description: "A short, bureaucratic dossier text including a detail from the past and a potential weakness."
+                        },
+                        specialization: {
+                            type: Type.STRING,
+                            enum: ['finance', 'counter-intel', 'logistics'],
+                            description: "The informant's area of specialization."
+                        }
+                    },
+                    required: ["name", "dossier", "specialization"]
+                }
+            }
         });
         
         const jsonText = response.text.trim();
@@ -519,7 +550,11 @@ app.post('/api/informant/recruit', async (req, res) => {
 
     } catch(e) {
         console.error("Informant recruitment error:", e);
-        res.status(500).json({ error: "Failed to process recruitment request." });
+        if (e.message.includes('API key')) {
+            res.status(500).json({ error: "Gemini API key is invalid or missing. Please check your GEMINI_API_KEY environment variable." });
+        } else {
+            res.status(500).json({ error: "Failed to process recruitment request." });
+        }
     }
 });
 

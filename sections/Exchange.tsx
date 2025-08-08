@@ -12,6 +12,8 @@ const MORSE_CODE_MAP: { [key: string]: string } = {
     '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.', '0': '-----'
 };
 
+const MORSE_CHAR_MAP = Object.fromEntries(Object.entries(MORSE_CODE_MAP).map(([k, v]) => [v, k]));
+
 interface ExchangeProps {
   playerState: PlayerState;
   currentLeague: League | null;
@@ -55,38 +57,42 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const { switchLanguage } = useAuth();
   
   const [morseMode, setMorseMode] = useState(false);
-  const [morseInput, setMorseInput] = useState('');
+  const [morseSequence, setMorseSequence] = useState('');
+  const [decodedWord, setDecodedWord] = useState('');
   const pressTimer = useRef<number | null>(null);
-  const resetMorseTimer = useRef<number | null>(null);
+  const morseCharTimeout = useRef<number | null>(null);
   const lastClickPos = useRef({ x: 0, y: 0 });
   const lastTapTime = useRef(0);
 
-  const dailyCipherWord = (config.dailyEvent?.cipherWord || '');
-  const dailyCipherMorseTarget = dailyCipherWord
-    .toUpperCase()
-    .split('')
-    .map(letter => MORSE_CODE_MAP[letter])
-    .filter(Boolean)
-    .join('');
-    
+  const dailyCipherWord = (config.dailyEvent?.cipherWord || '').toUpperCase();
   const claimedCipher = playerState.claimedCipherToday;
 
   const currentSkin = config.coinSkins.find(s => s.id === playerState.currentSkinId) || config.coinSkins.find(s => s.id === DEFAULT_COIN_SKIN_ID);
   const coinSkinUrl = currentSkin?.iconUrl || '/assets/coin.svg';
-
-  const handleCipherReset = useCallback(() => {
-    setMorseInput('');
+  
+  const resetMorseState = useCallback(() => {
+    setMorseSequence('');
+    setDecodedWord('');
+    if (morseCharTimeout.current) {
+        clearTimeout(morseCharTimeout.current);
+        morseCharTimeout.current = null;
+    }
   }, []);
+
+  const handleCancelMorse = useCallback(() => {
+      setMorseMode(false);
+      resetMorseState();
+  }, [resetMorseState]);
+
 
   useEffect(() => {
     return () => {
-      if (resetMorseTimer.current) clearTimeout(resetMorseTimer.current);
+      if (morseCharTimeout.current) clearTimeout(morseCharTimeout.current);
     }
   }, []);
 
   const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
     if ('touches' in e) e.preventDefault();
-    if (resetMorseTimer.current) clearTimeout(resetMorseTimer.current);
     pressTimer.current = Date.now();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     let clientX, clientY;
@@ -101,10 +107,9 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   };
 
   const handlePressEnd = async () => {
-    // Universal debounce to prevent processing both touch and emulated mouse events
     const now = Date.now();
     if (now - lastTapTime.current < 50) {
-        if(pressTimer.current) pressTimer.current = null; // still null out timer to prevent triple clicks
+        if(pressTimer.current) pressTimer.current = null;
         return;
     }
     lastTapTime.current = now;
@@ -114,27 +119,35 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
     const pressDuration = now - pressTimer.current;
     pressTimer.current = null;
     
-    if (morseMode && !claimedCipher && dailyCipherMorseTarget) {
-      const char = pressDuration < 200 ? '.' : '-';
-      const newSequence = morseInput + char;
-      setMorseInput(newSequence);
+    if (morseMode && !claimedCipher && dailyCipherWord) {
+      if (morseCharTimeout.current) clearTimeout(morseCharTimeout.current);
 
-      if (newSequence === dailyCipherMorseTarget) {
-        const success = await onClaimCipher(dailyCipherWord);
-        if (success) {
-          setMorseInput('');
-          setMorseMode(false);
-          if (resetMorseTimer.current) clearTimeout(resetMorseTimer.current);
-        }
-      } else {
-         if (!dailyCipherMorseTarget.startsWith(newSequence)) {
-            resetMorseTimer.current = window.setTimeout(handleCipherReset, 1500);
-         } else {
-            resetMorseTimer.current = window.setTimeout(handleCipherReset, 3000);
-         }
-      }
+      const morseChar = pressDuration < 200 ? '.' : '-';
+      const newSequence = morseSequence + morseChar;
+      setMorseSequence(newSequence);
+
+      morseCharTimeout.current = window.setTimeout(async () => {
+          const charToEvaluate = MORSE_CHAR_MAP[newSequence];
+          const nextExpectedChar = dailyCipherWord[decodedWord.length];
+
+          if (charToEvaluate && charToEvaluate === nextExpectedChar) {
+              const newDecodedWord = decodedWord + charToEvaluate;
+              setDecodedWord(newDecodedWord);
+
+              if (newDecodedWord === dailyCipherWord) {
+                  const success = await onClaimCipher(dailyCipherWord);
+                  if (success) {
+                      handleCancelMorse();
+                  }
+              }
+          } else {
+              window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+              setDecodedWord(''); // Reset the whole word on error
+          }
+          setMorseSequence(''); // Reset sequence input after evaluation
+      }, 800);
+
     } else {
-      // The old, specific debounce is now removed.
       const tapValue = onTap();
       if (tapValue > 0) { 
         const newClick: ClickFx = {
@@ -188,7 +201,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
       </div>
 
       {/* Daily Cipher Section */}
-       {dailyCipherMorseTarget && (
+       {dailyCipherWord && (
           <div className="w-full max-w-sm text-center my-2 p-3 bg-green-900/20 border border-green-500/50">
             <h3 className="font-display text-sm text-green-300">{t('daily_cipher')}</h3>
             {claimedCipher ? (
@@ -196,10 +209,10 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             ) : morseMode ? (
               <>
                 <p className="text-gray-300 text-xs my-1">{t('cipher_hint')}</p>
-                <div className="font-mono text-lg h-6 tracking-widest text-white bg-black/50 border border-gray-600 flex items-center justify-center">
-                    {morseInput}
+                <div className="font-mono text-xl h-8 tracking-widest text-white bg-black/50 border border-gray-600 flex items-center justify-center">
+                    {decodedWord}<span className="text-gray-500">{morseSequence}</span>
                 </div>
-                <button onClick={() => { setMorseMode(false); setMorseInput(''); if(resetMorseTimer.current) clearTimeout(resetMorseTimer.current); }} className="text-xs text-gray-400 hover:text-white mt-1">
+                <button onClick={handleCancelMorse} className="text-xs text-gray-400 hover:text-white mt-1">
                     {t('cancel_morse_mode')}
                 </button>
               </>

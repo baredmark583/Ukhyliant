@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -506,7 +507,7 @@ const MainApp: React.FC = () => {
         const rewardText = task.reward?.type === 'profit'
             ? `+${task.reward?.amount?.toLocaleString() ?? 0}/hr <img src="${config.uiIcons.energy}" class="w-4 h-4 inline-block -mt-1"/>`
             : `+${task.reward?.amount?.toLocaleString() ?? 0} <img src="${config.uiIcons.coin}" class="w-4 h-4 inline-block -mt-1"/>`;
-        showNotification(`${task.name?.[user.language]} выполнено! <span class="whitespace-nowrap">${rewardText}</span>`, 'success');
+        showNotification(`${task.name?.[user.language]} ${t('task_completed')} <span class="whitespace-nowrap">${rewardText}</span>`, 'success');
         
         if (task.type === 'video_code') {
             setStartedVideoTasks(prev => {
@@ -570,7 +571,7 @@ const MainApp: React.FC = () => {
   const handleClaimCombo = async () => {
     const result = await claimDailyCombo();
     if (result.player && result.reward) {
-        showNotification(`Комбо собрано! +${result.reward.toLocaleString()}`, 'success');
+        showNotification(`${t('combo_collected')} +${result.reward.toLocaleString()}`, 'success');
     } else if (result.error) {
         showNotification(result.error, 'error');
     }
@@ -579,7 +580,7 @@ const MainApp: React.FC = () => {
   const handleClaimCipher = async (cipher: string): Promise<boolean> => {
     const result = await claimDailyCipher(cipher);
     if (result.player && result.reward) {
-        showNotification(`Шифр разгадан! +${result.reward.toLocaleString()}`, 'success');
+        showNotification(`${t('cipher_solved')} +${result.reward.toLocaleString()}`, 'success');
         return true;
     } else if (result.error) {
         showNotification(result.error, 'error');
