@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import SuspicionMeter from '../components/SuspicionMeter';
@@ -202,6 +198,43 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
           </div>
       </div>
 
+      {/* Horizontal Daily Cipher Section */}
+       {dailyCipherWord && (
+          <div className="w-full themed-container my-2 p-2">
+              {claimedCipher ? (
+                  <div className="flex items-center justify-center gap-2 h-10">
+                      <h3 className="font-display text-sm text-green-300">{t('daily_cipher')}</h3>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <p className="text-green-400 font-bold text-xs">{t('claimed_today')}</p>
+                  </div>
+              ) : (
+                <>
+                  {!morseMode ? (
+                      <div className="flex items-center justify-between w-full h-10">
+                          <h3 className="font-display text-base text-green-300">{t('daily_cipher')}</h3>
+                          <p className="text-gray-400 text-xs mx-4 flex-grow text-center">{t('cipher_hint')}</p>
+                          <button onClick={() => setMorseMode(true)} className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 text-xs transition-transform active:scale-95 flex-shrink-0">
+                              {t('enter_morse_mode')}
+                          </button>
+                      </div>
+                  ) : (
+                      <div className="flex items-center justify-between w-full gap-4 h-10">
+                          <h3 className="font-display text-base text-green-300 flex-shrink-0">{t('daily_cipher')}</h3>
+                          <div className="font-mono text-xl h-10 tracking-widest text-white bg-black/50 border border-gray-600 flex items-center justify-center w-full">
+                              {decodedWord}<span className="text-gray-500">{morseSequence}</span>
+                          </div>
+                          <button onClick={handleCancelMorse} className="text-xs text-gray-400 hover:text-white flex-shrink-0">
+                              {t('cancel_morse_mode')}
+                          </button>
+                      </div>
+                  )}
+                </>
+              )}
+          </div>
+      )}
+
 
       {/* Main Content Area */}
       <div className="flex-grow w-full flex items-stretch justify-center relative my-2 min-h-0 gap-3">
@@ -217,12 +250,9 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             />
         </div>
 
-        {/* Center Area: Coin and Suspicion */}
-        <div className="flex-grow flex flex-col items-center justify-between min-w-0 py-2">
+        {/* Center Area: Coin */}
+        <div className="flex-grow flex flex-col items-center justify-center min-w-0 py-2">
             
-            {/* Empty spacer to align with top of vertical bars */}
-            <div className="h-12 flex-shrink-0"></div>
-
             {/* Clicker Area */}
             <div className="relative w-full flex-grow flex items-center justify-center my-2">
                 <div className="w-full h-full max-w-full max-h-full aspect-square">
@@ -268,68 +298,16 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                 </div>
             </div>
             
-            <div className="w-full px-4 pb-2">
-                <SuspicionMeter
-                    value={suspicion}
-                    max={100}
-                    iconUrl={config.uiIcons.suspicion}
-                    orientation="horizontal"
-                />
-            </div>
         </div>
 
-        {/* Right Bar: Cipher */}
-        <div className="flex-shrink-0 py-4 flex items-center justify-center">
-             {dailyCipherWord && (
-                <div className={`themed-container h-full w-40 flex flex-col text-center overflow-hidden relative transition-all duration-300 ${claimedCipher ? 'justify-center p-2' : 'justify-between'}`}>
-                    {claimedCipher ? (
-                        <>
-                            <h3 className="font-display text-sm text-green-300 absolute top-2 left-0 right-0">{t('daily_cipher')}</h3>
-                            <div className="text-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-green-400 mx-auto" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l2 2l4 -4" /></svg>
-                               <p className="text-green-400 font-bold text-xs mt-1">{t('claimed_today')}</p>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            {/* View 1: Initial state, "Enter code" button */}
-                            <div className={`absolute inset-0 p-3 flex flex-col items-center justify-between transition-transform duration-300 ease-in-out ${morseMode ? '-translate-x-full' : 'translate-x-0'}`}>
-                                <h3 className="font-display text-base text-green-300">{t('daily_cipher')}</h3>
-                                <div className="w-16 h-16 my-auto flex items-center justify-center">
-                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-green-400/50" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                                        <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                                        <path d="M11.5 21h-5.5a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v7.5" />
-                                        <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-                                        <path d="M9 12h1.5" />
-                                        <path d="M9 15h3.5" />
-                                        <path d="M20.21 16.21a2.5 2.5 0 0 0 -3.42 0l-1.79 1.79l3.5 3.5l1.79 -1.79a2.5 2.5 0 0 0 0 -3.42z" />
-                                        <path d="M14.996 21.5l3.5 -3.5" />
-                                    </svg>
-                                </div>
-                                <button onClick={() => setMorseMode(true)} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 mt-1 text-xs transition-transform active:scale-95">
-                                    {t('enter_morse_mode')}
-                                </button>
-                            </div>
-
-                             {/* View 2: Morse input mode */}
-                            <div className={`absolute inset-0 p-2 flex flex-col items-center justify-between transition-transform duration-300 ease-in-out ${morseMode ? 'translate-x-0' : 'translate-x-full'}`}>
-                                <h3 className="font-display text-base text-green-300 flex-shrink-0">{t('daily_cipher')}</h3>
-                                <div className="flex-grow flex flex-col justify-center w-full">
-                                    <p className="text-gray-300 text-[10px] my-1 leading-tight text-center">{t('cipher_hint')}</p>
-                                    <div className="font-mono text-xl h-10 tracking-widest text-white bg-black/50 border border-gray-600 flex items-center justify-center w-full my-2">
-                                        {decodedWord}<span className="text-gray-500">{morseSequence}</span>
-                                    </div>
-                                </div>
-                                <div className="text-center mt-auto w-full flex-shrink-0">
-                                    <button onClick={handleCancelMorse} className="text-xs text-gray-400 hover:text-white">
-                                        {t('cancel_morse_mode')}
-                                    </button>
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
-            )}
+        {/* Right Bar: Suspicion */}
+        <div className="flex-shrink-0 py-4">
+             <SuspicionMeter
+                value={suspicion}
+                max={100}
+                iconUrl={config.uiIcons.suspicion}
+                orientation="vertical"
+            />
         </div>
       </div>
         <style>{`
