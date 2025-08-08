@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import SuspicionMeter from '../components/SuspicionMeter';
@@ -175,12 +176,12 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
     <div className="flex flex-col h-full text-white pt-4 px-4">
       {/* Top Section: League, Balance, Profit/hr, Language */}
       <div className="w-full flex items-center justify-between themed-container p-2 text-center flex-shrink-0">
-          <button onClick={onOpenLeaderboard} className="flex-1 flex flex-col items-center justify-center p-1 text-center transition-opacity hover:opacity-80">
+          <button onClick={onOpenLeaderboard} className="flex flex-col items-center justify-center p-1 text-center transition-opacity hover:opacity-80">
               {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-10 h-10 mb-1" />}
               <span className="text-xs text-gray-300">{t('your_league')}</span>
           </button>
 
-          <div className="flex-1 flex flex-col items-center border-x border-gray-700/50 px-2">
+          <div className="flex flex-col items-center px-2">
                 <div className="flex items-center space-x-2">
                     <img src={config.uiIcons.coin} alt="coin" className="w-8 h-8"/>
                     <h1 className="text-3xl font-display">{formatBalance(balance)}</h1>
@@ -191,7 +192,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                 </div>
           </div>
 
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center justify-center">
                 <button onClick={handleSwitchLanguage} className="border border-gray-700 hover:border-gray-500 text-white font-bold w-12 h-12 flex items-center justify-center text-sm transition-colors">
                   {user.language.toUpperCase()}
               </button>
