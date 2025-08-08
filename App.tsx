@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -672,7 +673,7 @@ const MainApp: React.FC = () => {
   );
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col prevent-select bg-gray-900">
+    <div className="h-screen w-screen overflow-hidden flex flex-col prevent-select">
       <main className="flex-grow overflow-hidden">
         {renderScreen()}
       </main>
