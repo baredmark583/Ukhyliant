@@ -21,6 +21,48 @@ const InformantCard: React.FC<{informant: Informant}> = ({informant}) => {
     );
 };
 
+const AccordionSection: React.FC<{
+  title: string;
+  count: number;
+  maxCount?: number;
+  children: React.ReactNode;
+}> = ({ title, count, maxCount, children }) => {
+  const [isOpen, setIsOpen] = React.useState(true);
+
+  return (
+    <div className="themed-container overflow-hidden">
+      <button
+        className="w-full flex justify-between items-center p-3 text-left font-bold"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+      >
+        <span>
+          {title} ({count}{maxCount !== undefined ? `/${maxCount}` : ''})
+        </span>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className={`h-5 w-5 transition-transform ${isOpen ? '' : '-rotate-90'}`}
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+      <div
+        className={`transition-all duration-300 ease-in-out grid ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+      >
+        <div className="overflow-hidden">
+          <div className="p-3 border-t border-gray-700">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const CellScreen: React.FC = () => {
     const { user } = useAuth();
@@ -118,15 +160,8 @@ const CellScreen: React.FC = () => {
         return (
             <div className="w-full max-w-md space-y-4">
                 <h2 className="text-2xl font-display text-center">{cell.name}</h2>
-                <div className="themed-container p-4 space-y-3">
-                    <div className="flex justify-between">
-                        <span className="text-gray-400">{t('members')}</span>
-                        <span className="font-bold">{cell.members.length} / {config?.cellMaxMembers || 10}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-gray-400">{t('total_cell_profit')}</span>
-                        <span className="font-bold text-green-400">+{formatNumber(cell.totalProfitPerHour)}/hr</span>
-                    </div>
+                
+                <div className="themed-container p-3">
                     <div className="flex justify-between items-center">
                         <span className="text-gray-400">{t('invite_code')}</span>
                         <div className="flex items-center space-x-2">
@@ -136,20 +171,22 @@ const CellScreen: React.FC = () => {
                     </div>
                 </div>
 
-                <div>
-                    <h3 className="text-lg font-bold mb-2">{t('members')}</h3>
+                <AccordionSection title={t('members')} count={cell.members.length} maxCount={config?.cellMaxMembers || 10}>
+                    <div className="flex justify-between items-center mb-3 text-sm">
+                        <span className="text-gray-400">{t('total_cell_profit')}</span>
+                        <span className="font-bold text-green-400">+{formatNumber(cell.totalProfitPerHour)}/hr</span>
+                    </div>
                     <ul className="space-y-2 max-h-48 overflow-y-auto no-scrollbar pr-2">
                         {cell.members.map(member => (
-                            <li key={member.id} className="themed-container p-2 flex justify-between items-center">
+                            <li key={member.id} className="bg-black/20 p-2 flex justify-between items-center">
                                 <span className={member.id === user?.id ? 'font-bold text-green-300' : ''}>{member.name}</span>
                                 <span className="text-sm text-green-400">+{formatNumber(member.profitPerHour)}/hr</span>
                             </li>
                         ))}
                     </ul>
-                </div>
+                </AccordionSection>
 
-                 <div>
-                    <h3 className="text-lg font-bold mb-2">{t('informants')}</h3>
+                <AccordionSection title={t('informants')} count={cell.informants.length}>
                     <div className="space-y-3 max-h-48 overflow-y-auto no-scrollbar pr-2">
                         {cell.informants.length > 0 ? (
                             cell.informants.map(info => <InformantCard key={info.id} informant={info} />)
@@ -157,7 +194,7 @@ const CellScreen: React.FC = () => {
                             <p className="text-gray-500 text-center py-4">{t('no_informants_recruited')}</p>
                         )}
                     </div>
-                 </div>
+                </AccordionSection>
 
                 {error && <p className="text-red-400 text-center text-sm mt-2">{error}</p>}
                 

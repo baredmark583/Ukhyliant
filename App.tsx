@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -66,8 +64,8 @@ const NotInTelegramScreen: React.FC = () => (
 const TabButton = ({ label, isActive, onClick }: { label: string, isActive: boolean, onClick: () => void }) => (
     <button
         onClick={onClick}
-        className={`px-4 py-2 text-sm font-bold transition-all w-full text-center border-b-2 ${
-            isActive ? 'border-green-400 text-green-300' : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
+        className={`px-4 py-2 text-sm font-bold transition-all w-full text-center ${
+            isActive ? 'bg-green-600/50 text-green-200' : 'bg-transparent text-gray-400 hover:text-white hover:bg-gray-700/50'
         }`}
     >
         {label}
@@ -183,12 +181,16 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
         <div className="flex flex-col h-full text-white pt-4 px-4 items-center">
             <div className="w-full max-w-md sticky top-0 bg-gray-900/80 backdrop-blur-sm py-4 z-10">
                 <h1 className="text-3xl font-display text-center mb-4">{t('profile')}</h1>
-                <div className="grid grid-cols-5 gap-1 themed-container p-1">
-                  <TabButton label={t('sub_contacts')} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
-                  <TabButton label={t('sub_boosts')} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
-                  <TabButton label={t('sub_disguise')} isActive={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
-                  <TabButton label={t('sub_market')} isActive={activeTab === 'market'} onClick={() => setActiveTab('market')} />
-                  <TabButton label={t('sub_cell')} isActive={activeTab === 'cell'} onClick={() => setActiveTab('cell')} />
+                <div className="themed-container p-1 flex flex-col gap-1">
+                    <div className="grid grid-cols-3 gap-1">
+                        <TabButton label={t('sub_contacts')} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
+                        <TabButton label={t('sub_boosts')} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
+                        <TabButton label={t('sub_disguise')} isActive={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-1">
+                        <TabButton label={t('sub_market')} isActive={activeTab === 'market'} onClick={() => setActiveTab('market')} />
+                        <TabButton label={t('sub_cell')} isActive={activeTab === 'cell'} onClick={() => setActiveTab('cell')} />
+                    </div>
                 </div>
             </div>
             
