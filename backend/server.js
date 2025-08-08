@@ -1,4 +1,5 @@
 
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -461,6 +462,13 @@ app.post('/api/action/:action', async (req, res) => {
         // --- End Daily Reset Logic ---
 
         const result = await gameActions[action](req.body, player, config);
+        
+        // Correctly handle responses for combo and cipher claims
+        if (action === 'claim-combo' || action === 'claim-cipher') {
+            return res.json(result); // These return { player, reward } which is what client needs
+        }
+
+        // For other actions, maintain the existing logic that seems to work for them
         res.json(result.player ? result.player : result);
 
     } catch (error) {

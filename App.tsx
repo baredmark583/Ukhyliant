@@ -579,8 +579,13 @@ const MainApp: React.FC = () => {
 
   const handleClaimCipher = async (cipher: string): Promise<boolean> => {
     const result = await claimDailyCipher(cipher);
-    if (result.player && result.reward) {
-        showNotification(`${t('cipher_solved')} +${result.reward.toLocaleString()}`, 'success');
+    if (result.player) {
+        const rewardAmount = result.reward || 0;
+        if (rewardAmount > 0) {
+            showNotification(`${t('cipher_solved')} +${rewardAmount.toLocaleString()}`, 'success');
+        } else {
+            showNotification(t('cipher_solved'), 'success');
+        }
         return true;
     } else if (result.error) {
         showNotification(result.error, 'error');
