@@ -413,10 +413,6 @@ export const claimComboReward = async (userId) => {
         }
         const player = playerRes.rows[0].data;
 
-        if (player.claimedComboToday) {
-            throw new Error("Combo reward already claimed today.");
-        }
-        
         const comboIds = parseDbComboIds(dailyEvent);
         if (!comboIds || !Array.isArray(comboIds) || comboIds.length !== 3) {
             throw new Error('Daily combo is not configured correctly for today.');
@@ -428,6 +424,12 @@ export const claimComboReward = async (userId) => {
 
         if (!hasUpgradedAllCardsToday) {
             throw new Error("Найди и прокачай эти карты сегодня, чтобы забрать награду.");
+        }
+        
+        if (player.claimedComboToday === true) {
+            console.warn(`User ${userId} attempted to re-claim an already claimed combo. This might indicate a client-side state sync issue. Sending current state back to client to sync.`);
+            await client.query('COMMIT'); // It was a read-only transaction up to this point, so commit is safe.
+            return { player: player, reward: 0 };
         }
         
         const rewardAmount = Number(dailyEvent.combo_reward) || 0;

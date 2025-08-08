@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -68,6 +67,98 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p class="mt-2 text-secondary">${t(messageKey)}</p>
                 </div>
             </div>`;
+    };
+
+    // --- API & DATA HANDLING ---
+    const fetchData = async (endpoint) => {
+        try {
+            const response = await fetch(`/admin/api/${endpoint}`);
+            if (!response.ok) {
+                if (response.status === 401) window.location.href = '/admin/login.html';
+                console.error(`Error fetching ${endpoint}: ${response.statusText}`);
+                alert(`Error fetching data: ${response.statusText}`);
+                return null;
+            }
+            return await response.json();
+        } catch (error) {
+            console.error(`Network error fetching ${endpoint}:`, error);
+            alert(`Network Error: ${error.message}`);
+            return null;
+        }
+    };
+
+    const postData = async (endpoint, data = {}) => {
+        try {
+            const response = await fetch(`/admin/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`Error posting to ${endpoint}: ${response.statusText}`, errorText);
+                alert(`Error: ${errorText}`);
+                return null;
+            }
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                return await response.json();
+            }
+            return { ok: true };
+        } catch (error) {
+            console.error(`Network error posting to ${endpoint}:`, error);
+            alert(`Network Error: ${error.message}`);
+            return null;
+        }
+    };
+    
+    const deleteData = async (endpoint) => {
+        try {
+            const response = await fetch(`/admin/api/${endpoint}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`Error deleting from ${endpoint}: ${response.statusText}`, errorText);
+                alert(`Error: ${errorText}`);
+                return null;
+            }
+            return { ok: true };
+        } catch (error) {
+            console.error(`Network error deleting from ${endpoint}:`, error);
+            alert(`Network Error: ${error.message}`);
+            return null;
+        }
+    };
+
+    const saveAllChanges = async () => {
+        saveMainButton.disabled = true;
+        saveMainButton.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status"></span> ${t('saving')}`;
+        
+        try {
+            const configPromise = postData('config', { config: localConfig });
+            const dailyEventPromise = postData('daily-events', {
+                combo_ids: dailyEvent.combo_ids,
+                cipher_word: dailyEvent.cipher_word,
+                combo_reward: dailyEvent.combo_reward,
+                cipher_reward: dailyEvent.cipher_reward,
+            });
+
+            const [configRes, eventRes] = await Promise.all([configPromise, dailyEventPromise]);
+
+            if (configRes && eventRes) {
+                alert(t('save_success'));
+            } else {
+                alert(t('save_error'));
+                throw new Error('One or more save operations failed.');
+            }
+        } catch (error) {
+            console.error('Error saving changes:', error);
+        } finally {
+            saveMainButton.disabled = false;
+            saveMainButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M14 4l0 4l-6 0l0 -4" /></svg> ${t('save_all_changes')}`;
+            localConfig = await fetchData('config');
+        }
     };
 
     // --- RENDER LOGIC ---

@@ -82,9 +82,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Serve admin files under the /admin route. These files are inside the backend directory.
-app.use('/admin', express.static(path.join(__dirname, 'public')));
-
 // Session middleware
 const PgStore = connectPgSimple(session);
 app.use(session({
@@ -185,6 +182,19 @@ const checkAdminAuth = (req, res, next) => {
         res.status(401).redirect('/admin/login.html');
     }
 };
+
+// Protected routes for the admin panel must come BEFORE the static middleware
+app.get('/admin/', checkAdminAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+app.get('/admin/admin.html', checkAdminAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// Serve admin static files (JS, CSS, login.html etc).
+// This comes AFTER the protected routes so they can be handled first.
+app.use('/admin', express.static(path.join(__dirname, 'public')));
+
 
 // --- API ROUTES ---
 app.post('/api/login', async (req, res) => {
@@ -563,7 +573,7 @@ app.post('/admin/login', (req, res) => {
     const { password } = req.body;
     if (password === process.env.ADMIN_PASSWORD) {
         req.session.isAdmin = true;
-        res.redirect('/admin/admin.html');
+        res.redirect('/admin/');
     } else {
         res.status(401).send('Incorrect password');
     }

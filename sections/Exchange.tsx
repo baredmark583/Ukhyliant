@@ -145,7 +145,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
               setDecodedWord(''); // Reset the whole word on error
           }
           setMorseSequence(''); // Reset sequence input after evaluation
-      }, 800);
+      }, 1200);
 
     } else {
       const tapValue = onTap();
