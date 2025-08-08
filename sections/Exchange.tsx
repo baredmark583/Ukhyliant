@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import SuspicionMeter from '../components/SuspicionMeter';
@@ -252,53 +251,46 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
         </div>
 
         {/* Center Area: Coin */}
-        <div className="flex-grow flex flex-col items-center justify-center min-w-0 py-2">
-            
-            {/* Clicker Area */}
-            <div className="relative w-full flex-grow flex items-center justify-center my-2">
-                <div className="w-full h-full max-w-full max-h-full aspect-square">
-                    <div
-                        className="relative cursor-pointer select-none w-full h-full"
-                        onMouseDown={handlePressStart}
-                        onMouseUp={handlePressEnd}
-                        onTouchStart={handlePressStart}
-                        onTouchEnd={handlePressEnd}
-                        onContextMenu={(e) => e.preventDefault()}
-                        onMouseLeave={pressTimer.current ? handlePressEnd : undefined}
-                     >
-                        <div
-                            className="w-full h-full"
-                            style={{ transform: `scale(${scale})`, transition: 'transform 0.1s cubic-bezier(0.22, 1, 0.36, 1)' }}
-                          >
-                            {isTurboActive && (
-                            <div className="absolute inset-0 rounded-full animate-pulse-fire" style={{ boxShadow: '0 0 40px 10px var(--accent-green), 0 0 60px 20px var(--accent-green-glow)' }}></div>
-                            )}
-                            <img
-                                src={coinSkinUrl}
-                                alt="Clickable Coin"
-                                draggable="false"
-                                className="w-full h-full pointer-events-none relative z-10"
-                            />
-                        </div>
-                        {clicks.map(click => (
-                            <div
-                            key={click.id}
-                            className="absolute text-3xl font-bold text-white pointer-events-none"
-                            style={{
-                                left: click.x,
-                                top: click.y,
-                                animation: 'floatUp 1s ease-out forwards',
-                                '--x-offset': `${click.xOffset}px`,
-                                textShadow: '0px 0px 8px rgba(0, 0, 0, 0.7)'
-                            } as React.CSSProperties}
-                            >
-                            +{click.value}
-                            </div>
-                        ))}
-                    </div>
+        <div className="flex-grow flex items-center justify-center min-w-0 p-2">
+             <div
+                className="relative cursor-pointer select-none w-full max-w-xs aspect-square"
+                onMouseDown={handlePressStart}
+                onMouseUp={handlePressEnd}
+                onTouchStart={handlePressStart}
+                onTouchEnd={handlePressEnd}
+                onContextMenu={(e) => e.preventDefault()}
+                onMouseLeave={pressTimer.current ? handlePressEnd : undefined}
+             >
+                <div
+                    className="w-full h-full"
+                    style={{ transform: `scale(${scale})`, transition: 'transform 0.1s cubic-bezier(0.22, 1, 0.36, 1)' }}
+                  >
+                    {isTurboActive && (
+                    <div className="absolute inset-0 rounded-full animate-pulse-fire" style={{ boxShadow: '0 0 40px 10px var(--accent-green), 0 0 60px 20px var(--accent-green-glow)' }}></div>
+                    )}
+                    <img
+                        src={coinSkinUrl}
+                        alt="Clickable Coin"
+                        draggable="false"
+                        className="w-full h-full pointer-events-none relative z-10"
+                    />
                 </div>
+                {clicks.map(click => (
+                    <div
+                    key={click.id}
+                    className="absolute text-3xl font-bold text-white pointer-events-none"
+                    style={{
+                        left: click.x,
+                        top: click.y,
+                        animation: 'floatUp 1s ease-out forwards',
+                        '--x-offset': `${click.xOffset}px`,
+                        textShadow: '0px 0px 8px rgba(0, 0, 0, 0.7)'
+                    } as React.CSSProperties}
+                    >
+                    +{click.value}
+                    </div>
+                ))}
             </div>
-            
         </div>
 
         {/* Right Bar: Suspicion */}

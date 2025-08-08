@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface ProgressBarProps {
@@ -21,7 +20,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ value, max, label, iconUrl, o
             <span className="font-bold text-gray-200">{label}</span>
           </div>
         )}
-        <div className="h-full w-4 bg-black/30 border border-gray-600 flex-grow flex flex-col-reverse">
+        <div className="h-full w-3 bg-black/30 border border-gray-600 flex-grow flex flex-col-reverse">
           <div
             className="w-full bg-green-500"
             style={{

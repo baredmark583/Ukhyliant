@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useTranslation } from '../hooks/useGameLogic';
 
@@ -26,7 +25,7 @@ const SuspicionMeter: React.FC<SuspicionMeterProps> = ({ value, max, iconUrl, or
           {iconUrl && <img src={iconUrl} alt="icon" className="w-6 h-6 mx-auto mb-1" />}
           <span className="font-bold text-gray-200">{t('suspicion')}</span>
         </div>
-        <div className="h-full w-4 bg-black/30 border border-gray-600 flex-grow flex flex-col-reverse">
+        <div className="h-full w-3 bg-black/30 border border-gray-600 flex-grow flex flex-col-reverse">
           <div
             className={`w-full ${getColor()}`}
             style={{
