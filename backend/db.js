@@ -773,6 +773,7 @@ export const resetPlayerDailyProgress = async (userId) => {
         player.dailyUpgrades = [];
         player.completedDailyTaskIds = [];
         player.dailyTaps = 0;
+        player.lastDailyReset = Date.now(); // Update the reset timestamp
 
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
