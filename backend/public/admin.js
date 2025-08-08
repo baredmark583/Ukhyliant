@@ -1,5 +1,4 @@
 
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -410,14 +409,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (value === null || value === undefined) return '';
 
         if (typeof value === 'object') {
-            if (col === 'name' || col === 'description') {
-                return escapeHtml(value[currentLang] || value.en || JSON.stringify(value));
+            // Check for localized string structure {en: '...', ru: '...'}
+            if (value.en !== undefined || value.ua !== undefined || value.ru !== undefined) {
+                 return escapeHtml(value[currentLang] || value.en || value.ua || value.ru || '');
             }
-            if (col === 'reward') {
+            // Handle reward object
+            if (col === 'reward' && value.type !== undefined && value.amount !== undefined) {
                 const typeText = t(`reward_type_${value.type}`);
                 return `${formatNumber(value.amount)} (${typeText})`;
             }
-            return escapeHtml(JSON.stringify(value));
+            // Fallback for other objects
+            return `<pre class="text-xs text-secondary" style="margin:0; background: rgba(0,0,0,0.1); padding: 2px 4px;">${escapeHtml(JSON.stringify(value))}</pre>`;
         }
         return escapeHtml(value);
     };

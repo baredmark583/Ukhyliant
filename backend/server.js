@@ -1,5 +1,4 @@
 
-
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -389,7 +388,7 @@ const gameActions = {
         return { player };
     },
     
-    'claim-task': async (body) => {
+    'claim-task': async (body) => { // Handles ONLY daily tasks
         const { userId, taskId, code } = body;
         const player = await claimDailyTaskReward(userId, taskId, code);
         return { player };
@@ -403,6 +402,22 @@ const gameActions = {
         return await claimCipherReward(body.userId, body.cipher);
     },
     
+    'unlock-free-task': async (body, player, config) => {
+        const { userId, taskId } = body;
+        const task = config.specialTasks.find(t => t.id === taskId);
+        if (!task) throw new Error('Task not found');
+        if (task.priceStars > 0) throw new Error('This task is not free');
+
+        const updatedPlayer = await unlockSpecialTask(userId, taskId);
+        return { player: updatedPlayer };
+    },
+
+    'complete-task': async (body) => { // Handles ONLY special tasks
+        const { userId, taskId, code } = body;
+        const player = await completeAndRewardSpecialTask(userId, taskId, code);
+        return { player };
+    },
+
     'set-skin': async (body, player) => {
         const { skinId } = body;
         player.currentSkinId = skinId;
@@ -425,7 +440,7 @@ app.post('/api/action/:action', async (req, res) => {
         if (!player || !config) return res.status(404).json({ error: "Player or config not found" });
 
         const result = await gameActions[action](req.body, player, config);
-        res.json(result);
+        res.json(result.player ? result.player : result);
 
     } catch (error) {
         log('error', `Action ${action} for user ${userId} failed`, error);
