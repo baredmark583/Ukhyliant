@@ -220,6 +220,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return `<pre class="m-0">${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
         }
+
+        if (col === 'type') {
+            return t(`task_type_${data}`) || escapeHtml(data);
+        }
         
         if ((col === 'price' || col === 'costCoins' || col === 'priceStars' || col === 'profitPerHour' || col === 'minProfitPerHour' || col.toLowerCase().includes('reward')) && typeof data === 'number') {
             return formatNumber(data);
@@ -672,7 +676,142 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     };
 
+    const renderTaskEditModal = (key, index) => {
+        const isNew = index === null;
+        const item = isNew ? { name: {}, description: {}, reward: { type: 'coins', amount: 0 } } : { ...localConfig[key][index] };
+        const meta = configMeta[key];
+        const titleKey = isNew ? 'config_add_item' : 'config_edit_item';
+
+        const taskTypes = [
+            'taps', 'telegram_join', 'youtube_subscribe', 'twitter_follow', 'instagram_follow', 'video_watch', 'video_code'
+        ];
+
+        const typeOptions = taskTypes.map(type => 
+            `<option value="${type}" ${item.type === type ? 'selected' : ''}>${t(`task_type_${type}`)}</option>`
+        ).join('');
+
+        const bodyHtml = `
+            <form id="task-edit-form">
+                ${meta.cols.filter(c => ['name', 'description'].includes(c)).map(col => `
+                     <div class="mb-3">
+                        <label class="form-label">${t(col)}</label>
+                        <input type="text" class="form-control" data-col="${col}" data-lang="en" placeholder="EN" value="${escapeHtml(item[col]?.en || '')}">
+                        <input type="text" class="form-control mt-1" data-col="${col}" data-lang="ru" placeholder="RU" value="${escapeHtml(item[col]?.ru || '')}">
+                        <input type="text" class="form-control mt-1" data-col="${col}" data-lang="ua" placeholder="UA" value="${escapeHtml(item[col]?.ua || '')}">
+                    </div>
+                `).join('')}
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">${t('type')}</label>
+                        <select class="form-select" data-col="type" id="task-type-select">${typeOptions}</select>
+                    </div>
+                     ${key === 'specialTasks' ? `
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">${t('priceStars')}</label>
+                        <input type="number" class="form-control" data-col="priceStars" value="${escapeHtml(item.priceStars || 0)}">
+                    </div>` : ''}
+                </div>
+                
+                <div class="mb-3" id="url-wrapper">
+                    <label class="form-label">${t('url')}</label>
+                    <input type="text" class="form-control" data-col="url" value="${escapeHtml(item.url || '')}">
+                </div>
+
+                <div class="mb-3" id="taps-wrapper">
+                    <label class="form-label">${t('requiredTaps')}</label>
+                    <input type="number" class="form-control" data-col="requiredTaps" value="${escapeHtml(item.requiredTaps || 0)}">
+                </div>
+                
+                <div class="mb-3" id="code-wrapper">
+                    <label class="form-label">${t('secretCode')}</label>
+                    <input type="text" class="form-control" data-col="secretCode" value="${escapeHtml(item.secretCode || '')}">
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">${t('reward')}</label>
+                        <div class="input-group">
+                             <input type="number" class="form-control" data-col="reward" data-sub="amount" value="${escapeHtml(item.reward?.amount || 0)}">
+                             <select class="form-select" data-col="reward" data-sub="type">
+                                <option value="coins" ${item.reward?.type === 'coins' ? 'selected' : ''}>${t('reward_type_coins')}</option>
+                                <option value="profit" ${item.reward?.type === 'profit' ? 'selected' : ''}>${t('reward_type_profit')}</option>
+                             </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">${t('suspicionModifier')}</label>
+                        <input type="number" class="form-control" data-col="suspicionModifier" value="${escapeHtml(item.suspicionModifier || 0)}">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">${t('imageUrl')}</label>
+                    <input type="text" class="form-control" data-col="imageUrl" value="${escapeHtml(item.imageUrl || '')}">
+                </div>
+            </form>
+        `;
+
+        const footerHtml = `<button class="btn btn-primary" id="save-modal-btn">${t('save')}</button>`;
+        const modalId = renderModal(titleKey, bodyHtml, footerHtml);
+        const modalElement = document.getElementById(modalId);
+
+        const typeSelect = modalElement.querySelector('#task-type-select');
+        const urlWrapper = modalElement.querySelector('#url-wrapper');
+        const tapsWrapper = modalElement.querySelector('#taps-wrapper');
+        const codeWrapper = modalElement.querySelector('#code-wrapper');
+
+        const updateFieldVisibility = () => {
+            const selectedType = typeSelect.value;
+            urlWrapper.classList.toggle('d-none', !['telegram_join', 'youtube_subscribe', 'twitter_follow', 'instagram_follow', 'video_watch', 'video_code'].includes(selectedType));
+            tapsWrapper.classList.toggle('d-none', selectedType !== 'taps');
+            codeWrapper.classList.toggle('d-none', selectedType !== 'video_code');
+        };
+
+        typeSelect.addEventListener('change', updateFieldVisibility);
+        updateFieldVisibility(); // Initial call
+
+        modalElement.querySelector('#save-modal-btn').onclick = () => {
+            const form = modalElement.querySelector('#task-edit-form');
+            const newItem = isNew ? { id: `task_${Date.now()}` } : { ...item };
+            
+            meta.cols.forEach(col => {
+                const inputs = form.querySelectorAll(`[data-col="${col}"]`);
+                if (inputs.length > 1) { // Complex object (name, description, reward)
+                    newItem[col] = newItem[col] || {};
+                     if (inputs[0].dataset.lang) { // Localized string
+                        inputs.forEach(input => {
+                            newItem[col][input.dataset.lang] = input.value;
+                        });
+                    } else if(inputs[0].dataset.sub) { // Reward object
+                        inputs.forEach(input => {
+                             newItem[col][input.dataset.sub] = input.type === 'number' ? Number(input.value) : input.value;
+                        });
+                    }
+                } else if (inputs.length === 1) {
+                    const input = inputs[0];
+                    newItem[col] = input.type === 'number' ? Number(input.value) : input.value;
+                }
+            });
+            if (key === 'specialTasks') newItem.isOneTime = true;
+
+            if (isNew) {
+                localConfig[key].push(newItem);
+            } else {
+                localConfig[key][index] = newItem;
+            }
+            
+            bootstrap.Modal.getInstance(modalElement).hide();
+            renderConfigTable(key);
+        };
+    };
+
     const renderConfigEditModal = (key, index = null) => {
+        if (key === 'tasks' || key === 'specialTasks') {
+            renderTaskEditModal(key, index);
+            return;
+        }
+
         const isNew = index === null;
         const item = isNew ? {} : { ...localConfig[key][index] };
         const meta = configMeta[key];

@@ -84,7 +84,7 @@ export interface Reward {
     amount: number;
 }
 
-export type TaskType = 'taps' | 'telegram_join' | 'social_follow' | 'video_watch' | 'video_code';
+export type TaskType = 'taps' | 'telegram_join' | 'video_watch' | 'video_code' | 'youtube_subscribe' | 'twitter_follow' | 'instagram_follow';
 
 export interface DailyTask {
     id: string;

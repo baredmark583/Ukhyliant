@@ -399,10 +399,12 @@ const gameActions = {
         return { player };
     },
     
-    'claim-task': async (body) => { // Handles ONLY daily tasks
+    'claim-task': async (body, player, config) => { // Handles ONLY daily tasks
         const { userId, taskId, code } = body;
-        const player = await claimDailyTaskReward(userId, taskId, code);
-        return { player };
+        const updatedPlayer = await claimDailyTaskReward(userId, taskId, code);
+        const task = config.tasks.find(t => t.id === taskId);
+        if (!task) throw new Error('Task not found');
+        return { player: updatedPlayer, reward: task.reward };
     },
     
     'claim-combo': async (body) => {
@@ -423,10 +425,12 @@ const gameActions = {
         return { player: updatedPlayer };
     },
 
-    'complete-task': async (body) => { // Handles ONLY special tasks
+    'complete-task': async (body, player, config) => { // Handles ONLY special tasks
         const { userId, taskId, code } = body;
-        const player = await completeAndRewardSpecialTask(userId, taskId, code);
-        return { player };
+        const updatedPlayer = await completeAndRewardSpecialTask(userId, taskId, code);
+        const task = config.specialTasks.find(t => t.id === taskId);
+        if (!task) throw new Error('Task not found');
+        return { player: updatedPlayer, reward: task.reward };
     },
 
     'set-skin': async (body, player) => {
@@ -464,8 +468,8 @@ app.post('/api/action/:action', async (req, res) => {
         const result = await gameActions[action](req.body, player, config);
         
         // Correctly handle responses for combo and cipher claims
-        if (action === 'claim-combo' || action === 'claim-cipher') {
-            return res.json(result); // These return { player, reward } which is what client needs
+        if (action === 'claim-combo' || action === 'claim-cipher' || action === 'claim-task' || action === 'complete-task') {
+            return res.json(result);
         }
 
         // For other actions, maintain the existing logic that seems to work for them
