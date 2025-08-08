@@ -193,40 +193,44 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             </div>
         </div>
 
-      {/* Balance */}
-      <div className="flex items-center justify-center space-x-2 my-2 flex-shrink-0">
-        <img src={config.uiIcons.coin} alt="coin" className="w-8 h-8"/>
-        <h1 className="text-4xl font-display">{formatNumber(balance)}</h1>
+      {/* Balance & Cipher Section */}
+      <div className="w-full flex items-start justify-between gap-4 my-2 flex-shrink-0 px-2">
+        {/* Left Side: Balance */}
+        <div className="flex items-center space-x-2 pt-1">
+            <img src={config.uiIcons.coin} alt="coin" className="w-7 h-7"/>
+            <h1 className="text-2xl font-display">{formatNumber(balance)}</h1>
+        </div>
+
+        {/* Right Side: Cipher */}
+        {dailyCipherWord && (
+            <div className="flex-shrink-0 text-center p-2 bg-green-900/20 border border-green-500/50 w-44">
+                <h3 className="font-display text-xs text-green-300">{t('daily_cipher')}</h3>
+                {claimedCipher ? (
+                  <p className="text-green-400 font-bold text-xs mt-1">{t('claimed_today')}</p>
+                ) : morseMode ? (
+                  <>
+                    <p className="text-gray-300 text-[10px] my-1 leading-tight">{t('cipher_hint')}</p>
+                    <div className="font-mono text-base h-7 tracking-widest text-white bg-black/50 border border-gray-600 flex items-center justify-center">
+                        {decodedWord}<span className="text-gray-500">{morseSequence}</span>
+                    </div>
+                    <button onClick={handleCancelMorse} className="text-[10px] text-gray-400 hover:text-white mt-0.5">
+                        {t('cancel_morse_mode')}
+                    </button>
+                  </>
+                ) : (
+                    <button onClick={() => setMorseMode(true)} className="bg-green-600 hover:bg-green-500 text-white font-bold py-1 px-2 mt-1 text-xs transition-transform active:scale-95">
+                        {t('enter_morse_mode')}
+                    </button>
+                )}
+            </div>
+        )}
       </div>
 
-      {/* Daily Cipher Section */}
-       {dailyCipherWord && (
-          <div className="w-full max-w-sm text-center my-2 p-3 bg-green-900/20 border border-green-500/50 flex-shrink-0">
-            <h3 className="font-display text-sm text-green-300">{t('daily_cipher')}</h3>
-            {claimedCipher ? (
-              <p className="text-green-400 font-bold text-sm mt-1">{t('claimed_today')}</p>
-            ) : morseMode ? (
-              <>
-                <p className="text-gray-300 text-xs my-1">{t('cipher_hint')}</p>
-                <div className="font-mono text-xl h-8 tracking-widest text-white bg-black/50 border border-gray-600 flex items-center justify-center">
-                    {decodedWord}<span className="text-gray-500">{morseSequence}</span>
-                </div>
-                <button onClick={handleCancelMorse} className="text-xs text-gray-400 hover:text-white mt-1">
-                    {t('cancel_morse_mode')}
-                </button>
-              </>
-            ) : (
-                <button onClick={() => setMorseMode(true)} className="bg-green-600 hover:bg-green-500 text-white font-bold py-1 px-3 mt-1 text-sm transition-transform active:scale-95">
-                    {t('enter_morse_mode')}
-                </button>
-            )}
-          </div>
-       )}
 
       {/* Clicker Area */}
       <div className="flex-grow w-full flex items-center justify-center relative my-2 min-h-0">
         <div
-          className="relative cursor-pointer select-none w-full h-full max-w-[280px] max-h-[280px]"
+          className="relative cursor-pointer select-none w-full h-full max-w-[210px] max-h-[210px]"
           onMouseDown={handlePressStart}
           onMouseUp={handlePressEnd}
           onTouchStart={handlePressStart}
