@@ -32,7 +32,7 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
   };
 
   return (
-    <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
+    <div className="flex flex-col h-full text-white pt-4 px-4 items-center">
       <h1 className="text-3xl font-display text-center mb-2">{t('boosts')}</h1>
       <p className="text-lg text-gray-400 mb-6 flex items-center space-x-2">
         <img src={uiIcons.coin} alt="coin" className="w-6 h-6" />

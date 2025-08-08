@@ -22,16 +22,6 @@ const formatNumber = (num: number): string => {
   return num.toLocaleString('en-US');
 };
 
-const useWindowSize = () => {
-  const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
-  useEffect(() => {
-    const handleResize = () => setSize({ width: window.innerWidth, height: window.innerHeight });
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-  return size;
-};
-
 const AppContainer: React.FC = () => {
     const { user, isInitializing } = useAuth();
     
@@ -189,7 +179,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
     );
 
     return (
-        <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
+        <div className="flex flex-col h-full text-white pt-4 px-4 items-center">
             <div className="w-full max-w-md sticky top-0 bg-gray-900/80 backdrop-blur-sm py-4 z-10">
                 <h1 className="text-3xl font-display text-center mb-4">{t('profile')}</h1>
                 <div className="grid grid-cols-5 gap-1 themed-container p-1">
@@ -309,7 +299,7 @@ const MissionsScreen: React.FC<{
 }> = ({ tasks, playerState, onClaim, lang, startedVideoTasks, uiIcons }) => {
     const t = useTranslation();
     return (
-        <div className="flex flex-col h-full text-white pt-4 pb-24 px-4">
+        <div className="flex flex-col h-full text-white pt-4 px-4">
             <h1 className="text-3xl font-display text-center mb-6">{t('missions')}</h1>
             <div className="overflow-y-auto space-y-3 flex-grow no-scrollbar">
                 {tasks.map(task => (
@@ -339,7 +329,7 @@ const AirdropScreen: React.FC<{
 }> = ({ specialTasks, playerState, onClaim, onPurchase, lang, startedVideoTasks, uiIcons }) => {
     const t = useTranslation();
     return (
-        <div className="flex flex-col h-full text-white pt-4 pb-24 px-4">
+        <div className="flex flex-col h-full text-white pt-4 px-4">
             <h1 className="text-3xl font-display text-center mb-2">{t('airdrop_tasks')}</h1>
             <p className="text-center text-gray-400 mb-6">{t('airdrop_description')}</p>
             <div className="overflow-y-auto space-y-3 flex-grow no-scrollbar">
@@ -458,19 +448,12 @@ const MainApp: React.FC = () => {
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [lootboxResult, setLootboxResult] = useState<any>(null);
   const [isAppReady, setIsAppReady] = useState(false);
-  const { height: windowHeight } = useWindowSize();
 
   useEffect(() => {
     const timer = setTimeout(() => setIsAppReady(true), 1500);
     return () => clearTimeout(timer);
   }, []);
   
-  const topSectionHeight = 100;
-  const bottomNavHeight = 70;
-  const progressBarHeight = 80;
-  const verticalPadding = 30;
-  const availableHeight = windowHeight - topSectionHeight - bottomNavHeight - progressBarHeight - verticalPadding;
-  const clickerSize = Math.max(200, Math.min(availableHeight, 288));
 
   if (!isAppReady || !user || !playerState || !config) {
     return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
@@ -617,7 +600,7 @@ const MainApp: React.FC = () => {
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} clickerSize={clickerSize} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} />;
       case 'mine':
         return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} />;
       case 'missions':
@@ -650,7 +633,7 @@ const MainApp: React.FC = () => {
                     onPurchaseStarLootbox={handlePurchaseStarLootbox}
                 />;
       default:
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} clickerSize={clickerSize} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} />;
     }
   };
   
@@ -689,10 +672,10 @@ const MainApp: React.FC = () => {
   );
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col prevent-select">
-      <div className="flex-grow h-full w-full overflow-y-auto no-scrollbar">
+    <div className="h-screen w-screen overflow-hidden flex flex-col prevent-select bg-gray-900">
+      <main className="flex-grow overflow-hidden">
         {renderScreen()}
-      </div>
+      </main>
       
       {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
       {secretCodeTask && <SecretCodeModal task={secretCodeTask} lang={user.language} onClose={() => setSecretCodeTask(null)} onSubmit={(code) => {
@@ -708,7 +691,7 @@ const MainApp: React.FC = () => {
       {isGlitching && <LanguageGlitchModal />}
       <NotificationToast notification={notification} />
 
-      <div className="fixed bottom-0 left-0 right-0 bg-black/50 backdrop-blur-md border-t border-[var(--border-color)]">
+      <nav className="flex-shrink-0 bg-black/50 backdrop-blur-md border-t border-[var(--border-color)]">
         <div className="grid grid-cols-5 justify-around items-center max-w-xl mx-auto">
           <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} />
           <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} />
@@ -716,7 +699,7 @@ const MainApp: React.FC = () => {
           <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} />
           <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} />
         </div>
-      </div>
+      </nav>
        <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; } 
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

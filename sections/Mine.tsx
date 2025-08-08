@@ -78,7 +78,7 @@ const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang
   };
 
   return (
-    <div className="flex flex-col h-full text-white pt-4 pb-24 px-4">
+    <div className="flex flex-col h-full text-white pt-4 px-4">
       <h1 className="text-3xl font-display text-center mb-6">{t('mine_upgrades')}</h1>
 
       <div className="overflow-y-auto space-y-6 flex-grow no-scrollbar">

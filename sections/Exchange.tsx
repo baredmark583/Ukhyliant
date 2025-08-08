@@ -24,7 +24,6 @@ interface ExchangeProps {
   onOpenLeaderboard: () => void;
   isTurboActive: boolean;
   effectiveMaxEnergy: number;
-  clickerSize: number;
 }
 
 const formatNumber = (num: number): string => {
@@ -49,7 +48,7 @@ interface ClickFx {
   xOffset: number;
 }
 
-const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, clickerSize }) => {
+const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy }) => {
   const t = useTranslation();
   const { balance, profitPerHour, energy, suspicion } = playerState;
   const [clicks, setClicks] = useState<ClickFx[]>([]);
@@ -174,9 +173,9 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
 
   return (
-    <div className="flex flex-col h-full text-white pt-4 pb-24 px-4 items-center">
+    <div className="flex flex-col h-full text-white pt-4 px-4 items-center">
       {/* Top Section: League, Profit/hr, Language */}
-       <div className="w-full flex items-center justify-between themed-container p-2 text-center">
+       <div className="w-full flex items-center justify-between themed-container p-2 text-center flex-shrink-0">
             <button onClick={onOpenLeaderboard} className="flex-1 flex flex-col items-center justify-center p-1 text-center transition-opacity hover:opacity-80">
                 {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-10 h-10 mb-1" />}
                 <span className="text-xs text-gray-300">{t('league')}</span>
@@ -195,14 +194,14 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
         </div>
 
       {/* Balance */}
-      <div className="flex items-center justify-center space-x-2 my-2">
+      <div className="flex items-center justify-center space-x-2 my-2 flex-shrink-0">
         <img src={config.uiIcons.coin} alt="coin" className="w-8 h-8"/>
         <h1 className="text-4xl font-display">{formatNumber(balance)}</h1>
       </div>
 
       {/* Daily Cipher Section */}
        {dailyCipherWord && (
-          <div className="w-full max-w-sm text-center my-2 p-3 bg-green-900/20 border border-green-500/50">
+          <div className="w-full max-w-sm text-center my-2 p-3 bg-green-900/20 border border-green-500/50 flex-shrink-0">
             <h3 className="font-display text-sm text-green-300">{t('daily_cipher')}</h3>
             {claimedCipher ? (
               <p className="text-green-400 font-bold text-sm mt-1">{t('claimed_today')}</p>
@@ -225,50 +224,51 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
        )}
 
       {/* Clicker Area */}
-      <div 
-        className="relative my-auto cursor-pointer select-none"
-        style={{ width: `${clickerSize}px`, height: `${clickerSize}px` }}
-        onMouseDown={handlePressStart}
-        onMouseUp={handlePressEnd}
-        onTouchStart={handlePressStart}
-        onTouchEnd={handlePressEnd}
-        onContextMenu={(e) => e.preventDefault()}
-        onMouseLeave={pressTimer.current ? handlePressEnd : undefined}
-      >
-        <div 
+      <div className="flex-grow w-full flex items-center justify-center relative my-2 min-h-0">
+        <div
+          className="relative cursor-pointer select-none w-full h-full max-w-[280px] max-h-[280px]"
+          onMouseDown={handlePressStart}
+          onMouseUp={handlePressEnd}
+          onTouchStart={handlePressStart}
+          onTouchEnd={handlePressEnd}
+          onContextMenu={(e) => e.preventDefault()}
+          onMouseLeave={pressTimer.current ? handlePressEnd : undefined}
+        >
+          <div
             className="w-full h-full"
             style={{ transform: `scale(${scale})`, transition: 'transform 0.1s cubic-bezier(0.22, 1, 0.36, 1)' }}
-        >
-          {isTurboActive && (
-             <div className="absolute inset-0 rounded-full animate-pulse-fire" style={{boxShadow: '0 0 40px 10px var(--accent-green), 0 0 60px 20px var(--accent-green-glow)'}}></div>
-          )}
-          <img 
-            src={coinSkinUrl} 
-            alt="Clickable Coin" 
-            draggable="false"
-            className="w-full h-full pointer-events-none relative z-10"
-          />
-        </div>
-        {clicks.map(click => (
-          <div
-            key={click.id}
-            className="absolute text-3xl font-bold text-white pointer-events-none"
-            style={{
-              left: click.x,
-              top: click.y,
-              animation: 'floatUp 1s ease-out forwards',
-              '--x-offset': `${click.xOffset}px`,
-              textShadow: '0px 0px 8px rgba(0, 0, 0, 0.7)'
-            } as React.CSSProperties}
           >
-            +{click.value}
+            {isTurboActive && (
+              <div className="absolute inset-0 rounded-full animate-pulse-fire" style={{ boxShadow: '0 0 40px 10px var(--accent-green), 0 0 60px 20px var(--accent-green-glow)' }}></div>
+            )}
+            <img
+              src={coinSkinUrl}
+              alt="Clickable Coin"
+              draggable="false"
+              className="w-full h-full pointer-events-none relative z-10"
+            />
           </div>
-        ))}
+          {clicks.map(click => (
+            <div
+              key={click.id}
+              className="absolute text-3xl font-bold text-white pointer-events-none"
+              style={{
+                left: click.x,
+                top: click.y,
+                animation: 'floatUp 1s ease-out forwards',
+                '--x-offset': `${click.xOffset}px`,
+                textShadow: '0px 0px 8px rgba(0, 0, 0, 0.7)'
+              } as React.CSSProperties}
+            >
+              +{click.value}
+            </div>
+          ))}
+        </div>
       </div>
       
       {/* Progress Bars */}
-      <div className="w-full mt-4 space-y-3">
-        <SuspicionMeter 
+      <div className="w-full space-y-3 pb-2 flex-shrink-0">
+        <SuspicionMeter
           value={suspicion}
           max={100}
           iconUrl={config.uiIcons.suspicion}

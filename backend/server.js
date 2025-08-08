@@ -401,10 +401,10 @@ const gameActions = {
     
     'claim-task': async (body, player, config) => { // Handles ONLY daily tasks
         const { userId, taskId, code } = body;
-        const updatedPlayer = await claimDailyTaskReward(userId, taskId, code);
+        const result = await claimDailyTaskReward(userId, taskId, code);
         const task = config.tasks.find(t => t.id === taskId);
         if (!task) throw new Error('Task not found');
-        return { player: updatedPlayer, reward: task.reward };
+        return { player: result.player, reward: task.reward, error: result.error };
     },
     
     'claim-combo': async (body) => {
@@ -427,10 +427,10 @@ const gameActions = {
 
     'complete-task': async (body, player, config) => { // Handles ONLY special tasks
         const { userId, taskId, code } = body;
-        const updatedPlayer = await completeAndRewardSpecialTask(userId, taskId, code);
+        const result = await completeAndRewardSpecialTask(userId, taskId, code);
         const task = config.specialTasks.find(t => t.id === taskId);
         if (!task) throw new Error('Task not found');
-        return { player: updatedPlayer, reward: task.reward };
+        return { player: result.player, reward: task.reward, error: result.error };
     },
 
     'set-skin': async (body, player) => {
@@ -580,6 +580,34 @@ app.post('/api/informant/recruit', async (req, res) => {
     }
 });
 
+// --- Public API Routes ---
+app.get('/api/leaderboard', async (req, res) => {
+    try {
+        const [topPlayers, totalPlayers, config] = await Promise.all([
+            getLeaderboardData(),
+            getTotalPlayerCount(),
+            getGameConfig()
+        ]);
+        const sortedLeagues = [...(config.leagues || [])].sort((a,b) => b.minProfitPerHour - a.minProfitPerHour);
+        
+        const playersWithLeagues = topPlayers.map(p => {
+            const league = sortedLeagues.find(l => p.profitPerHour >= l.minProfitPerHour) || sortedLeagues[sortedLeagues.length - 1];
+            return {
+                id: p.id,
+                name: p.name,
+                profitPerHour: p.profitPerHour,
+                leagueName: league?.name,
+                leagueIconUrl: league?.iconUrl,
+            };
+        });
+
+        res.json({ topPlayers: playersWithLeagues, totalPlayers });
+    } catch (error) {
+        log('error', '/api/leaderboard failed', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 // --- Admin Panel API (protected by middleware) ---
 app.post('/admin/login', (req, res) => {
     const { password } = req.body;
@@ -642,27 +670,6 @@ app.get('/admin/api/social-stats', checkAdminAuth, async (req, res) => {
         await updateSocialStatsCache();
     }
     res.json(socialStatsCache);
-});
-app.get('/admin/api/leaderboard', async (req, res) => {
-    const [topPlayers, totalPlayers, config] = await Promise.all([
-        getLeaderboardData(),
-        getTotalPlayerCount(),
-        getGameConfig()
-    ]);
-    const sortedLeagues = [...(config.leagues || [])].sort((a,b) => b.minProfitPerHour - a.minProfitPerHour);
-    
-    const playersWithLeagues = topPlayers.map(p => {
-        const league = sortedLeagues.find(l => p.profitPerHour >= l.minProfitPerHour) || sortedLeagues[sortedLeagues.length - 1];
-        return {
-            id: p.id,
-            name: p.name,
-            profitPerHour: p.profitPerHour,
-            leagueName: league?.name,
-            leagueIconUrl: league?.iconUrl,
-        };
-    });
-
-    res.json({ topPlayers: playersWithLeagues, totalPlayers });
 });
 
 // --- Server Initialization ---
