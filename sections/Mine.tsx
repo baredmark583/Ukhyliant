@@ -21,7 +21,7 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
 
   if (!config.dailyEvent || combo_ids.length !== 3) {
       return (
-        <div className="mb-4 p-3 bg-green-900/20 border border-green-500/50 text-center">
+        <div className="mb-4 p-2 bg-green-900/20 border border-green-500/50 text-center flex-shrink-0">
             <h2 className="text-lg font-display text-green-300 mb-1">{t('daily_combo')}</h2>
             <p className="text-gray-400 text-sm">{t('combo_not_active')}</p>
         </div>
@@ -33,15 +33,15 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
   const isClaimed = playerState.claimedComboToday;
 
   return (
-    <div className="mb-4 p-3 bg-green-900/20 border border-green-500/50">
+    <div className="mb-4 p-2 bg-green-900/20 border border-green-500/50 flex-shrink-0">
       <h2 className="text-lg font-display text-center text-green-300 mb-1">{t('daily_combo')}</h2>
-      <p className="text-center text-gray-300 text-xs mb-3">{t('find_cards')}</p>
-      <div className="flex justify-around items-center mb-3">
+      <p className="text-center text-gray-300 text-xs mb-2">{t('find_cards')}</p>
+      <div className="flex justify-around items-center mb-2">
         {combo_ids.map((id, index) => {
           const isUpgradedToday = upgradedCardsToday.includes(id);
           const upgrade = upgrades.find(u => u.id === id);
           return (
-            <div key={index} className="w-16 h-16 bg-black/30 flex items-center justify-center border border-dashed border-gray-600 p-1">
+            <div key={index} className="w-12 h-12 bg-black/30 flex items-center justify-center border border-dashed border-gray-600 p-1">
               {isUpgradedToday && upgrade ? (
                 <img src={upgrade.iconUrl} alt={upgrade.name?.[lang]} className="w-full h-full object-contain" />
               ) : (
@@ -68,89 +68,66 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
   );
 };
 
-const AccordionItem: React.FC<{
-    category: UpgradeCategory;
-    isExpanded: boolean;
-    onToggle: () => void;
-    children: React.ReactNode;
-}> = ({ category, isExpanded, onToggle, children }) => {
-    return (
-        <div>
-            <button
-                onClick={onToggle}
-                className="w-full flex items-center justify-between p-3 themed-container hover:bg-gray-700/50"
-            >
-                <h2 className="text-xl font-display text-gray-300">{category}</h2>
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className={`h-6 w-6 transform transition-transform duration-200 text-gray-400 ${isExpanded ? 'rotate-180' : ''}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
-            {isExpanded && (
-                <div className="pt-2">
-                    {children}
-                </div>
-            )}
-        </div>
-    );
-};
-
 
 const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang, playerState, config, onClaimCombo, uiIcons }) => {
   const t = useTranslation();
   const categories = Object.values(UpgradeCategory);
-  const [expandedCategory, setExpandedCategory] = useState<UpgradeCategory | null>(categories[0]);
+  const [activeCategory, setActiveCategory] = useState<UpgradeCategory>(categories[0]);
 
   const getUpgradesByCategory = (category: UpgradeCategory) => {
     return upgrades.filter(u => u.category === category);
   };
   
-  const handleToggle = (category: UpgradeCategory) => {
-      setExpandedCategory(prev => prev === category ? null : category);
-  };
-
   return (
     <div className="flex flex-col h-full text-white pt-4 px-4">
-      <h1 className="text-3xl font-display text-center mb-4">{t('mine_upgrades')}</h1>
-
-      <div className="overflow-y-auto space-y-4 flex-grow no-scrollbar">
-        <DailyComboSection
+      <h1 className="text-3xl font-display text-center mb-4 flex-shrink-0">{t('mine_upgrades')}</h1>
+      
+      <DailyComboSection
           playerState={playerState}
           config={config}
           onClaimCombo={onClaimCombo}
           upgrades={upgrades}
           lang={lang}
-        />
-        {categories.map(category => {
-          const categoryUpgrades = getUpgradesByCategory(category);
-          if (categoryUpgrades.length === 0) return null;
-          return (
-            <AccordionItem 
-                key={category} 
-                category={category}
-                isExpanded={expandedCategory === category}
-                onToggle={() => handleToggle(category)}
-            >
-                <div className="grid grid-cols-2 gap-2">
-                  {categoryUpgrades.map(upgrade => (
-                    <UpgradeCard
-                      key={upgrade.id}
-                      upgrade={upgrade}
-                      balance={balance}
-                      onBuy={onBuyUpgrade}
-                      lang={lang}
-                      uiIcons={uiIcons}
-                    />
-                  ))}
-                </div>
-            </AccordionItem>
-          );
-        })}
+      />
+      
+      <div className="flex-grow flex gap-4 overflow-hidden">
+        {/* Vertical Category Navigation */}
+        <nav className="flex flex-col space-y-2 w-1/4 max-w-[120px] flex-shrink-0 overflow-y-auto no-scrollbar pr-2">
+          {categories.map(category => {
+            if (getUpgradesByCategory(category).length === 0) return null;
+            const isActive = activeCategory === category;
+            return (
+              <button
+                key={category}
+                onClick={() => setActiveCategory(category)}
+                className={`w-full p-2 text-sm font-bold text-left transition-colors ${
+                  isActive
+                    ? 'bg-green-600/80 text-white'
+                    : 'themed-container hover:bg-gray-700/50 text-gray-300'
+                }`}
+              >
+                {category}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Horizontal Card Scroll Area */}
+        <div className="flex-grow overflow-x-auto no-scrollbar">
+          <div className="inline-flex h-full space-x-3 pb-4">
+            {getUpgradesByCategory(activeCategory).map(upgrade => (
+              <div key={upgrade.id} className="w-32 h-full flex-shrink-0">
+                <UpgradeCard
+                  upgrade={upgrade}
+                  balance={balance}
+                  onBuy={onBuyUpgrade}
+                  lang={lang}
+                  uiIcons={uiIcons}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
        <style>{`
         .no-scrollbar::-webkit-scrollbar {
