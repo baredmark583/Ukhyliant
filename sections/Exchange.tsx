@@ -1,18 +1,15 @@
 
 
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
-import { PlayerState, League, User, Language, GameConfig } from '../types';
+import SuspicionMeter from '../components/SuspicionMeter';
+import { PlayerState, League, User, GameConfig } from '../types';
 import { DEFAULT_COIN_SKIN_ID } from '../constants';
-import { useTranslation, useAuth, useGameContext } from '../hooks/useGameLogic';
+import { useTranslation, useAuth } from '../hooks/useGameLogic';
 
 const MORSE_CODE_MAP: { [key: string]: string } = {
     'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--', 'Z': '--..',
-    '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.', '0': '-----',
-    // Russian Morse Code
-    'А': '.-', 'Б': '-...', 'В': '.--', 'Г': '--.', 'Д': '-..', 'Е': '.', 'Ж': '...-', 'З': '--..', 'И': '..', 'Й': '.---', 'К': '-.-', 'Л': '.-..', 'М': '--', 'Н': '-.', 'О': '---', 'П': '.--.', 'Р': '.-.', 'С': '...', 'Т': '-', 'У': '..-', 'Ф': '..-.', 'Х': '....', 'Ц': '-.-.', 'Ч': '---.', 'Ш': '----', 'Щ': '--.-', 'Ы': '-.--', 'Ь': '-..-', 'Э': '..-..', 'Ю': '..--', 'Я': '.-.-'
+    '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.', '0': '-----'
 };
 
 interface ExchangeProps {
@@ -52,12 +49,11 @@ interface ClickFx {
 
 const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, clickerSize }) => {
   const t = useTranslation();
-  const { balance, profitPerHour, energy } = playerState;
+  const { balance, profitPerHour, energy, suspicion } = playerState;
   const [clicks, setClicks] = useState<ClickFx[]>([]);
   const [scale, setScale] = useState(1);
   const { switchLanguage } = useAuth();
   
-  // Morse code state
   const [morseMode, setMorseMode] = useState(false);
   const [morseInput, setMorseInput] = useState('');
   const pressTimer = useRef<number | null>(null);
@@ -69,8 +65,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const dailyCipherMorseTarget = dailyCipherWord
     .toUpperCase()
     .split('')
-    .filter(letter => MORSE_CODE_MAP[letter] !== undefined) // Keep only valid mappable characters
     .map(letter => MORSE_CODE_MAP[letter])
+    .filter(Boolean)
     .join('');
     
   const claimedCipher = playerState.claimedCipherToday;
@@ -252,8 +248,13 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
         ))}
       </div>
       
-      {/* Energy Bar */}
-      <div className="w-full mt-4">
+      {/* Progress Bars */}
+      <div className="w-full mt-4 space-y-3">
+        <SuspicionMeter 
+          value={suspicion}
+          max={100}
+          iconUrl={config.uiIcons.suspicion}
+        />
         <ProgressBar
           value={energy}
           max={effectiveMaxEnergy}

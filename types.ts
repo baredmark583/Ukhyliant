@@ -40,6 +40,7 @@ export interface Upgrade {
   profitPerHour: number;
   category: UpgradeCategory;
   iconUrl: string;
+  suspicionModifier: number;
   level?: number;
 }
 
@@ -53,6 +54,7 @@ export interface BlackMarketCard {
     iconUrl: string;
     boxType: BoxType;
     chance: number; // Rarity/drop chance
+    suspicionModifier: number;
 }
 
 export interface CoinSkin {
@@ -62,6 +64,7 @@ export interface CoinSkin {
     iconUrl: string;
     boxType: BoxType | 'direct'; // 'direct' for future direct purchase
     chance: number; // Rarity/drop chance
+    suspicionModifier: number;
 }
 
 
@@ -71,6 +74,7 @@ export interface Boost {
   description: LocalizedString;
   iconUrl: string;
   costCoins: number; // Cost in coins
+  suspicionModifier: number;
 }
 
 export type RewardType = 'coins' | 'profit';
@@ -91,6 +95,7 @@ export interface DailyTask {
     url?: string; // For link-based tasks
     secretCode?: string; // For 'video_code' type
     imageUrl?: string; // Custom image for the task
+    suspicionModifier: number;
 }
 
 export interface SpecialTask {
@@ -103,7 +108,8 @@ export interface SpecialTask {
     priceStars: number;
     isOneTime: true;
     imageUrl?: string;
-    secretCode?: string; // Added for consistency although not in original request for special tasks
+    secretCode?: string;
+    suspicionModifier: number;
 }
 
 export interface DailyEvent {
@@ -124,6 +130,7 @@ export interface UiIcons {
   energy: string;
   coin: string;
   star: string;
+  suspicion: string;
   marketCoinBox: string;
   marketStarBox: string;
 }
@@ -139,6 +146,8 @@ export interface GameConfig {
     dailyEvent: DailyEvent | null;
     loadingScreenImageUrl?: string;
     uiIcons: UiIcons;
+    cellCreationCost: number;
+    cellMaxMembers: number;
 }
 
 export interface PlayerState {
@@ -163,6 +172,33 @@ export interface PlayerState {
   energyLimitLevel: number;
   unlockedSkins: string[];
   currentSkinId: string;
+  suspicion: number;
+  cellId: number | null;
+}
+
+export interface CellMember {
+    id: string;
+    name: string;
+    profitPerHour: number;
+}
+
+export interface Cell {
+    id: number;
+    name: string;
+    owner_id: string;
+    invite_code: string;
+    members: CellMember[];
+    totalProfitPerHour: number;
+    informants: Informant[];
+}
+
+export interface Informant {
+    id: number;
+    cell_id: number;
+    name: string;
+    dossier: string;
+    specialization: 'finance' | 'counter-intel' | 'logistics';
+    created_at: string;
 }
 
 // For Leaderboard

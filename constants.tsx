@@ -1,6 +1,5 @@
 
 
-
 import React from 'react';
 import { League, Upgrade, UpgradeCategory, Boost, DailyTask, LocalizedString, SpecialTask, BlackMarketCard, CoinSkin } from './types';
 
@@ -19,46 +18,46 @@ export const MINI_APP_NAME = 'ukhyliant_game';
 
 // --- GAME CONFIGURATION ---
 export const INITIAL_UPGRADES: Upgrade[] = [
-    { id: 'doc1', name: { en: 'Student ID', ua: 'Студентський квиток', ru: 'Студенческий билет' }, price: 100, profitPerHour: 10, category: UpgradeCategory.Documents, iconUrl: 'https://api.iconify.design/twemoji/graduation-cap.svg' },
-    { id: 'doc2', name: { en: 'Disability Certificate', ua: 'Довідка про інвалідність', ru: 'Справка об инвалидности' }, price: 1500, profitPerHour: 80, category: UpgradeCategory.Documents, iconUrl: 'https://api.iconify.design/twemoji/wheelchair-symbol.svg' },
-    { id: 'doc3', name: { en: 'White Ticket', ua: 'Білий квиток', ru: 'Белый билет' }, price: 10000, profitPerHour: 500, category: UpgradeCategory.Documents, iconUrl: 'https://api.iconify.design/twemoji/page-facing-up.svg' },
-    { id: 'leg1', name: { en: 'Lawyer Consultation', ua: 'Консультація адвоката', ru: 'Консультация адвоката' }, price: 500, profitPerHour: 25, category: UpgradeCategory.Legal, iconUrl: 'https://api.iconify.design/twemoji/balance-scale.svg' },
-    { id: 'leg2', name: { en: 'Open a Fake Company', ua: 'Відкрити фіктивну фірму', ru: 'Открыть фиктивную фирму' }, price: 5000, profitPerHour: 200, category: UpgradeCategory.Legal, iconUrl: 'https://api.iconify.design/twemoji/office-building.svg' },
-    { id: 'life1', name: { en: 'Hide in the Village', ua: 'Сховатись в селі', ru: 'Спрятаться в деревне' }, price: 2000, profitPerHour: 100, category: UpgradeCategory.Lifestyle, iconUrl: 'https://api.iconify.design/twemoji/hut.svg' },
-    { id: 'life2', name: { en: 'Rent a Bunker', ua: 'Орендувати бункер', ru: 'Арендовать бункер' }, price: 25000, profitPerHour: 1100, category: UpgradeCategory.Lifestyle, iconUrl: 'https://api.iconify.design/twemoji/locked.svg' },
-    { id: 'spec1', name: { en: 'Border Crossing', ua: 'Перетин кордону', ru: 'Пересечение границы' }, price: 100000, profitPerHour: 4000, category: UpgradeCategory.Special, iconUrl: 'https://api.iconify.design/twemoji/world-map.svg' },
-    { id: 'spec2', name: { en: 'New Identity', ua: 'Нова особистість', ru: 'Новая личность' }, price: 500000, profitPerHour: 20000, category: UpgradeCategory.Special, iconUrl: 'https://api.iconify.design/twemoji/performing-arts.svg' },
+    { id: 'doc1', name: { en: 'Student ID', ua: 'Студентський квиток', ru: 'Студенческий билет' }, price: 100, profitPerHour: 10, category: UpgradeCategory.Documents, iconUrl: 'https://api.iconify.design/twemoji/graduation-cap.svg', suspicionModifier: -5 },
+    { id: 'doc2', name: { en: 'Disability Certificate', ua: 'Довідка про інвалідність', ru: 'Справка об инвалидности' }, price: 1500, profitPerHour: 80, category: UpgradeCategory.Documents, iconUrl: 'https://api.iconify.design/twemoji/wheelchair-symbol.svg', suspicionModifier: -10 },
+    { id: 'doc3', name: { en: 'White Ticket', ua: 'Білий квиток', ru: 'Белый билет' }, price: 10000, profitPerHour: 500, category: UpgradeCategory.Documents, iconUrl: 'https://api.iconify.design/twemoji/page-facing-up.svg', suspicionModifier: 5 },
+    { id: 'leg1', name: { en: 'Lawyer Consultation', ua: 'Консультація адвоката', ru: 'Консультация адвоката' }, price: 500, profitPerHour: 25, category: UpgradeCategory.Legal, iconUrl: 'https://api.iconify.design/twemoji/balance-scale.svg', suspicionModifier: 0 },
+    { id: 'leg2', name: { en: 'Open a Fake Company', ua: 'Відкрити фіктивну фірму', ru: 'Открыть фиктивную фирму' }, price: 5000, profitPerHour: 200, category: UpgradeCategory.Legal, iconUrl: 'https://api.iconify.design/twemoji/office-building.svg', suspicionModifier: 15 },
+    { id: 'life1', name: { en: 'Hide in the Village', ua: 'Сховатись в селі', ru: 'Спрятаться в деревне' }, price: 2000, profitPerHour: 100, category: UpgradeCategory.Lifestyle, iconUrl: 'https://api.iconify.design/twemoji/hut.svg', suspicionModifier: -2 },
+    { id: 'life2', name: { en: 'Rent a Bunker', ua: 'Орендувати бункер', ru: 'Арендовать бункер' }, price: 25000, profitPerHour: 1100, category: UpgradeCategory.Lifestyle, iconUrl: 'https://api.iconify.design/twemoji/locked.svg', suspicionModifier: 10 },
+    { id: 'spec1', name: { en: 'Border Crossing', ua: 'Перетин кордону', ru: 'Пересечение границы' }, price: 100000, profitPerHour: 4000, category: UpgradeCategory.Special, iconUrl: 'https://api.iconify.design/twemoji/world-map.svg', suspicionModifier: 25 },
+    { id: 'spec2', name: { en: 'New Identity', ua: 'Нова особистість', ru: 'Новая личность' }, price: 500000, profitPerHour: 20000, category: UpgradeCategory.Special, iconUrl: 'https://api.iconify.design/twemoji/performing-arts.svg', suspicionModifier: 50 },
 ];
 
 export const INITIAL_TASKS: DailyTask[] = [
-    { id: 'task1', name: { en: 'Tap 500 times', ua: 'Натисни 500 разів', ru: 'Нажми 500 раз' }, type: 'taps', reward: { type: 'coins', amount: 1000 }, requiredTaps: 500 },
-    { id: 'task2', name: { en: 'Daily Check-in', ua: 'Щоденний візит', ru: 'Ежедневный визит' }, type: 'taps', reward: { type: 'coins', amount: 500 }, requiredTaps: 1 },
-    { id: 'task3', name: { en: 'Join Telegram', ua: 'Підпишись на Telegram', ru: 'Подпишись на Telegram' }, type: 'telegram_join', reward: { type: 'profit', amount: 100 }, url: 'https://t.me/durov', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg' }
+    { id: 'task1', name: { en: 'Tap 500 times', ua: 'Натисни 500 разів', ru: 'Нажми 500 раз' }, type: 'taps', reward: { type: 'coins', amount: 1000 }, requiredTaps: 500, suspicionModifier: 0 },
+    { id: 'task2', name: { en: 'Daily Check-in', ua: 'Щоденний візит', ru: 'Ежедневный визит' }, type: 'taps', reward: { type: 'coins', amount: 500 }, requiredTaps: 1, suspicionModifier: -1 },
+    { id: 'task3', name: { en: 'Join Telegram', ua: 'Підпишись на Telegram', ru: 'Подпишись на Telegram' }, type: 'telegram_join', reward: { type: 'profit', amount: 100 }, url: 'https://t.me/durov', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg', suspicionModifier: 0 }
 ];
 
 export const INITIAL_SPECIAL_TASKS: SpecialTask[] = [
-    { id: 'special1', name: { en: 'Join Our Channel', ua: 'Приєднайся до каналу', ru: 'Присоединись к каналу' }, description: { en: 'Get a huge bonus for joining our news channel!', ua: 'Отримай великий бонус за підписку на наш канал новин!', ru: 'Получи большой бонус за подписку на наш новостной канал!' }, type: 'telegram_join', url: 'https://t.me/durov', reward: { type: 'coins', amount: 100000 }, priceStars: 5, isOneTime: true },
-    { id: 'special2', name: { en: 'Watch Review', ua: 'Подивись огляд', ru: 'Посмотри обзор' }, description: { en: 'Watch a video review and get rewarded.', ua: 'Подивись відео-огляд та отримай нагороду.', ru: 'Посмотри видео-обзор и получи награду.'}, type: 'video_watch', url: 'https://youtube.com', reward: { type: 'coins', amount: 50000 }, priceStars: 0, isOneTime: true },
+    { id: 'special1', name: { en: 'Join Our Channel', ua: 'Приєднайся до каналу', ru: 'Присоединись к каналу' }, description: { en: 'Get a huge bonus for joining our news channel!', ua: 'Отримай великий бонус за підписку на наш канал новин!', ru: 'Получи большой бонус за подписку на наш новостной канал!' }, type: 'telegram_join', url: 'https://t.me/durov', reward: { type: 'coins', amount: 100000 }, priceStars: 5, isOneTime: true, suspicionModifier: 0 },
+    { id: 'special2', name: { en: 'Watch Review', ua: 'Подивись огляд', ru: 'Посмотри обзор' }, description: { en: 'Watch a video review and get rewarded.', ua: 'Подивись відео-огляд та отримай нагороду.', ru: 'Посмотри видео-обзор и получи награду.'}, type: 'video_watch', url: 'https://youtube.com', reward: { type: 'coins', amount: 50000 }, priceStars: 0, isOneTime: true, suspicionModifier: 0 },
 ];
 
 export const INITIAL_BOOSTS: Boost[] = [
-    { id: 'boost_full_energy', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, iconUrl: 'https://api.iconify.design/twemoji/high-voltage.svg', costCoins: 2000 },
-    { id: 'boost_turbo_mode', name: { en: 'Turbo Mode', ua: 'Турбо-режим', ru: 'Турбо-режим' }, description: { en: 'x5 coins per tap for 20 seconds!', ua: 'x5 монет за тап протягом 20 секунд!', ru: 'x5 монет за тап в течение 20 секунд!' }, iconUrl: 'https://api.iconify.design/twemoji/fire.svg', costCoins: 2000 },
-    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+1 coin per each tap (permanent).', ua: '+1 монета за кожен тап (постійно).', ru: '+1 монета за каждый тап (постоянно).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000 },
-    { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: '+500 to your max energy capacity.', ua: '+500 до максимального запасу енергії.', ru: '+500 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000 },
+    { id: 'boost_full_energy', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, iconUrl: 'https://api.iconify.design/twemoji/high-voltage.svg', costCoins: 2000, suspicionModifier: 1 },
+    { id: 'boost_turbo_mode', name: { en: 'Turbo Mode', ua: 'Турбо-режим', ru: 'Турбо-режим' }, description: { en: 'x5 coins per tap for 20 seconds!', ua: 'x5 монет за тап протягом 20 секунд!', ru: 'x5 монет за тап в течение 20 секунд!' }, iconUrl: 'https://api.iconify.design/twemoji/fire.svg', costCoins: 2000, suspicionModifier: 2 },
+    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+1 coin per each tap (permanent).', ua: '+1 монета за кожен тап (постійно).', ru: '+1 монета за каждый тап (постоянно).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
+    { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: '+500 to your max energy capacity.', ua: '+500 до максимального запасу енергії.', ru: '+500 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
 ];
 
 export const INITIAL_BLACK_MARKET_CARDS: BlackMarketCard[] = [
-    { id: 'bm_card1', name: {en: 'Shadow Courier', ua: 'Тіньовий кур\'єр', ru: 'Теневой курьер'}, profitPerHour: 5000, iconUrl: 'https://api.iconify.design/twemoji/motor-scooter.svg', boxType: 'coin', chance: 50, price: 50000 },
-    { id: 'bm_card2', name: {en: 'Offshore Account', ua: 'Офшорний рахунок', ru: 'Офшорный счёт'}, profitPerHour: 25000, iconUrl: 'https://api.iconify.design/twemoji/bank.svg', boxType: 'star', chance: 20, price: 250000 },
+    { id: 'bm_card1', name: {en: 'Shadow Courier', ua: 'Тіньовий кур\'єр', ru: 'Теневой курьер'}, profitPerHour: 5000, iconUrl: 'https://api.iconify.design/twemoji/motor-scooter.svg', boxType: 'coin', chance: 50, price: 50000, suspicionModifier: 8 },
+    { id: 'bm_card2', name: {en: 'Offshore Account', ua: 'Офшорний рахунок', ru: 'Офшорный счёт'}, profitPerHour: 25000, iconUrl: 'https://api.iconify.design/twemoji/bank.svg', boxType: 'star', chance: 20, price: 250000, suspicionModifier: 20 },
 ];
 
 export const DEFAULT_COIN_SKIN_ID = 'default_coin';
 
 export const INITIAL_COIN_SKINS: CoinSkin[] = [
-    { id: DEFAULT_COIN_SKIN_ID, name: {en: 'Default Coin', ua: 'Стандартна Монета', ru: 'Стандартная Монета'}, profitBoostPercent: 0, iconUrl: '/assets/coin.svg', boxType: 'direct', chance: 100 },
-    { id: 'skin_btc', name: {en: 'BTC', ua: 'BTC', ru: 'BTC'}, profitBoostPercent: 1, iconUrl: 'https://api.iconify.design/twemoji/coin.svg', boxType: 'coin', chance: 10 },
-    { id: 'skin_diamond', name: {en: 'Diamond', ua: 'Діамант', ru: 'Бриллиант'}, profitBoostPercent: 5, iconUrl: 'https://api.iconify.design/twemoji/gem-stone.svg', boxType: 'star', chance: 5 },
+    { id: DEFAULT_COIN_SKIN_ID, name: {en: 'Default Coin', ua: 'Стандартна Монета', ru: 'Стандартная Монета'}, profitBoostPercent: 0, iconUrl: '/assets/coin.svg', boxType: 'direct', chance: 100, suspicionModifier: 0 },
+    { id: 'skin_btc', name: {en: 'BTC', ua: 'BTC', ru: 'BTC'}, profitBoostPercent: 1, iconUrl: 'https://api.iconify.design/twemoji/coin.svg', boxType: 'coin', chance: 10, suspicionModifier: 0 },
+    { id: 'skin_diamond', name: {en: 'Diamond', ua: 'Діамант', ru: 'Бриллиант'}, profitBoostPercent: 5, iconUrl: 'https://api.iconify.design/twemoji/gem-stone.svg', boxType: 'star', chance: 5, suspicionModifier: 0 },
 ];
 
 
@@ -78,7 +77,7 @@ export const LOOTBOX_COST_STARS = 5;
 type TranslationKey = 
   | 'exchange' | 'mine' | 'friends' | 'boosts' | 'tasks' | 'admin' | 'player' | 'league'
   | 'missions' | 'profile' | 'airdrop'
-  | 'sub_daily' | 'sub_airdrop' | 'sub_contacts' | 'sub_boosts' | 'sub_disguise' | 'sub_market'
+  | 'sub_daily' | 'sub_airdrop' | 'sub_contacts' | 'sub_boosts' | 'sub_disguise' | 'sub_market' | 'sub_cell'
   | 'profit_per_hour' | 'energy' | 'mine_upgrades' | 'lvl'
   | 'get' | 'level' | 'price' | 'profit' | 'category' | 'icon' | 'actions' | 'save'
   | 'add_new_upgrade' | 'edit_upgrades' | 'edit_tasks' | 'task_name' | 'reward_coins'
@@ -92,11 +91,20 @@ type TranslationKey =
   | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard' | 'your_league' | 'total_players'
   // Boosts
   | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased'
-  // New Features
+  // Market & Skins
   | 'market' | 'skins' | 'black_market' | 'black_market_desc' | 'open_for' | 'open'
   | 'lootbox_coin' | 'lootbox_star' | 'profit_from_referrals'
   | 'skins_gallery' | 'skins_gallery_desc' | 'select_skin' | 'selected' | 'profit_boost'
-  | 'won_item' | 'close';
+  | 'won_item' | 'close'
+  // Suspicion & Cells
+  | 'suspicion' | 'suspicion_modifier' | 'cell' | 'cell_info' | 'create_cell' | 'join_cell' | 'leave_cell' | 'no_cell_info'
+  | 'cell_name' | 'enter_cell_name' | 'create' | 'enter_invite_code' | 'join' | 'members'
+  | 'total_cell_profit' | 'invite_code' | 'copy' | 'confirm_leave_cell'
+  // Informants
+  | 'recruit_informant' | 'informants' | 'no_informants_recruited' | 'informant_dossier' | 'recruit' | 'recruiting'
+  // Generic
+  | 'loading' | 'cancel';
+
 
 export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
   en: {
@@ -111,6 +119,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     sub_boosts: 'Boosts',
     sub_disguise: 'Disguise',
     sub_market: 'Market',
+    sub_cell: 'Cell',
     friends: 'Contacts',
     boosts: 'Boosts',
     tasks: 'Tasks',
@@ -200,6 +209,32 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     profit_boost: 'Profit Boost',
     won_item: 'You won',
     close: 'Close',
+    suspicion: 'Suspicion',
+    suspicion_modifier: 'Suspicion',
+    cell: 'Cell',
+    cell_info: 'Your central hub for coordinated actions and shared risk.',
+    create_cell: 'Create Cell',
+    join_cell: 'Join Cell',
+    leave_cell: 'Leave Cell',
+    no_cell_info: 'You are not part of a cell. Create one to invite your contacts or join an existing one.',
+    cell_name: 'Cell Name',
+    enter_cell_name: 'Enter a name for your cell',
+    create: 'Create',
+    enter_invite_code: 'Enter Invite Code',
+    join: 'Join',
+    members: 'Members',
+    total_cell_profit: 'Total Cell Profit',
+    invite_code: 'Invite Code',
+    copy: 'Copy',
+    confirm_leave_cell: 'Are you sure you want to leave this cell?',
+    recruit_informant: 'Recruit Informant',
+    informants: 'Informants',
+    no_informants_recruited: 'No informants recruited yet.',
+    informant_dossier: 'Informant Dossier',
+    recruit: 'Recruit',
+    recruiting: 'Recruiting...',
+    loading: 'Loading...',
+    cancel: 'Cancel',
   },
   ua: {
     exchange: 'Схрон',
@@ -213,6 +248,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     sub_boosts: 'Посилення',
     sub_disguise: 'Маскування',
     sub_market: 'Ринок',
+    sub_cell: 'Осередок',
     friends: 'Контакти',
     boosts: 'Бусти',
     tasks: 'Завдання',
@@ -302,6 +338,32 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     profit_boost: 'Бонус до прибутку',
     won_item: 'Ви виграли',
     close: 'Закрити',
+    suspicion: 'Підозра',
+    suspicion_modifier: 'Підозра',
+    cell: 'Осередок',
+    cell_info: 'Ваш центр для координованих дій та спільних ризиків.',
+    create_cell: 'Створити осередок',
+    join_cell: 'Приєднатися',
+    leave_cell: 'Покинути осередок',
+    no_cell_info: 'Ви не є частиною осередку. Створіть свій, щоб запросити контактів, або приєднайтеся до існуючого.',
+    cell_name: 'Назва осередку',
+    enter_cell_name: 'Введіть назву для вашого осередку',
+    create: 'Створити',
+    enter_invite_code: 'Введіть код-запрошення',
+    join: 'Приєднатися',
+    members: 'Учасники',
+    total_cell_profit: 'Загальний прибуток осередку',
+    invite_code: 'Код-запрошення',
+    copy: 'Копіювати',
+    confirm_leave_cell: 'Ви впевнені, що хочете покинути цей осередок?',
+    recruit_informant: 'Завербувати інформатора',
+    informants: 'Інформатори',
+    no_informants_recruited: 'Ще не завербовано жодного інформатора.',
+    informant_dossier: 'Досьє інформатора',
+    recruit: 'Завербувати',
+    recruiting: 'Вербування...',
+    loading: 'Завантаження...',
+    cancel: 'Скасувати',
   },
   ru: {
     exchange: 'Схрон',
@@ -315,6 +377,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     sub_boosts: 'Усиления',
     sub_disguise: 'Маскировка',
     sub_market: 'Рынок',
+    sub_cell: 'Ячейка',
     friends: 'Контакты',
     boosts: 'Бусты',
     tasks: 'Задания',
@@ -387,7 +450,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     energy_limit: 'Лимит Энергии',
     turbo_mode: 'Турбо-режим',
     full_energy: 'Полная Энергия',
-
     boost_purchased: 'Буст приобретён!',
     market: 'Рынок',
     skins: 'Скины',
@@ -396,7 +458,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     open_for: 'Открыть за',
     open: 'Открыть',
     lootbox_coin: 'Контейнер за монеты',
-    lootbox_star: 'Контейнер за звезды',
+    lootbox_star: 'Контейнер за звёзды',
     profit_from_referrals: 'Прибыль от контактов',
     skins_gallery: 'Галерея Скинов',
     skins_gallery_desc: 'Выберите разблокированный скин, чтобы получить бонус к прибыли.',
@@ -405,5 +467,31 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     profit_boost: 'Бонус к прибыли',
     won_item: 'Вы выиграли',
     close: 'Закрыть',
+    suspicion: 'Подозрение',
+    suspicion_modifier: 'Подозрение',
+    cell: 'Ячейка',
+    cell_info: 'Ваш центр для координированных действий и общих рисков.',
+    create_cell: 'Создать ячейку',
+    join_cell: 'Присоединиться',
+    leave_cell: 'Покинуть ячейку',
+    no_cell_info: 'Вы не состоите в ячейке. Создайте свою, чтобы пригласить контактов, или присоединитесь к существующей.',
+    cell_name: 'Название ячейки',
+    enter_cell_name: 'Введите название для вашей ячейки',
+    create: 'Создать',
+    enter_invite_code: 'Введите код-приглашение',
+    join: 'Присоединиться',
+    members: 'Участники',
+    total_cell_profit: 'Общая прибыль ячейки',
+    invite_code: 'Код-приглашение',
+    copy: 'Копировать',
+    confirm_leave_cell: 'Вы уверены, что хотите покинуть эту ячейку?',
+    recruit_informant: 'Завербовать информатора',
+    informants: 'Информаторы',
+    no_informants_recruited: 'Ещё не завербовано ни одного информатора.',
+    informant_dossier: 'Досье информатора',
+    recruit: 'Завербовать',
+    recruiting: 'Вербовка...',
+    loading: 'Загрузка...',
+    cancel: 'Отмена',
   },
 };

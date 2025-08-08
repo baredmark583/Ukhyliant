@@ -6,7 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import connectPgSimple from 'connect-pg-simple';
 import geoip from 'geoip-lite';
 import { 
@@ -40,16 +40,26 @@ import {
     updatePlayerBalance,
     getReferredUsersProfit,
     getCheaters,
-    resetPlayerProgress
+    resetPlayerProgress,
+    createCellInDb,
+    joinCellInDb,
+    getCellFromDb,
+    leaveCellFromDb,
+    recruitInformantInDb
 } from './db.js';
 import { 
-    ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, INITIAL_BOOSTS,
-    REFERRAL_PROFIT_SHARE, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID, INITIAL_UPGRADES, INITIAL_BLACK_MARKET_CARDS, INITIAL_COIN_SKINS,
+    ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
+    REFERRAL_PROFIT_SHARE, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID,
     CHEAT_DETECTION_THRESHOLD_TPS, CHEAT_DETECTION_STRIKES_TO_FLAG
 } from './constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const ai = process.env.API_KEY ? new GoogleGenAI({ apiKey: process.env.API_KEY }) : null;
+if (!ai) {
+    console.warn("API_KEY for Gemini is not set. Informant recruitment will be disabled.");
+}
 
 // --- Simple Logger ---
 const log = (level, message, data = '') => {
@@ -196,10 +206,7 @@ app.post('/api/login', async (req, res) => {
         let player = await getPlayer(userId);
         const config = await getGameConfig();
         
-        let isNewPlayer = false;
-
         if (!user) {
-            isNewPlayer = true;
             user = await createUser(userId, userName, lang, startParam || null);
             if (startParam) {
                 await applyReferralBonus(startParam);
@@ -238,6 +245,8 @@ app.post('/api/login', async (req, res) => {
                 energyLimitLevel: 0,
                 unlockedSkins: [DEFAULT_COIN_SKIN_ID],
                 currentSkinId: DEFAULT_COIN_SKIN_ID,
+                suspicion: 0,
+                cellId: null,
             };
             await savePlayer(userId, player);
         } else {
@@ -265,7 +274,6 @@ app.post('/api/login', async (req, res) => {
         // Manually map snake_case from DB to camelCase for the client
         if (dailyEventData) {
             dailyEventData = {
-                // combo_ids is already expected as snake_case by the frontend
                 combo_ids: dailyEventData.combo_ids, 
                 cipherWord: dailyEventData.cipher_word,
                 comboReward: dailyEventData.combo_reward,
@@ -323,293 +331,184 @@ app.post('/api/user/:id/language', async (req, res) => {
     }
 });
 
-
 // --- Game Action Endpoints ---
 
 const calculateUpgradePrice = (basePrice, level) => Math.floor(basePrice * Math.pow(1.15, level));
 
+const gameActions = {
+    'buy-upgrade': async (body, player, config) => {
+        const { upgradeId } = body;
+        const allUpgrades = [...config.upgrades, ...config.blackMarketCards];
+        const upgrade = allUpgrades.find(u => u.id === upgradeId);
+        if (!upgrade) throw new Error("Upgrade not found");
+        
+        const currentLevel = player.upgrades[upgradeId] || 0;
+        const price = calculateUpgradePrice(upgrade.price || upgrade.profitPerHour * 10, currentLevel);
+
+        if (player.balance < price) throw new Error("Not enough coins");
+
+        player.balance -= price;
+        player.profitPerHour += upgrade.profitPerHour;
+        player.upgrades[upgradeId] = currentLevel + 1;
+        player.dailyUpgrades = [...new Set([...(player.dailyUpgrades || []), upgradeId])];
+        player.suspicion = (player.suspicion || 0) + (upgrade.suspicionModifier || 0);
+
+        await savePlayer(body.userId, player);
+        return { player };
+    },
+
+    'buy-boost': async (body, player, config) => {
+        const { boostId } = body;
+        const boost = config.boosts.find(b => b.id === boostId);
+        if (!boost) throw new Error("Boost not found");
+
+        let cost = boost.costCoins;
+        if (boostId === 'boost_tap_guru') {
+            cost = Math.floor(boost.costCoins * Math.pow(1.5, player.tapGuruLevel || 0));
+        } else if (boostId === 'boost_energy_limit') {
+            cost = Math.floor(boost.costCoins * Math.pow(1.8, player.energyLimitLevel || 0));
+        }
+
+        if (player.balance < cost) throw new Error("Not enough coins");
+        player.balance -= cost;
+
+        switch(boostId) {
+            case 'boost_full_energy':
+                player.energy = INITIAL_MAX_ENERGY + (player.energyLimitLevel || 0) * 500;
+                break;
+            case 'boost_tap_guru':
+                player.tapGuruLevel = (player.tapGuruLevel || 0) + 1;
+                break;
+            case 'boost_energy_limit':
+                player.energyLimitLevel = (player.energyLimitLevel || 0) + 1;
+                break;
+        }
+        
+        player.suspicion = (player.suspicion || 0) + (boost.suspicionModifier || 0);
+        await savePlayer(body.userId, player);
+        return { player };
+    },
+    
+    'claim-task': async (body) => {
+        const { userId, taskId, code } = body;
+        const player = await claimDailyTaskReward(userId, taskId, code);
+        return { player };
+    },
+    
+    'claim-combo': async (body) => {
+        return await claimComboReward(body.userId);
+    },
+    
+    'claim-cipher': async (body) => {
+        return await claimCipherReward(body.userId, body.cipher);
+    },
+    
+    'set-skin': async (body, player) => {
+        const { skinId } = body;
+        player.currentSkinId = skinId;
+        await savePlayer(body.userId, player);
+        return { player };
+    },
+};
+
 app.post('/api/action/:action', async (req, res) => {
     const { action } = req.params;
-    const { userId, upgradeId, boostId, taskId, code, boxType, skinId, cipher } = req.body;
+    const { userId } = req.body;
     
     try {
+        if (!gameActions[action]) {
+            return res.status(404).json({ error: "Action not found" });
+        }
+        
         const player = await getPlayer(userId);
         const config = await getGameConfig();
         if (!player || !config) return res.status(404).json({ error: "Player or config not found" });
 
-        switch(action) {
-            case 'buy-upgrade': {
-                const allUpgrades = [...config.upgrades, ...config.blackMarketCards];
-                const upgrade = allUpgrades.find(u => u.id === upgradeId);
-                if (!upgrade) return res.status(404).json({ error: "Upgrade not found" });
-                
-                const currentLevel = player.upgrades[upgradeId] || 0;
-                const price = calculateUpgradePrice(upgrade.price || upgrade.profitPerHour * 10, currentLevel);
+        const result = await gameActions[action](req.body, player, config);
+        res.json(result);
 
-                if (player.balance < price) return res.status(400).json({ error: "Not enough coins" });
-
-                player.balance -= price;
-                player.profitPerHour += upgrade.profitPerHour;
-                player.upgrades[upgradeId] = currentLevel + 1;
-                player.dailyUpgrades.push(upgradeId);
-
-                await savePlayer(userId, player);
-                return res.json(player);
-            }
-
-            case 'buy-boost': {
-                const boost = config.boosts.find(b => b.id === boostId);
-                if(!boost) return res.status(404).json({error: 'Boost not found'});
-                
-                let currentLevel = 0;
-                let cost = boost.costCoins;
-                
-                if (boostId === 'boost_tap_guru') {
-                    currentLevel = player.tapGuruLevel || 0;
-                    cost = Math.floor(boost.costCoins * Math.pow(1.5, currentLevel));
-                } else if (boostId === 'boost_energy_limit') {
-                    currentLevel = player.energyLimitLevel || 0;
-                    cost = Math.floor(boost.costCoins * Math.pow(1.8, currentLevel));
-                }
-
-                if (player.balance < cost) return res.status(400).json({ error: 'Not enough coins' });
-                
-                player.balance -= cost;
-
-                if (boostId === 'boost_tap_guru') {
-                    player.tapGuruLevel = (player.tapGuruLevel || 0) + 1;
-                } else if (boostId === 'boost_energy_limit') {
-                    player.energyLimitLevel = (player.energyLimitLevel || 0) + 1;
-                } else if (boostId === 'boost_full_energy') {
-                    const maxEnergy = INITIAL_MAX_ENERGY + (player.energyLimitLevel || 0) * 500;
-                    player.energy = maxEnergy;
-                }
-                // Turbo mode is handled on the client
-                
-                await savePlayer(userId, player);
-                return res.json(player);
-            }
-            
-            case 'claim-task': {
-                const updatedPlayer = await claimDailyTaskReward(userId, taskId, code);
-                return res.json({ player: updatedPlayer });
-            }
-            
-            case 'unlock-free-task': {
-                 const updatedPlayer = await unlockSpecialTask(userId, taskId);
-                 return res.json(updatedPlayer);
-            }
-            
-            case 'complete-task': {
-                const updatedPlayer = await completeAndRewardSpecialTask(userId, taskId, code);
-                return res.json(updatedPlayer);
-            }
-            
-            case 'claim-combo': {
-                const result = await claimComboReward(userId);
-                return res.json(result);
-            }
-            
-            case 'claim-cipher': {
-                const result = await claimCipherReward(userId, cipher);
-                return res.json(result);
-            }
-
-            case 'open-lootbox': {
-                 if (boxType !== 'coin') return res.status(400).json({ error: "Invalid box type." });
-                 if (player.balance < LOOTBOX_COST_COINS) return res.status(400).json({ error: "Not enough coins." });
-                 
-                 player.balance -= LOOTBOX_COST_COINS;
-                 
-                 const possibleRewards = [
-                     ...config.blackMarketCards.filter(c => c.boxType === 'coin'),
-                     ...config.coinSkins.filter(s => s.boxType === 'coin'),
-                     { itemType: 'coins', amount: Math.floor(LOOTBOX_COST_COINS * (Math.random() * 1.5 + 0.5)), chance: 30 }
-                 ];
-                 
-                 const totalChance = possibleRewards.reduce((sum, item) => sum + item.chance, 0);
-                 let random = Math.random() * totalChance;
-                 let wonItem = null;
-                 
-                 for(const item of possibleRewards) {
-                     if(random < item.chance) {
-                         wonItem = item;
-                         break;
-                     }
-                     random -= item.chance;
-                 }
-                 
-                 if (!wonItem) wonItem = possibleRewards[0]; // Fallback
-                 
-                 let finalWonItem;
-                 if ('profitPerHour' in wonItem) { // It's a BlackMarketCard
-                    const level = (player.upgrades[wonItem.id] || 0) + 1;
-                    player.upgrades[wonItem.id] = level;
-                    player.profitPerHour += wonItem.profitPerHour;
-                    finalWonItem = {...wonItem, itemType: 'card'};
-                 } else if ('profitBoostPercent' in wonItem) { // It's a CoinSkin
-                    if (!player.unlockedSkins.includes(wonItem.id)) {
-                        player.unlockedSkins.push(wonItem.id);
-                    }
-                    finalWonItem = {...wonItem, itemType: 'skin'};
-                 } else { // It's coins
-                     player.balance += wonItem.amount;
-                     finalWonItem = {...wonItem, itemType: 'coins', name: {en: `${wonItem.amount} Coins`, ru: `${wonItem.amount} Монет`}, iconUrl: config.uiIcons.coin};
-                 }
-                 
-                 await savePlayer(userId, player);
-                 res.json({ player, wonItem: finalWonItem });
-                 break;
-            }
-            
-            case 'set-skin': {
-                if (player.unlockedSkins.includes(skinId)) {
-                    player.currentSkinId = skinId;
-                    await savePlayer(userId, player);
-                    return res.json(player);
-                }
-                return res.status(400).json({ error: "Skin not unlocked" });
-            }
-            
-            default:
-                return res.status(404).json({ error: "Unknown action" });
-        }
     } catch (error) {
-        log('error', `Action '${action}' for user ${req.body.userId} failed`, error);
-        res.status(500).json({ error: error.message || 'Internal Server Error' });
+        log('error', `Action ${action} for user ${userId} failed`, error);
+        res.status(400).json({ error: error.message });
     }
 });
 
 
-app.post('/api/create-invoice', async (req, res) => {
+// --- Cell & Informant API ---
+
+app.post('/api/cell/create', async (req, res) => {
     try {
-        const { userId, taskId } = req.body;
+        const { userId, name } = req.body;
         const config = await getGameConfig();
-        const task = config.specialTasks.find(t => t.id === taskId);
-
-        if (!task || task.priceStars <= 0) {
-            return res.status(400).json({ ok: false, error: 'Task not found or is free.' });
-        }
-
-        const payload = JSON.stringify({ userId, taskId, type: 'specialTask' });
-        const invoice = {
-            title: task.name.en,
-            description: task.description.en,
-            payload: payload,
-            provider_token: process.env.PROVIDER_TOKEN,
-            currency: 'XTR',
-            prices: [{ label: 'Unlock Task', amount: task.priceStars }]
-        };
-
-        const response = await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/createInvoiceLink`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(invoice)
-        });
-
-        const data = await response.json();
-        if (data.ok) {
-            res.json({ ok: true, invoiceLink: data.result });
-        } else {
-            log('error', 'Telegram invoice creation failed', data);
-            res.status(500).json({ ok: false, error: data.description });
-        }
-    } catch (error) {
-        log('error', 'Invoice creation failed', error);
-        res.status(500).json({ ok: false, error: 'Server error creating invoice.' });
+        const result = await createCellInDb(userId, name, config.cellCreationCost);
+        res.json(result);
+    } catch(e) {
+        res.status(400).json({ error: e.message });
     }
 });
 
-app.post('/api/create-star-invoice', async (req, res) => {
+app.post('/api/cell/join', async (req, res) => {
+    try {
+        const { userId, inviteCode } = req.body;
+        const config = await getGameConfig();
+        const result = await joinCellInDb(userId, inviteCode, config.cellMaxMembers);
+        res.json(result);
+    } catch(e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+app.post('/api/cell/leave', async (req, res) => {
      try {
-        const { userId, boxType } = req.body;
-        if (boxType !== 'star') return res.status(400).json({ok: false, error: 'Invalid box type for star payment.'});
-
-        const payload = JSON.stringify({ userId, boxType, type: 'lootbox' });
-        const invoice = {
-            title: 'Star Container',
-            description: 'A container with rare rewards!',
-            payload: payload,
-            provider_token: process.env.PROVIDER_TOKEN,
-            currency: 'XTR',
-            prices: [{ label: 'Container', amount: LOOTBOX_COST_STARS }]
-        };
-
-        const response = await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/createInvoiceLink`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(invoice)
-        });
-
-        const data = await response.json();
-        if (data.ok) {
-            res.json({ ok: true, invoiceLink: data.result });
-        } else {
-             log('error', 'Telegram star invoice creation failed', data);
-            res.status(500).json({ ok: false, error: data.description });
-        }
-    } catch (error) {
-        log('error', 'Star invoice creation failed', error);
-        res.status(500).json({ ok: false, error: 'Server error creating invoice.' });
+        const { userId } = req.body;
+        const result = await leaveCellFromDb(userId);
+        res.json(result);
+    } catch(e) {
+        res.status(400).json({ error: e.message });
     }
 });
 
-
-app.post('/webhook', async (req, res) => {
+app.get('/api/cell/my-cell', async (req, res) => {
     try {
-        const update = req.body;
-        if (update.pre_checkout_query) {
-             await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/answerPreCheckoutQuery`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pre_checkout_query_id: update.pre_checkout_query.id, ok: true })
-            });
-        } else if (update.message?.successful_payment) {
-            const payload = JSON.parse(update.message.successful_payment.invoice_payload);
-            const { userId, taskId, boxType } = payload;
-            
-            if (payload.type === 'specialTask') {
-                await unlockSpecialTask(userId, taskId);
-            } else if (payload.type === 'lootbox' && boxType === 'star') {
-                // Logic is now on client after reload, just acknowledge
-                 log('info', `Star lootbox purchase successful for user ${userId}`);
-            }
-        }
-    } catch (error) {
-        log('error', 'Webhook processing error', error);
-    }
-    res.sendStatus(200);
-});
-
-app.get('/api/leaderboard', async (req, res) => {
-    try {
-        const [topPlayers, totalPlayers, config] = await Promise.all([
-            getLeaderboardData(),
-            getTotalPlayerCount(),
-            getGameConfig(),
-        ]);
+        const { userId } = req.query;
+        const player = await getPlayer(userId);
+        if (!player || !player.cellId) return res.json({ cell: null });
         
-        const sortedLeagues = [...(config?.leagues || [])].sort((a, b) => b.minProfitPerHour - a.minProfitPerHour);
+        const cell = await getCellFromDb(player.cellId);
+        res.json({ cell });
+    } catch(e) {
+        res.status(400).json({ error: e.message });
+    }
+});
 
-        const playersWithLeagues = topPlayers.map(player => {
-            const league = sortedLeagues.find(l => player.profitPerHour >= l.minProfitPerHour) || sortedLeagues[sortedLeagues.length - 1];
-            return {
-                ...player,
-                leagueName: league?.name || {en: 'N/A', ru: 'N/A'},
-                leagueIconUrl: league?.iconUrl || ''
-            };
+app.post('/api/informant/recruit', async (req, res) => {
+    if (!ai) {
+        return res.status(503).json({ error: "Recruitment service is currently unavailable." });
+    }
+    
+    try {
+        const { userId } = req.body;
+        const prompt = `You are a curator of an agent network in a grim dystopian world in the spirit of '1984'. Create a short, encrypted dossier for a new informant. The output must be a valid JSON object. The JSON should contain fields: "name" (a string with a codename), "dossier" (a string with the dossier text, including a detail from the past and a potential weakness, in a dry and bureaucratic tone), and "specialization" (a string, must be one of: 'finance', 'counter-intel', 'logistics').`;
+        
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
         });
         
-        res.json({ topPlayers: playersWithLeagues, totalPlayers });
-    } catch (error) {
-        log('error', 'Failed to get leaderboard data', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        const jsonText = response.text.trim();
+        const informantData = JSON.parse(jsonText);
+        
+        const result = await recruitInformantInDb(userId, informantData);
+        res.json(result);
+
+    } catch(e) {
+        console.error("Informant recruitment error:", e);
+        res.status(500).json({ error: "Failed to process recruitment request." });
     }
 });
 
-
-// --- ADMIN ROUTES ---
-
+// --- Admin Panel API (protected by middleware) ---
 app.post('/admin/login', (req, res) => {
     const { password } = req.body;
     if (password === process.env.ADMIN_PASSWORD) {
@@ -621,112 +520,88 @@ app.post('/admin/login', (req, res) => {
 });
 
 app.get('/admin/logout', (req, res) => {
-    req.session.destroy(err => {
-        if (err) {
-            return res.status(500).send('Could not log out.');
-        }
+    req.session.destroy(() => {
         res.redirect('/admin/login.html');
     });
 });
 
-app.get('/admin/api/config', checkAdminAuth, async (req, res) => {
-    const config = await getGameConfig();
-    res.json(config);
-});
-
+app.get('/admin/api/config', checkAdminAuth, async (req, res) => res.json(await getGameConfig()));
 app.post('/admin/api/config', checkAdminAuth, async (req, res) => {
     await saveConfig(req.body.config);
     res.sendStatus(200);
 });
-
-app.get('/admin/api/players', checkAdminAuth, async (req, res) => {
-    const players = await getAllPlayersForAdmin();
-     const config = await getGameConfig();
-     
-     const playersWithStarsSpent = players.map(player => {
-         let starsSpent = 0;
-         if (config.specialTasks && player.purchasedSpecialTaskIds) {
-             player.purchasedSpecialTaskIds.forEach(taskId => {
-                 const task = config.specialTasks.find(t => t.id === taskId);
-                 if (task) starsSpent += task.priceStars;
-             });
-         }
-         return {...player, starsSpent};
-     });
-    res.json(playersWithStarsSpent);
-});
-
+app.get('/admin/api/players', checkAdminAuth, async (req, res) => res.json(await getAllPlayersForAdmin()));
 app.delete('/admin/api/player/:id', checkAdminAuth, async (req, res) => {
     await deletePlayer(req.params.id);
     res.sendStatus(200);
 });
-
-app.get('/admin/api/player/:id/details', checkAdminAuth, async (req, res) => {
-    const details = await getPlayerDetails(req.params.id);
-    res.json(details);
-});
-
+app.get('/admin/api/player/:id/details', checkAdminAuth, async (req, res) => res.json(await getPlayerDetails(req.params.id)));
 app.post('/admin/api/player/:id/update-balance', checkAdminAuth, async (req, res) => {
     await updatePlayerBalance(req.params.id, req.body.amount);
     res.sendStatus(200);
 });
-
 app.post('/admin/api/player/:id/reset-daily', checkAdminAuth, async(req, res) => {
     await resetPlayerDailyProgress(req.params.id);
     res.sendStatus(200);
 });
-
-app.get('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
-    const today = new Date().toISOString().split('T')[0];
-    const event = await getDailyEvent(today);
-    res.json(event);
-});
-
-app.post('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
-    const { combo_ids, cipher_word, combo_reward, cipher_reward } = req.body;
-    const today = new Date().toISOString().split('T')[0];
-    // Backend validation to ensure combo_ids is an array.
-    const comboIdsArray = Array.isArray(combo_ids) ? combo_ids : [];
-    await saveDailyEvent(today, comboIdsArray, cipher_word, combo_reward, cipher_reward);
-    res.sendStatus(200);
-});
-
-app.get('/admin/api/dashboard-stats', checkAdminAuth, async (req, res) => {
-    const [stats, onlineCount] = await Promise.all([
-        getDashboardStats(),
-        getOnlinePlayerCount(),
-    ]);
-    res.json({ ...stats, onlineNow: onlineCount, ...socialStatsCache });
-});
-
-app.get('/admin/api/player-locations', checkAdminAuth, async (req, res) => {
-    const locations = await getPlayerLocations();
-    res.json(locations);
-});
-
-app.get('/admin/api/cheaters', checkAdminAuth, async(req, res) => {
-    const cheaters = await getCheaters();
-    res.json(cheaters);
-});
-
-app.post('/admin/api/player/:id/reset-progress', checkAdminAuth, async (req, res) => {
+app.post('/admin/api/player/:id/reset-progress', checkAdminAuth, async(req, res) => {
     await resetPlayerProgress(req.params.id);
     res.sendStatus(200);
 });
-
-
-// --- SERVER START ---
-(async () => {
-    try {
-        await initializeDb();
+app.get('/admin/api/cheaters', checkAdminAuth, async(req, res) => res.json(await getCheaters()));
+app.get('/admin/api/dashboard-stats', checkAdminAuth, async (req, res) => {
+    const stats = await getDashboardStats();
+    stats.onlineNow = await getOnlinePlayerCount();
+    res.json(stats);
+});
+app.get('/admin/api/player-locations', checkAdminAuth, async (req, res) => res.json(await getPlayerLocations()));
+app.get('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
+    const today = new Date().toISOString().split('T')[0];
+    res.json(await getDailyEvent(today));
+});
+app.post('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
+    const today = new Date().toISOString().split('T')[0];
+    const { combo_ids, cipher_word, combo_reward, cipher_reward } = req.body;
+    await saveDailyEvent(today, combo_ids, cipher_word, combo_reward, cipher_reward);
+    res.sendStatus(200);
+});
+app.get('/admin/api/social-stats', checkAdminAuth, async (req, res) => {
+    if (Date.now() - socialStatsCache.lastUpdated > 5 * 60 * 1000) { // 5 min cache
         await updateSocialStatsCache();
-        setInterval(updateSocialStatsCache, 60 * 60 * 1000); // Update every hour
-
-        app.listen(port, () => {
-            log('info', `Server is running on port ${port}`);
-        });
-    } catch (error) {
-        log('error', "Failed to start server", error);
-        process.exit(1);
     }
-})();
+    res.json(socialStatsCache);
+});
+app.get('/admin/api/leaderboard', async (req, res) => {
+    const [topPlayers, totalPlayers, config] = await Promise.all([
+        getLeaderboardData(),
+        getTotalPlayerCount(),
+        getGameConfig()
+    ]);
+    const sortedLeagues = [...(config.leagues || [])].sort((a,b) => b.minProfitPerHour - a.minProfitPerHour);
+    
+    const playersWithLeagues = topPlayers.map(p => {
+        const league = sortedLeagues.find(l => p.profitPerHour >= l.minProfitPerHour) || sortedLeagues[sortedLeagues.length - 1];
+        return {
+            id: p.id,
+            name: p.name,
+            profitPerHour: p.profitPerHour,
+            leagueName: league?.name,
+            leagueIconUrl: league?.iconUrl,
+        };
+    });
+
+    res.json({ topPlayers: playersWithLeagues, totalPlayers });
+});
+
+// --- Server Initialization ---
+const startServer = async () => {
+    await initializeDb();
+    await updateSocialStatsCache();
+    // Update social stats every 15 minutes
+    setInterval(updateSocialStatsCache, 15 * 60 * 1000);
+    app.listen(port, '0.0.0.0', () => {
+        log('info', `Server is running on http://0.0.0.0:${port}`);
+    });
+};
+
+startServer();

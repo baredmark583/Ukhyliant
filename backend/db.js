@@ -1,7 +1,5 @@
 
 
-
-
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -13,13 +11,17 @@ import {
     INITIAL_COIN_SKINS,
     DEFAULT_COIN_SKIN_ID,
     INITIAL_LEAGUES,
-    INITIAL_UI_ICONS
+    INITIAL_UI_ICONS,
+    CELL_CREATION_COST,
+    CELL_MAX_MEMBERS
 } from './constants.js';
 
 const { Pool } = pg;
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: true
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 const executeQuery = async (query, params) => {
@@ -75,6 +77,23 @@ export const initializeDb = async () => {
             combo_reward BIGINT DEFAULT 5000000,
             cipher_reward BIGINT DEFAULT 1000000
         );
+
+        CREATE TABLE IF NOT EXISTS cells (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            owner_id VARCHAR(255) NOT NULL,
+            invite_code VARCHAR(8) UNIQUE NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS informants (
+            id SERIAL PRIMARY KEY,
+            cell_id INTEGER NOT NULL REFERENCES cells(id) ON DELETE CASCADE,
+            name VARCHAR(255) NOT NULL,
+            dossier TEXT NOT NULL,
+            specialization VARCHAR(50) NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
     `);
     console.log("Database tables checked/created successfully.");
 
@@ -119,6 +138,8 @@ export const initializeDb = async () => {
             loadingScreenImageUrl: '',
             uiIcons: INITIAL_UI_ICONS,
             socials: initialSocials,
+            cellCreationCost: CELL_CREATION_COST,
+            cellMaxMembers: CELL_MAX_MEMBERS,
         };
         await saveConfig(initialConfig);
         console.log("Initial game config seeded to the database.");
@@ -126,36 +147,40 @@ export const initializeDb = async () => {
         // Ensure new config fields exist on old installations
         const config = res.rows[0].value;
         let needsUpdate = false;
+        
+        const updateSuspicion = (item) => {
+            if (item.suspicionModifier === undefined) {
+                const initialItem = [...INITIAL_UPGRADES, ...INITIAL_TASKS, ...INITIAL_SPECIAL_TASKS, ...INITIAL_BOOSTS, ...INITIAL_BLACK_MARKET_CARDS, ...INITIAL_COIN_SKINS].find(i => i.id === item.id);
+                item.suspicionModifier = initialItem ? initialItem.suspicionModifier : 0;
+                needsUpdate = true;
+            }
+        };
+
+        config.upgrades?.forEach(updateSuspicion);
+        config.tasks?.forEach(updateSuspicion);
+        config.specialTasks?.forEach(updateSuspicion);
+        config.boosts?.forEach(updateSuspicion);
+        config.blackMarketCards?.forEach(updateSuspicion);
+        config.coinSkins?.forEach(updateSuspicion);
+
         if (!config.blackMarketCards) { config.blackMarketCards = INITIAL_BLACK_MARKET_CARDS; needsUpdate = true; }
         if (!config.coinSkins) { config.coinSkins = INITIAL_COIN_SKINS; needsUpdate = true; }
         if (config.loadingScreenImageUrl === undefined) { config.loadingScreenImageUrl = ''; needsUpdate = true; }
         if (!config.leagues) { config.leagues = INITIAL_LEAGUES; needsUpdate = true; }
-        if (!config.socials || config.socials.twitter !== undefined) { // Check for old structure to migrate
+        if (!config.socials || config.socials.twitter !== undefined) {
              config.socials = initialSocials; 
              needsUpdate = true; 
         }
-        if (!config.uiIcons) { 
+        if (!config.uiIcons || !config.uiIcons.suspicion) { 
             config.uiIcons = INITIAL_UI_ICONS; 
             needsUpdate = true; 
-        } else {
-            // Check for newly added icons specifically
-            if (config.uiIcons.marketCoinBox === undefined) {
-                config.uiIcons.marketCoinBox = INITIAL_UI_ICONS.marketCoinBox;
-                needsUpdate = true;
-            }
-            if (config.uiIcons.marketStarBox === undefined) {
-                config.uiIcons.marketStarBox = INITIAL_UI_ICONS.marketStarBox;
-                needsUpdate = true;
-            }
-            if (config.uiIcons.nav.airdrop === undefined) {
-                config.uiIcons.nav.airdrop = INITIAL_UI_ICONS.nav.airdrop;
-                needsUpdate = true;
-            }
         }
+        if (config.cellCreationCost === undefined) { config.cellCreationCost = CELL_CREATION_COST; needsUpdate = true; }
+        if (config.cellMaxMembers === undefined) { config.cellMaxMembers = CELL_MAX_MEMBERS; needsUpdate = true; }
         
         if (needsUpdate) {
             await saveConfig(config);
-            console.log("Updated existing game config with new fields (skins, market, loading image, leagues, icons, socials).");
+            console.log("Updated existing game config with new fields (suspicion, cells, etc).");
         }
     }
 };
@@ -326,6 +351,7 @@ export const claimDailyTaskReward = async (userId, taskId, code) => {
         }
 
         player = applyReward(player, task.reward);
+        player.suspicion = (player.suspicion || 0) + (task.suspicionModifier || 0);
         player.completedDailyTaskIds = [...(player.completedDailyTaskIds || []), taskId];
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
@@ -342,7 +368,6 @@ export const claimDailyTaskReward = async (userId, taskId, code) => {
 // --- Daily Event Functions ---
 export const getDailyEvent = async (date) => {
     const res = await executeQuery('SELECT * FROM daily_events WHERE event_date = $1', [date]);
-    // The `pg` driver automatically parses the JSONB column into a JS object/array.
     return res.rows[0] || null;
 }
 export const saveDailyEvent = async (date, comboIds, cipherWord, comboReward, cipherReward) => {
@@ -462,6 +487,157 @@ export const claimCipherReward = async (userId, cipher) => {
         client.release();
     }
 }
+
+// --- Cell & Informant Functions ---
+
+const generateInviteCode = () => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+};
+
+export const createCellInDb = async (userId, name, cost) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error("Player not found.");
+        let player = playerRes.rows[0].data;
+
+        if (player.cellId) throw new Error("Player is already in a cell.");
+        if (player.balance < cost) throw new Error("Not enough coins to create a cell.");
+
+        player.balance -= cost;
+
+        const inviteCode = generateInviteCode();
+        const cellRes = await client.query(
+            'INSERT INTO cells (name, owner_id, invite_code) VALUES ($1, $2, $3) RETURNING *',
+            [name, userId, inviteCode]
+        );
+        const newCell = cellRes.rows[0];
+
+        player.cellId = newCell.id;
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
+
+        await client.query('COMMIT');
+        return { player, cell: await getCellFromDb(newCell.id) };
+
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const joinCellInDb = async (userId, inviteCode, maxMembers) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error("Player not found.");
+        let player = playerRes.rows[0].data;
+        if (player.cellId) throw new Error("Player is already in a cell.");
+
+        const cellRes = await client.query('SELECT id FROM cells WHERE invite_code = $1', [inviteCode]);
+        if (cellRes.rows.length === 0) throw new Error("Invalid invite code.");
+        const cellId = cellRes.rows[0].id;
+        
+        const memberCountRes = await client.query("SELECT COUNT(*) FROM players WHERE data->>'cellId' = $1", [String(cellId)]);
+        const memberCount = parseInt(memberCountRes.rows[0].count, 10);
+        if (memberCount >= maxMembers) throw new Error("Cell is full.");
+
+        player.cellId = cellId;
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
+        
+        await client.query('COMMIT');
+        return { player, cell: await getCellFromDb(cellId) };
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const leaveCellFromDb = async (userId) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error("Player not found.");
+        let player = playerRes.rows[0].data;
+
+        player.cellId = null;
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
+
+        await client.query('COMMIT');
+        return { player };
+    } catch(e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const getCellFromDb = async (cellId) => {
+    if (!cellId) return null;
+    
+    const cellRes = await executeQuery('SELECT * FROM cells WHERE id = $1', [cellId]);
+    if (cellRes.rows.length === 0) return null;
+    let cell = cellRes.rows[0];
+
+    const membersRes = await executeQuery(`
+        SELECT u.id, u.name, p.data->>'profitPerHour' as "profitPerHour"
+        FROM users u
+        JOIN players p ON u.id = p.id
+        WHERE (p.data->>'cellId')::int = $1
+    `, [cellId]);
+    
+    cell.members = membersRes.rows.map(r => ({ ...r, profitPerHour: parseFloat(r.profitPerHour) }));
+    cell.totalProfitPerHour = cell.members.reduce((sum, member) => sum + member.profitPerHour, 0);
+
+    const informantsRes = await executeQuery('SELECT * FROM informants WHERE cell_id = $1', [cellId]);
+    cell.informants = informantsRes.rows;
+
+    return cell;
+};
+
+export const recruitInformantInDb = async (userId, informantData) => {
+     const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error("Player not found.");
+        let player = playerRes.rows[0].data;
+        if (!player.cellId) throw new Error("You must be in a cell to recruit informants.");
+        
+        // This is a placeholder cost. You can make this dynamic.
+        const cost = 1000000; 
+        if (player.balance < cost) throw new Error("Not enough coins to recruit an informant.");
+        player.balance -= cost;
+        
+        const { name, dossier, specialization } = informantData;
+
+        const informantRes = await client.query(
+            'INSERT INTO informants (cell_id, name, dossier, specialization) VALUES ($1, $2, $3, $4) RETURNING *',
+            [player.cellId, name, dossier, specialization]
+        );
+        const newInformant = informantRes.rows[0];
+        
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
+        
+        await client.query('COMMIT');
+        return { player, informant: newInformant };
+
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
 
 // --- Admin Panel Functions ---
 export const getAllPlayersForAdmin = async () => {
@@ -657,6 +833,8 @@ export const resetPlayerProgress = async (userId) => {
         player.energyLimitLevel = 0;
         player.unlockedSkins = [DEFAULT_COIN_SKIN_ID];
         player.currentSkinId = DEFAULT_COIN_SKIN_ID;
+        player.suspicion = 0;
+        // Keep cellId and referrals
         
         // Reset cheat flags
         delete player.isCheater;

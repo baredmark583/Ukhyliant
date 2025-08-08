@@ -1,7 +1,5 @@
 
 
-
-
 const LOCALES = {
     'en': {
         // Nav
@@ -17,6 +15,7 @@ const LOCALES = {
         'nav_boosts': 'Boosts',
         'nav_market_cards': 'Black Market Cards',
         'nav_coin_skins': 'Coin Skins',
+        'nav_cell_settings': 'Cell Settings',
         'nav_ui_icons': 'UI Icons',
         'nav_leagues': 'Leagues',
         'logout': 'Logout',
@@ -34,6 +33,7 @@ const LOCALES = {
         'coinSkins': 'Coin Skins',
         'uiIcons': 'UI Icons',
         'leagues': 'Leagues',
+        'cellSettings': 'Cell Settings',
         
         // Buttons & Actions
         'save': 'Save',
@@ -128,17 +128,14 @@ const LOCALES = {
         'chance': 'Chance (%)',
         'profitBoostPercent': 'Profit Boost (%)',
         'costCoins': 'Cost (Coins)',
+        'suspicionModifier': 'Suspicion Modifier',
         'count': 'Count',
         
-        // Boosts Config
-        'id_readonly_note': 'ID is read-only and cannot be changed.',
-        'boost_effect': 'Boost Effect',
-        'cost_in_coins': 'Cost in Coins',
-        'base_cost_note': 'This is the base cost for level 0. It increases with each level.',
-        'boost_effect_full_energy': 'Full energy refill.',
-        'boost_effect_turbo_mode': 'x5 coins per tap for 20 seconds.',
-        'boost_effect_tap_guru': '+1 coin per each tap (permanent).',
-        'boost_effect_energy_limit': '+500 to max energy capacity (permanent).',
+        // Cell Settings
+        'cell_creation_cost': 'Cell Creation Cost',
+        'cell_creation_cost_desc': 'The amount of coins a player needs to spend to create a new cell.',
+        'cell_max_members': 'Max Members per Cell',
+        'cell_max_members_desc': 'The maximum number of players that can join a single cell.',
         
         // UI Icons
         'icon_group_nav': 'Navigation Bar',
@@ -152,6 +149,7 @@ const LOCALES = {
         'icon_energy': 'Energy Icon',
         'icon_coin': 'Coin Icon',
         'icon_star': 'Star Icon',
+        'icon_suspicion': 'Suspicion Icon',
         'icon_market_coin_box': 'Coin Box Icon',
         'icon_market_star_box': 'Star Box Icon',
 
@@ -161,7 +159,7 @@ const LOCALES = {
         'bonus_amount': 'Bonus Amount (can be negative)',
         'player_upgrades': 'Player Upgrades',
         'level': 'Level',
-        'edit_social_stat': 'Edit Social Stat',
+        'suspicion': 'Suspicion',
         
         // Alerts & Confirmations
         'confirm_delete': 'Are you sure you want to delete this item?',
@@ -196,6 +194,7 @@ const LOCALES = {
         'nav_boosts': 'Бусты',
         'nav_market_cards': 'Карты Чёрного Рынка',
         'nav_coin_skins': 'Скины Монет',
+        'nav_cell_settings': 'Настройки Ячеек',
         'nav_ui_icons': 'Иконки интерфейса',
         'nav_leagues': 'Лиги',
         'logout': 'Выйти',
@@ -213,6 +212,7 @@ const LOCALES = {
         'coinSkins': 'Скины Монет',
         'uiIcons': 'Иконки интерфейса',
         'leagues': 'Лиги',
+        'cellSettings': 'Настройки Ячеек',
         
         // Buttons & Actions
         'save': 'Сохранить',
@@ -307,17 +307,14 @@ const LOCALES = {
         'chance': 'Шанс (%)',
         'profitBoostPercent': 'Бонус к прибыли (%)',
         'costCoins': 'Стоимость (монеты)',
+        'suspicionModifier': 'Модификатор Подозрения',
         'count': 'Количество',
 
-        // Boosts Config
-        'id_readonly_note': 'ID нельзя изменить.',
-        'boost_effect': 'Эффект буста',
-        'cost_in_coins': 'Стоимость в монетах',
-        'base_cost_note': 'Это базовая стоимость для 0 уровня. Она увеличивается с каждым уровнем.',
-        'boost_effect_full_energy': 'Полное восстановление энергии.',
-        'boost_effect_turbo_mode': 'x5 монет за тап в течение 20 секунд.',
-        'boost_effect_tap_guru': '+1 монета за каждый тап (постоянно).',
-        'boost_effect_energy_limit': '+500 к макс. запасу энергии (постоянно).',
+        // Cell Settings
+        'cell_creation_cost': 'Стоимость создания ячейки',
+        'cell_creation_cost_desc': 'Количество монет, которое игрок должен потратить для создания новой ячейки.',
+        'cell_max_members': 'Макс. участников в ячейке',
+        'cell_max_members_desc': 'Максимальное количество игроков, которое может присоединиться к одной ячейке.',
 
         // UI Icons
         'icon_group_nav': 'Панель навигации',
@@ -331,6 +328,7 @@ const LOCALES = {
         'icon_energy': 'Иконка Выносливости',
         'icon_coin': 'Иконка Монеты',
         'icon_star': 'Иконка Звезды',
+        'icon_suspicion': 'Иконка Подозрения',
         'icon_market_coin_box': 'Иконка Коробки за монеты',
         'icon_market_star_box': 'Иконка Коробки за звезды',
         
@@ -340,7 +338,7 @@ const LOCALES = {
         'bonus_amount': 'Сумма бонуса (может быть отрицательной)',
         'player_upgrades': 'Улучшения игрока',
         'level': 'Уровень',
-        'edit_social_stat': 'Редактировать статистику',
+        'suspicion': 'Подозрение',
 
         // Alerts & Confirmations
         'confirm_delete': 'Вы уверены, что хотите удалить этот элемент?',
@@ -361,5 +359,185 @@ const LOCALES = {
         'loading': 'Загрузка, подождите...',
         'loading_cheaters': 'Загрузка списка читеров...',
         'no_data': 'Нет данных.',
+    },
+     'ua': {
+        // Nav
+        'nav_dashboard': 'Дашборд',
+        'nav_players': 'Гравці',
+        'nav_cheaters': 'Чітери',
+        'nav_game_events': 'Ігрові події',
+        'nav_daily_events': 'Щоденні події',
+        'nav_special_tasks': 'Спец. Завдання',
+        'nav_configuration': 'Конфігурація',
+        'nav_upgrades': 'Покращення',
+        'nav_daily_tasks': 'Щоденні Завдання',
+        'nav_boosts': 'Бусти',
+        'nav_market_cards': 'Карти Чорного Ринку',
+        'nav_coin_skins': 'Скіни Монет',
+        'nav_cell_settings': 'Налаштування Осередків',
+        'nav_ui_icons': 'Іконки інтерфейсу',
+        'nav_leagues': 'Ліги',
+        'logout': 'Вийти',
+
+        // Titles
+        'dashboard': 'Дашборд',
+        'players': 'Гравці',
+        'cheaters': 'Чітери',
+        'dailyEvents': 'Щоденні Події',
+        'upgrades': 'Покращення',
+        'tasks': 'Щоденні Завдання',
+        'specialTasks': 'Спеціальні Завдання',
+        'boosts': 'Бусти',
+        'blackMarketCards': 'Карти Чорного Ринку',
+        'coinSkins': 'Скіни Монет',
+        'uiIcons': 'Іконки Інтерфейсу',
+        'leagues': 'Ліги',
+        'cellSettings': 'Налаштування Осередків',
+
+        // Buttons & Actions
+        'save': 'Зберегти',
+        'save_all_changes': 'Зберегти всі зміни',
+        'saving': 'Збереження...',
+        'actions': 'Дії',
+        'add_new': 'Додати',
+        'delete': 'Видалити',
+        'reset_daily': 'Скинути день',
+        'add_bonus': 'Додати бонус',
+        'close': 'Закрити',
+        'edit': 'Редагувати',
+        'confirm': 'Підтвердити',
+        'cancel': 'Скасувати',
+
+        // Dashboard
+        'total_players': 'Всього гравців',
+        'new_players_24h': 'Нові гравці (24г)',
+        'online_now': 'Онлайн зараз',
+        'total_profit_per_hour': 'Всього прибутку/год',
+        'earned_stars': 'Нараховано зірок',
+        'new_users_last_7_days': 'Нові гравці (7 днів)',
+        'top_5_upgrades': 'Топ 5 покращень за покупками',
+        'purchases': 'Покупки',
+        'player_map': 'Карта гравців',
+        'loading_screen_image_url': 'URL зображення екрану завантаження',
+        'youtube_stats': 'Статистика YouTube',
+        'telegram_stats': 'Статистика Telegram',
+        'social_youtube_subs': 'Підписники YouTube',
+        'social_telegram_subs': 'Підписники Telegram',
+
+        // Cheaters Tab
+        'cheater_list': 'Список помічених чітерів',
+        'cheater_list_desc': 'Ці гравці були автоматично помічені через підозрілу активність. Перевірте та скиньте їх прогрес за потреби.',
+        'cheat_log': 'Лог порушень',
+        'reset_progress': 'Скинути прогрес',
+        'no_cheaters_found': 'Чітерів не знайдено.',
+
+        // Socials Edit Modal
+        'edit_youtube_settings': 'Налаштування YouTube',
+        'edit_telegram_settings': 'Налаштування Telegram',
+        'youtube_channel_url': 'URL YouTube Каналу',
+        'youtube_channel_url_desc': 'Публічне посилання на ваш канал, на яке будуть натискати користувачі.',
+        'youtube_channel_id': 'ID YouTube Каналу',
+        'youtube_channel_id_desc': 'ID, що використовується для отримання статистики (напр., UC_...). Знаходиться в розширених налаштуваннях.',
+        'telegram_channel_url': 'URL Telegram Каналу',
+        'telegram_channel_url_desc': 'Публічне посилання на ваш канал (напр., https://t.me/yourchannel).',
+        'telegram_channel_id': 'ID/Ім\'я користувача Telegram Каналу',
+        'telegram_channel_id_desc': 'Ім\'я користувача для отримання статистики (напр., @yourchannel).',
+        
+        // Daily Events
+        'daily_events_setup': 'Налаштування щоденних подій',
+        'daily_combo': 'Щоденне комбо',
+        'select_3_cards_for_combo': 'Виберіть 3 карти для щоденного комбо.',
+        'select_card': 'Виберіть карту',
+        'combo_reward': 'Нагорода за комбо',
+        'daily_cipher': 'Щоденний шифр',
+        'enter_cipher_word': 'Введіть слово для шифру на сьогодні.',
+        'cipher_word': 'Слово шифру',
+        'example_btc': 'напр., BTC',
+        'cipher_reward': 'Нагорода за шифр',
+
+        // Players Table
+        'search_by_id_name': 'Пошук за ID або іменем...',
+        'id': 'ID',
+        'name': 'Ім\'я',
+        'balance': 'Баланс',
+        'profit_ph': 'Прибуток/год',
+        'stars_spent': 'Витрачено зірок',
+        'referrals': 'Реферали',
+        'language': 'Мова',
+
+        // Config Modal & Table
+        'config_edit_item': 'Редагувати елемент',
+        'config_add_item': 'Додати новий елемент',
+        'price': 'Ціна',
+        'profitPerHour': 'Прибуток/год',
+        'minProfitPerHour': 'Мін. Прибуток/год',
+        'category': 'Категорія',
+        'iconUrl': 'URL іконки',
+        'type': 'Тип',
+        'reward': 'Нагорода',
+        'reward_type_coins': 'Монети',
+        'reward_type_profit': 'Прибуток/год',
+        'url': 'URL',
+        'requiredTaps': 'Потрібно тапів',
+        'secretCode': 'Секретний код',
+        'imageUrl': 'URL зображення',
+        'priceStars': 'Ціна (зірки)',
+        'description': 'Опис',
+        'boxType': 'Тип коробки',
+        'chance': 'Шанс (%)',
+        'profitBoostPercent': 'Бонус до прибутку (%)',
+        'costCoins': 'Вартість (монети)',
+        'suspicionModifier': 'Модифікатор Підозри',
+        'count': 'Кількість',
+
+        // Cell Settings
+        'cell_creation_cost': 'Вартість створення осередку',
+        'cell_creation_cost_desc': 'Кількість монет, яку гравець має витратити для створення нового осередку.',
+        'cell_max_members': 'Макс. учасників в осередку',
+        'cell_max_members_desc': 'Максимальна кількість гравців, яка може приєднатися до одного осередку.',
+
+        // UI Icons
+        'icon_group_nav': 'Панель навігації',
+        'icon_group_gameplay': 'Геймплей та Валюти',
+        'icon_group_market': 'Іконки Ринку',
+        'icon_nav_exchange': 'Іконка Схрону (Нав)',
+        'icon_nav_mine': 'Іконка Майнінгу (Нав)',
+        'icon_nav_missions': 'Іконка Директив (Нав)',
+        'icon_nav_airdrop': 'Іконка Airdrop (Нав)',
+        'icon_nav_profile': 'Іконка Досьє (Нав)',
+        'icon_energy': 'Іконка Витривалості',
+        'icon_coin': 'Іконка Монети',
+        'icon_star': 'Іконка Зірки',
+        'icon_suspicion': 'Іконка Підозри',
+        'icon_market_coin_box': 'Іконка Коробки за монети',
+        'icon_market_star_box': 'Іконка Коробки за зірки',
+
+        // Player Details Modal
+        'player_details': 'Деталі гравця',
+        'current_balance': 'Поточний баланс',
+        'bonus_amount': 'Сума бонусу (може бути негативною)',
+        'player_upgrades': 'Покращення гравця',
+        'level': 'Рівень',
+        'suspicion': 'Підозра',
+
+        // Alerts & Confirmations
+        'confirm_delete': 'Ви впевнені, що хочете видалити цей елемент?',
+        'confirm_delete_player': 'Ви впевнені, що хочете назавжди видалити цього гравця? Цю дію неможливо скасувати.',
+        'confirm_reset_daily': 'Ви впевнені, що хочете скинути денний прогрес (комбо/шифр) для цього гравця?',
+        'confirm_reset_progress': 'Ви впевнені, що хочете скинути весь прогрес цього гравця? Його баланс та покращення будуть обнулені.',
+        'progress_reset_success': 'Прогрес гравця скинуто.',
+        'error_resetting_progress': 'Помилка скидання прогресу.',
+        'daily_progress_reset_success': 'Денний прогрес скинуто.',
+        'daily_progress_reset_error': 'Помилка при скиданні денного прогресу.',
+        'error_updating_balance': 'Помилка при оновленні балансу.',
+        'balance_updated': 'Баланс успішно оновлено.',
+        'translation_error': 'Помилка перекладу.',
+        'error_3_unique_cards': 'Будь ласка, виберіть рівно 3 унікальні карти для комбо.',
+        'save_success': 'Успішно збережено!',
+        'save_error': 'Помилка збереження.',
+        'saving': 'Збереження...',
+        'loading': 'Завантаження, зачекайте...',
+        'loading_cheaters': 'Завантаження списку чітерів...',
+        'no_data': 'Немає даних.',
     }
 };

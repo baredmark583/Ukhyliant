@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Upgrade, Language, UiIcons } from '../types';
+import { useTranslation } from '../hooks/useGameLogic';
 
 interface UpgradeCardProps {
   upgrade: Upgrade & { level: number };
@@ -21,7 +22,12 @@ const formatNumber = (num: number) => {
 
 
 const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang, uiIcons }) => {
+  const t = useTranslation();
   const canAfford = balance >= upgrade.price;
+  const suspicionMod = upgrade.suspicionModifier;
+  
+  const suspicionColor = suspicionMod > 0 ? 'text-red-400' : suspicionMod < 0 ? 'text-green-400' : 'text-gray-500';
+  const suspicionSign = suspicionMod > 0 ? '+' : '';
 
   return (
     <button
@@ -37,10 +43,19 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
         </div>
         <div>
           <p className="text-white text-left text-base font-semibold">{upgrade.name?.[lang]}</p>
-          <div className="text-gray-400 text-xs text-left mt-1">
+          <div className="text-gray-400 text-xs text-left mt-1 flex items-center space-x-2">
             <span>lvl {upgrade.level}</span>
-            <span className="mx-2">|</span>
-            <span className="text-green-400 font-semibold">+{formatNumber(upgrade.profitPerHour)}/hr</span>
+            <span className="mx-1">|</span>
+            <span className="text-green-400 font-semibold flex items-center">
+                <img src={uiIcons.energy} alt="" className="w-3 h-3 mr-1"/>
+                +{formatNumber(upgrade.profitPerHour)}/hr
+            </span>
+            {suspicionMod !== undefined && (
+                 <span className={`${suspicionColor} font-semibold flex items-center`}>
+                    <img src={uiIcons.suspicion} alt="" className="w-3 h-3 mr-1"/>
+                    {suspicionSign}{suspicionMod}
+                </span>
+            )}
           </div>
         </div>
       </div>

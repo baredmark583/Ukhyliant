@@ -1,7 +1,5 @@
 
 
-
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -16,13 +14,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- CONFIG META (for dynamic table rendering) ---
     const configMeta = {
         leagues: { title: 'leagues', cols: ['id', 'name', 'description', 'minProfitPerHour', 'iconUrl'] },
-        upgrades: { title: 'upgrades', cols: ['id', 'name', 'price', 'profitPerHour', 'category', 'iconUrl'] },
-        tasks: { title: 'tasks', cols: ['id', 'name', 'type', 'reward', 'requiredTaps', 'url', 'secretCode', 'imageUrl'] },
-        specialTasks: { title: 'specialTasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'url', 'secretCode', 'imageUrl'] },
-        blackMarketCards: { title: 'blackMarketCards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'iconUrl'] },
-        coinSkins: { title: 'coinSkins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'iconUrl'] },
+        upgrades: { title: 'upgrades', cols: ['id', 'name', 'price', 'profitPerHour', 'category', 'suspicionModifier', 'iconUrl'] },
+        tasks: { title: 'tasks', cols: ['id', 'name', 'type', 'reward', 'requiredTaps', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
+        specialTasks: { title: 'specialTasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
+        blackMarketCards: { title: 'blackMarketCards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
+        coinSkins: { title: 'coinSkins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
         uiIcons: { title: 'ui_icons' },
-        boosts: { title: 'boosts', cols: ['id', 'name', 'description', 'costCoins', 'iconUrl'] },
+        boosts: { title: 'boosts', cols: ['id', 'name', 'description', 'costCoins', 'suspicionModifier', 'iconUrl'] },
     };
 
     // --- DOM ELEMENTS ---
@@ -94,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tabTitle.dataset.translate = activeTab;
         tabTitle.classList.add('font-display');
 
-        const configTabs = ['upgrades', 'tasks', 'specialTasks', 'dailyEvents', 'boosts', 'blackMarketCards', 'coinSkins', 'leagues', 'uiIcons'];
+        const configTabs = ['upgrades', 'tasks', 'specialTasks', 'dailyEvents', 'boosts', 'blackMarketCards', 'coinSkins', 'leagues', 'uiIcons', 'cellSettings'];
         saveMainButton.classList.toggle('d-none', !(configTabs.includes(activeTab) || activeTab === 'dashboard'));
 
         switch (activeTab) {
@@ -110,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'blackMarketCards': renderConfigTable('blackMarketCards'); break;
             case 'coinSkins': renderConfigTable('coinSkins'); break;
             case 'uiIcons': renderUiIcons(); break;
+            case 'cellSettings': renderCellSettings(); break;
             default: renderDashboard();
         }
         applyTranslations();
@@ -465,6 +464,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>`;
     };
+
+     const renderCellSettings = () => {
+        tabContainer.innerHTML = `
+        <div class="card">
+            <div class="card-header"><h3 class="card-title font-display" data-translate="cell_settings"></h3></div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label" data-translate="cell_creation_cost"></label>
+                    <input type="number" class="form-control config-input" data-field="cellCreationCost" value="${escapeHtml(localConfig.cellCreationCost || '100000')}">
+                    <div class="form-text" data-translate="cell_creation_cost_desc"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" data-translate="cell_max_members"></label>
+                    <input type="number" class="form-control config-input" data-field="cellMaxMembers" value="${escapeHtml(localConfig.cellMaxMembers || '10')}">
+                    <div class="form-text" data-translate="cell_max_members_desc"></div>
+                </div>
+            </div>
+        </div>`;
+    };
     
     const renderUiIcons = () => {
         const icons = localConfig.uiIcons || {};
@@ -484,7 +502,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 icons: [
                     { key: 'energy', label: 'icon_energy' },
                     { key: 'coin', label: 'icon_coin' },
-                    { key: 'star', label: 'icon_star' }
+                    { key: 'star', label: 'icon_star' },
+                    { key: 'suspicion', label: 'icon_suspicion' },
                 ]
             },
             {
@@ -503,7 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="row align-items-center mb-3">
                     <label class="col-sm-3 col-form-label" data-translate="${icon.label}"></label>
                     <div class="col-sm-7">
-                        <input type="text" class="form-control config-input" data-field="${icon.key}" value="${escapeHtml(value || '')}">
+                        <input type="text" class="form-control config-input" data-field="uiIcons.${icon.key}" value="${escapeHtml(value || '')}">
                     </div>
                     <div class="col-sm-2">
                         <img src="${escapeHtml(value || '')}" class="avatar" alt="Preview" onerror="this.style.display='none'">
@@ -542,6 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
                            <p><strong>ID:</strong> ${player.id}</p>
                            <p><strong>${t('name')}:</strong> ${escapeHtml(player.name)}</p>
                            <p><strong>${t('current_balance')}:</strong> ${formatNumber(player.balance)}</p>
+                           <p><strong>${t('suspicion')}:</strong> ${formatNumber(player.suspicion)}</p>
                            <hr>
                            <div class="mb-3">
                                 <label class="form-label" data-translate="bonus_amount"></label>
@@ -660,6 +680,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="col">
                              <input type="text" class="form-control" name="${col}.en" value="${escapeHtml(val.en || '')}" placeholder="EN">
                         </div>
+                         <div class="col">
+                             <input type="text" class="form-control" name="${col}.ua" value="${escapeHtml(val.ua || '')}" placeholder="UA">
+                        </div>
                         <div class="col">
                              <input type="text" class="form-control" name="${col}.ru" value="${escapeHtml(val.ru || '')}" placeholder="RU">
                         </div>
@@ -683,7 +706,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </select>
                     </div>`;
             } else {
-                const inputType = typeof val === 'number' ? 'number' : 'text';
+                const inputType = (typeof val === 'number' || ['price', 'profitPerHour', 'suspicionModifier', 'chance', 'costCoins'].includes(col)) ? 'number' : 'text';
                  inputHtml = `<input type="${inputType}" class="form-control" name="${col}" value="${escapeHtml(val)}" ${isReadonly ? 'readonly' : ''}>`;
             }
             return `<div class="mb-3"><label class="form-label" data-translate="${col}"></label>${inputHtml}</div>`;
@@ -721,18 +744,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData(form);
             const newItemData = isNew ? { id: `new_${configKey}_${Date.now()}` } : { ...item };
             
-            formData.forEach((value, key) => {
+            for (const [key, value] of formData.entries()) {
                  const keys = key.split('.');
                  let current = newItemData;
                  keys.forEach((k, i) => {
                      if (i === keys.length - 1) {
-                         current[k] = isNaN(Number(value)) || value === '' ? value : Number(value);
+                        const isNumericField = ['price', 'profitPerHour', 'suspicionModifier', 'chance', 'costCoins', 'priceStars', 'requiredTaps', 'profitBoostPercent'].includes(k) || key.endsWith('.amount');
+                        current[k] = isNumericField && !isNaN(Number(value)) && value !== '' ? Number(value) : value;
                      } else {
                          if (!current[k]) current[k] = {};
                          current = current[k];
                      }
                  });
-            });
+            }
 
             if (isNew) {
                 if (!localConfig[configKey]) localConfig[configKey] = [];
@@ -883,6 +907,35 @@ document.addEventListener('DOMContentLoaded', () => {
                  const filtered = allPlayers.filter(p => p.id.includes(searchTerm) || (p.name && p.name.toLowerCase().includes(searchTerm)));
                  renderPlayersTab(filtered);
             }
+            
+            const configInput = e.target.closest('.config-input');
+            if (configInput) {
+                const field = configInput.dataset.field;
+                const value = configInput.type === 'number' ? Number(configInput.value) : configInput.value;
+                
+                const fieldParts = field.split('.');
+                 if (fieldParts.length > 1) {
+                      let current = localConfig;
+                      fieldParts.forEach((part, index) => {
+                          if (index === fieldParts.length - 1) {
+                              current[part] = value;
+                          } else {
+                              if (!current[part]) current[part] = {};
+                              current = current[part];
+                          }
+                      });
+                      if (field.startsWith('uiIcons')) {
+                         const previewImg = configInput.closest('.row').querySelector('img');
+                         if (previewImg) {
+                             previewImg.src = value;
+                             previewImg.style.display = 'block';
+                         }
+                      }
+                 } else {
+                      localConfig[field] = value;
+                 }
+            }
+
 
             const loadingScreenInput = e.target.closest('#loading-screen-url-input');
             if (loadingScreenInput) {
@@ -902,25 +955,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (dailyEventInput.id === 'cipher-reward-input') {
                     dailyEvent.cipher_reward = parseInt(dailyEventInput.value) || 0;
                 }
-            }
-
-            const uiIconInput = e.target.closest('#tab-content-container .config-input');
-            if(uiIconInput && activeTab === 'uiIcons') {
-                const field = uiIconInput.dataset.field;
-                const value = uiIconInput.value;
-                 const fieldParts = field.split('.');
-                 if (!localConfig.uiIcons) localConfig.uiIcons = {};
-                 if (fieldParts.length > 1) {
-                      if (!localConfig.uiIcons[fieldParts[0]]) localConfig.uiIcons[fieldParts[0]] = {};
-                      localConfig.uiIcons[fieldParts[0]][fieldParts[1]] = value;
-                 } else {
-                      localConfig.uiIcons[field] = value;
-                 }
-                 const previewImg = uiIconInput.closest('.row').querySelector('img');
-                 if (previewImg) {
-                     previewImg.src = value;
-                     previewImg.style.display = 'block';
-                 }
             }
         });
         

@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
-import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League } from '../types';
+import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
 
 declare global {
@@ -215,6 +215,52 @@ const API = {
         body: JSON.stringify({ userId, skinId }),
     });
     if (!response.ok) return null;
+    return response.json();
+  },
+
+  createCell: async(userId: string, name: string): Promise<{ player?: PlayerState, cell?: Cell, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured." };
+    const response = await fetch(`${API_BASE_URL}/api/cell/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, name }),
+    });
+    return response.json();
+  },
+
+  joinCell: async(userId: string, inviteCode: string): Promise<{ player?: PlayerState, cell?: Cell, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured." };
+    const response = await fetch(`${API_BASE_URL}/api/cell/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, inviteCode }),
+    });
+    return response.json();
+  },
+
+  getMyCell: async(userId: string): Promise<{ cell?: Cell, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured." };
+    const response = await fetch(`${API_BASE_URL}/api/cell/my-cell?userId=${userId}`);
+    return response.json();
+  },
+
+  leaveCell: async(userId: string): Promise<{ player?: PlayerState, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured." };
+    const response = await fetch(`${API_BASE_URL}/api/cell/leave`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    return response.json();
+  },
+
+  recruitInformant: async(userId: string): Promise<{ player?: PlayerState, informant?: any, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured." };
+    const response = await fetch(`${API_BASE_URL}/api/informant/recruit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
     return response.json();
   },
 };
@@ -524,6 +570,39 @@ export const useGame = () => {
             setPlayerState(updatedPlayer);
         }
     }, [user, setPlayerState]);
+
+    const createCell = useCallback(async (name: string) => {
+        if (!user) return { error: 'User not found' };
+        const result = await API.createCell(user.id, name);
+        if (result.player) setPlayerState(result.player);
+        return result;
+    }, [user, setPlayerState]);
+
+    const joinCell = useCallback(async (inviteCode: string) => {
+        if (!user) return { error: 'User not found' };
+        const result = await API.joinCell(user.id, inviteCode);
+        if (result.player) setPlayerState(result.player);
+        return result;
+    }, [user, setPlayerState]);
+
+    const getMyCell = useCallback(async () => {
+        if (!user) return { error: 'User not found' };
+        return await API.getMyCell(user.id);
+    }, [user]);
+
+    const leaveCell = useCallback(async () => {
+        if (!user) return { error: 'User not found' };
+        const result = await API.leaveCell(user.id);
+        if (result.player) setPlayerState(result.player);
+        return result;
+    }, [user, setPlayerState]);
+
+     const recruitInformant = useCallback(async () => {
+        if (!user) return { error: 'User not found' };
+        const result = await API.recruitInformant(user.id);
+        if (result.player) setPlayerState(result.player);
+        return result;
+    }, [user, setPlayerState]);
     
     return {
         playerState,
@@ -547,5 +626,10 @@ export const useGame = () => {
         isTurboActive,
         effectiveMaxEnergy,
         effectiveCoinsPerTap,
+        createCell,
+        joinCell,
+        getMyCell,
+        leaveCell,
+        recruitInformant,
     };
 };
