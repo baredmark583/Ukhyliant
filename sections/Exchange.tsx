@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import SuspicionMeter from '../components/SuspicionMeter';
@@ -212,10 +213,10 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
               ) : (
                 <>
                   {!morseMode ? (
-                      <div className="flex items-center justify-between w-full h-10">
-                          <h3 className="font-display text-base text-green-300">{t('daily_cipher')}</h3>
-                          <p className="text-gray-400 text-xs mx-4 flex-grow text-center">{t('cipher_hint')}</p>
-                          <button onClick={() => setMorseMode(true)} className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 text-xs transition-transform active:scale-95 flex-shrink-0">
+                      <div className="flex items-center justify-between w-full gap-2 sm:gap-4 h-10">
+                          <h3 className="font-display text-sm sm:text-base text-green-300 flex-shrink-0">{t('daily_cipher')}</h3>
+                          <p className="text-gray-400 text-[11px] sm:text-xs text-center flex-1 min-w-0">{t('cipher_hint')}</p>
+                          <button onClick={() => setMorseMode(true)} className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-2 sm:px-3 text-xs transition-transform active:scale-95 flex-shrink-0 whitespace-nowrap">
                               {t('enter_morse_mode')}
                           </button>
                       </div>
@@ -253,7 +254,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
         {/* Center Area: Coin */}
         <div className="flex-grow flex items-center justify-center min-w-0 p-2">
              <div
-                className="relative cursor-pointer select-none w-full max-w-xs aspect-square"
+                className="relative cursor-pointer select-none w-full max-w-[280px] sm:max-w-sm aspect-square"
                 onMouseDown={handlePressStart}
                 onMouseUp={handlePressEnd}
                 onTouchStart={handlePressStart}

@@ -35,12 +35,12 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
 
   return (
     <div className="mb-4 p-2 bg-green-900/20 border border-green-500/50 flex-shrink-0">
-        <div className="flex justify-between items-center">
-            <div className="flex-shrink-0 pr-4">
+        <div className="flex flex-col sm:flex-row justify-between items-center text-center sm:text-left gap-2">
+            <div className="flex-shrink-0 w-full sm:w-auto sm:pr-4">
                 <h2 className="text-base font-display text-green-300">{t('daily_combo')}</h2>
                 <p className="text-xs text-gray-400">{t('find_cards')}</p>
             </div>
-            <div className="flex justify-center items-center space-x-2 flex-grow">
+            <div className="flex justify-center items-center space-x-2 flex-grow my-2 sm:my-0">
                 {combo_ids.map((id, index) => {
                     const isUpgradedToday = upgradedCardsToday.includes(id);
                     const upgrade = upgrades.find(u => u.id === id);
@@ -55,7 +55,7 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
                     );
                 })}
             </div>
-            <div className="flex-shrink-0 pl-4 w-28">
+            <div className="flex-shrink-0 w-full sm:w-28 sm:pl-4">
                 {isClaimed ? (
                     <button disabled className="w-full py-2 font-bold text-xs bg-gray-700 text-gray-500 cursor-not-allowed text-center">
                         {t('claimed_today')}
