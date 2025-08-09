@@ -371,7 +371,6 @@ app.post('/api/player/:id', async (req, res) => {
         const { id } = req.params;
         const playerStateFromClient = req.body;
         
-        // Fetch the current state from DB to check for admin bonus and to prevent race conditions.
         const playerStateFromDb = await getPlayer(id);
 
         if (playerStateFromDb) {
@@ -389,10 +388,12 @@ app.post('/api/player/:id', async (req, res) => {
                     log('warn', `High TPS detected for user ${id}: ${tps.toFixed(2)}`);
                 }
             }
-             // Safely apply admin bonus
-            if (Number(playerStateFromDb.adminBonus) > 0) {
+            
+            // Safely apply admin bonus to prevent race conditions.
+            // This handles both positive and negative bonuses.
+            if (playerStateFromDb.adminBonus && Number(playerStateFromDb.adminBonus) !== 0) {
                 playerStateFromClient.balance = (Number(playerStateFromClient.balance) || 0) + Number(playerStateFromDb.adminBonus);
-                playerStateFromClient.adminBonus = 0; // Reset the bonus
+                playerStateFromClient.adminBonus = 0; // Reset the bonus after applying
                 log('info', `Applied admin bonus of ${playerStateFromDb.adminBonus} to user ${id}.`);
             }
         }

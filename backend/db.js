@@ -911,11 +911,12 @@ export const getAllPlayersForAdmin = async () => {
     const playersMap = new Map(playersRes.rows.map(p => [p.id, p.data]));
     const allPlayers = usersRes.rows.map(user => {
         const playerData = playersMap.get(user.id) || {};
+        const effectiveBalance = (Number(playerData.balance) || 0) + (Number(playerData.adminBonus) || 0);
         return {
             id: user.id,
             name: user.name || 'N/A',
             language: user.language || 'en',
-            balance: playerData.balance ?? 0,
+            balance: effectiveBalance,
             referrals: playerData.referrals ?? 0,
             profitPerHour: playerData.profitPerHour ?? 0,
             purchasedSpecialTaskIds: playerData.purchasedSpecialTaskIds || []
