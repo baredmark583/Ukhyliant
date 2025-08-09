@@ -143,6 +143,8 @@ const LOCALES = {
         'cell_creation_cost_desc': 'The amount of coins a player needs to spend to create a new cell.',
         'cell_max_members': 'Max Members per Cell',
         'cell_max_members_desc': 'The maximum number of players that can join a single cell.',
+        'informant_recruit_cost': 'Informant Recruit Cost',
+        'informant_recruit_cost_desc': 'The amount of coins required to generate and recruit one informant.',
         
         // UI Icons
         'icon_group_nav': 'Navigation Bar',
@@ -329,6 +331,8 @@ const LOCALES = {
         'cell_creation_cost_desc': 'Количество монет, которое игрок должен потратить для создания новой ячейки.',
         'cell_max_members': 'Макс. участников в ячейке',
         'cell_max_members_desc': 'Максимальное количество игроков, которое может присоединиться к одной ячейке.',
+        'informant_recruit_cost': 'Стоимость вербовки информатора',
+        'informant_recruit_cost_desc': 'Количество монет, необходимое для генерации и вербовки одного информатора.',
 
         // UI Icons
         'icon_group_nav': 'Панель навигации',
@@ -516,6 +520,8 @@ const LOCALES = {
         'cell_creation_cost_desc': 'Кількість монет, яку гравець має витратити для створення нового осередку.',
         'cell_max_members': 'Макс. учасників в осередку',
         'cell_max_members_desc': 'Максимальна кількість гравців, яка може приєднатися до одного осередку.',
+        'informant_recruit_cost': 'Вартість вербування інформатора',
+        'informant_recruit_cost_desc': 'Кількість монет, необхідна для генерації та вербування одного інформатора.',
 
         // UI Icons
         'icon_group_nav': 'Панель навігації',

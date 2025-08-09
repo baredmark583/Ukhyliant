@@ -1,5 +1,4 @@
 
-
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -13,7 +12,12 @@ import {
     INITIAL_LEAGUES,
     INITIAL_UI_ICONS,
     CELL_CREATION_COST,
-    CELL_MAX_MEMBERS
+    CELL_MAX_MEMBERS,
+    INFORMANT_RECRUIT_COST,
+    REFERRAL_PROFIT_SHARE,
+    INITIAL_MAX_ENERGY,
+    LOOTBOX_COST_COINS,
+    LOOTBOX_COST_STARS
 } from './constants.js';
 
 const { Pool } = pg;
@@ -51,6 +55,23 @@ const executeQuery = async (query, params) => {
     }
 }
 
+const applySuspicion = (player, modifier) => {
+    if (modifier === null || modifier === undefined || modifier === 0) return player;
+    
+    let currentSuspicion = player.suspicion || 0;
+    currentSuspicion += modifier;
+
+    if (currentSuspicion >= 100) {
+        player.balance = 0; // Confiscate all funds
+        currentSuspicion = 50; // Give them a second chance at 50% suspicion
+        player.penaltyLog = [...(player.penaltyLog || []), { type: 'confiscation', timestamp: new Date().toISOString() }];
+    }
+    
+    // Clamp the suspicion value between 0 and 100
+    player.suspicion = Math.max(0, Math.min(100, currentSuspicion));
+    return player;
+};
+
 export const initializeDb = async () => {
     // Create tables if they don't exist
     await executeQuery(`
@@ -67,7 +88,8 @@ export const initializeDb = async () => {
         CREATE TABLE IF NOT EXISTS users (
             id VARCHAR(255) PRIMARY KEY,
             name VARCHAR(255),
-            language VARCHAR(10) DEFAULT 'en'
+            language VARCHAR(10) DEFAULT 'en',
+            referrer_id VARCHAR(255)
         );
 
         CREATE TABLE IF NOT EXISTS daily_events (
@@ -111,11 +133,17 @@ export const initializeDb = async () => {
         await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();`);
         await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(2);`);
         await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ;`);
-        await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referrer_id VARCHAR(255);`);
-        console.log("'created_at', 'country', 'last_seen', 'referrer_id' columns checked/added to 'users' table.");
+        console.log("'created_at', 'country', 'last_seen' columns checked/added to 'users' table.");
     } catch (e) {
         console.error("Could not add analytics columns to 'users' table.", e.message);
     }
+    
+    try {
+        await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referrer_id VARCHAR(255);`);
+    } catch (e) {
+        console.error("Could not add referrer_id column to users table.", e.message);
+    }
+
 
     const initialSocials = {
         youtubeUrl: '',
@@ -140,6 +168,9 @@ export const initializeDb = async () => {
             socials: initialSocials,
             cellCreationCost: CELL_CREATION_COST,
             cellMaxMembers: CELL_MAX_MEMBERS,
+            informantRecruitCost: INFORMANT_RECRUIT_COST,
+            lootboxCostCoins: LOOTBOX_COST_COINS,
+            lootboxCostStars: LOOTBOX_COST_STARS,
         };
         await saveConfig(initialConfig);
         console.log("Initial game config seeded to the database.");
@@ -177,6 +208,9 @@ export const initializeDb = async () => {
         }
         if (config.cellCreationCost === undefined) { config.cellCreationCost = CELL_CREATION_COST; needsUpdate = true; }
         if (config.cellMaxMembers === undefined) { config.cellMaxMembers = CELL_MAX_MEMBERS; needsUpdate = true; }
+        if (config.informantRecruitCost === undefined) { config.informantRecruitCost = INFORMANT_RECRUIT_COST; needsUpdate = true; }
+        if (config.lootboxCostCoins === undefined) { config.lootboxCostCoins = LOOTBOX_COST_COINS; needsUpdate = true; }
+        if (config.lootboxCostStars === undefined) { config.lootboxCostStars = LOOTBOX_COST_STARS; needsUpdate = true; }
         
         if (needsUpdate) {
             await saveConfig(config);
@@ -219,16 +253,61 @@ export const updateUserAccessInfo = async (id, { country }) => {
         [country, id]
     );
 };
-export const getReferredUsersProfit = async (referrerId) => {
-    const query = `
-        SELECT SUM((p.data->>'profitPerHour')::numeric) as total_profit
-        FROM players p
-        JOIN users u ON p.id = u.id
-        WHERE u.referrer_id = $1;
-    `;
-    const res = await executeQuery(query, [referrerId]);
-    return res.rows[0]?.total_profit || 0;
+
+export const recalculateReferralProfit = async (referrerId) => {
+    if (!referrerId) return;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Lock the referrer's player row
+        const referrerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [referrerId]);
+        if (referrerRes.rows.length === 0) {
+            console.warn(`Referrer ${referrerId} not found, cannot update profit.`);
+            await client.query('ROLLBACK');
+            return;
+        }
+        let referrerPlayer = referrerRes.rows[0].data;
+
+        // Get all referrals of the referrer
+        const referralsRes = await client.query(`SELECT id FROM users WHERE referrer_id = $1`, [referrerId]);
+        const referralIds = referralsRes.rows.map(r => r.id);
+
+        let totalReferralBaseProfit = 0;
+        if (referralIds.length > 0) {
+            // Get the base profit of all referrals
+            const referralPlayersRes = await client.query(`SELECT data FROM players WHERE id = ANY($1::text[])`, [referralIds]);
+            for (const referralPlayerRow of referralPlayersRes.rows) {
+                const referralPlayer = referralPlayerRow.data;
+                // Base profit is total profit minus profit from their *own* referrals to avoid cascading effects
+                const baseProfit = (referralPlayer.profitPerHour || 0) - (referralPlayer.referralProfitPerHour || 0);
+                totalReferralBaseProfit += baseProfit;
+            }
+        }
+        
+        const newReferralProfit = Math.floor(totalReferralBaseProfit * REFERRAL_PROFIT_SHARE);
+        const oldReferralProfit = referrerPlayer.referralProfitPerHour || 0;
+        
+        // Update the referrer's profit
+        referrerPlayer.referralProfitPerHour = newReferralProfit;
+        // Total profit is base profit + new referral profit
+        referrerPlayer.profitPerHour = (referrerPlayer.profitPerHour || 0) - oldReferralProfit + newReferralProfit;
+
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [referrerPlayer, referrerId]);
+
+        await client.query('COMMIT');
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error(`Transaction failed for recalculateReferralProfit for referrer ${referrerId}:`, error);
+        throw error;
+    } finally {
+        client.release();
+    }
 };
+
+
 export const applyReferralBonus = async (referrerId) => {
     const client = await pool.connect();
     try {
@@ -272,27 +351,40 @@ export const deletePlayer = async (userId) => {
 
 // --- Task Functions ---
 export const unlockSpecialTask = async (userId, taskId) => {
-     const query = `
-        UPDATE players
-        SET data = jsonb_set(
-            data,
-            '{purchasedSpecialTaskIds}',
-            (COALESCE(data->'purchasedSpecialTaskIds', '[]'::jsonb) || $1::jsonb)
-        )
-        WHERE id = $2 AND NOT (data->'purchasedSpecialTaskIds' @> $1::jsonb)
-        RETURNING data;
-    `;
-    const res = await executeQuery(query, [JSON.stringify(taskId), userId]);
-    return res.rows[0]?.data;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error('Player not found');
+        let player = playerRes.rows[0].data;
+
+        if (player.purchasedSpecialTaskIds?.includes(taskId)) {
+            await client.query('ROLLBACK');
+            return player; // Already purchased, do nothing
+        }
+        
+        player.purchasedSpecialTaskIds = [...(player.purchasedSpecialTaskIds || []), taskId];
+        
+        const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
+        await client.query('COMMIT');
+        return updatedRes.rows[0].data;
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Transaction failed in unlockSpecialTask', error);
+        throw error;
+    } finally {
+        client.release();
+    }
 };
+
 
 const applyReward = (player, reward) => {
     if (reward.type === 'coins') {
         player.balance = (player.balance || 0) + reward.amount;
     } else if (reward.type === 'profit') {
-        const baseProfit = player.profitPerHour - (player.tasksProfitPerHour || 0) - (player.referralProfitPerHour || 0);
+        player.profitPerHour = (player.profitPerHour || 0) + reward.amount;
         player.tasksProfitPerHour = (player.tasksProfitPerHour || 0) + reward.amount;
-        player.profitPerHour = baseProfit + player.tasksProfitPerHour + (player.referralProfitPerHour || 0);
     }
     return player;
 };
@@ -316,6 +408,7 @@ export const completeAndRewardSpecialTask = async (userId, taskId, code) => {
         }
 
         player = applyReward(player, task.reward);
+        player = applySuspicion(player, task.suspicionModifier);
         player.completedSpecialTaskIds = [...(player.completedSpecialTaskIds || []), taskId];
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
@@ -351,7 +444,7 @@ export const claimDailyTaskReward = async (userId, taskId, code) => {
         }
 
         player = applyReward(player, task.reward);
-        player.suspicion = (player.suspicion || 0) + (task.suspicionModifier || 0);
+        player = applySuspicion(player, task.suspicionModifier);
         player.completedDailyTaskIds = [...(player.completedDailyTaskIds || []), taskId];
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
@@ -597,7 +690,7 @@ export const getCellFromDb = async (cellId) => {
         WHERE (p.data->>'cellId')::int = $1
     `, [cellId]);
     
-    cell.members = membersRes.rows.map(r => ({ ...r, profitPerHour: parseFloat(r.profitPerHour) }));
+    cell.members = membersRes.rows.map(r => ({ ...r, profitPerHour: parseFloat(r.profitPerHour || '0') }));
     cell.totalProfitPerHour = cell.members.reduce((sum, member) => sum + member.profitPerHour, 0);
 
     const informantsRes = await executeQuery('SELECT * FROM informants WHERE cell_id = $1', [cellId]);
@@ -606,7 +699,7 @@ export const getCellFromDb = async (cellId) => {
     return cell;
 };
 
-export const recruitInformantInDb = async (userId, informantData) => {
+export const recruitInformantInDb = async (userId, informantData, config) => {
      const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -615,8 +708,7 @@ export const recruitInformantInDb = async (userId, informantData) => {
         let player = playerRes.rows[0].data;
         if (!player.cellId) throw new Error("You must be in a cell to recruit informants.");
         
-        // This is a placeholder cost. You can make this dynamic.
-        const cost = 1000000; 
+        const cost = config.informantRecruitCost || INFORMANT_RECRUIT_COST; 
         if (player.balance < cost) throw new Error("Not enough coins to recruit an informant.");
         player.balance -= cost;
         
@@ -633,6 +725,84 @@ export const recruitInformantInDb = async (userId, informantData) => {
         await client.query('COMMIT');
         return { player, informant: newInformant };
 
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const openLootboxInDb = async (userId, boxType, config) => {
+    if (boxType !== 'coin') throw new Error("This function only supports coin lootboxes.");
+    
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error("Player not found.");
+        let player = playerRes.rows[0].data;
+
+        const cost = config.lootboxCostCoins || LOOTBOX_COST_COINS;
+        
+        if (player.balance < cost) throw new Error("Not enough coins.");
+        player.balance -= cost;
+
+        const possibleItems = [
+            ...config.blackMarketCards.filter(c => c.boxType === boxType),
+            ...config.coinSkins.filter(s => s.boxType === boxType && !(player.unlockedSkins || []).includes(s.id))
+        ];
+        
+        if (possibleItems.length === 0) {
+            await client.query('COMMIT'); // Commit the cost deduction even if no items are available
+            throw new Error("No new items available in this lootbox type for you.");
+        }
+
+        const totalChance = possibleItems.reduce((sum, item) => sum + item.chance, 0);
+        let random = Math.random() * totalChance;
+        
+        let wonItem = null;
+        for (const item of possibleItems) {
+            random -= item.chance;
+            if (random <= 0) {
+                wonItem = item;
+                break;
+            }
+        }
+        
+        if (!wonItem) wonItem = possibleItems[possibleItems.length - 1]; // Fallback
+
+        if ('profitPerHour' in wonItem) { // It's a BlackMarketCard
+            const cardId = wonItem.id;
+            const currentLevel = player.upgrades[cardId] || 0;
+            player.upgrades[cardId] = currentLevel + 1;
+            const profitGained = wonItem.profitPerHour;
+            player.profitPerHour = (player.profitPerHour || 0) + profitGained;
+            
+            const userRes = await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId]);
+            const referrerId = userRes.rows[0]?.referrer_id;
+            if (referrerId) {
+                // Update referrer's profit directly, but will be fully recalculated on next action.
+                const referrerPlayerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [referrerId]);
+                if (referrerPlayerRes.rows.length > 0) {
+                    let referrerPlayer = referrerPlayerRes.rows[0].data;
+                    const profitShare = Math.floor(profitGained * REFERRAL_PROFIT_SHARE);
+                    referrerPlayer.profitPerHour += profitShare;
+                    referrerPlayer.referralProfitPerHour += profitShare;
+                    await client.query('UPDATE players SET data = $1 WHERE id = $2', [referrerPlayer, referrerId]);
+                }
+            }
+
+        } else if ('profitBoostPercent' in wonItem) { // It's a CoinSkin
+            player.unlockedSkins = [...new Set([...(player.unlockedSkins || []), wonItem.id])];
+        }
+
+        player = applySuspicion(player, wonItem.suspicionModifier);
+
+        const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
+        
+        await client.query('COMMIT');
+        return { updatedPlayer: updatedRes.rows[0].data, wonItem };
     } catch (e) {
         await client.query('ROLLBACK');
         throw e;
@@ -795,7 +965,7 @@ export const getLeaderboardData = async () => {
         FROM users u
         JOIN players p ON u.id = p.id
         ORDER BY (p.data->>'profitPerHour')::numeric DESC
-        LIMIT 10;
+        LIMIT 100;
     `);
     return res.rows.map(row => ({
         ...row,
@@ -845,8 +1015,110 @@ export const resetPlayerProgress = async (userId) => {
         delete player.cheatLog;
         
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
+        
+        // After reset, we must recalculate the referrer's profit from scratch
+        const userRes = await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId]);
+        const referrerId = userRes.rows[0]?.referrer_id;
+        if(referrerId) {
+             await recalculateReferralProfit(referrerId);
+        }
+
         await client.query('COMMIT');
         return player;
+    } catch(e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+
+export const buyUpgradeInDb = async (userId, upgradeId, config) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error("Player not found.");
+        let player = playerRes.rows[0].data;
+        
+        const allUpgrades = [...config.upgrades, ...config.blackMarketCards];
+        const upgrade = allUpgrades.find(u => u.id === upgradeId);
+        if (!upgrade) throw new Error("Upgrade not found");
+        
+        const currentLevel = player.upgrades[upgradeId] || 0;
+        const price = Math.floor((upgrade.price || upgrade.profitPerHour * 10) * Math.pow(1.15, currentLevel));
+
+        if (player.balance < price) throw new Error("Not enough coins");
+
+        player.balance -= price;
+        const profitGained = upgrade.profitPerHour;
+        player.profitPerHour = (player.profitPerHour || 0) + profitGained;
+        player.upgrades[upgradeId] = currentLevel + 1;
+        player.dailyUpgrades = [...new Set([...(player.dailyUpgrades || []), upgradeId])];
+        
+        player = applySuspicion(player, upgrade.suspicionModifier);
+        
+        const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
+        const updatedPlayer = updatedPlayerRes.rows[0].data;
+        
+        const userRes = await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId]);
+        const referrerId = userRes.rows[0]?.referrer_id;
+
+        if (referrerId) {
+            await recalculateReferralProfit(referrerId);
+        }
+
+        await client.query('COMMIT');
+        return updatedPlayer;
+    } catch(e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const buyBoostInDb = async (userId, boostId, config) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error("Player not found.");
+        let player = playerRes.rows[0].data;
+
+        const boost = config.boosts.find(b => b.id === boostId);
+        if (!boost) throw new Error("Boost not found");
+
+        let cost = boost.costCoins;
+        if (boostId === 'boost_tap_guru') {
+            cost = Math.floor(boost.costCoins * Math.pow(1.5, player.tapGuruLevel || 0));
+        } else if (boostId === 'boost_energy_limit') {
+            cost = Math.floor(boost.costCoins * Math.pow(1.8, player.energyLimitLevel || 0));
+        }
+
+        if (player.balance < cost) throw new Error("Not enough coins");
+        player.balance -= cost;
+
+        switch(boostId) {
+            case 'boost_full_energy':
+                player.energy = INITIAL_MAX_ENERGY + (player.energyLimitLevel || 0) * 500;
+                break;
+            case 'boost_tap_guru':
+                player.tapGuruLevel = (player.tapGuruLevel || 0) + 1;
+                break;
+            case 'boost_energy_limit':
+                player.energyLimitLevel = (player.energyLimitLevel || 0) + 1;
+                break;
+        }
+        
+        player = applySuspicion(player, boost.suspicionModifier);
+        
+        const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
+        await client.query('COMMIT');
+        return updatedPlayerRes.rows[0].data;
+
     } catch(e) {
         await client.query('ROLLBACK');
         throw e;

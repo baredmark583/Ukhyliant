@@ -1,5 +1,4 @@
 
-
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -38,18 +37,21 @@ import {
     getTotalPlayerCount,
     getPlayerDetails,
     updatePlayerBalance,
-    getReferredUsersProfit,
     getCheaters,
     resetPlayerProgress,
     createCellInDb,
     joinCellInDb,
     getCellFromDb,
     leaveCellFromDb,
-    recruitInformantInDb
+    recruitInformantInDb,
+    openLootboxInDb,
+    recalculateReferralProfit,
+    buyUpgradeInDb,
+    buyBoostInDb,
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
-    REFERRAL_PROFIT_SHARE, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID,
+    LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID,
     CHEAT_DETECTION_THRESHOLD_TPS, CHEAT_DETECTION_STRIKES_TO_FLAG
 } from './constants.js';
 
@@ -217,9 +219,13 @@ app.post('/api/login', async (req, res) => {
         const config = await getGameConfig();
         
         if (!user) {
-            user = await createUser(userId, userName, lang, startParam || null);
-            if (startParam) {
-                await applyReferralBonus(startParam);
+            // New user registration
+            const referrerId = startParam || null;
+            user = await createUser(userId, userName, lang, referrerId);
+            if (referrerId) {
+                // Apply one-time bonus and immediately update referrer's passive income
+                await applyReferralBonus(referrerId);
+                await recalculateReferralProfit(referrerId); 
             }
         }
         
@@ -230,15 +236,12 @@ app.post('/api/login', async (req, res) => {
         }
         
         if (!player) {
-             const baseProfitFromReferrals = await getReferredUsersProfit(userId);
-             const referralProfitPerHour = Math.floor(baseProfitFromReferrals * REFERRAL_PROFIT_SHARE);
-            
             player = {
                 balance: 0,
                 energy: INITIAL_MAX_ENERGY,
-                profitPerHour: referralProfitPerHour, // Start with referral profit
+                profitPerHour: 0, // Base profit is 0, referral profit will be added by recalculate
                 tasksProfitPerHour: 0,
-                referralProfitPerHour,
+                referralProfitPerHour: 0,
                 coinsPerTap: 1,
                 lastLoginTimestamp: Date.now(),
                 upgrades: {},
@@ -266,12 +269,7 @@ app.post('/api/login', async (req, res) => {
             const todayDate = new Date(now).toDateString();
 
             if (lastResetDate !== todayDate) {
-                player.completedDailyTaskIds = [];
-                player.dailyTaps = 0;
-                player.lastDailyReset = now;
-                player.claimedComboToday = false;
-                player.claimedCipherToday = false;
-                player.dailyUpgrades = [];
+                player = await resetPlayerDailyProgress(userId);
             }
         }
         
@@ -343,60 +341,17 @@ app.post('/api/user/:id/language', async (req, res) => {
 
 // --- Game Action Endpoints ---
 
-const calculateUpgradePrice = (basePrice, level) => Math.floor(basePrice * Math.pow(1.15, level));
-
 const gameActions = {
     'buy-upgrade': async (body, player, config) => {
-        const { upgradeId } = body;
-        const allUpgrades = [...config.upgrades, ...config.blackMarketCards];
-        const upgrade = allUpgrades.find(u => u.id === upgradeId);
-        if (!upgrade) throw new Error("Upgrade not found");
-        
-        const currentLevel = player.upgrades[upgradeId] || 0;
-        const price = calculateUpgradePrice(upgrade.price || upgrade.profitPerHour * 10, currentLevel);
-
-        if (player.balance < price) throw new Error("Not enough coins");
-
-        player.balance -= price;
-        player.profitPerHour += upgrade.profitPerHour;
-        player.upgrades[upgradeId] = currentLevel + 1;
-        player.dailyUpgrades = [...new Set([...(player.dailyUpgrades || []), upgradeId])];
-        player.suspicion = (player.suspicion || 0) + (upgrade.suspicionModifier || 0);
-
-        await savePlayer(body.userId, player);
-        return { player };
+        const { userId, upgradeId } = body;
+        const updatedPlayer = await buyUpgradeInDb(userId, upgradeId, config);
+        return { player: updatedPlayer };
     },
 
     'buy-boost': async (body, player, config) => {
-        const { boostId } = body;
-        const boost = config.boosts.find(b => b.id === boostId);
-        if (!boost) throw new Error("Boost not found");
-
-        let cost = boost.costCoins;
-        if (boostId === 'boost_tap_guru') {
-            cost = Math.floor(boost.costCoins * Math.pow(1.5, player.tapGuruLevel || 0));
-        } else if (boostId === 'boost_energy_limit') {
-            cost = Math.floor(boost.costCoins * Math.pow(1.8, player.energyLimitLevel || 0));
-        }
-
-        if (player.balance < cost) throw new Error("Not enough coins");
-        player.balance -= cost;
-
-        switch(boostId) {
-            case 'boost_full_energy':
-                player.energy = INITIAL_MAX_ENERGY + (player.energyLimitLevel || 0) * 500;
-                break;
-            case 'boost_tap_guru':
-                player.tapGuruLevel = (player.tapGuruLevel || 0) + 1;
-                break;
-            case 'boost_energy_limit':
-                player.energyLimitLevel = (player.energyLimitLevel || 0) + 1;
-                break;
-        }
-        
-        player.suspicion = (player.suspicion || 0) + (boost.suspicionModifier || 0);
-        await savePlayer(body.userId, player);
-        return { player };
+        const { userId, boostId } = body;
+        const updatedPlayer = await buyBoostInDb(userId, boostId, config);
+        return { player: updatedPlayer };
     },
     
     'claim-task': async (body, player, config) => { // Handles ONLY daily tasks
@@ -404,7 +359,7 @@ const gameActions = {
         const result = await claimDailyTaskReward(userId, taskId, code);
         const task = config.tasks.find(t => t.id === taskId);
         if (!task) throw new Error('Task not found');
-        return { player: result.player, reward: task.reward, error: result.error };
+        return { player: result, reward: task.reward };
     },
     
     'claim-combo': async (body) => {
@@ -430,13 +385,25 @@ const gameActions = {
         const result = await completeAndRewardSpecialTask(userId, taskId, code);
         const task = config.specialTasks.find(t => t.id === taskId);
         if (!task) throw new Error('Task not found');
-        return { player: result.player, reward: task.reward, error: result.error };
+        return { player: result, reward: task.reward };
+    },
+
+    'open-lootbox': async(body, player, config) => {
+        const { userId, boxType } = body;
+        if (boxType !== 'coin') {
+            throw new Error("This action is only for coin lootboxes.");
+        }
+        const { updatedPlayer, wonItem } = await openLootboxInDb(userId, boxType, config);
+        return { player: updatedPlayer, wonItem };
     },
 
     'set-skin': async (body, player) => {
-        const { skinId } = body;
+        const { skinId, userId } = body;
+        if (!player.unlockedSkins.includes(skinId)) {
+            throw new Error("Skin not unlocked");
+        }
         player.currentSkinId = skinId;
-        await savePlayer(body.userId, player);
+        await savePlayer(userId, player);
         return { player };
     },
 };
@@ -454,7 +421,6 @@ app.post('/api/action/:action', async (req, res) => {
         const config = await getGameConfig();
         if (!player || !config) return res.status(404).json({ error: "Player or config not found" });
         
-        // --- Daily Reset Logic ---
         const now = Date.now();
         const lastResetDate = new Date(player.lastDailyReset || 0).toDateString();
         const todayDate = new Date(now).toDateString();
@@ -463,21 +429,109 @@ app.post('/api/action/:action', async (req, res) => {
             log('info', `Performing daily reset for user ${userId}`);
             player = await resetPlayerDailyProgress(userId);
         }
-        // --- End Daily Reset Logic ---
 
         const result = await gameActions[action](req.body, player, config);
         
-        // Correctly handle responses for combo and cipher claims
-        if (action === 'claim-combo' || action === 'claim-cipher' || action === 'claim-task' || action === 'complete-task') {
-            return res.json(result);
-        }
+        // After any action, re-fetch the player state to ensure it's the most current
+        const finalPlayerState = await getPlayer(userId);
+        res.json(result.player ? { ...result, player: finalPlayerState } : result);
 
-        // For other actions, maintain the existing logic that seems to work for them
-        res.json(result.player ? result.player : result);
 
     } catch (error) {
         log('error', `Action ${action} for user ${userId} failed`, error);
         res.status(400).json({ error: error.message });
+    }
+});
+
+app.post('/api/create-invoice', async (req, res) => {
+    const { userId, taskId } = req.body;
+    const { PAYMENT_PROVIDER_TOKEN, BOT_TOKEN } = process.env;
+
+    if (!PAYMENT_PROVIDER_TOKEN || !BOT_TOKEN) {
+        return res.status(500).json({ ok: false, error: "Payment provider or Bot Token is not configured." });
+    }
+    try {
+        const player = await getPlayer(userId);
+        const config = await getGameConfig();
+        const task = config.specialTasks.find(t => t.id === taskId);
+
+        if (!player || !task) return res.status(404).json({ ok: false, error: "Player or task not found." });
+        if (player.purchasedSpecialTaskIds?.includes(taskId)) return res.status(400).json({ ok: false, error: "Task already purchased." });
+        if (task.priceStars <= 0) return res.status(400).json({ ok: false, error: "This task is not for sale." });
+
+        const invoicePayload = {
+            title: task.name['en'] || 'Special Task',
+            description: task.description['en'] || 'Unlock this special task.',
+            payload: `unlock-task-${userId}-${taskId}`,
+            provider_token: PAYMENT_PROVIDER_TOKEN,
+            currency: 'XTR',
+            prices: [{ label: task.name['en'] || 'Unlock', amount: task.priceStars }]
+        };
+
+        const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify(invoicePayload)
+        });
+        const data = await response.json();
+
+        if (data.ok) {
+            // NOTE: A full production app would use a webhook to confirm payment and grant the item.
+            // For this app, we optimistically mark the task as purchased, and the client-side `invoiceClosed`
+            // event handles refreshing the state.
+            await unlockSpecialTask(userId, taskId);
+            res.json({ ok: true, invoiceLink: data.result });
+        } else {
+            throw new Error(data.description || 'Failed to create invoice link.');
+        }
+
+    } catch (error) {
+        log('error', 'Failed to create invoice', error);
+        res.status(500).json({ ok: false, error: error.message });
+    }
+});
+
+app.post('/api/create-star-invoice', async (req, res) => {
+    const { userId, boxType } = req.body;
+    const { PAYMENT_PROVIDER_TOKEN, BOT_TOKEN } = process.env;
+
+    if (!PAYMENT_PROVIDER_TOKEN || !BOT_TOKEN) {
+        return res.status(500).json({ ok: false, error: "Payment provider or Bot Token is not configured." });
+    }
+    if (boxType !== 'star') {
+        return res.status(400).json({ ok: false, error: "This is only for Star containers" });
+    }
+    try {
+        const config = await getGameConfig();
+        const cost = config.lootboxCostStars || LOOTBOX_COST_STARS;
+
+        const invoicePayload = {
+            title: 'Star Container',
+            description: 'A container with rare items, purchased with Telegram Stars.',
+            payload: `buy-lootbox-${userId}-${boxType}`, // This payload would be used by a webhook
+            provider_token: PAYMENT_PROVIDER_TOKEN,
+            currency: 'XTR',
+            prices: [{ label: 'Star Container', amount: cost }]
+        };
+
+        const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify(invoicePayload)
+        });
+        const data = await response.json();
+        if (data.ok) {
+             // For star lootboxes, the logic to give the item would be handled by a webhook
+             // that receives the payment confirmation and calls a secure function like openLootboxInDb.
+             // Here, we just provide the link. The client will reload after payment via `invoiceClosed` event.
+            res.json({ ok: true, invoiceLink: data.result });
+        } else {
+            throw new Error(data.description || 'Failed to create invoice link.');
+        }
+
+    } catch (error) {
+        log('error', 'Failed to create star invoice', error);
+        res.status(500).json({ ok: false, error: error.message });
     }
 });
 
@@ -536,6 +590,7 @@ app.post('/api/informant/recruit', async (req, res) => {
     
     try {
         const { userId } = req.body;
+        const config = await getGameConfig();
         
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -567,7 +622,7 @@ app.post('/api/informant/recruit', async (req, res) => {
         const jsonText = response.text.trim();
         const informantData = JSON.parse(jsonText);
         
-        const result = await recruitInformantInDb(userId, informantData);
+        const result = await recruitInformantInDb(userId, informantData, config);
         res.json(result);
 
     } catch(e) {

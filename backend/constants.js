@@ -1,5 +1,4 @@
 
-
 // This file makes the backend self-contained by providing initial data.
 // It prevents the server from trying to import files from the frontend.
 
@@ -84,6 +83,7 @@ export const LOOTBOX_COST_COINS = 50000;
 export const LOOTBOX_COST_STARS = 5;
 export const CELL_CREATION_COST = 100000;
 export const CELL_MAX_MEMBERS = 10;
+export const INFORMANT_RECRUIT_COST = 1000000;
 
 // --- ANTI-CHEAT ---
 export const CHEAT_DETECTION_THRESHOLD_TPS = 25; // Taps per second

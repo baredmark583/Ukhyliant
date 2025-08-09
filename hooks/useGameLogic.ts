@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -97,7 +96,7 @@ const API = {
   },
 
   createInvoice: async (userId: string, taskId: string): Promise<{ok: boolean, invoiceLink?: string, error?: string}> => {
-    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
+    if (!API_BASE_URL) return {ok: false, error: "VITE_API_BASE_URL is not set."};
     const response = await fetch(`${API_BASE_URL}/api/create-invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -428,8 +427,10 @@ export const useGame = () => {
     useEffect(() => {
         const handleInvoiceClosed = (event: {slug: string, status: 'paid' | 'cancelled' | 'failed' | 'pending'}) => {
             if (event.status === 'paid') {
-                // Payment was successful, reload data to reflect the purchase
                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                // A full reload ensures all player and config data is fresh from the server.
+                // This is crucial because a successful payment might result in a new item,
+                // which might not be in the current client-side config (e.g., from a lootbox).
                 window.location.reload();
             } else {
                  window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
@@ -464,16 +465,17 @@ export const useGame = () => {
     }, [playerState?.profitPerHour, config?.leagues]);
 
     const handleTap = useCallback(() => {
-        if (!playerState || playerState.energy <= 0) return 0;
+        if (!playerState || playerState.energy < 1) return 0;
         const tapValue = effectiveCoinsPerTap * (isTurboActive ? 5 : 1);
         setPlayerState(p => p ? {
             ...p,
             balance: p.balance + tapValue,
-            energy: p.energy - 1,
+            energy: Math.max(0, p.energy - 1),
             dailyTaps: p.dailyTaps + 1,
         } : null);
         return tapValue;
     }, [playerState, setPlayerState, effectiveCoinsPerTap, isTurboActive]);
+
 
     const buyUpgrade = useCallback(async (upgradeId: string) => {
         if (!user) return null;
@@ -507,15 +509,24 @@ export const useGame = () => {
     }, [user, setPlayerState]);
     
     const purchaseSpecialTask = useCallback(async (task: SpecialTask) => {
-        if (!user) return null;
+        if (!user) return { error: 'User not found' };
         
         if (task.priceStars > 0) {
-            // Paid task - requires invoice
-             await API.createInvoice(user.id, task.id);
+            const result = await API.createInvoice(user.id, task.id);
+            if (result.ok && result.invoiceLink) {
+                // The global 'invoiceClosed' event listener will handle the success case.
+                window.Telegram.WebApp.openInvoice(result.invoiceLink);
+                return { success: true };
+            }
+            return { error: result.error || 'Failed to create payment invoice.' };
         } else {
             // Free task - unlock immediately
             const updatedPlayerState = await API.unlockFreeTask(user.id, task.id);
-            if(updatedPlayerState) setPlayerState(updatedPlayerState);
+            if(updatedPlayerState) {
+                setPlayerState(updatedPlayerState);
+                return { success: true };
+            }
+            return { error: 'Failed to unlock free task.' };
         }
     }, [user, setPlayerState]);
 
@@ -557,8 +568,9 @@ export const useGame = () => {
         if (!user) return { error: 'User not found' };
         const result = await API.createStarInvoice(user.id, boxType);
         if (result.ok && result.invoiceLink) {
+             // The global 'invoiceClosed' event listener will handle the success case.
             window.Telegram.WebApp.openInvoice(result.invoiceLink);
-            return {}; // Success, invoice opened.
+            return { success: true };
         }
         return { error: result.error || 'Failed to start payment.' };
     }, [user]);

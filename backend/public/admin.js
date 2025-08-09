@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -34,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const escapeHtml = (unsafe) => {
         if (unsafe === null || unsafe === undefined) return '';
         if (typeof unsafe !== 'string' && typeof unsafe !== 'number') return JSON.stringify(unsafe);
-        return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&quot;").replace(/'/g, "&#039;");
     };
 
     const formatNumber = (num) => {
@@ -254,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <tbody>
                             ${items.map((item, index) => `
                                 <tr>
-                                    ${cols.map(col => `<td>${formatCellContent(item, col)}</td>`).join('')}
+                                    ${cols.map(col => `<td>${col === 'id' ? `<div class="font-mono text-muted">${escapeHtml(item[col])}</div>` : formatCellContent(item, col)}</td>`).join('')}
                                     <td>
                                         <button class="btn btn-sm btn-primary" data-action="edit-item" data-key="${key}" data-index="${index}">${t('edit')}</button>
                                         <button class="btn btn-sm btn-danger ms-2" data-action="delete-item" data-key="${key}" data-index="${index}">${t('delete')}</button>
@@ -368,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Render Top Upgrades
         const topUpgradesList = document.getElementById('top-upgrades-list');
         topUpgradesList.innerHTML = stats.popularUpgrades.map(u => {
-            const upgradeInfo = localConfig.upgrades.find(cfg => cfg.id === u.upgrade_id);
+            const upgradeInfo = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])].find(cfg => cfg.id === u.upgrade_id);
             const name = upgradeInfo ? (upgradeInfo.name[currentLang] || upgradeInfo.name.en) : u.upgrade_id;
             return `<div class="d-flex justify-content-between align-items-center mb-2"><span>${name}</span> <span class="badge bg-green-lt">${formatNumber(u.purchase_count)} ${t('purchases')}</span></div>`;
         }).join('');
@@ -532,12 +533,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="number" class="form-control" id="cell-max-members" value="${localConfig.cellMaxMembers || 0}">
                         <div class="form-text">${t('cell_max_members_desc')}</div>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">${t('informant_recruit_cost')}</label>
+                        <input type="number" class="form-control" id="informant-recruit-cost" value="${localConfig.informantRecruitCost || 0}">
+                        <div class="form-text">${t('informant_recruit_cost_desc')}</div>
+                    </div>
                 </div>
             </div>
         `;
 
         document.getElementById('cell-creation-cost').addEventListener('input', (e) => localConfig.cellCreationCost = Number(e.target.value));
         document.getElementById('cell-max-members').addEventListener('input', (e) => localConfig.cellMaxMembers = Number(e.target.value));
+        document.getElementById('informant-recruit-cost').addEventListener('input', (e) => localConfig.informantRecruitCost = Number(e.target.value));
     };
 
     const renderUiIcons = () => {
@@ -561,6 +568,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const keys = key.split('.');
             let obj = icons;
             for (let i = 0; i < keys.length - 1; i++) {
+                if (!obj[keys[i]]) obj[keys[i]] = {};
                 obj = obj[keys[i]];
             }
             obj[keys[keys.length - 1]] = value;
@@ -692,6 +700,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const bodyHtml = `
             <form id="task-edit-form">
+                ${isNew ? '' : `<div class="mb-3"><label class="form-label">${t('id')}</label><input type="text" class="form-control" value="${escapeHtml(item.id)}" disabled></div>`}
                 ${meta.cols.filter(c => ['name', 'description'].includes(c)).map(col => `
                      <div class="mb-3">
                         <label class="form-label">${t(col)}</label>
@@ -704,248 +713,248 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">${t('type')}</label>
-                        <select class="form-select" data-col="type" id="task-type-select">${typeOptions}</select>
+                        <select class="form-select" data-col="type">${typeOptions}</select>
                     </div>
-                     ${key === 'specialTasks' ? `
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">${t('priceStars')}</label>
-                        <input type="number" class="form-control" data-col="priceStars" value="${escapeHtml(item.priceStars || 0)}">
-                    </div>` : ''}
-                </div>
-                
-                <div class="mb-3" id="url-wrapper">
-                    <label class="form-label">${t('url')}</label>
-                    <input type="text" class="form-control" data-col="url" value="${escapeHtml(item.url || '')}">
-                </div>
-
-                <div class="mb-3" id="taps-wrapper">
-                    <label class="form-label">${t('requiredTaps')}</label>
-                    <input type="number" class="form-control" data-col="requiredTaps" value="${escapeHtml(item.requiredTaps || 0)}">
-                </div>
-                
-                <div class="mb-3" id="code-wrapper">
-                    <label class="form-label">${t('secretCode')}</label>
-                    <input type="text" class="form-control" data-col="secretCode" value="${escapeHtml(item.secretCode || '')}">
-                </div>
-                
-                <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">${t('reward')}</label>
                         <div class="input-group">
-                             <input type="number" class="form-control" data-col="reward" data-sub="amount" value="${escapeHtml(item.reward?.amount || 0)}">
-                             <select class="form-select" data-col="reward" data-sub="type">
+                           <input type="number" class="form-control" data-col="reward.amount" value="${item.reward?.amount || 0}">
+                           <select class="form-select" data-col="reward.type" style="flex-grow: 0.5;">
                                 <option value="coins" ${item.reward?.type === 'coins' ? 'selected' : ''}>${t('reward_type_coins')}</option>
                                 <option value="profit" ${item.reward?.type === 'profit' ? 'selected' : ''}>${t('reward_type_profit')}</option>
-                             </select>
+                           </select>
                         </div>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">${t('suspicionModifier')}</label>
-                        <input type="number" class="form-control" data-col="suspicionModifier" value="${escapeHtml(item.suspicionModifier || 0)}">
+                </div>
+                 <div class="row">
+                    ${meta.cols.filter(c => ['requiredTaps', 'priceStars', 'suspicionModifier'].includes(c)).map(col => `
+                         <div class="col-md-4 mb-3">
+                            <label class="form-label">${t(col)}</label>
+                            <input type="number" class="form-control" data-col="${col}" value="${item[col] || 0}">
+                        </div>
+                    `).join('')}
+                 </div>
+                ${meta.cols.filter(c => ['url', 'secretCode', 'imageUrl'].includes(c)).map(col => `
+                     <div class="mb-3">
+                        <label class="form-label">${t(col)}</label>
+                        <input type="text" class="form-control" data-col="${col}" value="${escapeHtml(item[col] || '')}">
                     </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">${t('imageUrl')}</label>
-                    <input type="text" class="form-control" data-col="imageUrl" value="${escapeHtml(item.imageUrl || '')}">
-                </div>
+                `).join('')}
             </form>
         `;
-
-        const footerHtml = `<button class="btn btn-primary" id="save-modal-btn">${t('save')}</button>`;
+        const footerHtml = `<button class="btn btn-success" id="save-item-btn">${t('save')}</button>`;
         const modalId = renderModal(titleKey, bodyHtml, footerHtml);
-        const modalElement = document.getElementById(modalId);
+        
+        document.getElementById('save-item-btn').onclick = () => {
+            const form = document.getElementById('task-edit-form');
+            const newItem = isNew ? { id: `${key}_${Date.now()}` } : { ...item };
 
-        const typeSelect = modalElement.querySelector('#task-type-select');
-        const urlWrapper = modalElement.querySelector('#url-wrapper');
-        const tapsWrapper = modalElement.querySelector('#taps-wrapper');
-        const codeWrapper = modalElement.querySelector('#code-wrapper');
-
-        const updateFieldVisibility = () => {
-            const selectedType = typeSelect.value;
-            urlWrapper.classList.toggle('d-none', !['telegram_join', 'youtube_subscribe', 'twitter_follow', 'instagram_follow', 'video_watch', 'video_code'].includes(selectedType));
-            tapsWrapper.classList.toggle('d-none', selectedType !== 'taps');
-            codeWrapper.classList.toggle('d-none', selectedType !== 'video_code');
-        };
-
-        typeSelect.addEventListener('change', updateFieldVisibility);
-        updateFieldVisibility(); // Initial call
-
-        modalElement.querySelector('#save-modal-btn').onclick = () => {
-            const form = modalElement.querySelector('#task-edit-form');
-            const newItem = isNew ? { id: `task_${Date.now()}` } : { ...item };
-            
-            meta.cols.forEach(col => {
-                const inputs = form.querySelectorAll(`[data-col="${col}"]`);
-                if (inputs.length > 1) { // Complex object (name, description, reward)
-                    newItem[col] = newItem[col] || {};
-                     if (inputs[0].dataset.lang) { // Localized string
-                        inputs.forEach(input => {
-                            newItem[col][input.dataset.lang] = input.value;
-                        });
-                    } else if(inputs[0].dataset.sub) { // Reward object
-                        inputs.forEach(input => {
-                             newItem[col][input.dataset.sub] = input.type === 'number' ? Number(input.value) : input.value;
-                        });
-                    }
-                } else if (inputs.length === 1) {
-                    const input = inputs[0];
-                    newItem[col] = input.type === 'number' ? Number(input.value) : input.value;
+            form.querySelectorAll('[data-col]').forEach(input => {
+                const colPath = input.dataset.col;
+                const keys = colPath.split('.');
+                let current = newItem;
+                for (let i = 0; i < keys.length - 1; i++) {
+                    current = current[keys[i]] = current[keys[i]] || {};
+                }
+                const finalKey = keys[keys.length - 1];
+                if (input.dataset.lang) {
+                    current[finalKey] = current[finalKey] || {};
+                    current[finalKey][input.dataset.lang] = input.value;
+                } else {
+                     current[finalKey] = isNaN(input.value) || input.value === '' ? input.value : Number(input.value);
                 }
             });
-            if (key === 'specialTasks') newItem.isOneTime = true;
-
+            
             if (isNew) {
                 localConfig[key].push(newItem);
             } else {
                 localConfig[key][index] = newItem;
             }
-            
-            bootstrap.Modal.getInstance(modalElement).hide();
+            bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
             renderConfigTable(key);
         };
     };
 
-    const renderConfigEditModal = (key, index = null) => {
-        if (key === 'tasks' || key === 'specialTasks') {
-            renderTaskEditModal(key, index);
-            return;
-        }
-
+    const renderDefaultEditModal = (key, index) => {
         const isNew = index === null;
-        const item = isNew ? {} : { ...localConfig[key][index] };
+        let item = isNew ? {} : { ...localConfig[key][index] };
         const meta = configMeta[key];
-        const title = isNew ? t('config_add_item') : t('config_edit_item');
+        const titleKey = isNew ? 'config_add_item' : 'config_edit_item';
 
-        const fields = meta.cols.map(col => {
-            const value = item[col];
-            if (typeof value === 'object' && value !== null) {
-                // Localized string
-                if ('en' in value) {
-                    return `
-                        <div class="mb-3">
-                            <label class="form-label">${t(col)} (EN)</label>
-                            <input type="text" class="form-control" data-col="${col}" data-lang="en" value="${escapeHtml(value.en || '')}">
-                        </div>
-                         <div class="mb-3">
-                            <label class="form-label">${t(col)} (RU)</label>
-                            <input type="text" class="form-control" data-col="${col}" data-lang="ru" value="${escapeHtml(value.ru || '')}">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">${t(col)} (UA)</label>
-                            <input type="text" class="form-control" data-col="${col}" data-lang="ua" value="${escapeHtml(value.ua || '')}">
-                        </div>`;
-                }
-                // Reward
-                if (col === 'reward') {
-                     return `<div class="mb-3">
-                        <label class="form-label">${t('reward')}</label>
-                        <div class="input-group">
-                            <input type="number" class="form-control" data-col="reward" data-sub="amount" value="${escapeHtml(value.amount || 0)}">
-                            <select class="form-select" data-col="reward" data-sub="type">
-                                <option value="coins" ${value.type === 'coins' ? 'selected' : ''}>${t('reward_type_coins')}</option>
-                                <option value="profit" ${value.type === 'profit' ? 'selected' : ''}>${t('reward_type_profit')}</option>
-                            </select>
-                        </div>
-                    </div>`;
-                }
-            }
-            // Simple value
-            return `<div class="mb-3">
-                <label class="form-label">${t(col)}</label>
-                <input type="${typeof value === 'number' ? 'number' : 'text'}" class="form-control" data-col="${col}" value="${escapeHtml(value || '')}">
-            </div>`;
-        }).join('');
-        
-        const footer = `<button class="btn btn-primary" id="save-modal-btn">${t('save')}</button>`;
-        const modalId = renderModal(title, fields, footer);
-
-        document.getElementById('save-modal-btn').onclick = () => {
-            meta.cols.forEach(col => {
-                const inputs = document.querySelectorAll(`#${modalId} [data-col="${col}"]`);
-                if (inputs.length > 1) { // It's a complex object
-                    if (inputs[0].dataset.lang) { // Localized string
-                        item[col] = item[col] || {};
-                        inputs.forEach(input => {
-                            item[col][input.dataset.lang] = input.value;
-                        });
-                    } else if(inputs[0].dataset.sub) { // Reward object
-                        item[col] = item[col] || {};
-                        inputs.forEach(input => {
-                             item[col][input.dataset.sub] = input.type === 'number' ? Number(input.value) : input.value;
-                        });
+        const bodyHtml = `
+            <form id="edit-form">
+                 ${isNew ? '' : `<div class="mb-3"><label class="form-label">${t('id')}</label><input type="text" class="form-control" value="${escapeHtml(item.id)}" disabled></div>`}
+                ${meta.cols.filter(c => c !== 'id').map(col => {
+                    const value = item[col];
+                    if (typeof value === 'object' && value !== null) { // Handle localized strings
+                        return `
+                            <div class="mb-3">
+                                <label class="form-label">${t(col)}</label>
+                                <input type="text" class="form-control" data-col="${col}" data-lang="en" placeholder="EN" value="${escapeHtml(value.en || '')}">
+                                <input type="text" class="form-control mt-1" data-col="${col}" data-lang="ru" placeholder="RU" value="${escapeHtml(value.ru || '')}">
+                                <input type="text" class="form-control mt-1" data-col="${col}" data-lang="ua" placeholder="UA" value="${escapeHtml(value.ua || '')}">
+                            </div>`;
+                    } else if (typeof value === 'number') {
+                         return `
+                            <div class="mb-3">
+                                <label class="form-label">${t(col)}</label>
+                                <input type="number" class="form-control" data-col="${col}" value="${value || 0}">
+                            </div>`;
+                    } else {
+                        return `
+                            <div class="mb-3">
+                                <label class="form-label">${t(col)}</label>
+                                <input type="text" class="form-control" data-col="${col}" value="${escapeHtml(value || '')}">
+                            </div>`;
                     }
-                } else if (inputs.length === 1) {
-                    const input = inputs[0];
-                    item[col] = input.type === 'number' ? Number(input.value) : input.value;
+                }).join('')}
+            </form>
+        `;
+
+        const footerHtml = `<button class="btn btn-success" id="save-item-btn">${t('save')}</button>`;
+        const modalId = renderModal(titleKey, bodyHtml, footerHtml);
+
+        document.getElementById('save-item-btn').onclick = () => {
+            const form = document.getElementById('edit-form');
+            const newItem = isNew ? { id: `${key}_${Date.now()}` } : { ...item };
+            
+            form.querySelectorAll('[data-col]').forEach(input => {
+                const col = input.dataset.col;
+                if (input.dataset.lang) {
+                    newItem[col] = newItem[col] || {};
+                    newItem[col][input.dataset.lang] = input.value;
+                } else {
+                    newItem[col] = isNaN(input.value) || input.value === '' ? input.value : Number(input.value);
                 }
             });
 
             if (isNew) {
-                localConfig[key].push(item);
+                if (!localConfig[key]) localConfig[key] = [];
+                localConfig[key].push(newItem);
             } else {
-                localConfig[key][index] = item;
+                localConfig[key][index] = newItem;
             }
-            
             bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
             renderConfigTable(key);
         };
     };
     
+    const renderSocialsModal = (platform) => {
+        const socials = localConfig.socials || {};
+        const isYoutube = platform === 'youtube';
+        const titleKey = isYoutube ? 'edit_youtube_settings' : 'edit_telegram_settings';
+        const urlValue = isYoutube ? socials.youtubeUrl : socials.telegramUrl;
+        const idValue = isYoutube ? socials.youtubeChannelId : socials.telegramChannelId;
+        
+        const bodyHtml = `
+            <form id="socials-edit-form">
+                <div class="mb-3">
+                    <label class="form-label">${t(isYoutube ? 'youtube_channel_url' : 'telegram_channel_url')}</label>
+                    <input type="text" id="social-url-input" class="form-control" value="${escapeHtml(urlValue || '')}">
+                    <div class="form-text">${t(isYoutube ? 'youtube_channel_url_desc' : 'telegram_channel_url_desc')}</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">${t(isYoutube ? 'youtube_channel_id' : 'telegram_channel_id')}</label>
+                    <input type="text" id="social-id-input" class="form-control" value="${escapeHtml(idValue || '')}">
+                    <div class="form-text">${t(isYoutube ? 'youtube_channel_id_desc' : 'telegram_channel_id_desc')}</div>
+                </div>
+            </form>
+        `;
+        
+        const footerHtml = `<button class="btn btn-success" id="save-socials-btn">${t('save')}</button>`;
+        const modalId = renderModal(titleKey, bodyHtml, footerHtml);
+        
+        document.getElementById('save-socials-btn').onclick = () => {
+            const url = document.getElementById('social-url-input').value;
+            const id = document.getElementById('social-id-input').value;
+            
+            if (isYoutube) {
+                localConfig.socials.youtubeUrl = url;
+                localConfig.socials.youtubeChannelId = id;
+            } else {
+                localConfig.socials.telegramUrl = url;
+                localConfig.socials.telegramChannelId = id;
+            }
+            
+            bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
+            alert(t('save_success')); // Or add to a queue to save with main button
+        };
+    };
+
+
     // --- EVENT LISTENERS ---
     const setupEventListeners = () => {
-        // Tab navigation
+        // Main nav tabs
         document.querySelectorAll('.tab-button').forEach(button => {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
-                const tabName = button.dataset.tab;
-                if (tabName && tabName !== activeTab) {
-                    activeTab = tabName;
+                const tab = e.currentTarget.dataset.tab;
+                if (tab !== activeTab) {
+                    activeTab = tab;
                     render();
-                    const dropdown = bootstrap.Dropdown.getInstance(button.closest('.dropdown-menu')?.previousElementSibling);
-                    if (dropdown) dropdown.hide();
                 }
             });
         });
 
-        saveMainButton.addEventListener('click', saveAllChanges);
-
-        document.querySelectorAll('.lang-select-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        // Language switcher
+        document.getElementById('lang-menu').addEventListener('click', (e) => {
+            if (e.target.matches('.lang-select-btn')) {
                 e.preventDefault();
-                currentLang = e.currentTarget.dataset.lang;
+                currentLang = e.target.dataset.lang;
                 localStorage.setItem('adminLang', currentLang);
                 applyTranslations();
                 render();
-            });
+            }
         });
 
+        // Main save button
+        saveMainButton.addEventListener('click', saveAllChanges);
+        
+        // Delegated events for dynamic content
         document.body.addEventListener('click', (e) => {
             const target = e.target.closest('[data-action]');
             if (!target) return;
             
-            e.preventDefault();
-            const action = target.dataset.action;
-            const id = target.dataset.id;
-            const key = target.dataset.key;
-            const index = target.dataset.index;
+            const { action, key, index, id, platform } = target.dataset;
 
             switch (action) {
-                case 'add-new': renderConfigEditModal(key); break;
-                case 'edit-item': renderConfigEditModal(key, index); break;
+                case 'add-new':
+                    if (['tasks', 'specialTasks'].includes(key)) {
+                        renderTaskEditModal(key, null);
+                    } else {
+                        renderDefaultEditModal(key, null);
+                    }
+                    break;
+                case 'edit-item':
+                     if (['tasks', 'specialTasks'].includes(key)) {
+                        renderTaskEditModal(key, Number(index));
+                    } else {
+                        renderDefaultEditModal(key, Number(index));
+                    }
+                    break;
                 case 'delete-item':
                     if (confirm(t('confirm_delete'))) {
-                        localConfig[key].splice(index, 1);
+                        localConfig[key].splice(Number(index), 1);
                         renderConfigTable(key);
                     }
                     break;
-                case 'player-details': renderPlayerDetailsModal(id); break;
+                case 'player-details':
+                    renderPlayerDetailsModal(id);
+                    break;
                 case 'reset-progress':
                      if (confirm(t('confirm_reset_progress'))) {
                         postData(`player/${id}/reset-progress`).then(res => {
-                            if (res) { alert(t('progress_reset_success')); renderCheaters(); }
+                           if(res) {
+                               alert(t('progress_reset_success'));
+                               renderCheaters();
+                           } else {
+                               alert(t('error_resetting_progress'));
+                           }
                         });
-                    }
+                     }
+                    break;
+                case 'edit-socials':
+                    renderSocialsModal(platform);
                     break;
             }
         });
@@ -954,12 +963,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- INITIALIZATION ---
     const init = async () => {
         applyTranslations();
+        showLoading();
         localConfig = await fetchData('config');
         if (localConfig) {
             setupEventListeners();
             render();
         } else {
-            tabContainer.innerHTML = 'Error loading initial configuration.';
+            tabContainer.innerHTML = '<h2>Failed to load configuration. Please check server logs.</h2>';
         }
     };
 
