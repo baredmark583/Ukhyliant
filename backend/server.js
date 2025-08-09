@@ -1,4 +1,3 @@
-
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -319,13 +318,26 @@ app.post('/api/login', async (req, res) => {
             };
             await savePlayer(userId, player);
         } else {
-            // Check for daily reset
             const now = Date.now();
+            
+            // Calculate offline profit
+            const timeOfflineInSeconds = Math.floor((now - (player.lastLoginTimestamp || now)) / 1000);
+            if (timeOfflineInSeconds > 1) {
+                const offlineProfit = ((player.profitPerHour || 0) / 3600) * timeOfflineInSeconds;
+                player.balance = Number(player.balance || 0) + offlineProfit;
+                log('info', `User ${userId} was offline for ${timeOfflineInSeconds}s, earned ${offlineProfit} offline profit.`);
+            }
+            // IMPORTANT: Update timestamp for the next login
+            player.lastLoginTimestamp = now;
+
+            // Check for daily reset
             const lastResetDate = new Date(player.lastDailyReset || 0).toDateString();
             const todayDate = new Date(now).toDateString();
 
             if (lastResetDate !== todayDate) {
                 player = await resetPlayerDailyProgress(userId);
+                // After reset, make sure timestamp is current so offline profit is not calculated again on same login
+                player.lastLoginTimestamp = now;
             }
         }
         

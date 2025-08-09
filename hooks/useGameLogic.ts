@@ -45,16 +45,16 @@ const API = {
       });
   },
   
-  buyUpgrade: async (userId: string, upgradeId: string): Promise<PlayerState | null> => {
+  buyUpgrade: async (userId: string, upgradeId: string): Promise<{player?: PlayerState, error?: string}> => {
     if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
     const response = await fetch(`${API_BASE_URL}/api/action/buy-upgrade`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, upgradeId }),
     });
-    if (!response.ok) return null;
     const data = await response.json();
-    return data.player || null;
+    if (!response.ok) return { error: data.error || 'Failed to buy upgrade.' };
+    return data;
   },
   
   buyBoost: async (userId: string, boostId: string): Promise<{player?: PlayerState, error?: string}> => {
@@ -206,16 +206,14 @@ const API = {
     }
   },
 
-  setSkin: async(userId: string, skinId: string): Promise<PlayerState | null> => {
-    if (!API_BASE_URL) return null;
+  setSkin: async(userId: string, skinId: string): Promise<{ player?: PlayerState, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/action/set-skin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, skinId }),
     });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data.player || null;
+    return response.json();
   },
 
   createCell: async(userId: string, name: string): Promise<{ player?: PlayerState, cell?: Cell, error?: string }> => {
@@ -415,11 +413,19 @@ export const useGame = () => {
         return playerState.coinsPerTap + (playerState.tapGuruLevel || 0);
     }, [playerState?.coinsPerTap, playerState?.tapGuruLevel]);
 
-    // Game loop for energy regen
+    // Game loop for energy regen and passive income
     useEffect(() => {
         if (!playerState) return;
         const gameTick = setInterval(() => {
-            setPlayerState(p => p ? { ...p, energy: Math.min(effectiveMaxEnergy, p.energy + ENERGY_REGEN_RATE) } : null);
+            setPlayerState(p => {
+                if (!p) return null;
+                const profitPerSecond = (p.profitPerHour || 0) / 3600;
+                return {
+                    ...p,
+                    energy: Math.min(effectiveMaxEnergy, p.energy + ENERGY_REGEN_RATE),
+                    balance: Number(p.balance) + profitPerSecond,
+                };
+            });
         }, 1000);
         return () => clearInterval(gameTick);
     }, [playerState, setPlayerState, effectiveMaxEnergy]);
@@ -480,11 +486,12 @@ export const useGame = () => {
 
     const buyUpgrade = useCallback(async (upgradeId: string) => {
         if (!user) return null;
-        const updatedPlayerState = await API.buyUpgrade(user.id, upgradeId);
-        if (updatedPlayerState) {
-            setPlayerState(updatedPlayerState);
+        const result = await API.buyUpgrade(user.id, upgradeId);
+        if (result.player) {
+            setPlayerState(result.player);
+            return result.player;
         }
-        return updatedPlayerState;
+        return null;
     }, [user, setPlayerState]);
 
     const buyBoost = useCallback(async (boost: Boost) => {
@@ -578,9 +585,9 @@ export const useGame = () => {
 
     const setSkin = useCallback(async (skinId: string) => {
         if (!user) return;
-        const updatedPlayer = await API.setSkin(user.id, skinId);
-        if (updatedPlayer) {
-            setPlayerState(updatedPlayer);
+        const result = await API.setSkin(user.id, skinId);
+        if (result.player) {
+            setPlayerState(result.player);
         }
     }, [user, setPlayerState]);
 
