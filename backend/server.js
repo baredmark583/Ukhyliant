@@ -48,6 +48,7 @@ import {
     recalculateReferralProfit,
     buyUpgradeInDb,
     buyBoostInDb,
+    processSuccessfulPayment,
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
@@ -81,7 +82,14 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors({ origin: '*', credentials: true }));
-app.use(express.json());
+// Use express.json() for all routes EXCEPT the webhook
+app.use((req, res, next) => {
+    if (req.path === '/api/telegram-webhook') {
+        next();
+    } else {
+        express.json()(req, res, next);
+    }
+});
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
@@ -114,6 +122,21 @@ const fetchWithTimeout = (url, options = {}, timeout = 5000) => {
         new Promise((_, reject) => setTimeout(() => reject(new Error('Request timed out')), timeout))
     ]);
 };
+
+const answerPreCheckoutQuery = async (queryId, ok, errorMessage = '') => {
+    const { BOT_TOKEN } = process.env;
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/answerPreCheckoutQuery`;
+    await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            pre_checkout_query_id: queryId,
+            ok,
+            ...(errorMessage && { error_message: errorMessage })
+        })
+    });
+};
+
 
 const fetchYoutubeStats = async (channelId, apiKey) => {
     if (!channelId || !apiKey) return { subscribers: 0, views: 0 };
@@ -200,6 +223,39 @@ app.use('/admin', express.static(path.join(__dirname, 'public')));
 
 
 // --- API ROUTES ---
+
+// Telegram Webhook - MUST use raw body parser
+app.post('/api/telegram-webhook', express.json(), async (req, res) => {
+    const update = req.body;
+
+    // Handle pre-checkout query
+    if (update.pre_checkout_query) {
+        const query = update.pre_checkout_query;
+        log('info', `Received pre-checkout query for payload: ${query.invoice_payload}`);
+        // Basic validation: check if payload exists
+        if (query.invoice_payload) {
+            await answerPreCheckoutQuery(query.id, true);
+        } else {
+            await answerPreCheckoutQuery(query.id, false, "Invalid payload.");
+        }
+    }
+
+    // Handle successful payment
+    else if (update.message && update.message.successful_payment) {
+        const payment = update.message.successful_payment;
+        log('info', `Received successful payment for payload: ${payment.invoice_payload}`);
+        try {
+            await processSuccessfulPayment(payment.invoice_payload);
+        } catch (error) {
+            log('error', `Failed to process successful payment for payload ${payment.invoice_payload}`, error);
+        }
+    }
+    
+    // Always respond to Telegram to acknowledge receipt of the webhook
+    res.sendStatus(200);
+});
+
+
 app.post('/api/login', async (req, res) => {
     try {
         const { tgUser, startParam } = req.body;
@@ -432,10 +488,7 @@ app.post('/api/action/:action', async (req, res) => {
 
         const result = await gameActions[action](req.body, player, config);
         
-        // After any action, re-fetch the player state to ensure it's the most current
-        const finalPlayerState = await getPlayer(userId);
-        res.json(result.player ? { ...result, player: finalPlayerState } : result);
-
+        res.json(result);
 
     } catch (error) {
         log('error', `Action ${action} for user ${userId} failed`, error);
@@ -443,12 +496,13 @@ app.post('/api/action/:action', async (req, res) => {
     }
 });
 
+// This endpoint now correctly handles payments for tasks with Stars.
 app.post('/api/create-invoice', async (req, res) => {
     const { userId, taskId } = req.body;
-    const { PAYMENT_PROVIDER_TOKEN, BOT_TOKEN } = process.env;
+    const { BOT_TOKEN } = process.env;
 
-    if (!PAYMENT_PROVIDER_TOKEN || !BOT_TOKEN) {
-        return res.status(500).json({ ok: false, error: "Payment provider or Bot Token is not configured." });
+    if (!BOT_TOKEN) {
+        return res.status(500).json({ ok: false, error: "Bot Token is not configured." });
     }
     try {
         const player = await getPlayer(userId);
@@ -462,8 +516,8 @@ app.post('/api/create-invoice', async (req, res) => {
         const invoicePayload = {
             title: task.name['en'] || 'Special Task',
             description: task.description['en'] || 'Unlock this special task.',
-            payload: `unlock-task-${userId}-${taskId}`,
-            provider_token: PAYMENT_PROVIDER_TOKEN,
+            payload: `unlock-task-${userId}-${taskId}`, // Payload for webhook
+            provider_token: "", // EMPTY for Telegram Stars
             currency: 'XTR',
             prices: [{ label: task.name['en'] || 'Unlock', amount: task.priceStars }]
         };
@@ -476,27 +530,25 @@ app.post('/api/create-invoice', async (req, res) => {
         const data = await response.json();
 
         if (data.ok) {
-            // NOTE: A full production app would use a webhook to confirm payment and grant the item.
-            // For this app, we optimistically mark the task as purchased, and the client-side `invoiceClosed`
-            // event handles refreshing the state.
-            await unlockSpecialTask(userId, taskId);
+            // The item is granted via webhook, not here.
             res.json({ ok: true, invoiceLink: data.result });
         } else {
             throw new Error(data.description || 'Failed to create invoice link.');
         }
 
     } catch (error) {
-        log('error', 'Failed to create invoice', error);
+        log('error', 'Failed to create task invoice', error);
         res.status(500).json({ ok: false, error: error.message });
     }
 });
 
+// This endpoint now correctly handles payments for lootboxes with Stars.
 app.post('/api/create-star-invoice', async (req, res) => {
     const { userId, boxType } = req.body;
-    const { PAYMENT_PROVIDER_TOKEN, BOT_TOKEN } = process.env;
+    const { BOT_TOKEN } = process.env;
 
-    if (!PAYMENT_PROVIDER_TOKEN || !BOT_TOKEN) {
-        return res.status(500).json({ ok: false, error: "Payment provider or Bot Token is not configured." });
+    if (!BOT_TOKEN) {
+        return res.status(500).json({ ok: false, error: "Bot Token is not configured." });
     }
     if (boxType !== 'star') {
         return res.status(400).json({ ok: false, error: "This is only for Star containers" });
@@ -508,8 +560,8 @@ app.post('/api/create-star-invoice', async (req, res) => {
         const invoicePayload = {
             title: 'Star Container',
             description: 'A container with rare items, purchased with Telegram Stars.',
-            payload: `buy-lootbox-${userId}-${boxType}`, // This payload would be used by a webhook
-            provider_token: PAYMENT_PROVIDER_TOKEN,
+            payload: `buy-lootbox-${userId}-${boxType}`, // Payload for webhook
+            provider_token: "", // EMPTY for Telegram Stars
             currency: 'XTR',
             prices: [{ label: 'Star Container', amount: cost }]
         };
@@ -521,9 +573,7 @@ app.post('/api/create-star-invoice', async (req, res) => {
         });
         const data = await response.json();
         if (data.ok) {
-             // For star lootboxes, the logic to give the item would be handled by a webhook
-             // that receives the payment confirmation and calls a secure function like openLootboxInDb.
-             // Here, we just provide the link. The client will reload after payment via `invoiceClosed` event.
+            // The item is granted via webhook, not here.
             res.json({ ok: true, invoiceLink: data.result });
         } else {
             throw new Error(data.description || 'Failed to create invoice link.');

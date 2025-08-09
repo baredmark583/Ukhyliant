@@ -34,12 +34,12 @@ const executeQuery = async (query, params) => {
     try {
         const result = await client.query(query, params);
         const duration = Date.now() - start;
-        console.log('[DB_QUERY]', { 
-            query: query.replace(/\s\s+/g, ' ').trim(), 
-            params: params, 
-            duration: `${duration}ms`, 
-            rows: result.rowCount 
-        });
+        // console.log('[DB_QUERY]', { 
+        //     query: query.replace(/\s\s+/g, ' ').trim(), 
+        //     params: params, 
+        //     duration: `${duration}ms`, 
+        //     rows: result.rowCount 
+        // });
         return result;
     } catch (error) {
         const duration = Date.now() - start;
@@ -782,15 +782,8 @@ export const openLootboxInDb = async (userId, boxType, config) => {
             const userRes = await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId]);
             const referrerId = userRes.rows[0]?.referrer_id;
             if (referrerId) {
-                // Update referrer's profit directly, but will be fully recalculated on next action.
-                const referrerPlayerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [referrerId]);
-                if (referrerPlayerRes.rows.length > 0) {
-                    let referrerPlayer = referrerPlayerRes.rows[0].data;
-                    const profitShare = Math.floor(profitGained * REFERRAL_PROFIT_SHARE);
-                    referrerPlayer.profitPerHour += profitShare;
-                    referrerPlayer.referralProfitPerHour += profitShare;
-                    await client.query('UPDATE players SET data = $1 WHERE id = $2', [referrerPlayer, referrerId]);
-                }
+                // This is a quick update. A full recalculation should happen on the referrer's next action.
+                await recalculateReferralProfit(referrerId);
             }
 
         } else if ('profitBoostPercent' in wonItem) { // It's a CoinSkin
@@ -808,6 +801,103 @@ export const openLootboxInDb = async (userId, boxType, config) => {
         throw e;
     } finally {
         client.release();
+    }
+};
+
+const grantStarLootboxItem = async (userId, config) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error("Player not found.");
+        let player = playerRes.rows[0].data;
+
+        // No cost deduction, as payment is handled by Telegram Stars
+
+        const possibleItems = [
+            ...config.blackMarketCards.filter(c => c.boxType === 'star'),
+            ...config.coinSkins.filter(s => s.boxType === 'star' && !(player.unlockedSkins || []).includes(s.id))
+        ];
+        
+        if (possibleItems.length === 0) {
+            // This is an issue, we should probably refund or notify. For now, just log it.
+            console.error(`User ${userId} paid for a star lootbox, but no items were available.`);
+            await client.query('COMMIT'); 
+            return;
+        }
+
+        const totalChance = possibleItems.reduce((sum, item) => sum + item.chance, 0);
+        let random = Math.random() * totalChance;
+        
+        let wonItem = null;
+        for (const item of possibleItems) {
+            random -= item.chance;
+            if (random <= 0) {
+                wonItem = item;
+                break;
+            }
+        }
+        
+        if (!wonItem) wonItem = possibleItems[possibleItems.length - 1]; // Fallback
+
+        if ('profitPerHour' in wonItem) { // It's a BlackMarketCard
+            const cardId = wonItem.id;
+            const currentLevel = player.upgrades[cardId] || 0;
+            player.upgrades[cardId] = currentLevel + 1;
+            player.profitPerHour = (player.profitPerHour || 0) + wonItem.profitPerHour;
+            
+            const userRes = await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId]);
+            const referrerId = userRes.rows[0]?.referrer_id;
+            if (referrerId) {
+                await recalculateReferralProfit(referrerId);
+            }
+
+        } else if ('profitBoostPercent' in wonItem) { // It's a CoinSkin
+            player.unlockedSkins = [...new Set([...(player.unlockedSkins || []), wonItem.id])];
+        }
+
+        player = applySuspicion(player, wonItem.suspicionModifier);
+
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
+        
+        await client.query('COMMIT');
+        console.log(`Granted star lootbox item ${wonItem.id} to user ${userId}`);
+    } catch (e) {
+        await client.query('ROLLBACK');
+        console.error(`Failed to grant star lootbox item to user ${userId}`, e);
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+
+export const processSuccessfulPayment = async (payload) => {
+    const parts = payload.split('-');
+    const type = parts[0];
+    const userId = parts[1];
+    const itemId = parts[2];
+
+    if (!type || !userId || !itemId) {
+        throw new Error(`Invalid payload structure: ${payload}`);
+    }
+
+    const config = await getGameConfig();
+
+    if (type === 'unlock' && parts[2] === 'task') {
+        const taskId = parts[3];
+        console.log(`Processing task unlock for user ${userId}, task ${taskId}`);
+        await unlockSpecialTask(userId, taskId);
+    } else if (type === 'buy' && parts[2] === 'lootbox') {
+        const boxType = parts[3];
+        if (boxType === 'star') {
+            console.log(`Processing star lootbox grant for user ${userId}`);
+            await grantStarLootboxItem(userId, config);
+        } else {
+             throw new Error(`Unsupported lootbox type in payload: ${boxType}`);
+        }
+    } else {
+        throw new Error(`Unknown payload type: ${type}`);
     }
 };
 
