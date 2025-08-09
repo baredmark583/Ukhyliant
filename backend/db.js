@@ -58,8 +58,8 @@ const executeQuery = async (query, params) => {
 const applySuspicion = (player, modifier) => {
     if (modifier === null || modifier === undefined || modifier === 0) return player;
     
-    let currentSuspicion = player.suspicion || 0;
-    currentSuspicion += modifier;
+    let currentSuspicion = Number(player.suspicion || 0); // Ensure value is a number
+    currentSuspicion += Number(modifier || 0);
 
     if (currentSuspicion >= 100) {
         player.balance = 0; // Confiscate all funds
@@ -1008,7 +1008,7 @@ export const updatePlayerBalance = async (id, amount) => {
             throw new Error('Player not found');
         }
         const player = playerRes.rows[0].data;
-        player.balance = (player.balance || 0) + amount;
+        player.balance = Number(player.balance || 0) + Number(amount || 0); // Ensure both are numbers
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, id]);
         await client.query('COMMIT');
         return player;
