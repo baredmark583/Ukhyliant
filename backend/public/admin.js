@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -73,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- API & DATA HANDLING ---
     const fetchData = async (endpoint) => {
         try {
-            const response = await fetch(`/admin/api/${endpoint}`);
+            const response = await fetch(`/admin/api/${endpoint}`, { cache: 'no-cache' }); // Use no-cache to ensure freshness
             if (!response.ok) {
                 if (response.status === 401) window.location.href = '/admin/login.html';
                 console.error(`Error fetching ${endpoint}: ${response.statusText}`);

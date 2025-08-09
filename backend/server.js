@@ -372,6 +372,7 @@ app.post('/api/player/:id', async (req, res) => {
         const playerStateFromClient = req.body;
         
         const playerStateFromDb = await getPlayer(id);
+        let bonusApplied = false;
 
         if (playerStateFromDb) {
             // Anti-cheat check
@@ -395,11 +396,18 @@ app.post('/api/player/:id', async (req, res) => {
                 playerStateFromClient.balance = (Number(playerStateFromClient.balance) || 0) + Number(playerStateFromDb.adminBonus);
                 playerStateFromClient.adminBonus = 0; // Reset the bonus after applying
                 log('info', `Applied admin bonus of ${playerStateFromDb.adminBonus} to user ${id}.`);
+                bonusApplied = true;
             }
         }
         
         await savePlayer(id, playerStateFromClient);
-        res.sendStatus(200);
+
+        // If a bonus was applied, send the updated state back to the client to sync them.
+        if (bonusApplied) {
+            res.json(playerStateFromClient);
+        } else {
+            res.sendStatus(200);
+        }
     } catch (error) {
         log('error', `Saving player ${req.params.id} failed`, error);
         res.status(500).json({ error: 'Internal Server Error' });

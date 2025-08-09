@@ -27,13 +27,18 @@ const API = {
     return response.json();
   },
 
-  savePlayerState: async (userId: string, state: PlayerState): Promise<void> => {
-     if (!API_BASE_URL) return;
-     await fetch(`${API_BASE_URL}/api/player/${userId}`, {
+  savePlayerState: async (userId: string, state: PlayerState): Promise<PlayerState | null> => {
+     if (!API_BASE_URL) return null;
+     const response = await fetch(`${API_BASE_URL}/api/player/${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(state)
      });
+     // If the server sends back an updated player state, parse and return it.
+     if (response.ok && response.headers.get('Content-Type')?.includes('application/json')) {
+         return response.json();
+     }
+     return null; // Otherwise, return null
   },
 
   updateUserLanguage: async (userId: string, lang: Language): Promise<void> => {
@@ -398,10 +403,16 @@ export const useGame = () => {
         if (!user || !playerState) return;
         const handler = setTimeout(() => {
             const stateToSave = { ...playerState, lastLoginTimestamp: Date.now() };
-            API.savePlayerState(user.id, stateToSave);
+            API.savePlayerState(user.id, stateToSave).then(updatedState => {
+                // If the server sent back an updated state (e.g., after applying a bonus),
+                // update the client's state to match.
+                if (updatedState) {
+                    setPlayerState(updatedState);
+                }
+            });
         }, SAVE_DEBOUNCE_MS);
         return () => clearTimeout(handler);
-    }, [playerState, user]);
+    }, [playerState, user, setPlayerState]);
 
     const effectiveMaxEnergy = useMemo(() => {
         if (!playerState) return INITIAL_MAX_ENERGY;
