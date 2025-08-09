@@ -319,7 +319,7 @@ export const applyReferralBonus = async (referrerId) => {
             return;
         }
         const playerData = playerRes.rows[0].data;
-        playerData.balance = (playerData.balance || 0) + REFERRAL_BONUS;
+        playerData.balance = Number(playerData.balance || 0) + REFERRAL_BONUS;
         playerData.referrals = (playerData.referrals || 0) + 1;
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [playerData, referrerId]);
         await client.query('COMMIT');
@@ -381,7 +381,7 @@ export const unlockSpecialTask = async (userId, taskId) => {
 
 const applyReward = (player, reward) => {
     if (reward.type === 'coins') {
-        player.balance = (player.balance || 0) + reward.amount;
+        player.balance = Number(player.balance || 0) + reward.amount;
     } else if (reward.type === 'profit') {
         player.profitPerHour = (player.profitPerHour || 0) + reward.amount;
         player.tasksProfitPerHour = (player.tasksProfitPerHour || 0) + reward.amount;
@@ -526,7 +526,7 @@ export const claimComboReward = async (userId) => {
         }
         
         const rewardAmount = Number(dailyEvent.combo_reward) || 0;
-        player.balance += rewardAmount;
+        player.balance = Number(player.balance || 0) + rewardAmount;
         player.claimedComboToday = true;
         
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
@@ -569,7 +569,7 @@ export const claimCipherReward = async (userId, cipher) => {
         }
         
         const rewardAmount = Number(dailyEvent.cipher_reward) || 0;
-        player.balance += rewardAmount;
+        player.balance = Number(player.balance || 0) + rewardAmount;
         player.claimedCipherToday = true;
 
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
@@ -599,9 +599,10 @@ export const createCellInDb = async (userId, name, cost) => {
         let player = playerRes.rows[0].data;
 
         if (player.cellId) throw new Error("Player is already in a cell.");
-        if (player.balance < cost) throw new Error("Not enough coins to create a cell.");
-
-        player.balance -= cost;
+        
+        const currentBalance = Number(player.balance || 0);
+        if (currentBalance < cost) throw new Error("Not enough coins to create a cell.");
+        player.balance = currentBalance - cost;
 
         const inviteCode = generateInviteCode();
         const cellRes = await client.query(
@@ -709,8 +710,9 @@ export const recruitInformantInDb = async (userId, informantData, config) => {
         if (!player.cellId) throw new Error("You must be in a cell to recruit informants.");
         
         const cost = config.informantRecruitCost || INFORMANT_RECRUIT_COST; 
-        if (player.balance < cost) throw new Error("Not enough coins to recruit an informant.");
-        player.balance -= cost;
+        const currentBalance = Number(player.balance || 0);
+        if (currentBalance < cost) throw new Error("Not enough coins to recruit an informant.");
+        player.balance = currentBalance - cost;
         
         const { name, dossier, specialization } = informantData;
 
@@ -745,8 +747,9 @@ export const openLootboxInDb = async (userId, boxType, config) => {
 
         const cost = config.lootboxCostCoins || LOOTBOX_COST_COINS;
         
-        if (player.balance < cost) throw new Error("Not enough coins.");
-        player.balance -= cost;
+        const currentBalance = Number(player.balance || 0);
+        if (currentBalance < cost) throw new Error("Not enough coins.");
+        player.balance = currentBalance - cost;
 
         const possibleItems = [
             ...config.blackMarketCards.filter(c => c.boxType === boxType),
@@ -1138,10 +1141,11 @@ export const buyUpgradeInDb = async (userId, upgradeId, config) => {
         
         const currentLevel = player.upgrades[upgradeId] || 0;
         const price = Math.floor((upgrade.price || upgrade.profitPerHour * 10) * Math.pow(1.15, currentLevel));
+        
+        const currentBalance = Number(player.balance || 0);
+        if (currentBalance < price) throw new Error("Not enough coins");
 
-        if (player.balance < price) throw new Error("Not enough coins");
-
-        player.balance -= price;
+        player.balance = currentBalance - price;
         const profitGained = upgrade.profitPerHour;
         player.profitPerHour = (player.profitPerHour || 0) + profitGained;
         player.upgrades[upgradeId] = currentLevel + 1;
@@ -1187,9 +1191,10 @@ export const buyBoostInDb = async (userId, boostId, config) => {
         } else if (boostId === 'boost_energy_limit') {
             cost = Math.floor(boost.costCoins * Math.pow(1.8, player.energyLimitLevel || 0));
         }
-
-        if (player.balance < cost) throw new Error("Not enough coins");
-        player.balance -= cost;
+        
+        const currentBalance = Number(player.balance || 0);
+        if (currentBalance < cost) throw new Error("Not enough coins");
+        player.balance = currentBalance - cost;
 
         switch(boostId) {
             case 'boost_full_energy':
