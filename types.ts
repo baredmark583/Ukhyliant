@@ -1,5 +1,4 @@
 
-
 export type Language = 'en' | 'ua' | 'ru';
 
 export interface LocalizedString {
@@ -174,6 +173,7 @@ export interface PlayerState {
   currentSkinId: string;
   suspicion: number;
   cellId: number | null;
+  penaltyLog?: { type: string; timestamp: string }[];
 }
 
 export interface CellMember {

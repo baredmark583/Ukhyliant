@@ -104,6 +104,8 @@ type TranslationKey =
   | 'total_cell_profit' | 'total_cell_profit' | 'invite_code' | 'copy' | 'confirm_leave_cell'
   // Informants
   | 'recruit_informant' | 'informants' | 'no_informants_recruited' | 'informant_dossier' | 'recruit' | 'recruiting'
+  // Big Brother
+  | 'big_brother_is_watching' | 'penalty_title' | 'penalty_close'
   // Generic
   | 'loading' | 'cancel';
 
@@ -238,6 +240,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     informant_dossier: 'Informant Dossier',
     recruit: 'Recruit',
     recruiting: 'Recruiting...',
+    big_brother_is_watching: 'Big Brother is watching you',
+    penalty_title: 'Penalty',
+    penalty_close: 'Acknowledge',
     loading: 'Loading...',
     cancel: 'Cancel',
   },
@@ -370,6 +375,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     informant_dossier: 'Досьє інформатора',
     recruit: 'Завербувати',
     recruiting: 'Вербування...',
+    big_brother_is_watching: 'Великий брат стежить за тобою',
+    penalty_title: 'Покарання',
+    penalty_close: 'Зрозуміло',
     loading: 'Завантаження...',
     cancel: 'Скасувати',
   },
@@ -502,6 +510,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     informant_dossier: 'Досье информатора',
     recruit: 'Завербовать',
     recruiting: 'Вербовка...',
+    big_brother_is_watching: 'Большой брат следит за тобой',
+    penalty_title: 'Наказание',
+    penalty_close: 'Принять',
     loading: 'Загрузка...',
     cancel: 'Отмена',
   },

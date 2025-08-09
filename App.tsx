@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -449,7 +450,8 @@ const MainApp: React.FC = () => {
       claimDailyCombo, claimDailyCipher, getLeaderboard, 
       openCoinLootbox, purchaseLootboxWithStars, 
       setSkin,
-      isTurboActive, effectiveMaxEnergy
+      isTurboActive, effectiveMaxEnergy,
+      ominousMessage, setOminousMessage
   } = useGame();
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -608,6 +610,41 @@ const MainApp: React.FC = () => {
       showNotification(t('selected'), 'success');
   };
 
+  const BigBrotherWarning = () => {
+      const t = useTranslation();
+      return (
+          <>
+              <div className="fixed inset-0 bg-black/50 z-50 pointer-events-none">
+                  <div className="glitch-noise" style={{ opacity: 0.1 }}></div>
+              </div>
+              <div className="glitch-modal text-center w-80 pointer-events-none">
+                  <h2 className="text-4xl font-display text-red-500" style={{ textShadow: '0 0 10px red' }}>
+                      {t('big_brother_is_watching')}
+                  </h2>
+              </div>
+          </>
+      );
+  };
+
+  const PenaltyModal: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
+      const t = useTranslation();
+      return (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+              <div 
+                className="themed-container w-full max-w-sm flex flex-col p-6 items-center border-2 border-red-500/80" 
+                onClick={e => e.stopPropagation()}
+                style={{ boxShadow: '0 0 20px rgba(239, 68, 68, 0.4)' }}
+              >
+                  <h2 className="text-2xl font-display text-red-400 mb-4">{t('penalty_title')}</h2>
+                  <p className="text-lg text-white text-center mb-6">"{message}"</p>
+                  <button onClick={onClose} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 mt-2 text-lg">
+                      {t('penalty_close')}
+                  </button>
+              </div>
+          </div>
+      );
+  };
+
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
@@ -688,6 +725,9 @@ const MainApp: React.FC = () => {
         {renderScreen()}
       </main>
       
+      {playerState.suspicion >= 90 && playerState.suspicion < 100 && <BigBrotherWarning />}
+      {ominousMessage && <PenaltyModal message={ominousMessage} onClose={() => setOminousMessage('')} />}
+
       {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
       {secretCodeTask && <SecretCodeModal task={secretCodeTask} lang={user.language} onClose={() => setSecretCodeTask(null)} onSubmit={(code) => {
           if ('isOneTime' in secretCodeTask) {

@@ -62,9 +62,9 @@ const applySuspicion = (player, modifier) => {
     currentSuspicion += Number(modifier || 0);
 
     if (currentSuspicion >= 100) {
-        player.balance = 0; // Confiscate all funds
+        player.balance = Number(player.balance || 0) * 0.75; // Confiscate 25% of funds
         currentSuspicion = 50; // Give them a second chance at 50% suspicion
-        player.penaltyLog = [...(player.penaltyLog || []), { type: 'confiscation', timestamp: new Date().toISOString() }];
+        player.penaltyLog = [...(player.penaltyLog || []), { type: 'confiscation_25_percent', timestamp: new Date().toISOString() }];
     }
     
     // Clamp the suspicion value between 0 and 100

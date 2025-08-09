@@ -1,4 +1,5 @@
 
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -61,7 +62,7 @@ const __dirname = path.dirname(__filename);
 
 const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 if (!ai) {
-    console.warn("GEMINI_API_KEY for Gemini is not set. Informant recruitment will be disabled.");
+    console.warn("GEMINI_API_KEY for Gemini is not set. AI features will be disabled.");
 }
 
 // --- Simple Logger ---
@@ -320,25 +321,31 @@ app.post('/api/login', async (req, res) => {
             await savePlayer(userId, player);
         } else {
             const now = Date.now();
+            let wasReset = false;
             
-            // Calculate offline profit
+            // Check for daily reset
+            const lastResetDate = new Date(player.lastDailyReset || 0).toDateString();
+            const todayDate = new Date(now).toDateString();
+
+            if (lastResetDate !== todayDate) {
+                player = await resetPlayerDailyProgress(userId); // This saves the state
+                wasReset = true;
+            }
+
+            // Calculate offline profit based on the potentially reset player state
             const timeOfflineInSeconds = Math.floor((now - (player.lastLoginTimestamp || now)) / 1000);
             if (timeOfflineInSeconds > 1) {
                 const offlineProfit = ((player.profitPerHour || 0) / 3600) * timeOfflineInSeconds;
                 player.balance = Number(player.balance || 0) + offlineProfit;
                 log('info', `User ${userId} was offline for ${timeOfflineInSeconds}s, earned ${offlineProfit} offline profit.`);
             }
-            // IMPORTANT: Update timestamp for the next login
+            
+            // Always update timestamp for the next login/save calculation
             player.lastLoginTimestamp = now;
 
-            // Check for daily reset
-            const lastResetDate = new Date(player.lastDailyReset || 0).toDateString();
-            const todayDate = new Date(now).toDateString();
-
-            if (lastResetDate !== todayDate) {
-                player = await resetPlayerDailyProgress(userId);
-                // After reset, make sure timestamp is current so offline profit is not calculated again on same login
-                player.lastLoginTimestamp = now;
+            // Save the player state with new balance and timestamp if it wasn't already saved by the reset function
+            if (!wasReset) {
+                await savePlayer(userId, player);
             }
         }
         
@@ -367,50 +374,73 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/player/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const playerStateFromClient = req.body;
-        
-        const playerStateFromDb = await getPlayer(id);
-        let bonusApplied = false;
+    const { id } = req.params;
+    const clientState = req.body;
+    const dbClient = await pool.connect();
 
-        if (playerStateFromDb) {
-            // Anti-cheat check
-            const timeDiff = (Date.now() - playerStateFromDb.lastLoginTimestamp) / 1000;
-            const taps = playerStateFromClient.dailyTaps - playerStateFromDb.dailyTaps;
-            if (timeDiff > 0.1 && taps > 0) { // check only if there's a meaningful time diff
-                const tps = taps / timeDiff;
-                if (tps > CHEAT_DETECTION_THRESHOLD_TPS) {
-                    playerStateFromClient.cheatStrikes = (playerStateFromDb.cheatStrikes || 0) + 1;
-                    playerStateFromClient.cheatLog = [...(playerStateFromDb.cheatLog || []), { tps, taps, timeDiff, timestamp: new Date().toISOString() }];
-                    if (playerStateFromClient.cheatStrikes >= CHEAT_DETECTION_STRIKES_TO_FLAG) {
-                        playerStateFromClient.isCheater = true;
-                    }
-                    log('warn', `High TPS detected for user ${id}: ${tps.toFixed(2)}`);
-                }
-            }
-            
-            // Safely apply admin bonus to prevent race conditions.
-            // This handles both positive and negative bonuses.
-            if (playerStateFromDb.adminBonus && Number(playerStateFromDb.adminBonus) !== 0) {
-                playerStateFromClient.balance = (Number(playerStateFromClient.balance) || 0) + Number(playerStateFromDb.adminBonus);
-                playerStateFromClient.adminBonus = 0; // Reset the bonus after applying
-                log('info', `Applied admin bonus of ${playerStateFromDb.adminBonus} to user ${id}.`);
-                bonusApplied = true;
-            }
+    try {
+        await dbClient.query('BEGIN');
+
+        const dbRes = await dbClient.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [id]);
+        if (dbRes.rows.length === 0) {
+            // This case should be rare, but handle it by creating a player record.
+            await dbClient.query('INSERT INTO players (id, data) VALUES ($1, $2)', [id, clientState]);
+            await dbClient.query('COMMIT');
+            return res.sendStatus(201);
         }
         
-        await savePlayer(id, playerStateFromClient);
+        let serverState = dbRes.rows[0].data;
+        let finalState = { ...serverState }; // Start with the server's state as the source of truth
+        let stateUpdatedForClient = false;
 
-        // If a bonus was applied, send the updated state back to the client to sync them.
-        if (bonusApplied) {
-            res.json(playerStateFromClient);
+        // 1. Anti-Cheat Check
+        const timeDiff = (Date.now() - (serverState.lastLoginTimestamp || Date.now())) / 1000;
+        const taps = (clientState.dailyTaps || 0) - (serverState.dailyTaps || 0);
+        if (timeDiff > 0.1 && taps > 0) {
+            const tps = taps / timeDiff;
+            if (tps > CHEAT_DETECTION_THRESHOLD_TPS) {
+                finalState.cheatStrikes = (serverState.cheatStrikes || 0) + 1;
+                finalState.cheatLog = [...(serverState.cheatLog || []), { tps, taps, timeDiff, timestamp: new Date().toISOString() }];
+                if (finalState.cheatStrikes >= CHEAT_DETECTION_STRIKES_TO_FLAG) {
+                    finalState.isCheater = true;
+                }
+                log('warn', `High TPS detected for user ${id}: ${tps.toFixed(2)}`);
+            }
+        }
+
+        // 2. Apply and clear any pending admin bonus. This is the crucial step.
+        // We use the client's balance as the base because it includes recent legitimate earnings (taps, etc.).
+        if (serverState.adminBonus && Number(serverState.adminBonus) !== 0) {
+            finalState.balance = (Number(clientState.balance) || 0) + Number(serverState.adminBonus);
+            finalState.adminBonus = 0; // Reset bonus after applying
+            stateUpdatedForClient = true; // Flag that we need to sync the client
+            log('info', `Applied admin bonus of ${serverState.adminBonus} to user ${id}. New balance: ${finalState.balance}`);
         } else {
-            res.sendStatus(200);
+            // If no bonus, just take the client's most recent balance.
+            finalState.balance = clientState.balance;
+        }
+
+        // 3. Update other high-frequency fields from the client.
+        finalState.energy = clientState.energy;
+        finalState.dailyTaps = clientState.dailyTaps;
+        finalState.lastLoginTimestamp = clientState.lastLoginTimestamp; // Very important to keep this updated
+
+        // 4. Save the fully merged state.
+        await dbClient.query('UPDATE players SET data = $1 WHERE id = $2', [finalState, id]);
+        await dbClient.query('COMMIT');
+        
+        // 5. Respond
+        if (stateUpdatedForClient) {
+            res.json(finalState); // Send the synchronized state back to the client
+        } else {
+            res.sendStatus(200); // Just acknowledge the save
         }
     } catch (error) {
-        log('error', `Saving player ${req.params.id} failed`, error);
+        await dbClient.query('ROLLBACK');
+        log('error', `Saving player ${id} failed in transaction`, error);
         res.status(500).json({ error: 'Internal Server Error' });
+    } finally {
+        dbClient.release();
     }
 });
 
@@ -714,6 +744,31 @@ app.post('/api/informant/recruit', async (req, res) => {
         } else {
             res.status(500).json({ error: "Failed to process recruitment request." });
         }
+    }
+});
+
+app.get('/api/ominous-warning', async (req, res) => {
+    if (!ai) {
+        return res.status(503).json({ message: "Service unavailable." });
+    }
+    try {
+        const { lang = 'en' } = req.query;
+        const languageMap = {
+            'en': 'English',
+            'ua': 'Ukrainian',
+            'ru': 'Russian'
+        };
+        const language = languageMap[lang] || 'English';
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `You are a 'Big Brother' style entity in a dystopian world. Generate a single, short, ominous warning for a citizen who has been caught breaking the rules. The message must be in ${language}. Be creative and intimidating. Do not use quotation marks around the message.`,
+        });
+
+        res.json({ message: response.text.trim() });
+    } catch (e) {
+        console.error("Ominous warning generation error:", e);
+        res.status(500).json({ message: "The system is watching... but cannot speak right now." });
     }
 });
 

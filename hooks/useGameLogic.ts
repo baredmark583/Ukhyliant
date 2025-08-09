@@ -266,6 +266,17 @@ const API = {
     });
     return response.json();
   },
+
+  getOminousWarning: async(lang: Language): Promise<{message: string}> => {
+    if (!API_BASE_URL) return { message: 'The system is silent.' };
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/ominous-warning?lang=${lang}`);
+        if (!response.ok) return { message: 'Transmission error.' };
+        return response.json();
+    } catch (e) {
+        return { message: 'Connection lost.' };
+    }
+  },
 };
 
 // --- AUTH CONTEXT ---
@@ -397,6 +408,8 @@ export const useGame = () => {
     const { user } = useAuth();
     const { playerState, setPlayerState, config, setConfig } = useGameContext();
     const [isTurboActive, setIsTurboActive] = useState(false);
+    const [ominousMessage, setOminousMessage] = useState<string>('');
+    const prevPenaltyLogLength = React.useRef<number | undefined>(undefined);
 
     // Persist state to backend with debounce
     useEffect(() => {
@@ -413,6 +426,28 @@ export const useGame = () => {
         }, SAVE_DEBOUNCE_MS);
         return () => clearTimeout(handler);
     }, [playerState, user, setPlayerState]);
+
+    // Penalty detection effect
+    useEffect(() => {
+        if (!user || !playerState) return;
+        
+        const currentLogLength = playerState.penaltyLog?.length || 0;
+        
+        // Initialize prev length on first run
+        if (prevPenaltyLogLength.current === undefined) {
+            prevPenaltyLogLength.current = currentLogLength;
+            return;
+        }
+
+        if (currentLogLength > prevPenaltyLogLength.current) {
+            // New penalty detected
+            API.getOminousWarning(user.language).then(data => {
+                setOminousMessage(data.message);
+            });
+        }
+        prevPenaltyLogLength.current = currentLogLength;
+
+    }, [playerState, user?.language]);
 
     const effectiveMaxEnergy = useMemo(() => {
         if (!playerState) return INITIAL_MAX_ENERGY;
@@ -662,5 +697,7 @@ export const useGame = () => {
         getMyCell,
         leaveCell,
         recruitInformant,
+        ominousMessage,
+        setOminousMessage,
     };
 };
