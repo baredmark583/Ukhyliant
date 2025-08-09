@@ -1011,7 +1011,9 @@ export const updatePlayerBalance = async (id, amount) => {
             throw new Error('Player not found');
         }
         const player = playerRes.rows[0].data;
-        player.balance = Number(player.balance || 0) + Number(amount || 0); // Ensure both are numbers
+        // Instead of directly updating the balance, add to a temporary `adminBonus` field.
+        // This prevents race conditions where the client's autosave might overwrite the admin's change.
+        player.adminBonus = (Number(player.adminBonus) || 0) + Number(amount || 0);
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, id]);
         await client.query('COMMIT');
         return player;

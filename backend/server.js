@@ -1,3 +1,4 @@
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -368,32 +369,42 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/player/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const playerState = req.body;
+        const playerStateFromClient = req.body;
         
-        // Anti-cheat check
-        const oldPlayerState = await getPlayer(id);
-        if (oldPlayerState) {
-            const timeDiff = (Date.now() - oldPlayerState.lastLoginTimestamp) / 1000;
-            const taps = playerState.dailyTaps - oldPlayerState.dailyTaps;
-            if (timeDiff > 0 && taps > 0) {
+        // Fetch the current state from DB to check for admin bonus and to prevent race conditions.
+        const playerStateFromDb = await getPlayer(id);
+
+        if (playerStateFromDb) {
+            // Anti-cheat check
+            const timeDiff = (Date.now() - playerStateFromDb.lastLoginTimestamp) / 1000;
+            const taps = playerStateFromClient.dailyTaps - playerStateFromDb.dailyTaps;
+            if (timeDiff > 0.1 && taps > 0) { // check only if there's a meaningful time diff
                 const tps = taps / timeDiff;
                 if (tps > CHEAT_DETECTION_THRESHOLD_TPS) {
-                    playerState.cheatStrikes = (playerState.cheatStrikes || 0) + 1;
-                    playerState.cheatLog = [...(playerState.cheatLog || []), { tps, taps, timeDiff, timestamp: new Date().toISOString() }];
-                    if (playerState.cheatStrikes >= CHEAT_DETECTION_STRIKES_TO_FLAG) {
-                        playerState.isCheater = true;
+                    playerStateFromClient.cheatStrikes = (playerStateFromDb.cheatStrikes || 0) + 1;
+                    playerStateFromClient.cheatLog = [...(playerStateFromDb.cheatLog || []), { tps, taps, timeDiff, timestamp: new Date().toISOString() }];
+                    if (playerStateFromClient.cheatStrikes >= CHEAT_DETECTION_STRIKES_TO_FLAG) {
+                        playerStateFromClient.isCheater = true;
                     }
+                    log('warn', `High TPS detected for user ${id}: ${tps.toFixed(2)}`);
                 }
             }
+             // Safely apply admin bonus
+            if (Number(playerStateFromDb.adminBonus) > 0) {
+                playerStateFromClient.balance = (Number(playerStateFromClient.balance) || 0) + Number(playerStateFromDb.adminBonus);
+                playerStateFromClient.adminBonus = 0; // Reset the bonus
+                log('info', `Applied admin bonus of ${playerStateFromDb.adminBonus} to user ${id}.`);
+            }
         }
-
-        await savePlayer(id, playerState);
+        
+        await savePlayer(id, playerStateFromClient);
         res.sendStatus(200);
     } catch (error) {
         log('error', `Saving player ${req.params.id} failed`, error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
 
 app.post('/api/user/:id/language', async (req, res) => {
     try {
