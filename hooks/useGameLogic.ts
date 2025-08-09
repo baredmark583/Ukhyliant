@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -54,7 +53,8 @@ const API = {
       body: JSON.stringify({ userId, upgradeId }),
     });
     if (!response.ok) return null;
-    return response.json();
+    const data = await response.json();
+    return data.player || null;
   },
   
   buyBoost: async (userId: string, boostId: string): Promise<{player?: PlayerState, error?: string}> => {
@@ -69,7 +69,7 @@ const API = {
         if (!response.ok) {
             return { error: data.error || 'Failed to buy boost.' };
         }
-        return { player: data };
+        return data;
     } catch(e) {
         console.error('Buy boost API call failed', e);
         return { error: 'Server connection failed while buying boost.' };
@@ -214,7 +214,8 @@ const API = {
         body: JSON.stringify({ userId, skinId }),
     });
     if (!response.ok) return null;
-    return response.json();
+    const data = await response.json();
+    return data.player || null;
   },
 
   createCell: async(userId: string, name: string): Promise<{ player?: PlayerState, cell?: Cell, error?: string }> => {
