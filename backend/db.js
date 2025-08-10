@@ -389,7 +389,7 @@ export const deletePlayer = async (userId) => {
 };
 
 // --- Task Functions ---
-export const unlockSpecialTask = async (userId, taskId) => {
+export const unlockSpecialTask = async (userId, taskId, config) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -403,6 +403,11 @@ export const unlockSpecialTask = async (userId, taskId) => {
         }
         
         player.purchasedSpecialTaskIds = [...(player.purchasedSpecialTaskIds || []), taskId];
+
+        const task = config.specialTasks.find(t => t.id === taskId);
+        if (task) {
+            player.lastPurchaseResult = { type: 'task', item: task };
+        }
         
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
@@ -439,7 +444,12 @@ export const completeAndRewardSpecialTask = async (userId, taskId, code) => {
         const config = configRes.rows[0].value;
         const task = config.specialTasks.find(t => t.id === taskId);
         if (!task) throw new Error('Task not found');
-        if (!player.purchasedSpecialTaskIds?.includes(taskId)) throw new Error('Task not purchased');
+        
+        // This check is now only for free tasks, star-paid tasks are pre-unlocked
+        if (task.priceStars > 0 && !player.purchasedSpecialTaskIds?.includes(taskId)) {
+            throw new Error('Task not purchased');
+        }
+
         if (player.completedSpecialTaskIds?.includes(taskId)) return player;
         
         if (task.type === 'video_code' && task.secretCode && task.secretCode.toLowerCase() !== code?.toLowerCase()) {
@@ -912,6 +922,7 @@ export const openLootboxInDb = async (userId, boxType, config) => {
         }
 
         player = applySuspicion(player, wonItem.suspicionModifier);
+        player.lastPurchaseResult = { type: 'lootbox', item: wonItem };
 
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         
@@ -978,6 +989,9 @@ const grantStarLootboxItem = async (userId, config) => {
         }
 
         player = applySuspicion(player, wonItem.suspicionModifier);
+        
+        player.purchasedStarLootboxesCount = (player.purchasedStarLootboxesCount || 0) + 1;
+        player.lastPurchaseResult = { type: 'lootbox', item: wonItem };
 
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         
@@ -994,10 +1008,10 @@ const grantStarLootboxItem = async (userId, config) => {
 
 
 export const processSuccessfulPayment = async (payload) => {
-    const parts = payload.split('-');
-    const type = parts[0];
-    const userId = parts[1];
-    const itemId = parts[2];
+    // Example payloads:
+    // For tasks: task-USERID-TASKID
+    // For lootboxes: lootbox-USERID-BOXTYPE
+    const [type, userId, itemId] = payload.split('-');
 
     if (!type || !userId || !itemId) {
         throw new Error(`Invalid payload structure: ${payload}`);
@@ -1005,12 +1019,12 @@ export const processSuccessfulPayment = async (payload) => {
 
     const config = await getGameConfig();
 
-    if (type === 'unlock' && parts[2] === 'task') {
-        const taskId = parts[3];
+    if (type === 'task') {
+        const taskId = itemId;
         console.log(`Processing task unlock for user ${userId}, task ${taskId}`);
-        await unlockSpecialTask(userId, taskId);
-    } else if (type === 'buy' && parts[2] === 'lootbox') {
-        const boxType = parts[3];
+        await unlockSpecialTask(userId, taskId, config);
+    } else if (type === 'lootbox') {
+        const boxType = itemId;
         if (boxType === 'star') {
             console.log(`Processing star lootbox grant for user ${userId}`);
             await grantStarLootboxItem(userId, config);
@@ -1062,14 +1076,22 @@ export const getDashboardStats = async () => {
     const config = await getGameConfig();
     const players = await executeQuery("SELECT data FROM players");
     
-    let totalStarsEarned = 0;
-    if (config && config.specialTasks && players.rows.length > 0) {
-        const specialTasksMap = new Map(config.specialTasks.map(t => [t.id, t.priceStars || 0]));
+    let totalStarsSpent = 0;
+    if (config && players.rows.length > 0) {
+        const specialTasksMap = new Map(config.specialTasks?.map(t => [t.id, t.priceStars || 0]) || []);
+        
         for (const playerRow of players.rows) {
-            const purchasedIds = playerRow.data?.purchasedSpecialTaskIds || [];
-            for (const taskId of purchasedIds) {
-                totalStarsEarned += specialTasksMap.get(taskId) || 0;
+            const player = playerRow.data;
+            if (!player) continue;
+
+            // Add stars from special tasks
+            const purchasedTaskIds = player.purchasedSpecialTaskIds || [];
+            for (const taskId of purchasedTaskIds) {
+                totalStarsSpent += specialTasksMap.get(taskId) || 0;
             }
+
+            // Add stars from star lootboxes
+            totalStarsSpent += (player.purchasedStarLootboxesCount || 0) * (config.lootboxCostStars || 0);
         }
     }
 
@@ -1079,7 +1101,7 @@ export const getDashboardStats = async () => {
         totalProfitPerHour: totalProfitRes.rows[0].total_profit,
         popularUpgrades: popularUpgradesRes.rows,
         registrations: registrationsRes,
-        totalStarsEarned,
+        totalStarsEarned: totalStarsSpent, // The key 'totalStarsEarned' is kept for frontend compatibility
     };
 };
 

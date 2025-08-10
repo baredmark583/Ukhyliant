@@ -510,8 +510,10 @@ const gameActions = {
         if (!task) throw new Error('Task not found');
         if (task.priceStars > 0) throw new Error('This task is not free');
 
-        const updatedPlayer = await unlockSpecialTask(userId, taskId);
-        return { player: updatedPlayer };
+        const updatedPlayer = await unlockSpecialTask(userId, taskId, config);
+        const wonItem = updatedPlayer.lastPurchaseResult;
+        // The wonItem is already in the player data, but we extract it for the client response
+        return { player: updatedPlayer, wonItem };
     },
 
     'complete-task': async (body, player, config) => { // Handles ONLY special tasks
@@ -574,9 +576,8 @@ app.post('/api/action/:action', async (req, res) => {
     }
 });
 
-// This endpoint now correctly handles payments for tasks with Stars.
-app.post('/api/create-invoice', async (req, res) => {
-    const { userId, taskId } = req.body;
+app.post('/api/create-star-invoice', async (req, res) => {
+    const { userId, payloadType, itemId } = req.body;
     const { BOT_TOKEN } = process.env;
 
     if (!BOT_TOKEN) {
@@ -585,63 +586,38 @@ app.post('/api/create-invoice', async (req, res) => {
     try {
         const player = await getPlayer(userId);
         const config = await getGameConfig();
-        const task = config.specialTasks.find(t => t.id === taskId);
+        if (!player) return res.status(404).json({ ok: false, error: "Player not found." });
 
-        if (!player || !task) return res.status(404).json({ ok: false, error: "Player or task not found." });
-        if (player.purchasedSpecialTaskIds?.includes(taskId)) return res.status(400).json({ ok: false, error: "Task already purchased." });
-        if (task.priceStars <= 0) return res.status(400).json({ ok: false, error: "This task is not for sale." });
+        let title, description, payload, price;
+        
+        if (payloadType === 'task') {
+            const task = config.specialTasks.find(t => t.id === itemId);
+            if (!task) return res.status(404).json({ ok: false, error: "Task not found." });
+            if (player.purchasedSpecialTaskIds?.includes(itemId)) return res.status(400).json({ ok: false, error: "Task already purchased." });
+            if (task.priceStars <= 0) return res.status(400).json({ ok: false, error: "This task is not for sale." });
 
-        const invoicePayload = {
-            title: task.name['en'] || 'Special Task',
-            description: task.description['en'] || 'Unlock this special task.',
-            payload: `unlock-task-${userId}-${taskId}`, // Payload for webhook
-            provider_token: "", // EMPTY for Telegram Stars
-            currency: 'XTR',
-            prices: [{ label: task.name['en'] || 'Unlock', amount: task.priceStars }]
-        };
-
-        const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify(invoicePayload)
-        });
-        const data = await response.json();
-
-        if (data.ok) {
-            // The item is granted via webhook, not here.
-            res.json({ ok: true, invoiceLink: data.result });
+            title = task.name['en'] || 'Special Task';
+            description = task.description['en'] || 'Unlock this special task.';
+            payload = `task-${userId}-${itemId}`;
+            price = task.priceStars;
+        } else if (payloadType === 'lootbox') {
+            if (itemId !== 'star') return res.status(400).json({ ok: false, error: "Invalid lootbox type" });
+            title = 'Star Container';
+            description = 'A container with rare items.';
+            payload = `lootbox-${userId}-${itemId}`;
+            price = config.lootboxCostStars || 0;
+            if (price <= 0) return res.status(400).json({ ok: false, error: "Lootbox not for sale." });
         } else {
-            throw new Error(data.description || 'Failed to create invoice link.');
+            return res.status(400).json({ ok: false, error: "Invalid payload type." });
         }
 
-    } catch (error) {
-        log('error', 'Failed to create task invoice', error);
-        res.status(500).json({ ok: false, error: error.message });
-    }
-});
-
-// This endpoint now correctly handles payments for lootboxes with Stars.
-app.post('/api/create-star-invoice', async (req, res) => {
-    const { userId, boxType } = req.body;
-    const { BOT_TOKEN } = process.env;
-
-    if (!BOT_TOKEN) {
-        return res.status(500).json({ ok: false, error: "Bot Token is not configured." });
-    }
-    if (boxType !== 'star') {
-        return res.status(400).json({ ok: false, error: "This is only for Star containers" });
-    }
-    try {
-        const config = await getGameConfig();
-        const cost = config.lootboxCostStars || LOOTBOX_COST_STARS;
-
         const invoicePayload = {
-            title: 'Star Container',
-            description: 'A container with rare items, purchased with Telegram Stars.',
-            payload: `buy-lootbox-${userId}-${boxType}`, // Payload for webhook
+            title,
+            description,
+            payload,
             provider_token: "", // EMPTY for Telegram Stars
             currency: 'XTR',
-            prices: [{ label: 'Star Container', amount: cost }]
+            prices: [{ label: title, amount: price }]
         };
 
         const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
@@ -650,8 +626,8 @@ app.post('/api/create-star-invoice', async (req, res) => {
              body: JSON.stringify(invoicePayload)
         });
         const data = await response.json();
+
         if (data.ok) {
-            // The item is granted via webhook, not here.
             res.json({ ok: true, invoiceLink: data.result });
         } else {
             throw new Error(data.description || 'Failed to create invoice link.');
@@ -660,6 +636,35 @@ app.post('/api/create-star-invoice', async (req, res) => {
     } catch (error) {
         log('error', 'Failed to create star invoice', error);
         res.status(500).json({ ok: false, error: error.message });
+    }
+});
+
+
+app.post('/api/sync-after-payment', async (req, res) => {
+    const { userId } = req.body;
+    const dbClient = await pool.connect();
+    try {
+        await dbClient.query('BEGIN');
+        const playerRes = await dbClient.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error("Player not found");
+        
+        let player = playerRes.rows[0].data;
+        const wonItem = player.lastPurchaseResult || null;
+        
+        if (wonItem) {
+            delete player.lastPurchaseResult;
+            await dbClient.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
+        }
+        
+        await dbClient.query('COMMIT');
+        res.json({ player, wonItem });
+
+    } catch(e) {
+        await dbClient.query('ROLLBACK');
+        log('error', `Sync after payment for user ${userId} failed`, e);
+        res.status(500).json({ error: e.message });
+    } finally {
+        dbClient.release();
     }
 });
 
@@ -790,7 +795,7 @@ app.get('/api/ominous-warning', async (req, res) => {
 
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: `You are a 'Big Brother' style entity in a dystopian world. Generate a single, short, ominous warning for a citizen who has been caught breaking the rules. The message must be in ${language}. Be creative and intimidating. Do not use quotation marks around the message.`,
+            contents: `You are a 'Big Brother' style entity in a dystopian world. Generate a single, short, ominous warning for a citizen who has been caught breaking the rules. The message must be in ${language}. Do not use quotation marks around the message.`,
         });
 
         res.json({ message: response.text.trim() });

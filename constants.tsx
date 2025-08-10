@@ -68,10 +68,6 @@ export const SAVE_DEBOUNCE_MS = 1000;
 export const REFERRAL_BONUS = 5000; // Coins for each referral
 export const REFERRAL_PROFIT_SHARE = 0.10; // 10%
 
-// --- LOOTBOX CONFIG ---
-export const LOOTBOX_COST_COINS = 50000;
-export const LOOTBOX_COST_STARS = 5;
-
 
 // --- TRANSLATIONS ---
 type TranslationKey = 
@@ -90,7 +86,7 @@ type TranslationKey =
   | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today' | 'combo_not_active'
   | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard' | 'your_league' | 'total_players'
   // Notifications
-  | 'task_completed' | 'combo_collected' | 'cipher_solved'
+  | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked'
   // Boosts
   | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased'
   // Market & Skins
@@ -211,6 +207,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     task_completed: 'completed!',
     combo_collected: 'Combo collected!',
     cipher_solved: 'Cipher solved!',
+    task_unlocked: 'Task Unlocked',
     guru_tapper: 'Guru Tapper',
     energy_limit: 'Energy Limit',
     turbo_mode: 'Turbo Mode',
@@ -404,6 +401,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     task_completed: 'виконано!',
     combo_collected: 'Комбо зібрано!',
     cipher_solved: 'Шифр розгадано!',
+    task_unlocked: 'Завдання розблоковано',
     guru_tapper: 'Гуру Тапів',
     energy_limit: 'Ліміт Енергії',
     turbo_mode: 'Турбо-режим',
@@ -597,6 +595,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     task_completed: 'выполнено!',
     combo_collected: 'Комбо собрано!',
     cipher_solved: 'Шифр разгадан!',
+    task_unlocked: 'Задание разблокировано',
     guru_tapper: 'Гуру Тапов',
     energy_limit: 'Лимит Энергии',
     turbo_mode: 'Турбо-режим',

@@ -20,8 +20,8 @@
         --bg-main: #111827; /* gray-900 */
         --bg-card: #1f2937; /* gray-800 */
         --bg-card-hover: #374151; /* gray-700 */
-        --text-primary: #e5e7eb; /* gray-200 */
-        --text-secondary: #9ca3af; /* gray-400 */
+        --text-primary: #fff; /* Сделать основной текст чисто белым */
+        --text-secondary: #b3b3b3; /* Вторичный текст чуть светлее для контраста */
         --accent-green: #4ade80; /* green-400 */
         --accent-green-glow: #16a34a; /* green-600 */
         --border-color: #374151; /* gray-700 */
@@ -29,7 +29,7 @@
       }
       html, body {
         background-color: var(--bg-main);
-        color: var(--text-primary);
+        color: var(--text-primary); /* основной цвет текста теперь белый */
         background-image:
             linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
             linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
@@ -53,16 +53,20 @@
         background-color: var(--bg-card);
         border-color: var(--border-color);
       }
+      .dropdown-menu {
+        background-color: var(--bg-card);
+        border-color: var(--border-color);
+      }
       .navbar-brand { font-family: 'Russo One', sans-serif; }
       
       .navbar-vertical .nav-link, .dropdown-item {
         font-family: 'Russo One', sans-serif;
         text-transform: uppercase;
-        color: var(--text-secondary); /* Set a readable base color: gray-400 */
+        color: var(--text-primary) !important; /* основной цвет текста теперь белый и приоритетный */
       }
       .navbar-vertical .nav-link:hover, .dropdown-item:hover {
-        color: var(--text-primary); /* Brighter on hover: gray-200 */
-        background: transparent;
+        color: var(--text-primary) !important; /* белый текст при наведении и приоритетный */
+        background-color: var(--bg-card-hover);
       }
       .navbar-vertical .nav-link.active,
       .navbar-vertical .nav-link.show { /* .show is added by bootstrap on active dropdowns */
@@ -76,7 +80,7 @@
 
       .page-title, .card-title, .modal-title {
         font-family: 'Russo One', sans-serif;
-        color: var(--text-primary);
+        color: var(--text-primary); /* белый */
       }
       .h1, .h2, .h3, .h4, .h5, .h6 { color: var(--text-primary); }
       .h1.text-green { color: var(--accent-green); }
@@ -96,21 +100,28 @@
       .form-control, .form-select {
         background-color: var(--bg-main);
         border-color: var(--border-color);
-        color: var(--text-primary);
+        color: var(--text-primary); /* белый */
       }
       .form-control:focus, .form-select:focus {
-        color: var(--text-primary);
+        color: var(--text-primary); /* белый */
         background-color: var(--bg-main);
         border-color: var(--accent-green);
         box-shadow: 0 0 0 0.25rem rgba(74, 222, 128, 0.25);
       }
       
       .table { --tblr-table-border-color: var(--border-color); --tblr-table-color: var(--text-primary); }
-      .table thead th { color: var(--text-primary); }
+      .table thead {
+        background-color: var(--bg-card-hover) !important; /* тёмный фон для шапки */
+      }
+      .table thead th {
+        color: var(--text-primary) !important; /* белый текст */
+        background-color: var(--bg-card-hover) !important; /* тёмный фон для ячеек шапки */
+        font-weight: 700;
+      }
       
       /* Override Tabler's text utilities */
       .text-muted, .text-secondary {
-        color: var(--text-secondary) !important;
+        color: var(--text-secondary) !important; /* светло-серый для вторичного текста */
       }
       .subheader {
           color: var(--text-secondary) !important;
@@ -146,7 +157,7 @@
         font-weight: 700;
       }
       .card .form-label {
-        color: var(--text-primary);
+        color: var(--text-primary); /* белый */
       }
     </style>
 </head>
@@ -187,7 +198,7 @@
                      <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#navbar-events" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="false" >
                            <span class="nav-link-icon d-md-none d-lg-inline-block">
-                               <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-event" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M16 3l0 4" /><path d="M8 3l0 4" /><path d="M4 11l16 0" /><path d="M8 15h2v2h-2z" /></svg>
+                               <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-event" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M16 3l0 4" /><path d="M8 3l0 4" /><path d="M4 11l16 0" /><path d="M8 15h2v2h-2z" /></svg>
                            </span>
                            <span class="nav-link-title" data-translate="nav_game_events">Game Events</span>
                         </a>

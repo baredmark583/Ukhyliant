@@ -150,6 +150,8 @@ export interface GameConfig {
     cellBattleTicketCost: number;
     informantProfitBonus: number;
     cellBankProfitShare: number;
+    lootboxCostCoins: number;
+    lootboxCostStars: number;
     battleSchedule?: {
         frequency: 'weekly' | 'biweekly' | 'monthly';
         dayOfWeek: number; // 0=Sun, 1=Mon...

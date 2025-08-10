@@ -6,7 +6,7 @@ import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
 import CellScreen from './sections/Cell';
-import { REFERRAL_BONUS, TELEGRAM_BOT_NAME, MINI_APP_NAME, LOOTBOX_COST_COINS, LOOTBOX_COST_STARS } from './constants';
+import { REFERRAL_BONUS, TELEGRAM_BOT_NAME, MINI_APP_NAME } from './constants';
 import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League, UiIcons, Cell } from './types';
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
@@ -161,7 +161,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                 </div>
                 <h2 className="text-2xl font-display mb-2">{t('lootbox_coin')}</h2>
                 <button onClick={() => onOpenCoinLootbox('coin')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-4 text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
-                    <span>{t('open_for')} {LOOTBOX_COST_COINS.toLocaleString()}</span>
+                    <span>{t('open_for')} {(config.lootboxCostCoins || 0).toLocaleString()}</span>
                     <img src={config.uiIcons.coin} alt="coin" className="w-6 h-6" />
                 </button>
             </div>
@@ -171,7 +171,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                 </div>
                 <h2 className="text-2xl font-display mb-2">{t('lootbox_star')}</h2>
                 <button onClick={() => onPurchaseStarLootbox('star')} className="w-full bg-blue-500 hover:bg-blue-400 text-white font-bold py-3 px-4 text-lg transition-transform duration-100 active:scale-95 flex items-center justify-center space-x-2">
-                    <span>{t('open_for')} {LOOTBOX_COST_STARS}</span>
+                    <span>{t('open_for')} {(config.lootboxCostStars || 0)}</span>
                     <img src={config.uiIcons.star} alt="star" className="w-6 h-6" />
                 </button>
             </div>
@@ -206,13 +206,13 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
     );
 };
 
-const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedVideoTasks, uiIcons }: { 
+const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedTasks, uiIcons }: { 
     task: DailyTask | SpecialTask, 
     playerState: PlayerState, 
     onClaim: (task: DailyTask | SpecialTask) => void, 
     onPurchase?: (task: SpecialTask) => void,
     lang: Language, 
-    startedVideoTasks: Set<string>, 
+    startedTasks: Set<string>, 
     uiIcons: UiIcons 
 }) => {
     const t = useTranslation();
@@ -222,6 +222,7 @@ const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedVideoTa
         : playerState.completedSpecialTaskIds.includes(task.id);
     
     const isPurchased = isDaily ? true : playerState.purchasedSpecialTaskIds.includes(task.id);
+    const isStarted = startedTasks.has(task.id);
 
     let progressDisplay: string | null = null;
     let claimIsDisabled = false;
@@ -254,9 +255,8 @@ const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedVideoTa
         let buttonText = t('go_to_task');
         if (task.type === 'taps') {
             buttonText = t('claim');
-        }
-        if (task.type === 'video_code' && startedVideoTasks.has(task.id)) {
-            buttonText = t('enter_secret_code');
+        } else if (isStarted) {
+            buttonText = task.type === 'video_code' ? t('enter_secret_code') : t('claim_reward');
         }
 
         return (
@@ -300,9 +300,9 @@ const MissionsScreen: React.FC<{
     playerState: PlayerState;
     onClaim: (task: DailyTask | SpecialTask) => void;
     lang: Language;
-    startedVideoTasks: Set<string>;
+    startedTasks: Set<string>;
     uiIcons: UiIcons;
-}> = ({ tasks, playerState, onClaim, lang, startedVideoTasks, uiIcons }) => {
+}> = ({ tasks, playerState, onClaim, lang, startedTasks, uiIcons }) => {
     const t = useTranslation();
     return (
         <div className="flex flex-col h-full text-white pt-4 px-4">
@@ -316,7 +316,7 @@ const MissionsScreen: React.FC<{
                                 playerState={playerState}
                                 onClaim={onClaim}
                                 lang={lang}
-                                startedVideoTasks={startedVideoTasks}
+                                startedTasks={startedTasks}
                                 uiIcons={uiIcons}
                             />
                         </div>
@@ -333,9 +333,9 @@ const AirdropScreen: React.FC<{
     onClaim: (task: DailyTask | SpecialTask) => void;
     onPurchase: (task: SpecialTask) => void;
     lang: Language;
-    startedVideoTasks: Set<string>;
+    startedTasks: Set<string>;
     uiIcons: UiIcons;
-}> = ({ specialTasks, playerState, onClaim, onPurchase, lang, startedVideoTasks, uiIcons }) => {
+}> = ({ specialTasks, playerState, onClaim, onPurchase, lang, startedTasks, uiIcons }) => {
     const t = useTranslation();
     return (
         <div className="flex flex-col h-full text-white pt-4 px-4">
@@ -351,7 +351,7 @@ const AirdropScreen: React.FC<{
                                 onClaim={onClaim}
                                 onPurchase={onPurchase}
                                 lang={lang}
-                                startedVideoTasks={startedVideoTasks}
+                                startedTasks={startedTasks}
                                 uiIcons={uiIcons}
                             />
                         </div>
@@ -415,24 +415,28 @@ const LeaderboardScreen: React.FC<{
     );
 };
 
-const LootboxResultModal: React.FC<{
-    item: CoinSkin | { name: any; iconUrl: string; profitPerHour: number; }; // Can be CoinSkin or BlackMarketCard
+const PurchaseResultModal: React.FC<{
+    result: { type: 'lootbox' | 'task', item: any };
     onClose: () => void;
     lang: Language;
     uiIcons: UiIcons;
-}> = ({ item, onClose, lang, uiIcons }) => {
+}> = ({ result, onClose, lang, uiIcons }) => {
     const t = useTranslation();
+    const { item } = result;
+    
+    const isLootboxItem = result.type === 'lootbox';
+    const title = isLootboxItem ? t('won_item') : t('task_unlocked');
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
             <div className="themed-container w-full max-w-sm flex flex-col p-6 items-center" onClick={e => e.stopPropagation()}>
-                <h2 className="text-xl font-bold text-white mb-4">{t('won_item')}!</h2>
+                <h2 className="text-xl font-bold text-white mb-4">{title}!</h2>
                 <div className="w-32 h-32 mb-4 border border-gray-600 p-2 flex items-center justify-center">
-                    <img src={item.iconUrl} alt={item.name[lang]} className="w-full h-full object-contain" />
+                    <img src={item.iconUrl || item.imageUrl} alt={item.name[lang]} className="w-full h-full object-contain" />
                 </div>
                 <p className="text-lg font-bold text-white mb-2">{item.name[lang]}</p>
-                {'profitBoostPercent' in item && item.profitBoostPercent > 0 && <p className="text-green-400">+{item.profitBoostPercent}% {t('profit_boost')}</p>}
-                {'profitPerHour' in item && <p className="text-green-400">+{item.profitPerHour.toLocaleString()}/hr</p>}
+                {isLootboxItem && 'profitBoostPercent' in item && item.profitBoostPercent > 0 && <p className="text-green-400">+{item.profitBoostPercent}% {t('profit_boost')}</p>}
+                {isLootboxItem && 'profitPerHour' in item && <p className="text-green-400">+{item.profitPerHour.toLocaleString()}/hr</p>}
                 
                 <button onClick={onClose} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 mt-6 text-lg">
                     {t('close')}
@@ -451,15 +455,15 @@ const MainApp: React.FC = () => {
       openCoinLootbox, purchaseLootboxWithStars, 
       setSkin,
       isTurboActive, effectiveMaxEnergy,
-      ominousMessage, setOminousMessage
+      ominousMessage, setOminousMessage,
+      purchaseResult, setPurchaseResult
   } = useGame();
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const t = useTranslation();
-  const [startedVideoTasks, setStartedVideoTasks] = useState<Set<string>>(new Set());
+  const [startedTasks, setStartedTasks] = useState<Set<string>>(new Set());
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
-  const [lootboxResult, setLootboxResult] = useState<any>(null);
   const [isAppReady, setIsAppReady] = useState(false);
 
   useEffect(() => {
@@ -496,80 +500,53 @@ const MainApp: React.FC = () => {
     }
   };
 
-  const handleClaimDailyTaskReward = async (task: DailyTask, code?: string) => {
-    const result = await claimTaskReward(task, code);
-    if (result.player) {
-        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-        const rewardText = task.reward?.type === 'profit'
-            ? `+${task.reward?.amount?.toLocaleString() ?? 0}/hr <img src="${config.uiIcons.energy}" class="w-4 h-4 inline-block -mt-1"/>`
-            : `+${task.reward?.amount?.toLocaleString() ?? 0} <img src="${config.uiIcons.coin}" class="w-4 h-4 inline-block -mt-1"/>`;
-        showNotification(`${task.name?.[user.language]} ${t('task_completed')} <span class="whitespace-nowrap">${rewardText}</span>`, 'success');
-        
-        if (task.type === 'video_code') {
-            setStartedVideoTasks(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(task.id);
-                return newSet;
-            });
-        }
-    } else if (result.error) {
-        window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-        showNotification(result.error, 'error');
-    }
-    return result;
+  const processTaskCompletion = (task: DailyTask | SpecialTask, result: { player?: PlayerState, error?: string }) => {
+      if (result.player) {
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+          const rewardText = task.reward?.type === 'profit'
+              ? `+${task.reward?.amount?.toLocaleString() ?? 0}/hr <img src="${config.uiIcons.energy}" class="w-4 h-4 inline-block -mt-1"/>`
+              : `+${task.reward?.amount?.toLocaleString() ?? 0} <img src="${config.uiIcons.coin}" class="w-4 h-4 inline-block -mt-1"/>`;
+          showNotification(`${task.name?.[user.language]} ${t('task_completed')} <span class="whitespace-nowrap">${rewardText}</span>`, 'success');
+          
+          setStartedTasks(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(task.id);
+              return newSet;
+          });
+      } else if (result.error) {
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+          showNotification(result.error, 'error');
+      }
+      return result;
   };
 
-  const handleCompleteSpecialTask = async (task: SpecialTask, code?: string) => {
-    const updatedPlayerState = await completeSpecialTask(task, code);
-    if (updatedPlayerState) {
-        if (task.type === 'video_code') {
-            setStartedVideoTasks(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(task.id);
-                return newSet;
-            });
-        }
-    }
-    return updatedPlayerState;
-  };
-  
   const handleClaimTask = async (task: DailyTask | SpecialTask) => {
-    const isVideoCodeTask = task.type === 'video_code';
-    const isVideoTaskStarted = isVideoCodeTask && startedVideoTasks.has(task.id);
+    const isExternalLinkTask = !!task.url;
+    const isTaskStarted = startedTasks.has(task.id);
 
-    if (isVideoCodeTask) {
-        if (!isVideoTaskStarted) {
-            if (task.url) window.Telegram.WebApp.openLink(task.url);
-            setStartedVideoTasks(prev => new Set(prev).add(task.id));
-            return;
-        } else {
-            setSecretCodeTask(task);
-            return;
-        }
-    }
-
-    if (task.url) {
+    // First click on an external link task
+    if (isExternalLinkTask && !isTaskStarted) {
         if (task.url.startsWith('https://t.me/')) {
             window.Telegram.WebApp.openTelegramLink(task.url);
         } else {
             window.Telegram.WebApp.openLink(task.url);
         }
+        setStartedTasks(prev => new Set(prev).add(task.id));
+        return;
     }
     
-    if ('isOneTime' in task) {
-        await handleCompleteSpecialTask(task);
-    } else {
-        if (task.type !== 'taps') await handleClaimDailyTaskReward(task as DailyTask);
-        else await handleClaimDailyTaskReward(task as DailyTask);
+    // Handling a task that has been started, or is not external
+    if (task.type === 'video_code') {
+        setSecretCodeTask(task);
+        return;
     }
-  };
-  
-  const handleClaimCombo = async () => {
-    const result = await claimDailyCombo();
-    if (result.player && result.reward) {
-        showNotification(`${t('combo_collected')} +${result.reward.toLocaleString()}`, 'success');
-    } else if (result.error) {
-        showNotification(result.error, 'error');
+    
+    if ('isOneTime' in task) { // Special Task
+      const result = await completeSpecialTask(task);
+      processTaskCompletion(task, result);
+    } else { // Daily Task
+      const result = await claimTaskReward(task as DailyTask);
+      processTaskCompletion(task, result);
     }
   };
 
@@ -589,10 +566,19 @@ const MainApp: React.FC = () => {
     return false;
   };
 
+  const handleClaimCombo = async () => {
+    const result = await claimDailyCombo();
+    if (result.player && result.reward) {
+        showNotification(`${t('combo_collected')} +${result.reward.toLocaleString()}`, 'success');
+    } else if (result.error) {
+        showNotification(result.error, 'error');
+    }
+  };
+
   const handleOpenCoinLootbox = async (boxType: 'coin') => {
       const result = await openCoinLootbox(boxType);
       if(result.wonItem) {
-          setLootboxResult(result.wonItem);
+          setPurchaseResult({type: 'lootbox', item: result.wonItem });
       } else if (result.error) {
           showNotification(result.error, 'error');
       }
@@ -657,7 +643,7 @@ const MainApp: React.FC = () => {
                     playerState={playerState}
                     onClaim={handleClaimTask}
                     lang={user.language}
-                    startedVideoTasks={startedVideoTasks}
+                    startedTasks={startedTasks}
                     uiIcons={config.uiIcons}
                 />;
        case 'airdrop':
@@ -667,7 +653,7 @@ const MainApp: React.FC = () => {
                     onClaim={handleClaimTask}
                     onPurchase={purchaseSpecialTask}
                     lang={user.language}
-                    startedVideoTasks={startedVideoTasks}
+                    startedTasks={startedTasks}
                     uiIcons={config.uiIcons}
                 />;
       case 'profile':
@@ -729,16 +715,12 @@ const MainApp: React.FC = () => {
       {ominousMessage && <PenaltyModal message={ominousMessage} onClose={() => setOminousMessage('')} />}
 
       {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
-      {secretCodeTask && <SecretCodeModal task={secretCodeTask} lang={user.language} onClose={() => setSecretCodeTask(null)} onSubmit={(code) => {
-          if ('isOneTime' in secretCodeTask) {
-            handleCompleteSpecialTask(secretCodeTask as SpecialTask, code);
-          } else {
-            handleClaimDailyTaskReward(secretCodeTask as DailyTask, code);
-          }
-          setSecretCodeTask(null);
+      {secretCodeTask && <SecretCodeModal task={secretCodeTask} lang={user.language} onClose={() => setSecretCodeTask(null)} onSubmit={async (code) => {
+           processTaskCompletion(secretCodeTask, 'isOneTime' in secretCodeTask ? await completeSpecialTask(secretCodeTask, code) : await claimTaskReward(secretCodeTask, code));
+           setSecretCodeTask(null);
         }} />
       }
-      {lootboxResult && <LootboxResultModal item={lootboxResult} onClose={() => setLootboxResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
+      {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
       {isGlitching && <LanguageGlitchModal />}
       <NotificationToast notification={notification} />
 

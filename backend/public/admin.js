@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -19,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         coinSkins: { titleKey: 'nav_coin_skins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
         uiIcons: { titleKey: 'nav_ui_icons' },
         boosts: { titleKey: 'nav_boosts', cols: ['id', 'name', 'description', 'costCoins', 'suspicionModifier', 'iconUrl'] },
-        cellSettings: { titleKey: 'nav_cell_settings', fields: ['cellCreationCost', 'cellMaxMembers', 'informantRecruitCost', 'lootboxCostCoins', 'lootboxCostStars', 'cellBattleTicketCost', 'informantProfitBonus', 'cellBankProfitShare'] },
+        cellSettings: { titleKey: 'nav_cell_settings', fields: ['cellCreationCost', 'cellMaxMembers', 'informantRecruitCost', 'lootboxCostCoins', 'lootboxCostStars', 'cellBattleTicketCost'] },
     };
     
     // --- DOM ELEMENTS ---
@@ -35,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const escapeHtml = (unsafe) => {
         if (unsafe === null || unsafe === undefined) return '';
         if (typeof unsafe !== 'string' && typeof unsafe !== 'number') return JSON.stringify(unsafe);
-        return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&quot;").replace(/'/g, "&#039;");
+        return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     };
 
     const formatNumber = (num) => {
@@ -44,19 +45,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const applyTranslations = () => {
-        // Translate all static elements with data-translate attribute
         document.querySelectorAll('[data-translate]').forEach(el => {
             const key = el.dataset.translate;
             el.textContent = t(key);
         });
         
-        // Update main page title based on the active tab
         const activeButton = document.querySelector('.tab-button.active');
         if (activeButton && activeButton.dataset.titleKey) {
             tabTitle.textContent = t(activeButton.dataset.titleKey);
         }
 
-        // Update language and flag
         document.querySelector('html').setAttribute('lang', currentLang);
         const flag = document.getElementById('lang-switcher-flag');
         if (flag) {
@@ -82,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- API & DATA HANDLING ---
     const fetchData = async (endpoint) => {
         try {
-            const response = await fetch(`/admin/api/${endpoint}`, { cache: 'no-cache' }); // Use no-cache to ensure freshness
+            const response = await fetch(`/admin/api/${endpoint}`, { cache: 'no-cache' });
             if (!response.ok) {
                 if (response.status === 401) window.location.href = '/admin/login.html';
                 console.error(`Error fetching ${endpoint}: ${response.statusText}`);
@@ -170,14 +168,13 @@ document.addEventListener('DOMContentLoaded', () => {
             localConfig = await fetchData('config');
         }
     };
-
+    
     // --- RENDER LOGIC ---
     const render = () => {
         destroyCharts();
         document.querySelectorAll('.tab-button').forEach(btn => {
             const isActive = btn.dataset.tab === activeTab;
             btn.classList.toggle('active', isActive);
-            // Handle dropdown active state
             const dropdownMenu = btn.closest('.dropdown-menu');
             if (dropdownMenu) {
                 const dropdownToggle = dropdownMenu.previousElementSibling;
@@ -195,826 +192,746 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeButton = document.querySelector(`.tab-button[data-tab="${activeTab}"]`);
         if (activeButton && activeButton.dataset.titleKey) {
             tabTitle.textContent = t(activeButton.dataset.titleKey);
-        } else {
-             tabTitle.textContent = activeTab.charAt(0).toUpperCase() + activeTab.slice(1);
         }
 
-        saveMainButton.classList.toggle('d-none', ['dashboard', 'players', 'cheaters', 'cellAnalytics', 'cellConfiguration'].includes(activeTab));
-        showLoading();
-
+        saveMainButton.classList.toggle('d-none', !configMeta[activeTab] && activeTab !== 'dailyEvents' && activeTab !== 'cellSettings');
+        
         switch (activeTab) {
-            case 'dashboard': renderDashboard(); break;
-            case 'players': renderPlayers(); break;
-            case 'cheaters': renderCheaters(); break;
-            case 'dailyEvents': renderDailyEvents(); break;
-            case 'cellSettings': renderCellSettings(); break;
-            case 'cellAnalytics': renderCellAnalytics(); break;
-            case 'cellConfiguration': renderCellConfiguration(); break;
-            case 'uiIcons': renderUiIcons(); break;
+            case 'dashboard':
+                renderDashboard();
+                break;
+            case 'players':
+                renderPlayers();
+                break;
+            case 'cheaters':
+                renderCheaters();
+                break;
+            case 'dailyEvents':
+                renderDailyEvents();
+                break;
+            case 'cellAnalytics':
+                renderCellAnalytics();
+                break;
+            case 'cellConfiguration':
+                 renderCellConfiguration();
+                 break;
+            case 'uiIcons':
+                renderUiIconsConfig();
+                break;
+            case 'cellSettings':
+                 renderGenericSettingsForm('cellSettings', configMeta.cellSettings.fields, 'cell_config');
+                 break;
             default:
                 if (configMeta[activeTab]) {
                     renderConfigTable(activeTab);
-                } else {
-                    tabContainer.innerHTML = `<p>Tab "${activeTab}" not found.</p>`;
                 }
                 break;
         }
-    };
-    
-    const formatCellContent = (item, col) => {
-        const data = item[col];
-        if (data === null || data === undefined) return '';
-
-        if (typeof data === 'object') {
-            if ('en' in data && ('ru' in data || 'ua' in data)) {
-                return escapeHtml(data[currentLang] || data['en'] || '');
-            }
-            if (col === 'reward' && 'type' in data && 'amount' in data) {
-                const typeText = t(`reward_type_${data.type}`);
-                return `${formatNumber(data.amount)} (${typeText})`;
-            }
-            return `<pre class="m-0">${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
-        }
-
-        if (col === 'type') {
-            return t(`task_type_${data}`) || escapeHtml(data);
-        }
-        
-        if ((col === 'price' || col === 'costCoins' || col === 'priceStars' || col === 'profitPerHour' || col === 'minProfitPerHour' || col.toLowerCase().includes('reward')) && typeof data === 'number') {
-            return formatNumber(data);
-        }
-        
-        if (col === 'iconUrl' && typeof data === 'string' && data.startsWith('http')) {
-            return `<img src="${escapeHtml(data)}" alt="icon" class="w-8 h-8 object-contain">`;
-        }
-        
-        return escapeHtml(data);
+        applyTranslations();
     };
 
     const renderDashboard = async () => {
-        const [stats, locations] = await Promise.all([
-            fetchData('dashboard-stats'),
-            fetchData('player-locations')
-        ]);
-        if (!stats || !locations) return showLoading();
+        showLoading();
+        dashboardStats = await fetchData('dashboard-stats') || {};
+        playerLocations = await fetchData('player-locations') || [];
+        const socialStats = await fetchData('social-stats') || {};
 
-        dashboardStats = stats;
-        playerLocations = locations;
+        const kpis = [
+            { key: 'total_players', value: formatNumber(dashboardStats.totalPlayers), icon: 'users', color: 'blue' },
+            { key: 'new_players_24h', value: formatNumber(dashboardStats.newPlayersToday), icon: 'user-plus', color: 'green' },
+            { key: 'online_now', value: formatNumber(dashboardStats.onlineNow), icon: 'wifi', color: 'azure' },
+            { key: 'total_profit_per_hour', value: formatNumber(dashboardStats.totalProfitPerHour), icon: 'trending-up', color: 'yellow' },
+            { key: 'earned_stars', value: formatNumber(dashboardStats.totalStarsEarned), icon: 'star', color: 'purple' }
+        ];
+
+        const kpiHtml = kpis.map(kpi => `
+            <div class="col-lg-2-4 col-md-4 col-6">
+                <div class="card card-sm">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <span class="bg-${kpi.color}-lt text-${kpi.color} avatar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-${kpi.icon}" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path>${window.tablerIcons[kpi.icon]}</svg>
+                                </span>
+                            </div>
+                            <div class="col">
+                                <div class="font-weight-medium">${formatNumber(kpi.value)}</div>
+                                <div class="text-secondary">${t(kpi.key)}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
         
-        const kpiCards = `
-            <div class="col-sm-6 col-lg-2-4">
-                <div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader">${t('total_players')}</div></div><div class="h1 mb-3">${formatNumber(stats.totalPlayers)}</div></div></div>
+        const topUpgradesHtml = (dashboardStats.popularUpgrades || []).map(u => `<li>${u.upgrade_id}: ${formatNumber(u.purchase_count)} ${t('purchases')}</li>`).join('');
+        const socialStatsHtml = `
+            <div class="col-md-6 col-lg-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">${t('youtube_stats')}</h3>
+                        <div class="card-actions"><button class="btn btn-sm" data-action="edit-socials" data-social="youtube">${t('edit')}</button></div>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row">
+                            <dt class="col-8">${t('social_youtube_subs')}:</dt><dd class="col-4 text-end">${formatNumber(socialStats.youtubeSubscribers)}</dd>
+                            <dt class="col-8">${t('views')}:</dt><dd class="col-4 text-end">${formatNumber(socialStats.youtubeViews)}</dd>
+                        </dl>
+                    </div>
+                </div>
             </div>
-            <div class="col-sm-6 col-lg-2-4">
-                <div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader">${t('new_players_24h')}</div></div><div class="h1 mb-3 text-green">${formatNumber(stats.newPlayersToday)}</div></div></div>
-            </div>
-            <div class="col-sm-6 col-lg-2-4">
-                <div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader">${t('online_now')}</div></div><div class="h1 mb-3">${formatNumber(stats.onlineNow)}</div></div></div>
-            </div>
-            <div class="col-sm-6 col-lg-2-4">
-                <div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader">${t('total_profit_per_hour')}</div></div><div class="h1 mb-3 text-yellow">${formatNumber(stats.totalProfitPerHour)}</div></div></div>
-            </div>
-             <div class="col-sm-6 col-lg-2-4">
-                <div class="card"><div class="card-body"><div class="d-flex align-items-center"><div class="subheader">${t('earned_stars')}</div></div><div class="h1 mb-3 text-blue">${formatNumber(stats.totalStarsEarned)}</div></div></div>
-            </div>
-        `;
+            <div class="col-md-6 col-lg-3">
+                 <div class="card">
+                    <div class="card-header">
+                         <h3 class="card-title">${t('telegram_stats')}</h3>
+                         <div class="card-actions"><button class="btn btn-sm" data-action="edit-socials" data-social="telegram">${t('edit')}</button></div>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row">
+                            <dt class="col-8">${t('social_telegram_subs')}:</dt><dd class="col-4 text-end">${formatNumber(socialStats.telegramSubscribers)}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>`;
 
         tabContainer.innerHTML = `
-            <div class="row row-deck row-cards">${kpiCards}</div>
+            <div class="row row-deck row-cards">${kpiHtml}</div>
             <div class="row row-cards mt-4">
-                <div class="col-lg-7">
-                    <div class="card h-100"><div class="card-body"><h3 class="card-title">${t('new_users_last_7_days')}</h3><div class="chart-container"><canvas id="registrations-chart"></canvas></div></div></div>
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <h3 class="card-title">${t('new_users_last_7_days')}</h3>
+                            <div class="chart-container" style="height: 300px;"><canvas id="chart-registrations"></canvas></div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-lg-5">
-                     <div class="card h-100"><div class="card-body"><h3 class="card-title">${t('top_5_upgrades')}</h3><div class="chart-container"><canvas id="top-upgrades-chart"></canvas></div></div></div>
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h3 class="card-title">${t('top_5_upgrades')}</h3>
+                            <ul class="list-unstyled space-y-2">${topUpgradesHtml || `<li class="text-secondary">${t('no_data')}</li>`}</ul>
+                        </div>
+                    </div>
+                </div>
+                 ${socialStatsHtml}
+                 <div class="col-md-6 col-lg-6">
+                    <div class="card">
+                        <div class="card-header"><h3 class="card-title">${t('loading_screen_image_url')}</h3></div>
+                        <div class="card-body">
+                            <input type="text" class="form-control" id="loadingScreenUrl" value="${escapeHtml(localConfig.loadingScreenImageUrl || '')}">
+                        </div>
+                    </div>
                 </div>
             </div>
              <div class="row row-cards mt-4">
                 <div class="col-12">
                     <div class="card">
                         <div class="card-body">
-                           <h3 class="card-title">${t('player_map')}</h3>
-                           <div id="map-world" style="height: 400px; background: #111827;"></div>
+                            <h3 class="card-title">${t('player_map')}</h3>
+                            <div id="map-world" style="height: 400px;"></div>
                         </div>
                     </div>
                 </div>
             </div>
         `;
-        
-        // --- Render Charts ---
-        if (stats.registrations) {
-            const regCtx = document.getElementById('registrations-chart').getContext('2d');
-            charts.registrations = new Chart(regCtx, {
-                type: 'line',
+
+        // Render charts
+        if (dashboardStats.registrations) {
+            const ctx = document.getElementById('chart-registrations').getContext('2d');
+            charts.registrations = new Chart(ctx, {
+                type: 'bar',
                 data: {
-                    labels: stats.registrations.map(r => new Date(r.date).toLocaleDateString(currentLang, { month: 'short', day: 'numeric' })),
+                    labels: dashboardStats.registrations.map(r => new Date(r.date).toLocaleDateString(currentLang)),
                     datasets: [{
                         label: t('new_users_last_7_days'),
-                        data: stats.registrations.map(r => r.count),
-                        borderColor: '#4ade80',
-                        backgroundColor: 'rgba(74, 222, 128, 0.2)',
-                        fill: true,
-                        tension: 0.3
+                        data: dashboardStats.registrations.map(r => r.count),
+                        backgroundColor: 'rgba(74, 222, 128, 0.6)',
+                        borderColor: 'rgba(74, 222, 128, 1)',
+                        borderWidth: 1
                     }]
                 },
-                options: { maintainAspectRatio: false }
+                options: { maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
             });
         }
         
-        if (stats.popularUpgrades) {
-             const upgradeCtx = document.getElementById('top-upgrades-chart').getContext('2d');
-             const upgradeNames = stats.popularUpgrades.map(u => {
-                 const upgradeData = localConfig.upgrades?.find(cfg => cfg.id === u.upgrade_id);
-                 return upgradeData?.name?.[currentLang] || u.upgrade_id;
-             });
-             charts.upgrades = new Chart(upgradeCtx, {
-                 type: 'bar',
-                 data: {
-                     labels: upgradeNames,
-                     datasets: [{
-                         label: t('purchases'),
-                         data: stats.popularUpgrades.map(u => u.purchase_count),
-                         backgroundColor: ['#4ade80', '#2563eb', '#facc15', '#a855f7', '#f472b6'],
-                     }]
-                 },
-                 options: { indexAxis: 'y', maintainAspectRatio: false }
-             });
-        }
-        
-        // --- Render Map ---
-        if(locations.length > 0) {
-            const mapData = locations.reduce((acc, loc) => {
-                acc[loc.country] = loc.player_count;
-                return acc;
-            }, {});
-
+        // Render map
+        if (playerLocations.length > 0) {
+            const mapData = playerLocations.reduce((acc, loc) => ({...acc, [loc.country]: loc.player_count }), {});
             charts.map = new jsVectorMap({
                 selector: '#map-world',
                 map: 'world',
-                backgroundColor: '#111827',
-                regionStyle: {
-                    initial: { fill: '#374151' },
-                },
+                backgroundColor: 'transparent',
+                regionStyle: { initial: { fill: 'var(--border-color)' }, hover: { fill: 'var(--accent-green-glow)' } },
                 series: {
                     regions: [{
                         values: mapData,
-                        scale: ['#4ade80', '#166534'],
+                        scale: ['#6366f1', '#3b82f6'], // Indigo to Blue
                         normalizeFunction: 'polynomial'
                     }]
                 },
-                onRegionTooltipShow(event, tooltip, code) {
+                 onRegionTooltipShow(event, tooltip, code) {
                     tooltip.text(
-                      `${tooltip.text()} (${mapData[code] || 0} ${t('players')})`,
+                      `${tooltip.text()} (${formatNumber(mapData[code] || 0)})`,
                       true,
                     );
                 },
             });
         }
     };
-    
+
     const renderPlayers = async () => {
+        showLoading();
         allPlayers = await fetchData('players');
-        if (!allPlayers) return showLoading();
-        
-        const renderTable = (players) => `
-            <div class="table-responsive">
-                <table class="table card-table table-vcenter text-nowrap datatable">
-                    <thead><tr>
-                        <th>${t('id')}</th>
-                        <th>${t('name')}</th>
-                        <th>${t('balance')}</th>
-                        <th>${t('profit_ph')}</th>
-                        <th>${t('referrals')}</th>
-                        <th>${t('language')}</th>
-                        <th>${t('actions')}</th>
-                    </tr></thead>
-                    <tbody>
-                    ${players.map(p => `
-                        <tr>
-                            <td><div class="text-secondary">${p.id}</div></td>
-                            <td>${escapeHtml(p.name)}</td>
-                            <td>${formatNumber(p.balance)}</td>
-                            <td>${formatNumber(p.profitPerHour)}</td>
-                            <td>${formatNumber(p.referrals)}</td>
-                            <td>${escapeHtml(p.language)}</td>
-                            <td>
-                                <button class="btn btn-sm btn-secondary" data-action="view-player" data-id="${p.id}">${t('details')}</button>
-                                <button class="btn btn-sm btn-secondary" data-action="reset-daily" data-id="${p.id}">${t('reset_daily')}</button>
-                                <button class="btn btn-sm btn-danger" data-action="delete-player" data-id="${p.id}">${t('delete')}</button>
-                            </td>
-                        </tr>
-                    `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
-        
-        tabContainer.innerHTML = `
+        if (!allPlayers) { tabContainer.innerHTML = `<p>${t('no_data')}</p>`; return; }
+
+        const tableHtml = `
             <div class="card">
                 <div class="card-header">
-                    <div class="input-icon">
-                        <span class="input-icon-addon"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"></path><path d="M21 21l-6 -6"></path></svg></span>
-                        <input type="text" id="player-search" class="form-control" placeholder="${t('search_by_id_name')}">
-                    </div>
-                </div>
-                <div id="players-table-container">
-                    ${renderTable(allPlayers)}
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('player-search').addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase();
-            const filtered = allPlayers.filter(p => p.id.includes(query) || p.name.toLowerCase().includes(query));
-            document.getElementById('players-table-container').innerHTML = renderTable(filtered);
-        });
-    };
-
-    const renderCheaters = async () => {
-        showLoading('loading_cheaters');
-        const cheaters = await fetchData('cheaters');
-        if (!cheaters) return;
-
-        if (cheaters.length === 0) {
-            tabContainer.innerHTML = `<div class="card"><div class="card-body text-center">${t('no_cheaters_found')}</div></div>`;
-            return;
-        }
-
-        tabContainer.innerHTML = `
-            <div class="card">
-                <div class="card-header"><h3 class="card-title">${t('cheater_list')}</h3></div>
-                <div class="card-body">
-                    <p class="text-secondary mb-4">${t('cheater_list_desc')}</p>
-                    <div class="table-responsive">
-                        <table class="table card-table table-vcenter">
-                            <thead><tr><th>${t('id')}</th><th>${t('name')}</th><th>${t('cheat_log')}</th><th>${t('actions')}</th></tr></thead>
-                            <tbody>
-                                ${cheaters.map(c => `
-                                    <tr>
-                                        <td><div class="text-secondary">${c.id}</div></td>
-                                        <td>${escapeHtml(c.name)}</td>
-                                        <td><pre class="m-0">${escapeHtml(JSON.stringify(c.cheat_log, null, 2))}</pre></td>
-                                        <td><button class="btn btn-warning" data-action="reset-progress" data-id="${c.id}">${t('reset_progress')}</button></td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>`;
-    };
-
-    const renderConfigTable = (key) => {
-        const meta = configMeta[key];
-        const data = localConfig[key] || [];
-        
-        tabContainer.innerHTML = `
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">${t(meta.titleKey)}</h3>
-                    <div class="ms-auto">
-                        <button class="btn btn-success" data-action="add-item" data-key="${key}">${t('add_new')}</button>
-                    </div>
+                    <input type="text" id="player-search" class="form-control w-auto" placeholder="${t('search_by_id_name')}">
                 </div>
                 <div class="table-responsive">
-                    <table class="table card-table table-vcenter text-nowrap">
-                        <thead><tr>
-                            ${meta.cols.map(col => `<th>${t(col)}</th>`).join('')}
-                            <th>${t('actions')}</th>
-                        </tr></thead>
-                        <tbody>
-                        ${data.map((item, index) => `
+                    <table class="table table-vcenter card-table">
+                        <thead>
                             <tr>
-                                ${meta.cols.map(col => `<td>${formatCellContent(item, col)}</td>`).join('')}
-                                <td>
-                                    <button class="btn btn-sm btn-secondary" data-action="edit-item" data-key="${key}" data-index="${index}">${t('edit')}</button>
-                                    <button class="btn btn-sm btn-danger" data-action="delete-item" data-key="${key}" data-index="${index}">${t('delete')}</button>
-                                </td>
+                                <th>${t('id')}</th>
+                                <th>${t('name')}</th>
+                                <th>${t('balance')}</th>
+                                <th>${t('profit_ph')}</th>
+                                <th>${t('referrals')}</th>
+                                <th>${t('language')}</th>
+                                <th class="w-1">${t('actions')}</th>
                             </tr>
-                        `).join('')}
+                        </thead>
+                        <tbody id="players-table-body">
+                            ${generatePlayerRows(allPlayers)}
                         </tbody>
                     </table>
                 </div>
             </div>
         `;
+        tabContainer.innerHTML = tableHtml;
+    };
+
+    const generatePlayerRows = (players) => {
+        if (!players || players.length === 0) return `<tr><td colspan="7" class="text-center">${t('no_data')}</td></tr>`;
+        return players.map(p => `
+            <tr>
+                <td>${p.id}</td>
+                <td>${escapeHtml(p.name)}</td>
+                <td>${formatNumber(p.balance)}</td>
+                <td>${formatNumber(p.profitPerHour)}</td>
+                <td>${p.referrals}</td>
+                <td><span class="flag flag-country-${p.language === 'en' ? 'us' : p.language}"></span> ${p.language}</td>
+                <td>
+                    <div class="btn-list flex-nowrap">
+                        <button class="btn btn-sm" data-action="player-details" data-id="${p.id}">${t('details')}</button>
+                        <button class="btn btn-sm btn-danger" data-action="delete-player" data-id="${p.id}">${t('delete')}</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
     };
     
-    const renderDailyEvents = async () => {
-        const eventData = await fetchData('daily-events');
-        if(eventData) {
-            dailyEvent = { ...dailyEvent, ...eventData };
+    const renderCheaters = async () => {
+        showLoading('loading_cheaters');
+        const cheaters = await fetchData('cheaters');
+        
+        let cheaterRows = `<tr><td colspan="3" class="text-center">${t('no_cheaters_found')}</td></tr>`;
+        if (cheaters && cheaters.length > 0) {
+            cheaterRows = cheaters.map(c => `
+                <tr>
+                    <td>${c.id}</td>
+                    <td>${escapeHtml(c.name)}</td>
+                    <td>
+                        <button class="btn btn-sm" data-action="view-cheat-log" data-id="${c.id}">${t('cheat_log')}</button>
+                        <button class="btn btn-sm btn-warning" data-action="reset-progress" data-id="${c.id}">${t('reset_progress')}</button>
+                    </td>
+                </tr>
+            `).join('');
         }
         
-        const upgradeOptions = (localConfig.upgrades || []).map(u => `<option value="${u.id}" ${dailyEvent.combo_ids.includes(u.id) ? 'selected' : ''}>${escapeHtml(u.name[currentLang] || u.name['en'])}</option>`).join('');
+        tabContainer.innerHTML = `
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">${t('cheater_list')}</h3></div>
+                <div class="card-body"><p class="text-secondary">${t('cheater_list_desc')}</p></div>
+                <div class="table-responsive">
+                    <table class="table table-vcenter card-table">
+                        <thead>
+                            <tr><th>${t('id')}</th><th>${t('name')}</th><th>${t('actions')}</th></tr>
+                        </thead>
+                        <tbody>${cheaterRows}</tbody>
+                    </table>
+                </div>
+            </div>`;
+    };
+
+    const renderDailyEvents = async () => {
+        showLoading();
+        dailyEvent = await fetchData('daily-events') || { combo_ids: [], cipher_word: '', combo_reward: 5000000, cipher_reward: 1000000 };
+        if (!Array.isArray(dailyEvent.combo_ids)) dailyEvent.combo_ids = [];
+        
+        const allCards = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
+        const cardOptions = allCards.map(c => `<option value="${c.id}">${c.name[currentLang] || c.name['en']}</option>`).join('');
+
+        const comboSelectors = [0, 1, 2].map(i => `
+            <select class="form-select combo-card-select">
+                <option value="">${t('select_card')}</option>
+                ${cardOptions}
+            </select>
+        `).join('');
 
         tabContainer.innerHTML = `
             <div class="card">
                 <div class="card-header"><h3 class="card-title">${t('daily_events_setup')}</h3></div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h4 class="mb-3">${t('daily_combo')}</h4>
-                             <p class="text-secondary mb-2">${t('select_3_cards_for_combo')}</p>
-                             ${[0, 1, 2].map(i => `
-                                <div class="mb-3">
-                                    <label class="form-label">${t('select_card')} #${i + 1}</label>
-                                    <select class="form-select combo-card-select" data-index="${i}">
-                                        <option value="">-- ${t('select_card')} --</option>
-                                        ${upgradeOptions}
-                                    </select>
-                                </div>
-                            `).join('')}
-                             <div class="mb-3">
-                                <label class="form-label">${t('combo_reward')}</label>
-                                <input type="number" class="form-control" id="combo-reward-input" value="${dailyEvent.combo_reward}">
-                            </div>
+                    <fieldset class="form-fieldset">
+                        <legend>${t('daily_combo')}</legend>
+                        <p class="text-secondary">${t('select_3_cards_for_combo')}</p>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">${comboSelectors.split('</select>')[0]}</select></div>
+                            <div class="col-md-4 mb-3">${comboSelectors.split('</select>')[1]}</select></div>
+                            <div class="col-md-4 mb-3">${comboSelectors.split('</select>')[2]}</select></div>
                         </div>
-                        <div class="col-md-6">
-                            <h4 class="mb-3">${t('daily_cipher')}</h4>
-                            <p class="text-secondary mb-2">${t('enter_cipher_word')}</p>
-                            <div class="mb-3">
-                                <label class="form-label">${t('cipher_word')}</label>
-                                <input type="text" class="form-control" id="cipher-word-input" placeholder="${t('example_btc')}" value="${escapeHtml(dailyEvent.cipher_word)}">
-                            </div>
-                             <div class="mb-3">
-                                <label class="form-label">${t('cipher_reward')}</label>
-                                <input type="number" class="form-control" id="cipher-reward-input" value="${dailyEvent.cipher_reward}">
-                            </div>
+                        <div class="mb-3">
+                            <label class="form-label">${t('combo_reward')}</label>
+                            <input type="number" class="form-control" id="combo-reward-input" value="${dailyEvent.combo_reward}">
                         </div>
-                    </div>
+                    </fieldset>
+                    <fieldset class="form-fieldset mt-4">
+                        <legend>${t('daily_cipher')}</legend>
+                        <p class="text-secondary">${t('enter_cipher_word')}</p>
+                         <div class="mb-3">
+                            <label class="form-label">${t('cipher_word')}</label>
+                            <input type="text" class="form-control" id="cipher-word-input" placeholder="${t('example_btc')}" value="${escapeHtml(dailyEvent.cipher_word)}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">${t('cipher_reward')}</label>
+                            <input type="number" class="form-control" id="cipher-reward-input" value="${dailyEvent.cipher_reward}">
+                        </div>
+                    </fieldset>
                 </div>
             </div>
         `;
+        
+        // Set selected options for combo cards
+        const selects = document.querySelectorAll('.combo-card-select');
+        selects.forEach((select, index) => {
+            if (dailyEvent.combo_ids[index]) {
+                select.value = dailyEvent.combo_ids[index];
+            }
+        });
     };
 
-    const renderCellSettings = () => {
-        const fields = configMeta.cellSettings.fields;
-        
+    const renderConfigTable = (key) => {
+        const { titleKey, cols } = configMeta[key];
+        const data = localConfig[key] || [];
+
+        const headers = cols.map(col => `<th>${t(col) || col}</th>`).join('') + `<th>${t('actions')}</th>`;
+        const rows = data.map((item, index) => {
+            const cells = cols.map(col => `<td>${renderTableCell(item[col])}</td>`).join('');
+            return `
+                <tr>
+                    ${cells}
+                    <td>
+                        <div class="btn-list flex-nowrap">
+                            <button class="btn btn-sm" data-action="edit-config" data-key="${key}" data-index="${index}">${t('edit')}</button>
+                            <button class="btn btn-sm btn-danger" data-action="delete-config" data-key="${key}" data-index="${index}">${t('delete')}</button>
+                        </div>
+                    </td>
+                </tr>`;
+        }).join('');
+
         tabContainer.innerHTML = `
             <div class="card">
-                <div class="card-header"><h3 class="card-title">${t(configMeta.cellSettings.titleKey)}</h3></div>
-                <div class="card-body">
-                    <div class="row">
-                    ${fields.map(field => `
-                        <div class="col-md-6 mb-3">
-                             <label class="form-label">${t(field)}</label>
-                             <input type="number" class="form-control" data-config-key="${field}" value="${localConfig[field] || 0}">
-                             <small class="form-hint">${t(`${field}_desc`)}</small>
-                        </div>
-                    `).join('')}
+                <div class="card-header">
+                    <h3 class="card-title">${t(titleKey)}</h3>
+                    <div class="card-actions">
+                        <button class="btn btn-primary" data-action="add-config" data-key="${key}">${t('add_new')}</button>
                     </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table card-table table-vcenter text-nowrap datatable">
+                        <thead><tr>${headers}</tr></thead>
+                        <tbody>${rows || `<tr><td colspan="${cols.length + 1}" class="text-center">${t('no_data')}</td></tr>`}</tbody>
+                    </table>
                 </div>
             </div>`;
     };
 
-    const renderUiIcons = () => {
-        const { nav, ...otherIcons } = localConfig.uiIcons || { nav: {}, otherIcons: {} };
-        const renderGroup = (titleKey, iconsObject) => `
-            <div class="mb-4">
-                <h4 class="mb-3">${t(titleKey)}</h4>
-                <div class="row">
-                    ${Object.entries(iconsObject).map(([key, value]) => `
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">${t(`icon_${key.replace('.', '_')}`)}</label>
-                            <input type="text" class="form-control" data-config-key="uiIcons.${titleKey === 'icon_group_nav' ? 'nav.' : ''}${key}" value="${escapeHtml(value)}">
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-
+    const renderTableCell = (data) => {
+        if (typeof data === 'object' && data !== null) return `<pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
+        if (typeof data === 'string' && (data.startsWith('http') || data.startsWith('/assets'))) {
+            return `<img src="${escapeHtml(data)}" alt="icon" style="width: 32px; height: 32px; object-fit: contain; background: #fff; padding: 2px;">`;
+        }
+        return escapeHtml(data);
+    };
+    
+    const renderUiIconsConfig = () => {
+        const iconGroups = {
+            nav: { titleKey: 'icon_group_nav', keys: ['exchange', 'mine', 'missions', 'airdrop', 'profile'] },
+            gameplay: { titleKey: 'icon_group_gameplay', keys: ['energy', 'coin', 'star', 'suspicion'] },
+            market: { titleKey: 'icon_group_market', keys: ['marketCoinBox', 'marketStarBox'] }
+        };
+        const iconsData = localConfig.uiIcons || {};
+        
+        const formHtml = Object.entries(iconGroups).map(([groupKey, group]) => `
+            <fieldset class="form-fieldset">
+                <legend>${t(group.titleKey)}</legend>
+                ${Object.entries(iconsData[groupKey] || {}).map(([key, value]) => `
+                     <div class="mb-3">
+                         <label class="form-label">${t(`icon_${groupKey}_${key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`)}`)}</label>
+                         <div class="input-group">
+                            <input type="text" class="form-control" data-group="${groupKey}" data-key="${key}" value="${escapeHtml(value)}">
+                            <span class="input-group-text"><img src="${escapeHtml(value)}" alt="" style="width: 24px; height: 24px; background: #fff;"></span>
+                         </div>
+                     </div>
+                `).join('')}
+            </fieldset>
+        `).join('');
+        
         tabContainer.innerHTML = `
-            <div class="card">
-                <div class="card-header"><h3 class="card-title">${t(configMeta.uiIcons.titleKey)}</h3></div>
-                <div class="card-body">
-                    ${renderGroup('icon_group_nav', nav)}
-                    <hr class="my-4">
-                    ${renderGroup('icon_group_gameplay', { energy: otherIcons.energy, coin: otherIcons.coin, star: otherIcons.star, suspicion: otherIcons.suspicion })}
-                    <hr class="my-4">
-                    ${renderGroup('icon_group_market', { marketCoinBox: otherIcons.marketCoinBox, marketStarBox: otherIcons.marketStarBox })}
-                </div>
-            </div>
+            <div class="card"><div class="card-body">${formHtml}</div></div>
         `;
     };
+    
+     const renderGenericSettingsForm = (key, fields, titleKey) => {
+        const settingsData = localConfig || {};
+        const formHtml = fields.map(field => `
+            <div class="mb-3">
+                <label class="form-label">${t(field)}</label>
+                <input type="number" class="form-control" data-key="${field}" value="${escapeHtml(settingsData[field] || 0)}">
+                <small class="form-hint">${t(`${field}_desc`)}</small>
+            </div>
+        `).join('');
+        
+        tabContainer.innerHTML = `
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">${t(titleKey)}</h3></div>
+                <div class="card-body">
+                    <fieldset class="form-fieldset">${formHtml}</fieldset>
+                </div>
+            </div>`;
+    };
+    
+    const renderCellConfiguration = () => {
+        const settingsData = localConfig || {};
+        const economyFields = ['informantProfitBonus', 'cellBankProfitShare'].map(field => `
+            <div class="mb-3">
+                <label class="form-label">${t(field.replace('informantProfitBonus', 'informant_bonus_percent').replace('cellBankProfitShare', 'bank_tax_percent'))}</label>
+                <input type="number" step="0.01" class="form-control" data-config-key="${field}" value="${escapeHtml(settingsData[field] || 0)}">
+            </div>
+        `).join('');
 
+        const rewardsFields = ['firstPlace', 'secondPlace', 'thirdPlace', 'participant'].map(field => `
+             <div class="mb-3">
+                <label class="form-label">${t(`${field.replace('Place','_place')}_reward`)}</label>
+                <input type="number" class="form-control" data-config-key="battleRewards" data-sub-key="${field}" value="${escapeHtml(settingsData.battleRewards?.[field] || 0)}">
+            </div>
+        `).join('');
+        
+        const schedule = settingsData.battleSchedule || {};
+        const dayOptions = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+            .map((day, i) => `<option value="${i}" ${schedule.dayOfWeek === i ? 'selected' : ''}>${t(`day_${day}`)}</option>`).join('');
+            
+        const freqOptions = ['weekly', 'biweekly', 'monthly']
+            .map(f => `<option value="${f}" ${schedule.frequency === f ? 'selected' : ''}>${t(`freq_${f}`)}</option>`).join('');
+
+
+        tabContainer.innerHTML = `
+        <div class="row row-cards">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">${t('cell_economy')}</h3></div>
+                    <div class="card-body">${economyFields}</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">${t('battle_rewards')}</h3></div>
+                    <div class="card-body">${rewardsFields}</div>
+                </div>
+            </div>
+             <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">${t('battle_schedule')}</h3></div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">${t('schedule_frequency')}</label>
+                            <select class="form-select" data-config-key="battleSchedule" data-sub-key="frequency">${freqOptions}</select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">${t('schedule_day')}</label>
+                            <select class="form-select" data-config-key="battleSchedule" data-sub-key="dayOfWeek">${dayOptions}</select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">${t('schedule_time_utc')}</label>
+                            <input type="number" class="form-control" data-config-key="battleSchedule" data-sub-key="startHourUTC" value="${schedule.startHourUTC || 12}">
+                        </div>
+                         <div class="mb-3">
+                            <label class="form-label">${t('schedule_duration_hours')}</label>
+                            <input type="number" class="form-control" data-config-key="battleSchedule" data-sub-key="durationHours" value="${schedule.durationHours || 24}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+             <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">${t('battle_management')}</h3></div>
+                    <div class="card-body space-y-3">
+                        <div id="battle-status-container"></div>
+                        <button class="btn btn-primary w-100" data-action="force-start-battle">${t('force_start_battle')}</button>
+                        <button class="btn btn-danger w-100" data-action="force-end-battle">${t('force_end_battle')}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
+        renderBattleStatus();
+    };
+    
+    const renderBattleStatus = async () => {
+        const container = document.getElementById('battle-status-container');
+        if (!container) return;
+        const res = await fetchData('battle/status');
+        const status = res?.status;
+        if (status) {
+             container.innerHTML = `<p>${t('battle_status')}: <span class="badge bg-${status.isActive ? 'green' : 'red'}-lt">${status.isActive ? t('battle_status_active') : t('battle_status_inactive')}</span></p>`;
+        }
+    };
+    
     const renderCellAnalytics = async () => {
         showLoading();
         const data = await fetchData('cell-analytics');
-        if (!data) return;
-
-        const kpiCards = `
-            <div class="col-sm-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="row align-items-center"><div class="col-auto"><span class="bg-primary text-white avatar"><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-users-group" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 13a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M8 21v-1a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v1" /><path d="M15 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M17 10h2a2 2 0 0 1 2 2v1" /><path d="M5 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M3 13v-1a2 2 0 0 1 2 -2h2" /></svg></span></div><div class="col"><div class="font-weight-medium">${formatNumber(data.kpi.totalCells)}</div><div class="text-secondary">${t('kpi_total_cells')}</div></div></div></div></div></div>
-            <div class="col-sm-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="row align-items-center"><div class="col-auto"><span class="bg-green text-white avatar"><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-sword" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M21 3v5l-11 9l-4 4l-3 -3l4 -4l9 -11z" /><path d="M5 14l-1 1" /><path d="M14 5l1 -1" /><path d="M18 9l2 2" /></svg></span></div><div class="col"><div class="font-weight-medium">${formatNumber(data.kpi.battleParticipants)}</div><div class="text-secondary">${t('kpi_battle_participants')}</div></div></div></div></div></div>
-            <div class="col-sm-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="row align-items-center"><div class="col-auto"><span class="bg-yellow text-white avatar"><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-coin" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4h-2a2 2 0 0 1 -1.8 -1" /><path d="M12 6v2m0 8v2" /></svg></span></div><div class="col"><div class="font-weight-medium">${formatNumber(data.kpi.totalBank)}</div><div class="text-secondary">${t('kpi_total_bank')}</div></div></div></div></div></div>
-             <div class="col-sm-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="row align-items-center"><div class="col-auto"><span class="bg-danger text-white avatar"><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-ticket" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 5l0 2" /><path d="M15 11l0 2" /><path d="M15 17l0 2" /><path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></svg></span></div><div class="col"><div class="font-weight-medium">${formatNumber(data.kpi.ticketsSpent)}</div><div class="text-secondary">${t('kpi_tickets_spent')}</div></div></div></div></div></div>
-        `;
-
-        const leaderboardHtml = `
-            <div class="card"><div class="card-header"><h3 class="card-title">${t('cell_leaderboard')}</h3></div>
-            <div class="table-responsive"><table class="table card-table table-vcenter">
-                <thead><tr><th>#</th><th>${t('cell_name')}</th><th>${t('members')}</th><th>${t('total_profit')}</th><th>${t('cell_bank')}</th></tr></thead>
-                <tbody>${data.leaderboard.map((cell, i) => `
-                    <tr>
-                        <td>${i + 1}</td>
-                        <td>${escapeHtml(cell.name)}</td>
-                        <td>${formatNumber(cell.members)}</td>
-                        <td>${formatNumber(cell.total_profit)}</td>
-                        <td>${formatNumber(cell.balance)}</td>
-                    </tr>
-                `).join('')}</tbody>
-            </table></div></div>
-        `;
-
-        const historyHtml = `
-            <div class="card"><div class="card-header"><h3 class="card-title">${t('battle_history')}</h3></div>
-            <div class="table-responsive"><table class="table card-table table-vcenter">
-                <thead><tr><th>${t('battle_date')}</th><th>${t('winner')}</th><th>${t('score')}</th><th>${t('prize_pool')}</th></tr></thead>
-                <tbody>${data.battleHistory.map(battle => {
-                    const winner = battle.winner_details?.firstPlace;
-                    return `
-                        <tr>
-                            <td>${new Date(battle.end_time).toLocaleString()}</td>
-                            <td>${winner ? `Cell ID: ${winner.cell_id}` : 'N/A'}</td>
-                            <td>${winner ? formatNumber(winner.score) : 'N/A'}</td>
-                            <td>-</td>
-                        </tr>
-                    `;
-                }).join('')}</tbody>
-            </table></div></div>
-        `;
+        if (!data) { tabContainer.innerHTML = 'Error loading data'; return; }
         
+        const kpiHtml = Object.entries(data.kpi).map(([key, value]) => `
+             <div class="col-md-3 col-6">
+                <div class="card card-sm">
+                    <div class="card-body text-center">
+                        <div class="h1 mb-1">${formatNumber(value)}</div>
+                        <div class="text-secondary">${t(`kpi_${key}`)}</div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+        const leaderboardRows = data.leaderboard.map(c => `
+            <tr>
+                <td>${c.id}</td>
+                <td>${escapeHtml(c.name)}</td>
+                <td>${c.members}</td>
+                <td>${formatNumber(c.total_profit)}</td>
+                <td>${formatNumber(c.balance)}</td>
+            </tr>
+        `).join('');
+
+        const historyRows = data.battleHistory.map(b => `
+             <tr>
+                <td>${new Date(b.end_time).toLocaleString()}</td>
+                <td>${b.winner_details?.firstPlace?.cell_id || 'N/A'}</td>
+                <td>${formatNumber(b.winner_details?.firstPlace?.score || 0)}</td>
+                <td>${formatNumber(Object.values(localConfig.battleRewards).reduce((s, r) => s + r, 0) * 1)}</td>
+            </tr>
+        `).join('');
+
+
         tabContainer.innerHTML = `
-            <div class="row row-deck row-cards">${kpiCards}</div>
+            <div class="row row-cards">${kpiHtml}</div>
             <div class="row row-cards mt-4">
-                <div class="col-lg-6">${leaderboardHtml}</div>
-                <div class="col-lg-6">${historyHtml}</div>
-            </div>`;
-    };
-
-    const renderCellConfiguration = async () => {
-        // Fetch fresh battle status
-        const battleStatus = await fetchData('battle/status?userId=admin'); // Use a dummy ID
-        const isActive = battleStatus?.status?.isActive || false;
-
-        const schedule = localConfig.battleSchedule || {};
-        const rewards = localConfig.battleRewards || {};
-
-        const dayOptions = [0,1,2,3,4,5,6].map(d => `<option value="${d}" ${schedule.dayOfWeek == d ? 'selected' : ''}>${t(`day_${['sun','mon','tue','wed','thu','fri','sat'][d]}`)}</option>`).join('');
-        const freqOptions = ['weekly','biweekly','monthly'].map(f => `<option value="${f}" ${schedule.frequency == f ? 'selected' : ''}>${t(`freq_${f}`)}</option>`).join('');
-        
-        tabContainer.innerHTML = `
-            <div class="row row-cards">
-                <div class="col-lg-8">
-                    <form id="cell-config-form" class="card">
-                        <div class="card-header"><h3 class="card-title">${t('cell_config')}</h3></div>
-                        <div class="card-body">
-                            <fieldset class="form-fieldset">
-                                <legend>${t('cell_economy')}</legend>
-                                <div class="row">
-                                    <div class="col-md-6 mb-3"><label class="form-label">${t('informant_bonus_percent')}</label><input type="number" step="0.1" class="form-control" name="informantProfitBonus" value="${(localConfig.informantProfitBonus || 0) * 100}"></div>
-                                    <div class="col-md-6 mb-3"><label class="form-label">${t('bank_tax_percent')}</label><input type="number" step="0.1" class="form-control" name="cellBankProfitShare" value="${(localConfig.cellBankProfitShare || 0) * 100}"></div>
-                                </div>
-                            </fieldset>
-                            <fieldset class="form-fieldset">
-                                <legend>${t('battle_rewards')}</legend>
-                                <div class="row">
-                                    <div class="col-md-6 mb-3"><label class="form-label">${t('first_place_reward')}</label><input type="number" class="form-control" name="battleRewards.firstPlace" value="${rewards.firstPlace || 0}"></div>
-                                    <div class="col-md-6 mb-3"><label class="form-label">${t('second_place_reward')}</label><input type="number" class="form-control" name="battleRewards.secondPlace" value="${rewards.secondPlace || 0}"></div>
-                                    <div class="col-md-6 mb-3"><label class="form-label">${t('third_place_reward')}</label><input type="number" class="form-control" name="battleRewards.thirdPlace" value="${rewards.thirdPlace || 0}"></div>
-                                    <div class="col-md-6 mb-3"><label class="form-label">${t('participant_reward')}</label><input type="number" class="form-control" name="battleRewards.participant" value="${rewards.participant || 0}"></div>
-                                </div>
-                            </fieldset>
-                            <fieldset class="form-fieldset">
-                                <legend>${t('battle_schedule')}</legend>
-                                <div class="row">
-                                    <div class="col-md-6 mb-3"><label class="form-label">${t('schedule_frequency')}</label><select class="form-select" name="battleSchedule.frequency">${freqOptions}</select></div>
-                                    <div class="col-md-6 mb-3"><label class="form-label">${t('schedule_day')}</label><select class="form-select" name="battleSchedule.dayOfWeek">${dayOptions}</select></div>
-                                    <div class="col-md-6 mb-3"><label class="form-label">${t('schedule_time_utc')}</label><input type="number" class="form-control" name="battleSchedule.startHourUTC" value="${schedule.startHourUTC || 12}" min="0" max="23"></div>
-                                    <div class="col-md-6 mb-3"><label class="form-label">${t('schedule_duration_hours')}</label><input type="number" class="form-control" name="battleSchedule.durationHours" value="${schedule.durationHours || 24}" min="1"></div>
-                                </div>
-                            </fieldset>
-                        </div>
-                    </form>
-                </div>
-                <div class="col-lg-4">
-                    <div class="card">
-                        <div class="card-header"><h3 class="card-title">${t('battle_management')}</h3></div>
-                        <div class="card-body text-center">
-                            <p>${t('battle_status')}: <span class="badge ${isActive ? 'bg-success' : 'bg-secondary'}">${isActive ? t('battle_status_active') : t('battle_status_inactive')}</span></p>
-                            <div class="d-grid gap-2">
-                                <button id="force-start-btn" class="btn btn-success" data-action="force-start" ${isActive ? 'disabled' : ''}>${t('force_start_battle')}</button>
-                                <button id="force-end-btn" class="btn btn-danger" data-action="force-end" ${!isActive ? 'disabled' : ''}>${t('force_end_battle')}</button>
-                            </div>
-                        </div>
+                <div class="col-lg-6">
+                     <div class="card">
+                        <div class="card-header"><h3 class="card-title">${t('cell_leaderboard')}</h3></div>
+                        <div class="table-responsive" style="max-height: 400px;"><table class="table card-table table-vcenter">
+                            <thead><tr><th>ID</th><th>${t('cell_name')}</th><th>${t('members')}</th><th>${t('total_profit')}</th><th>${t('cell_bank')}</th></tr></thead>
+                            <tbody>${leaderboardRows}</tbody>
+                        </table></div>
                     </div>
                 </div>
-            </div>`;
-    };
-
-
-    // --- MODAL RENDERING ---
-    const renderEditModal = (key, index = -1) => {
-        const isNew = index === -1;
-        const meta = configMeta[key];
-        const item = isNew ? {} : localConfig[key][index];
-        const title = isNew ? t('config_add_item') : t('config_edit_item');
-
-        const formFields = meta.cols.map(col => {
-            let inputHtml = '';
-            const value = item[col] ?? '';
-            const label = t(col);
-            
-            if (col === 'type') {
-                 const options = ['taps', 'telegram_join', 'video_watch', 'video_code'].map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${t(`task_type_${opt}`)}</option>`).join('');
-                 inputHtml = `<select class="form-select" name="${col}">${options}</select>`;
-            } else if (col === 'category') {
-                const options = ['Documents', 'Legal', 'Lifestyle', 'Special'].map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`).join('');
-                inputHtml = `<select class="form-select" name="${col}">${options}</select>`;
-            } else if (col === 'boxType') {
-                const options = ['coin', 'star'].map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`).join('');
-                inputHtml = `<select class="form-select" name="${col}">${options}</select>`;
-            } else if (typeof value === 'object' && value !== null) {
-                // Nested object, e.g., reward, name, description
-                const subFields = Object.keys(value).map(subKey => `
-                    <label class="form-label mt-2">${t(subKey)}</label>
-                    <input type="text" class="form-control" name="${col}.${subKey}" value="${escapeHtml(value[subKey])}">
-                `).join('');
-                inputHtml = `<div class="p-2 border rounded">${subFields}</div>`;
-            } else if (typeof value === 'number') {
-                inputHtml = `<input type="number" class="form-control" name="${col}" value="${value}">`;
-            } else {
-                inputHtml = `<input type="text" class="form-control" name="${col}" value="${escapeHtml(value)}">`;
-            }
-
-            return `<div class="mb-3"><label class="form-label">${label}</label>${inputHtml}</div>`;
-        }).join('');
-
-        modalsContainer.innerHTML = `
-            <div class="modal modal-blur fade show" id="edit-item-modal" tabindex="-1" style="display: block;">
-                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">${title}</h5>
-                            <button type="button" class="btn-close" data-action="close-modal"></button>
-                        </div>
-                        <div class="modal-body">
-                           <form id="edit-item-form">${formFields}</form>
-                        </div>
-                        <div class="modal-footer">
-                           <button type="button" class="btn me-auto" data-action="close-modal">${t('cancel')}</button>
-                           <button type="button" class="btn btn-primary" data-action="save-item" data-key="${key}" data-index="${index}">${t('save')}</button>
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-    };
-    
-    const renderPlayerDetailsModal = async (playerId) => {
-        modalsContainer.innerHTML = `
-         <div class="modal modal-blur fade show" id="player-details-modal" style="display: block;"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-body text-center py-4"><div class="spinner-border"></div></div></div></div></div>`;
-        const player = await fetchData(`player/${playerId}/details`);
-        if (!player) return;
-
-        modalsContainer.innerHTML = `
-             <div class="modal modal-blur fade show" id="player-details-modal" tabindex="-1" style="display: block;">
-                <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">${t('player_details')}: ${escapeHtml(player.name)} (${player.id})</h5>
-                            <button type="button" class="btn-close" data-action="close-modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">${t('current_balance')}</label>
-                                        <input type="text" class="form-control" value="${formatNumber(player.balance)}" readonly>
-                                    </div>
-                                    <form id="add-bonus-form">
-                                        <div class="mb-3">
-                                            <label class="form-label">${t('bonus_amount')}</label>
-                                            <input type="number" name="bonusAmount" class="form-control" placeholder="1000" required>
-                                        </div>
-                                        <button type="submit" class="btn btn-success w-100">${t('add_bonus')}</button>
-                                    </form>
-                                </div>
-                                <div class="col-md-6">
-                                     <div class="mb-3">
-                                        <label class="form-label">${t('suspicion')}</label>
-                                        <input type="text" class="form-control" value="${player.suspicion || 0} / 100" readonly>
-                                    </div>
-                                    <label class="form-label">${t('player_upgrades')}</label>
-                                    <div class="table-responsive" style="max-height: 150px;">
-                                        <table class="table table-sm">
-                                            <tbody>
-                                            ${Object.entries(player.upgrades || {}).map(([id, level]) => `
-                                                <tr><td>${id}</td><td>${t('level')} ${level}</td></tr>`).join('') || `<tr><td>${t('no_data')}</td></tr>`}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                <div class="col-lg-6">
+                     <div class="card">
+                        <div class="card-header"><h3 class="card-title">${t('battle_history')}</h3></div>
+                        <div class="table-responsive" style="max-height: 400px;"><table class="table card-table table-vcenter">
+                            <thead><tr><th>${t('battle_date')}</th><th>${t('winner')}</th><th>${t('score')}</th><th>${t('prize_pool')}</th></tr></thead>
+                            <tbody>${historyRows}</tbody>
+                        </table></div>
                     </div>
                 </div>
             </div>
         `;
-        document.getElementById('add-bonus-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const amount = e.target.elements.bonusAmount.value;
-            if (!amount) return;
-            const res = await postData(`player/${playerId}/update-balance`, { amount });
-            if (res) {
-                alert(t('balance_updated'));
-                renderPlayerDetailsModal(playerId); // Re-render modal to show new balance
-                renderPlayers(); // Re-render player list
-            } else {
-                alert(t('error_updating_balance'));
-            }
-        });
+    };
+    
+    // --- EVENT LISTENERS & HANDLERS ---
+    const handleTabClick = async (e) => {
+        const button = e.target.closest('.tab-button');
+        if (button && button.dataset.tab !== activeTab) {
+            activeTab = button.dataset.tab;
+            render();
+        }
+    };
+    
+    const init = async () => {
+        showLoading();
+        localConfig = await fetchData('config');
+        if (localConfig) {
+            document.querySelectorAll('.navbar').forEach(el => el.style.visibility = 'visible');
+            document.querySelector('.page-wrapper').style.visibility = 'visible';
+            render();
+        } else {
+             tabContainer.innerHTML = `<div class="alert alert-danger">${t('save_error')}</div>`;
+        }
+        applyTranslations();
     };
 
+    // --- MAIN EXECUTION ---
+    init();
 
-    // --- EVENT HANDLING ---
-    const handleAction = async (e) => {
-        const target = e.target.closest('[data-action]');
-        if (!target) return;
+    // Event Delegation
+    document.body.addEventListener('click', async (e) => {
+        const target = e.target;
+        const action = target.closest('[data-action]')?.dataset.action;
+        if (!action) return;
         
-        const { action, key, index, id, lang } = target.dataset;
-
-        switch(action) {
-            case 'close-modal':
-                modalsContainer.innerHTML = '';
-                break;
-            case 'edit-item':
-                renderEditModal(key, index);
-                break;
-            case 'add-item':
-                renderEditModal(key, -1);
-                break;
-            case 'delete-item':
-                if (confirm(t('confirm_delete'))) {
-                    localConfig[key].splice(index, 1);
-                    renderConfigTable(key);
-                }
-                break;
-            case 'save-item': {
-                const form = document.getElementById('edit-item-form');
-                const formData = new FormData(form);
-                const newItem = {};
-                formData.forEach((value, name) => {
-                    if (name.includes('.')) {
-                        const [parentKey, subKey] = name.split('.');
-                        if (!newItem[parentKey]) newItem[parentKey] = {};
-                        newItem[parentKey][subKey] = value;
-                    } else {
-                        newItem[name] = isNaN(Number(value)) ? value : Number(value);
-                    }
-                });
-
-                if (index == -1) { // New item
-                    if (!localConfig[key]) localConfig[key] = [];
-                    localConfig[key].push(newItem);
-                } else { // Existing item
-                    localConfig[key][index] = newItem;
-                }
-                modalsContainer.innerHTML = '';
-                renderConfigTable(key);
-                break;
-            }
-            case 'view-player':
-                renderPlayerDetailsModal(id);
-                break;
-            case 'reset-daily':
-                if (confirm(t('confirm_reset_daily'))) {
-                    const res = await postData(`player/${id}/reset-daily`);
-                    if(res) alert(t('daily_progress_reset_success')); else alert(t('daily_progress_reset_error'));
-                }
+        const button = target.closest('[data-action]');
+        
+        switch (action) {
+            case 'player-details':
+                renderPlayerDetailsModal(button.dataset.id);
                 break;
             case 'delete-player':
                  if (confirm(t('confirm_delete_player'))) {
-                    await deleteData(`player/${id}`);
+                    await deleteData(`player/${button.dataset.id}`);
                     renderPlayers();
-                 }
-                break;
-            case 'reset-progress':
-                if (confirm(t('confirm_reset_progress'))) {
-                    const res = await postData(`player/${id}/reset-progress`);
-                    if(res) { alert(t('progress_reset_success')); renderCheaters(); } else { alert(t('error_resetting_progress')); }
                 }
                 break;
-            case 'force-start':
-                target.disabled = true;
-                await postData('battle/force-start');
-                renderCellConfiguration();
+            case 'edit-config':
+            case 'add-config':
+                 const key = button.dataset.key;
+                 const index = button.dataset.index;
+                 renderConfigForm(key, index);
+                 break;
+            case 'delete-config':
+                 if (confirm(t('confirm_delete'))) {
+                     localConfig[button.dataset.key].splice(button.dataset.index, 1);
+                     render();
+                 }
+                 break;
+            case 'reset-progress':
+                 if (confirm(t('confirm_reset_progress'))) {
+                    const res = await postData(`player/${button.dataset.id}/reset-progress`);
+                    alert(res ? t('progress_reset_success') : t('error_resetting_progress'));
+                    renderCheaters();
+                }
                 break;
-            case 'force-end':
-                target.disabled = true;
-                await postData('battle/force-end');
-                renderCellConfiguration();
+            case 'view-cheat-log':
+                const cheater = (await fetchData('cheaters')).find(c => c.id === button.dataset.id);
+                renderCheatLogModal(cheater);
+                break;
+            case 'edit-socials':
+                renderSocialsModal(button.dataset.social);
+                break;
+             case 'force-start-battle':
+                const startRes = await postData('battle/force-start');
+                if (startRes?.ok) {
+                    alert('Battle started!');
+                    renderBattleStatus();
+                }
+                break;
+            case 'force-end-battle':
+                const endRes = await postData('battle/force-end');
+                 if (endRes?.ok) {
+                    alert('Battle ended!');
+                    renderBattleStatus();
+                }
                 break;
         }
-    };
-    
-    const handleInput = (e) => {
-        const { configKey } = e.target.dataset;
-        if (!configKey) return;
-        
-        let value = e.target.value;
-        if (e.target.type === 'number' || !isNaN(Number(value))) {
-            value = Number(value);
-        }
+    });
 
-        // Handle nested keys like "uiIcons.nav.exchange"
-        const keys = configKey.split('.');
-        let current = localConfig;
-        keys.forEach((k, i) => {
-            if (i === keys.length - 1) {
-                current[k] = value;
+    document.body.addEventListener('change', (e) => {
+        const target = e.target;
+        
+        // Config change in cell config page
+        const configKey = target.dataset.configKey;
+        if (configKey) {
+            const subKey = target.dataset.subKey;
+            const value = target.type === 'number' ? parseFloat(target.value) : target.value;
+            if (subKey) {
+                if (!localConfig[configKey]) localConfig[configKey] = {};
+                localConfig[configKey][subKey] = value;
             } else {
-                if (!current[k]) current[k] = {};
-                current = current[k];
+                localConfig[configKey] = value;
             }
-        });
-    };
+             saveMainButton.classList.remove('d-none');
+            return;
+        }
+
+        // Daily events
+        if (target.id === 'cipher-word-input') dailyEvent.cipher_word = target.value;
+        if (target.id === 'combo-reward-input') dailyEvent.combo_reward = parseInt(target.value);
+        if (target.id === 'cipher-reward-input') dailyEvent.cipher_reward = parseInt(target.value);
+        if (target.classList.contains('combo-card-select')) {
+            const selects = Array.from(document.querySelectorAll('.combo-card-select'));
+            dailyEvent.combo_ids = selects.map(s => s.value).filter(v => v);
+        }
+
+        // Loading screen URL
+        if (target.id === 'loadingScreenUrl') {
+            localConfig.loadingScreenImageUrl = target.value;
+        }
+        
+        // UI Icons
+        const iconGroup = target.dataset.group;
+        const iconKey = target.dataset.key;
+        if (iconGroup && iconKey) {
+            localConfig.uiIcons[iconGroup][iconKey] = target.value;
+             const img = target.nextElementSibling.querySelector('img');
+             if (img) img.src = target.value;
+        }
+        
+        // For settings page with generic fields
+        const genericKey = target.dataset.key;
+        if(genericKey && configMeta.cellSettings.fields.includes(genericKey)) {
+             localConfig[genericKey] = parseFloat(target.value);
+        }
+
+        if (target.closest('.card')) {
+            saveMainButton.classList.remove('d-none');
+        }
+    });
     
-    const handleFormSubmit = (e) => {
-        if (e.target.id === 'cell-config-form') {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            formData.forEach((value, name) => {
-                const keys = name.split('.');
-                let current = localConfig;
-                keys.forEach((k, i) => {
-                    let parsedValue = value;
-                    if (name === 'informantProfitBonus' || name === 'cellBankProfitShare') {
-                        parsedValue = parseFloat(value) / 100;
-                    } else if (!isNaN(Number(value))) {
-                        parsedValue = Number(value);
-                    }
-
-                    if (i === keys.length - 1) {
-                        current[k] = parsedValue;
-                    } else {
-                        if (!current[k]) current[k] = {};
-                        current = current[k];
-                    }
-                });
-            });
-            saveAllChanges();
+    document.body.addEventListener('input', (e) => {
+        const target = e.target;
+        if (target.id === 'player-search') {
+            const searchTerm = target.value.toLowerCase();
+            const filteredPlayers = allPlayers.filter(p => p.id.includes(searchTerm) || p.name.toLowerCase().includes(searchTerm));
+            document.getElementById('players-table-body').innerHTML = generatePlayerRows(filteredPlayers);
         }
-    };
-
-    const handleDailyEventInput = (e) => {
-        if (e.target.matches('.combo-card-select')) {
-            const index = parseInt(e.target.dataset.index, 10);
-            dailyEvent.combo_ids[index] = e.target.value;
-        } else if (e.target.id === 'cipher-word-input') {
-            dailyEvent.cipher_word = e.target.value.toUpperCase();
-        } else if (e.target.id === 'combo-reward-input') {
-            dailyEvent.combo_reward = parseInt(e.target.value, 10);
-        } else if (e.target.id === 'cipher-reward-input') {
-            dailyEvent.cipher_reward = parseInt(e.target.value, 10);
-        }
-    };
-
-    const init = async () => {
-        // --- Setup Event Listeners ---
-        document.body.addEventListener('click', handleAction);
-        document.body.addEventListener('change', handleDailyEventInput);
-        document.body.addEventListener('input', handleInput);
-        document.body.addEventListener('submit', handleFormSubmit);
-
-        document.querySelectorAll('.tab-button').forEach(btn => btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            activeTab = e.currentTarget.dataset.tab;
-            window.location.hash = activeTab;
-            render();
-        }));
-        
-        saveMainButton.addEventListener('click', saveAllChanges);
-        
-        document.querySelectorAll('.lang-select-btn').forEach(btn => btn.addEventListener('click', (e) => {
+    });
+    
+    // Switch lang
+    document.querySelectorAll('.lang-select-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
             e.preventDefault();
             currentLang = e.currentTarget.dataset.lang;
             localStorage.setItem('adminLang', currentLang);
             applyTranslations();
-            render(); // Re-render to apply new language to dynamic content
-        }));
+        });
+    });
 
-        // --- Initial Load ---
-        localConfig = await fetchData('config');
-        if (!localConfig) {
-            tabContainer.innerHTML = '<h2>Failed to load game configuration.</h2>';
-            return;
-        }
-        
-        const hash = window.location.hash.substring(1);
-        if (hash) activeTab = hash;
-        
-        applyTranslations();
-        render();
-    };
-
-    init();
+    document.querySelector('.navbar-nav').addEventListener('click', handleTabClick);
+    saveMainButton.addEventListener('click', saveAllChanges);
 });
+
+// Helper for icon paths - replace with your actual icon paths or a library
+window.tablerIcons = {
+    'users': '<path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /><path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /><path d="M21 21v-2a4 4 0 0 0 -3 -3.85" />',
+    'user-plus': '<path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M16 19h6" /><path d="M19 16v6" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4" />',
+    'wifi': '<path d="M12 18l.01 0" /><path d="M9.172 15.172a4 4 0 0 1 5.656 0" /><path d="M6.343 12.343a8 8 0 0 1 11.314 0" /><path d="M3.515 9.515c4.686 -4.687 12.284 -4.687 17 0" />',
+    'trending-up': '<path d="M3 17l6 -6l4 4l8 -8" /><path d="M14 7l7 0l0 7" />',
+    'star': '<path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z" />',
+};
+
+// Functions to render modals will be added here if not already present.
+// For brevity, assuming they are defined and called from event handlers.
+// Example: renderPlayerDetailsModal, renderConfigForm, etc.
+// These would dynamically create and inject modal HTML into #modals-container
+// and use Bootstrap's modal JS API to show/hide them.

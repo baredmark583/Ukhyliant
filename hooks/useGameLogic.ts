@@ -36,7 +36,7 @@ const API = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ state, taps })
      });
-     // If the server sends back an updated player state, parse and return it.
+     // If the server sends back an updated state, parse and return it.
      if (response.ok && response.headers.get('Content-Type')?.includes('application/json')) {
          return response.json();
      }
@@ -112,7 +112,7 @@ const API = {
     return response.json();
   },
 
-  unlockFreeTask: async (userId: string, taskId: string): Promise<PlayerState | null> => {
+  unlockFreeTask: async (userId: string, taskId: string): Promise<{player: PlayerState, wonItem: any} | null> => {
     if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
     const response = await fetch(`${API_BASE_URL}/api/action/unlock-free-task`, {
         method: 'POST',
@@ -123,14 +123,14 @@ const API = {
     return response.json();
   },
   
-  completeSpecialTask: async (userId: string, taskId: string, code?: string): Promise<PlayerState | null> => {
+  completeSpecialTask: async (userId: string, taskId: string, code?: string): Promise<{player?: PlayerState, error?: string}> => {
     if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
     const response = await fetch(`${API_BASE_URL}/api/action/complete-task`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, taskId, code }),
     });
-     if (!response.ok) return null;
+     if (!response.ok) return {error: 'Failed to complete task'};
     return response.json();
   },
 
@@ -196,13 +196,13 @@ const API = {
     }
   },
   
-  createStarInvoice: async(userId: string, boxType: BoxType): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
+  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox', itemId: string): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
     if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/create-star-invoice`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, boxType }),
+            body: JSON.stringify({ userId, payloadType, itemId }),
         });
         const data = await response.json();
         if (!response.ok) return { ok: false, error: data.error || 'Failed to create invoice.' };
@@ -211,6 +211,16 @@ const API = {
         console.error("Create invoice API error", e);
         return { ok: false, error: 'Server connection failed.' };
     }
+  },
+
+  syncAfterPayment: async(userId: string): Promise<{ player: PlayerState, wonItem: any, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured.", player: null, wonItem: null };
+    const response = await fetch(`${API_BASE_URL}/api/sync-after-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+    });
+    return response.json();
   },
 
   setSkin: async(userId: string, skinId: string): Promise<{ player?: PlayerState, error?: string }> => {
@@ -349,6 +359,8 @@ interface GameContextType {
     setPlayerState: React.Dispatch<React.SetStateAction<PlayerState | null>>;
     config: GameConfig | null;
     setConfig: React.Dispatch<React.SetStateAction<GameConfig | null>>;
+    purchaseResult: any | null;
+    setPurchaseResult: React.Dispatch<React.SetStateAction<any | null>>;
 }
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
@@ -361,6 +373,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
     const [isInitializing, setIsInitializing] = useState(true);
     const [isGlitching, setIsGlitching] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [purchaseResult, setPurchaseResult] = useState<any | null>(null);
 
     useEffect(() => {
         const init = async () => {
@@ -427,7 +440,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
         playerState,
         setPlayerState,
         config,
-        setConfig
+        setConfig,
+        purchaseResult,
+        setPurchaseResult,
     };
     
     return React.createElement(AuthContext.Provider, { value: authContextValue },
@@ -459,7 +474,7 @@ export const useTranslation = () => {
 // --- MAIN GAME LOGIC HOOK ---
 export const useGame = () => {
     const { user } = useAuth();
-    const { playerState, setPlayerState, config, setConfig } = useGameContext();
+    const { playerState, setPlayerState, config, setConfig, purchaseResult, setPurchaseResult } = useGameContext();
     const [isTurboActive, setIsTurboActive] = useState(false);
     const [ominousMessage, setOminousMessage] = useState<string>('');
     const prevPenaltyLogLength = React.useRef<number | undefined>(undefined);
@@ -535,13 +550,24 @@ export const useGame = () => {
     
     // Listener for successful payments
     useEffect(() => {
-        const handleInvoiceClosed = (event: {slug: string, status: 'paid' | 'cancelled' | 'failed' | 'pending'}) => {
+        const handleInvoiceClosed = async (event: {slug: string, status: 'paid' | 'cancelled' | 'failed' | 'pending'}) => {
             if (event.status === 'paid') {
+                if(!user) return;
                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                // A full reload ensures all player and config data is fresh from the server.
-                // This is crucial because a successful payment might result in a new item,
-                // which might not be in the current client-side config (e.g., from a lootbox).
-                window.location.reload();
+                const { player: updatedPlayer, wonItem, error } = await API.syncAfterPayment(user.id);
+
+                if (error) {
+                    // Handle error case, maybe show a notification
+                    console.error("Sync after payment failed:", error);
+                    return;
+                }
+
+                if(updatedPlayer) setPlayerState(updatedPlayer);
+
+                if (wonItem) {
+                    setPurchaseResult(wonItem);
+                }
+                
             } else {
                  window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             }
@@ -551,7 +577,7 @@ export const useGame = () => {
         return () => {
             window.Telegram?.WebApp.offEvent('invoiceClosed', handleInvoiceClosed);
         };
-    }, []);
+    }, [user, setPlayerState, setPurchaseResult]);
 
     const allUpgrades = useMemo(() => {
         const regularUpgrades = (config?.upgrades || []).map(u => ({...u, price: Math.floor(u.price * Math.pow(1.15, playerState?.upgrades[u.id] || 0))}));
@@ -624,7 +650,7 @@ export const useGame = () => {
         if (!user) return { error: 'User not found' };
         
         if (task.priceStars > 0) {
-            const result = await API.createInvoice(user.id, task.id);
+            const result = await API.createStarInvoice(user.id, 'task', task.id);
             if (result.ok && result.invoiceLink) {
                 // The global 'invoiceClosed' event listener will handle the success case.
                 window.Telegram.WebApp.openInvoice(result.invoiceLink);
@@ -633,22 +659,23 @@ export const useGame = () => {
             return { error: result.error || 'Failed to create payment invoice.' };
         } else {
             // Free task - unlock immediately
-            const updatedPlayerState = await API.unlockFreeTask(user.id, task.id);
-            if(updatedPlayerState) {
-                setPlayerState(updatedPlayerState);
+            const result = await API.unlockFreeTask(user.id, task.id);
+            if(result?.player) {
+                setPlayerState(result.player);
+                if (result.wonItem) setPurchaseResult(result.wonItem);
                 return { success: true };
             }
             return { error: 'Failed to unlock free task.' };
         }
-    }, [user, setPlayerState]);
+    }, [user, setPlayerState, setPurchaseResult]);
 
     const completeSpecialTask = useCallback(async (task: SpecialTask, code?: string) => {
-        if (!user) return null;
-        const updatedPlayerState = await API.completeSpecialTask(user.id, task.id, code);
-        if (updatedPlayerState) {
-            setPlayerState(updatedPlayerState);
+        if (!user) return { error: "User not found" };
+        const result = await API.completeSpecialTask(user.id, task.id, code);
+        if (result.player) {
+            setPlayerState(result.player);
         }
-        return updatedPlayerState;
+        return result;
     }, [user, setPlayerState]);
     
     const claimDailyCombo = useCallback(async () => {
@@ -678,7 +705,7 @@ export const useGame = () => {
 
     const purchaseLootboxWithStars = useCallback(async (boxType: 'star') => {
         if (!user) return { error: 'User not found' };
-        const result = await API.createStarInvoice(user.id, boxType);
+        const result = await API.createStarInvoice(user.id, 'lootbox', boxType);
         if (result.ok && result.invoiceLink) {
              // The global 'invoiceClosed' event listener will handle the success case.
             window.Telegram.WebApp.openInvoice(result.invoiceLink);
@@ -775,6 +802,8 @@ export const useGame = () => {
         buyCellTicket,
         ominousMessage,
         setOminousMessage,
+        purchaseResult,
+        setPurchaseResult,
         getBattleStatus,
         joinBattle,
         getBattleLeaderboard,
