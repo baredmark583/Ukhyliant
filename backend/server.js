@@ -50,6 +50,7 @@ import {
     buyUpgradeInDb,
     buyBoostInDb,
     processSuccessfulPayment,
+    buyTicketInDb
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
@@ -299,6 +300,7 @@ app.post('/api/login', async (req, res) => {
                 profitPerHour: 0, // Base profit is 0, referral profit will be added by recalculate
                 tasksProfitPerHour: 0,
                 referralProfitPerHour: 0,
+                cellProfitBonus: 0,
                 coinsPerTap: 1,
                 lastLoginTimestamp: Date.now(),
                 upgrades: {},
@@ -678,6 +680,17 @@ app.post('/api/cell/leave', async (req, res) => {
         const result = await leaveCellFromDb(userId);
         res.json(result);
     } catch(e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+app.post('/api/cell/buy-ticket', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const config = await getGameConfig();
+        const result = await buyTicketInDb(userId, config);
+        res.json({ cell: result });
+    } catch (e) {
         res.status(400).json({ error: e.message });
     }
 });

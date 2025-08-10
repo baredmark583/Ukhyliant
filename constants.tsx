@@ -101,7 +101,8 @@ type TranslationKey =
   // Suspicion & Cells
   | 'suspicion' | 'suspicion_modifier' | 'cell' | 'cell_info' | 'create_cell' | 'join_cell' | 'leave_cell' | 'no_cell_info'
   | 'cell_name' | 'enter_cell_name' | 'create' | 'enter_invite_code' | 'join' | 'members'
-  | 'total_cell_profit' | 'total_cell_profit' | 'invite_code' | 'copy' | 'confirm_leave_cell'
+  | 'total_cell_profit' | 'invite_code' | 'copy' | 'confirm_leave_cell'
+  | 'cell_bank' | 'cell_tickets' | 'buy_ticket'
   // Informants
   | 'recruit_informant' | 'informants' | 'no_informants_recruited' | 'informant_dossier' | 'recruit' | 'recruiting'
   // Big Brother
@@ -234,6 +235,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     invite_code: 'Invite Code',
     copy: 'Copy',
     confirm_leave_cell: 'Are you sure you want to leave this cell?',
+    cell_bank: 'Cell Bank',
+    cell_tickets: 'Battle Tickets',
+    buy_ticket: 'Buy Ticket',
     recruit_informant: 'Recruit Informant',
     informants: 'Informants',
     no_informants_recruited: 'No informants recruited yet.',
@@ -369,6 +373,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     invite_code: 'Код-запрошення',
     copy: 'Копіювати',
     confirm_leave_cell: 'Ви впевнені, що хочете покинути цей осередок?',
+    cell_bank: 'Банк осередку',
+    cell_tickets: 'Квитки на битву',
+    buy_ticket: 'Купити квиток',
     recruit_informant: 'Завербувати інформатора',
     informants: 'Інформатори',
     no_informants_recruited: 'Ще не завербовано жодного інформатора.',
@@ -504,6 +511,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     invite_code: 'Код-приглашение',
     copy: 'Копировать',
     confirm_leave_cell: 'Вы уверены, что хотите покинуть эту ячейку?',
+    cell_bank: 'Банк ячейки',
+    cell_tickets: 'Билеты на битву',
+    buy_ticket: 'Купить билет',
     recruit_informant: 'Завербовать информатора',
     informants: 'Информаторы',
     no_informants_recruited: 'Ещё не завербовано ни одного информатора.',

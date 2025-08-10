@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -260,6 +261,16 @@ const API = {
   recruitInformant: async(userId: string): Promise<{ player?: PlayerState, informant?: any, error?: string }> => {
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/informant/recruit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    return response.json();
+  },
+
+  buyCellTicket: async(userId: string): Promise<{ cell?: Cell, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured." };
+    const response = await fetch(`${API_BASE_URL}/api/cell/buy-ticket`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId }),
@@ -670,6 +681,11 @@ export const useGame = () => {
         return result;
     }, [user, setPlayerState]);
     
+     const buyCellTicket = useCallback(async () => {
+        if (!user) return { error: 'User not found' };
+        return await API.buyCellTicket(user.id);
+    }, [user]);
+
     return {
         playerState,
         config,
@@ -697,6 +713,7 @@ export const useGame = () => {
         getMyCell,
         leaveCell,
         recruitInformant,
+        buyCellTicket,
         ominousMessage,
         setOminousMessage,
     };

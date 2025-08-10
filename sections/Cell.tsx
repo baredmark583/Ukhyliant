@@ -66,7 +66,7 @@ const AccordionSection: React.FC<{
 
 const CellScreen: React.FC = () => {
     const { user } = useAuth();
-    const { getMyCell, createCell, joinCell, leaveCell, recruitInformant, config } = useGame();
+    const { getMyCell, createCell, joinCell, leaveCell, recruitInformant, buyCellTicket, config } = useGame();
     const t = useTranslation();
     
     const [cell, setCell] = useState<CellType | null>(null);
@@ -79,6 +79,7 @@ const CellScreen: React.FC = () => {
     const [cellName, setCellName] = useState('');
     const [inviteCode, setInviteCode] = useState('');
     const [isRecruiting, setIsRecruiting] = useState(false);
+    const [isBuyingTicket, setIsBuyingTicket] = useState(false);
 
     const fetchCell = useCallback(async () => {
         setLoading(true);
@@ -135,13 +136,25 @@ const CellScreen: React.FC = () => {
         setError('');
         const { informant, error: recruitError } = await recruitInformant();
         if(informant) {
-            // Re-fetch cell data to show the new informant
-            fetchCell();
+            await fetchCell(); // Re-fetch cell data to show the new informant and updated profits
         }
         if(recruitError) {
             setError(recruitError);
         }
         setIsRecruiting(false);
+    };
+
+    const handleBuyTicket = async () => {
+        setIsBuyingTicket(true);
+        setError('');
+        const { cell: updatedCell, error: buyError } = await buyCellTicket();
+        if (updatedCell) {
+            setCell(updatedCell);
+        }
+        if (buyError) {
+            setError(buyError);
+        }
+        setIsBuyingTicket(false);
     };
     
     const handleCopyInvite = () => {
@@ -157,6 +170,9 @@ const CellScreen: React.FC = () => {
     }
     
     if (cell) {
+        const ticketCost = config?.cellBattleTicketCost || 1000000;
+        const canAffordTicket = cell.balance >= ticketCost;
+
         return (
             <div className="w-full max-w-md space-y-4">
                 <h2 className="text-2xl font-display text-center">{cell.name}</h2>
@@ -168,6 +184,17 @@ const CellScreen: React.FC = () => {
                              <span className="font-mono bg-black/30 px-2 py-1 border border-gray-600">{cell.invite_code}</span>
                              <button onClick={handleCopyInvite} className="px-3 py-1 bg-blue-600 text-white font-bold text-sm">{copied ? t('copied') : t('copy')}</button>
                         </div>
+                    </div>
+                </div>
+
+                <div className="themed-container p-3">
+                     <div className="flex justify-between items-center text-sm mb-2">
+                        <span className="text-gray-400">{t('cell_bank')}</span>
+                        <span className="font-bold text-yellow-400">{formatNumber(cell.balance)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-400">{t('cell_tickets')}</span>
+                        <span className="font-bold text-blue-400">{cell.ticketCount || 0}</span>
                     </div>
                 </div>
 
@@ -199,6 +226,9 @@ const CellScreen: React.FC = () => {
                 {error && <p className="text-red-400 text-center text-sm mt-2">{error}</p>}
                 
                 <div className="space-y-2 pt-2">
+                    <button onClick={handleBuyTicket} disabled={!canAffordTicket || isBuyingTicket} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 disabled:bg-gray-600">
+                        {isBuyingTicket ? t('loading') : `${t('buy_ticket')} (${formatNumber(ticketCost)})`}
+                    </button>
                     <button onClick={handleRecruitInformant} disabled={isRecruiting} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 disabled:bg-gray-600">
                         {isRecruiting ? t('recruiting') : t('recruit_informant')}
                     </button>

@@ -147,6 +147,7 @@ export interface GameConfig {
     uiIcons: UiIcons;
     cellCreationCost: number;
     cellMaxMembers: number;
+    cellBattleTicketCost: number;
 }
 
 export interface PlayerState {
@@ -155,6 +156,7 @@ export interface PlayerState {
   profitPerHour: number;
   tasksProfitPerHour: number; // Permanent profit from tasks
   referralProfitPerHour: number;
+  cellProfitBonus?: number;
   coinsPerTap: number;
   lastLoginTimestamp: number;
   upgrades: Record<string, number>; // key: upgrade.id, value: level
@@ -190,6 +192,8 @@ export interface Cell {
     members: CellMember[];
     totalProfitPerHour: number;
     informants: Informant[];
+    balance: number;
+    ticketCount: number;
 }
 
 export interface Informant {

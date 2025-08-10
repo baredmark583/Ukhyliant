@@ -17,7 +17,10 @@ import {
     REFERRAL_PROFIT_SHARE,
     INITIAL_MAX_ENERGY,
     LOOTBOX_COST_COINS,
-    LOOTBOX_COST_STARS
+    LOOTBOX_COST_STARS,
+    INFORMANT_PROFIT_BONUS,
+    CELL_BANK_PROFIT_SHARE,
+    CELL_BATTLE_TICKET_COST
 } from './constants.js';
 
 const { Pool } = pg;
@@ -105,7 +108,10 @@ export const initializeDb = async () => {
             name VARCHAR(255) NOT NULL,
             owner_id VARCHAR(255) NOT NULL,
             invite_code VARCHAR(8) UNIQUE NOT NULL,
-            created_at TIMESTAMPTZ DEFAULT NOW()
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            balance NUMERIC(20, 4) DEFAULT 0,
+            ticket_count INTEGER DEFAULT 0,
+            last_profit_update TIMESTAMPTZ DEFAULT NOW()
         );
 
         CREATE TABLE IF NOT EXISTS informants (
@@ -140,8 +146,11 @@ export const initializeDb = async () => {
     
     try {
         await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referrer_id VARCHAR(255);`);
+        await executeQuery(`ALTER TABLE cells ADD COLUMN IF NOT EXISTS balance NUMERIC(20, 4) DEFAULT 0;`);
+        await executeQuery(`ALTER TABLE cells ADD COLUMN IF NOT EXISTS ticket_count INTEGER DEFAULT 0;`);
+        await executeQuery(`ALTER TABLE cells ADD COLUMN IF NOT EXISTS last_profit_update TIMESTAMPTZ DEFAULT NOW();`);
     } catch (e) {
-        console.error("Could not add referrer_id column to users table.", e.message);
+        console.error("Could not add new columns.", e.message);
     }
 
 
@@ -171,6 +180,7 @@ export const initializeDb = async () => {
             informantRecruitCost: INFORMANT_RECRUIT_COST,
             lootboxCostCoins: LOOTBOX_COST_COINS,
             lootboxCostStars: LOOTBOX_COST_STARS,
+            cellBattleTicketCost: CELL_BATTLE_TICKET_COST,
         };
         await saveConfig(initialConfig);
         console.log("Initial game config seeded to the database.");
@@ -211,6 +221,7 @@ export const initializeDb = async () => {
         if (config.informantRecruitCost === undefined) { config.informantRecruitCost = INFORMANT_RECRUIT_COST; needsUpdate = true; }
         if (config.lootboxCostCoins === undefined) { config.lootboxCostCoins = LOOTBOX_COST_COINS; needsUpdate = true; }
         if (config.lootboxCostStars === undefined) { config.lootboxCostStars = LOOTBOX_COST_STARS; needsUpdate = true; }
+        if (config.cellBattleTicketCost === undefined) { config.cellBattleTicketCost = CELL_BATTLE_TICKET_COST; needsUpdate = true; }
         
         if (needsUpdate) {
             await saveConfig(config);
@@ -280,8 +291,8 @@ export const recalculateReferralProfit = async (referrerId) => {
             const referralPlayersRes = await client.query(`SELECT data FROM players WHERE id = ANY($1::text[])`, [referralIds]);
             for (const referralPlayerRow of referralPlayersRes.rows) {
                 const referralPlayer = referralPlayerRow.data;
-                // Base profit is total profit minus profit from their *own* referrals to avoid cascading effects
-                const baseProfit = (referralPlayer.profitPerHour || 0) - (referralPlayer.referralProfitPerHour || 0);
+                // Base profit is total profit minus profit from their *own* referrals and cell bonuses
+                const baseProfit = (referralPlayer.profitPerHour || 0) - (referralPlayer.referralProfitPerHour || 0) - (referralPlayer.cellProfitBonus || 0);
                 totalReferralBaseProfit += baseProfit;
             }
         }
@@ -589,15 +600,56 @@ const generateInviteCode = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
+const updateCellBankInDb = async (cellId, client) => {
+    const cellRes = await client.query('SELECT * FROM cells WHERE id = $1 FOR UPDATE', [cellId]);
+    if (cellRes.rows.length === 0) return null;
+    let cell = cellRes.rows[0];
+
+    const membersRes = await client.query(`SELECT data->>'profitPerHour' as "profitPerHour" FROM players WHERE (data->>'cellId')::int = $1`, [cellId]);
+    const totalProfitPerHour = membersRes.rows.reduce((sum, r) => sum + parseFloat(r.profitPerHour || '0'), 0);
+
+    const now = Date.now();
+    const lastUpdate = new Date(cell.last_profit_update).getTime();
+    const timeDeltaSeconds = Math.max(0, Math.floor((now - lastUpdate) / 1000));
+    
+    if (timeDeltaSeconds > 0) {
+        const earnedProfit = (totalProfitPerHour * CELL_BANK_PROFIT_SHARE / 3600) * timeDeltaSeconds;
+        const updatedCellRes = await client.query(
+            'UPDATE cells SET balance = balance + $1, last_profit_update = NOW() WHERE id = $2 RETURNING *',
+            [earnedProfit, cellId]
+        );
+        return updatedCellRes.rows[0];
+    }
+    return cell;
+};
+
+const recalculateCellBonusForPlayer = async (player, client) => {
+    const oldBonus = player.cellProfitBonus || 0;
+    let newBonus = 0;
+    
+    if (player.cellId) {
+        const informantsRes = await client.query('SELECT COUNT(*) FROM informants WHERE cell_id = $1', [player.cellId]);
+        const informantCount = parseInt(informantsRes.rows[0].count, 10);
+        
+        if (informantCount > 0) {
+            const baseProfit = (player.profitPerHour || 0) - (player.referralProfitPerHour || 0) - oldBonus;
+            newBonus = baseProfit * informantCount * INFORMANT_PROFIT_BONUS;
+        }
+    }
+    
+    player.profitPerHour = (player.profitPerHour || 0) - oldBonus + newBonus;
+    player.cellProfitBonus = newBonus;
+    
+    return player;
+};
+
 export const createCellInDb = async (userId, name, cost) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
-        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
-        if (playerRes.rows.length === 0) throw new Error("Player not found.");
-        let player = playerRes.rows[0].data;
-
+        let player = (await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId])).rows[0].data;
+        if (!player) throw new Error("Player not found.");
         if (player.cellId) throw new Error("Player is already in a cell.");
         
         const currentBalance = Number(player.balance || 0);
@@ -605,10 +657,7 @@ export const createCellInDb = async (userId, name, cost) => {
         player.balance = currentBalance - cost;
 
         const inviteCode = generateInviteCode();
-        const cellRes = await client.query(
-            'INSERT INTO cells (name, owner_id, invite_code) VALUES ($1, $2, $3) RETURNING *',
-            [name, userId, inviteCode]
-        );
+        const cellRes = await client.query('INSERT INTO cells (name, owner_id, invite_code) VALUES ($1, $2, $3) RETURNING *', [name, userId, inviteCode]);
         const newCell = cellRes.rows[0];
 
         player.cellId = newCell.id;
@@ -629,21 +678,20 @@ export const joinCellInDb = async (userId, inviteCode, maxMembers) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-
-        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
-        if (playerRes.rows.length === 0) throw new Error("Player not found.");
-        let player = playerRes.rows[0].data;
+        
+        let player = (await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId])).rows[0].data;
+        if (!player) throw new Error("Player not found.");
         if (player.cellId) throw new Error("Player is already in a cell.");
 
-        const cellRes = await client.query('SELECT id FROM cells WHERE invite_code = $1', [inviteCode]);
+        const cellRes = await client.query('SELECT id FROM cells WHERE invite_code = $1 FOR UPDATE', [inviteCode]);
         if (cellRes.rows.length === 0) throw new Error("Invalid invite code.");
         const cellId = cellRes.rows[0].id;
         
         const memberCountRes = await client.query("SELECT COUNT(*) FROM players WHERE data->>'cellId' = $1", [String(cellId)]);
-        const memberCount = parseInt(memberCountRes.rows[0].count, 10);
-        if (memberCount >= maxMembers) throw new Error("Cell is full.");
+        if (parseInt(memberCountRes.rows[0].count, 10) >= maxMembers) throw new Error("Cell is full.");
 
         player.cellId = cellId;
+        player = await recalculateCellBonusForPlayer(player, client);
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         
         await client.query('COMMIT');
@@ -660,11 +708,11 @@ export const leaveCellFromDb = async (userId) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
-        if (playerRes.rows.length === 0) throw new Error("Player not found.");
-        let player = playerRes.rows[0].data;
+        let player = (await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId])).rows[0].data;
+        if (!player || !player.cellId) throw new Error("Player not in a cell.");
 
         player.cellId = null;
+        player = await recalculateCellBonusForPlayer(player, client);
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
 
         await client.query('COMMIT');
@@ -679,53 +727,65 @@ export const leaveCellFromDb = async (userId) => {
 
 export const getCellFromDb = async (cellId) => {
     if (!cellId) return null;
-    
-    const cellRes = await executeQuery('SELECT * FROM cells WHERE id = $1', [cellId]);
-    if (cellRes.rows.length === 0) return null;
-    let cell = cellRes.rows[0];
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        let cell = await updateCellBankInDb(cellId, client);
+        if (!cell) {
+            await client.query('ROLLBACK');
+            return null;
+        }
 
-    const membersRes = await executeQuery(`
-        SELECT u.id, u.name, p.data->>'profitPerHour' as "profitPerHour"
-        FROM users u
-        JOIN players p ON u.id = p.id
-        WHERE (p.data->>'cellId')::int = $1
-    `, [cellId]);
-    
-    cell.members = membersRes.rows.map(r => ({ ...r, profitPerHour: parseFloat(r.profitPerHour || '0') }));
-    cell.totalProfitPerHour = cell.members.reduce((sum, member) => sum + member.profitPerHour, 0);
+        const membersRes = await client.query(`
+            SELECT u.id, u.name, p.data->>'profitPerHour' as "profitPerHour"
+            FROM users u JOIN players p ON u.id = p.id
+            WHERE (p.data->>'cellId')::int = $1
+        `, [cellId]);
+        
+        cell.members = membersRes.rows.map(r => ({ ...r, profitPerHour: parseFloat(r.profitPerHour || '0') }));
+        cell.totalProfitPerHour = cell.members.reduce((sum, member) => sum + member.profitPerHour, 0);
 
-    const informantsRes = await executeQuery('SELECT * FROM informants WHERE cell_id = $1', [cellId]);
-    cell.informants = informantsRes.rows;
+        const informantsRes = await client.query('SELECT * FROM informants WHERE cell_id = $1', [cellId]);
+        cell.informants = informantsRes.rows;
 
-    return cell;
+        await client.query('COMMIT');
+        return {
+            ...cell,
+            balance: parseFloat(cell.balance),
+            ticketCount: parseInt(cell.ticket_count, 10),
+        };
+    } catch(e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
 };
 
 export const recruitInformantInDb = async (userId, informantData, config) => {
      const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
-        if (playerRes.rows.length === 0) throw new Error("Player not found.");
-        let player = playerRes.rows[0].data;
-        if (!player.cellId) throw new Error("You must be in a cell to recruit informants.");
+        let player = (await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId])).rows[0].data;
+        if (!player || !player.cellId) throw new Error("You must be in a cell to recruit informants.");
         
         const cost = config.informantRecruitCost || INFORMANT_RECRUIT_COST; 
-        const currentBalance = Number(player.balance || 0);
-        if (currentBalance < cost) throw new Error("Not enough coins to recruit an informant.");
-        player.balance = currentBalance - cost;
-        
-        const { name, dossier, specialization } = informantData;
-
-        const informantRes = await client.query(
-            'INSERT INTO informants (cell_id, name, dossier, specialization) VALUES ($1, $2, $3, $4) RETURNING *',
-            [player.cellId, name, dossier, specialization]
-        );
-        const newInformant = informantRes.rows[0];
-        
+        if (Number(player.balance || 0) < cost) throw new Error("Not enough coins to recruit an informant.");
+        player.balance = Number(player.balance || 0) - cost;
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         
+        const { name, dossier, specialization } = informantData;
+        const informantRes = await client.query('INSERT INTO informants (cell_id, name, dossier, specialization) VALUES ($1, $2, $3, $4) RETURNING *', [player.cellId, name, dossier, specialization]);
+        
+        const membersRes = await client.query(`SELECT id FROM players WHERE (data->>'cellId')::int = $1`, [player.cellId]);
+        for (const memberRow of membersRes.rows) {
+            let memberPlayer = (await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [memberRow.id])).rows[0].data;
+            memberPlayer = await recalculateCellBonusForPlayer(memberPlayer, client);
+            await client.query('UPDATE players SET data = $1 WHERE id = $2', [memberPlayer, memberRow.id]);
+        }
+        
         await client.query('COMMIT');
-        return { player, informant: newInformant };
+        return { player, informant: informantRes.rows[0] };
 
     } catch (e) {
         await client.query('ROLLBACK');
@@ -734,6 +794,33 @@ export const recruitInformantInDb = async (userId, informantData, config) => {
         client.release();
     }
 };
+
+export const buyTicketInDb = async (userId, config) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const player = await getPlayer(userId);
+        if (!player || !player.cellId) throw new Error("Must be in a cell to buy a ticket.");
+
+        let cell = await updateCellBankInDb(player.cellId, client);
+        const cost = config.cellBattleTicketCost || CELL_BATTLE_TICKET_COST;
+        if (parseFloat(cell.balance) < cost) throw new Error("Insufficient funds in cell bank.");
+        
+        const updatedCellRes = await client.query(
+            'UPDATE cells SET balance = balance - $1, ticket_count = ticket_count + 1 WHERE id = $2 RETURNING *',
+            [cost, player.cellId]
+        );
+        
+        await client.query('COMMIT');
+        return await getCellFromDb(player.cellId);
+
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+}
 
 export const openLootboxInDb = async (userId, boxType, config) => {
     if (boxType !== 'coin') throw new Error("This function only supports coin lootboxes.");
