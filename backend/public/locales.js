@@ -64,6 +64,7 @@ window.LOCALES = {
         'youtube_stats': 'YouTube Stats',
         'telegram_stats': 'Telegram Stats',
         'social_youtube_subs': 'YouTube Subs',
+        'views': 'Views',
         'social_telegram_subs': 'Telegram Subs',
 
         // Cheaters Tab
@@ -203,10 +204,6 @@ window.LOCALES = {
         'lootboxCostStars_desc': 'The cost in Telegram Stars for opening one star-based lootbox.',
         'cellBattleTicketCost': 'Battle Ticket Cost',
         'cellBattleTicketCost_desc': 'The cost in the cell bank for a member to buy one battle ticket.',
-        'informantProfitBonus': 'Informant Profit Bonus (%)',
-        'informantProfitBonus_desc': 'The % bonus to base profit each member gets per informant in the cell.',
-        'cellBankProfitShare': 'Cell Bank Tax (%)',
-        'cellBankProfitShare_desc': 'The percentage of each member\'s profit that goes to the cell bank.',
         
         // UI Icons
         'icon_group_nav': 'Navigation Bar',
@@ -221,8 +218,8 @@ window.LOCALES = {
         'icon_coin': 'Coin Icon',
         'icon_star': 'Star Icon',
         'icon_suspicion': 'Suspicion Icon',
-        'icon_market_coin_box': 'Coin Box Icon',
-        'icon_market_star_box': 'Star Box Icon',
+        'icon_marketCoinBox': 'Coin Box Icon',
+        'icon_marketStarBox': 'Star Box Icon',
 
         // Player Details Modal
         'player_details': 'Player Details',
@@ -314,6 +311,7 @@ window.LOCALES = {
         'youtube_stats': 'Статистика YouTube',
         'telegram_stats': 'Статистика Telegram',
         'social_youtube_subs': 'Подписчики YouTube',
+        'views': 'Просмотры',
         'social_telegram_subs': 'Подписчики Telegram',
 
         // Cheaters Tab
@@ -453,10 +451,6 @@ window.LOCALES = {
         'lootboxCostStars_desc': 'Стоимость в Telegram Stars за открытие одного лутбокса.',
         'cellBattleTicketCost': 'Стоимость билета на битву',
         'cellBattleTicketCost_desc': 'Стоимость в банке ячейки, которую участник платит за один билет на битву.',
-        'informantProfitBonus': 'Бонус от информатора (%)',
-        'informantProfitBonus_desc': '% бонус к базовой прибыли, который каждый участник получает за каждого информатора в ячейке.',
-        'cellBankProfitShare': 'Налог в банк ячейки (%)',
-        'cellBankProfitShare_desc': 'Процент от прибыли каждого участника, который идет в банк ячейки.',
 
         // UI Icons
         'icon_group_nav': 'Панель навигации',
@@ -565,6 +559,7 @@ window.LOCALES = {
         'youtube_stats': 'Статистика YouTube',
         'telegram_stats': 'Статистика Telegram',
         'social_youtube_subs': 'Підписники YouTube',
+        'views': 'Перегляди',
         'social_telegram_subs': 'Підписники Telegram',
 
         // Cheaters Tab
@@ -704,10 +699,6 @@ window.LOCALES = {
         'lootboxCostStars_desc': 'Вартість у Telegram Stars за відкриття одного лутбоксу.',
         'cellBattleTicketCost': 'Вартість квитка на битву',
         'cellBattleTicketCost_desc': 'Вартість у банку осередку, яку учасник сплачує за один квиток на битву.',
-        'informantProfitBonus': 'Бонус від інформатора (%)',
-        'informantProfitBonus_desc': '% бонус до базового прибутку, який кожен учасник отримує за кожного інформатора в осередку.',
-        'cellBankProfitShare': 'Податок в банк осередку (%)',
-        'cellBankProfitShare_desc': 'Відсоток від прибутку кожного учасника, який йде в банк осередку.',
 
         // UI Icons
         'icon_group_nav': 'Панель навігації',

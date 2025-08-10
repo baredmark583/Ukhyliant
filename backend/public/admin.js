@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tabTitle.textContent = t(activeButton.dataset.titleKey);
         }
 
-        saveMainButton.classList.toggle('d-none', !configMeta[activeTab] && activeTab !== 'dailyEvents' && activeTab !== 'cellSettings');
+        saveMainButton.classList.toggle('d-none', !configMeta[activeTab] && activeTab !== 'dailyEvents' && activeTab !== 'cellSettings' && activeTab !== 'cellConfiguration');
         
         switch (activeTab) {
             case 'dashboard':
@@ -255,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </span>
                             </div>
                             <div class="col">
-                                <div class="font-weight-medium">${formatNumber(kpi.value)}</div>
+                                <div class="font-weight-medium">${kpi.value}</div>
                                 <div class="text-secondary">${t(kpi.key)}</div>
                             </div>
                         </div>
@@ -478,7 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <option value="">${t('select_card')}</option>
                 ${cardOptions}
             </select>
-        `).join('');
+        `);
 
         tabContainer.innerHTML = `
             <div class="card">
@@ -488,9 +488,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <legend>${t('daily_combo')}</legend>
                         <p class="text-secondary">${t('select_3_cards_for_combo')}</p>
                         <div class="row">
-                            <div class="col-md-4 mb-3">${comboSelectors.split('</select>')[0]}</select></div>
-                            <div class="col-md-4 mb-3">${comboSelectors.split('</select>')[1]}</select></div>
-                            <div class="col-md-4 mb-3">${comboSelectors.split('</select>')[2]}</select></div>
+                            <div class="col-md-4 mb-3">${comboSelectors[0]}</div>
+                            <div class="col-md-4 mb-3">${comboSelectors[1]}</div>
+                            <div class="col-md-4 mb-3">${comboSelectors[2]}</div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">${t('combo_reward')}</label>
@@ -565,33 +565,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return escapeHtml(data);
     };
+
+    const renderIconInput = (groupKey, key, value) => {
+        const dataAttrs = groupKey ? `data-group="${groupKey}" data-key="${key}"` : `data-key="${key}"`;
+        const translationKey = groupKey ? `icon_${groupKey}_${key}` : `icon_${key}`;
+        return `
+            <div class="mb-3">
+                <label class="form-label">${t(translationKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`))}</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" ${dataAttrs} value="${escapeHtml(value)}">
+                    <span class="input-group-text"><img src="${escapeHtml(value)}" alt="" style="width: 24px; height: 24px; background: #fff;"></span>
+                </div>
+            </div>`;
+    };
     
     const renderUiIconsConfig = () => {
+        const iconsData = localConfig.uiIcons || {};
         const iconGroups = {
             nav: { titleKey: 'icon_group_nav', keys: ['exchange', 'mine', 'missions', 'airdrop', 'profile'] },
             gameplay: { titleKey: 'icon_group_gameplay', keys: ['energy', 'coin', 'star', 'suspicion'] },
             market: { titleKey: 'icon_group_market', keys: ['marketCoinBox', 'marketStarBox'] }
         };
-        const iconsData = localConfig.uiIcons || {};
+
+        let formHtml = '';
+        for (const [groupKey, group] of Object.entries(iconGroups)) {
+            formHtml += `<fieldset class="form-fieldset"><legend>${t(group.titleKey)}</legend>`;
+            if (groupKey === 'nav') {
+                 formHtml += group.keys.map(key => renderIconInput('nav', key, iconsData.nav?.[key] || '')).join('');
+            } else {
+                 formHtml += group.keys.map(key => renderIconInput(null, key, iconsData[key] || '')).join('');
+            }
+            formHtml += `</fieldset>`;
+        }
         
-        const formHtml = Object.entries(iconGroups).map(([groupKey, group]) => `
-            <fieldset class="form-fieldset">
-                <legend>${t(group.titleKey)}</legend>
-                ${Object.entries(iconsData[groupKey] || {}).map(([key, value]) => `
-                     <div class="mb-3">
-                         <label class="form-label">${t(`icon_${groupKey}_${key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`)}`)}</label>
-                         <div class="input-group">
-                            <input type="text" class="form-control" data-group="${groupKey}" data-key="${key}" value="${escapeHtml(value)}">
-                            <span class="input-group-text"><img src="${escapeHtml(value)}" alt="" style="width: 24px; height: 24px; background: #fff;"></span>
-                         </div>
-                     </div>
-                `).join('')}
-            </fieldset>
-        `).join('');
-        
-        tabContainer.innerHTML = `
-            <div class="card"><div class="card-body">${formHtml}</div></div>
-        `;
+        tabContainer.innerHTML = `<div class="card"><div class="card-body">${formHtml}</div></div>`;
     };
     
      const renderGenericSettingsForm = (key, fields, titleKey) => {
@@ -760,6 +767,165 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     };
     
+    // --- MODAL RENDERING ---
+    const renderModal = (id, title, body, footer) => {
+        const modalHtml = `
+            <div class="modal modal-blur fade" id="${id}" tabindex="-1" role="dialog" aria-hidden="true">
+              <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title">${title}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body">${body}</div>
+                  <div class="modal-footer">${footer}</div>
+                </div>
+              </div>
+            </div>`;
+        modalsContainer.innerHTML = modalHtml;
+        const modal = new bootstrap.Modal(document.getElementById(id));
+        modal.show();
+        document.getElementById(id).addEventListener('hidden.bs.modal', () => {
+            modalsContainer.innerHTML = '';
+        });
+        return modal;
+    };
+    
+    const renderPlayerDetailsModal = async (playerId) => {
+        const player = await fetchData(`player/${playerId}/details`);
+        if (!player) { alert('Could not load player details'); return; }
+        
+        const upgradesHtml = Object.entries(player.upgrades || {}).map(([id, level]) => `
+            <li>${id}: <strong>${t('level')} ${level}</strong></li>
+        `).join('');
+
+        const body = `
+            <p><strong>ID:</strong> ${player.id}</p>
+            <p><strong>${t('name')}:</strong> ${escapeHtml(player.name)}</p>
+            <p><strong>${t('current_balance')}:</strong> ${formatNumber(player.balance)}</p>
+            <p><strong>${t('suspicion')}:</strong> ${player.suspicion || 0}</p>
+            <hr>
+            <h4>${t('player_upgrades')}</h4>
+            <ul class="list-unstyled">${upgradesHtml || `<li>${t('no_data')}</li>`}</ul>
+            <hr>
+            <h4>${t('add_bonus')}</h4>
+            <div class="input-group">
+                <input type="number" id="bonus-amount-input" class="form-control" placeholder="${t('bonus_amount')}">
+                <button class="btn btn-primary" id="add-bonus-btn">${t('add_bonus')}</button>
+            </div>
+            <hr>
+            <button class="btn btn-warning" id="reset-daily-btn">${t('reset_daily')}</button>
+        `;
+        const footer = `<button type="button" class="btn" data-bs-dismiss="modal">${t('close')}</button>`;
+        const modalInstance = renderModal('player-details-modal', `${t('player_details')}: ${escapeHtml(player.name)}`, body, footer);
+
+        document.getElementById('add-bonus-btn').onclick = async () => {
+            const amount = document.getElementById('bonus-amount-input').value;
+            if (amount) {
+                const res = await postData(`player/${playerId}/update-balance`, { amount: Number(amount) });
+                if (res) { alert(t('balance_updated')); modalInstance.hide(); renderPlayers(); } 
+                else { alert(t('error_updating_balance')); }
+            }
+        };
+        document.getElementById('reset-daily-btn').onclick = async () => {
+            if (confirm(t('confirm_reset_daily'))) {
+                const res = await postData(`player/${playerId}/reset-daily`);
+                if (res) { alert(t('daily_progress_reset_success')); modalInstance.hide(); } 
+                else { alert(t('daily_progress_reset_error')); }
+            }
+        };
+    };
+
+    const renderConfigForm = (key, index) => {
+        const isNew = index === undefined;
+        const item = isNew ? {} : localConfig[key][index];
+        const title = isNew ? t('config_add_item') : t('config_edit_item');
+        const { cols } = configMeta[key];
+        
+        const formBody = cols.map(col => {
+            const value = item[col] || (col === 'id' && isNew ? `new_${key}_${Date.now()}` : '');
+            if (typeof value === 'object' && value !== null) {
+                return `
+                    <div class="mb-3">
+                        <label class="form-label">${t(col) || col}</label>
+                        <textarea class="form-control" rows="3" data-col="${col}">${escapeHtml(JSON.stringify(value, null, 2))}</textarea>
+                    </div>`;
+            } else if (col === 'type' && (key === 'tasks' || key === 'specialTasks')) {
+                const options = ['taps', 'telegram_join', 'video_watch', 'video_code'].map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${t(`task_type_${opt}`)}</option>`);
+                return `<div class="mb-3"><label class="form-label">${t(col) || col}</label><select class="form-select" data-col="${col}">${options}</select></div>`;
+            } else {
+                return `
+                    <div class="mb-3">
+                        <label class="form-label">${t(col) || col}</label>
+                        <input type="${typeof value === 'number' ? 'number' : 'text'}" class="form-control" data-col="${col}" value="${escapeHtml(value)}">
+                    </div>`;
+            }
+        }).join('');
+        
+        const footer = `
+            <button type="button" class="btn" data-bs-dismiss="modal">${t('cancel')}</button>
+            <button type="button" class="btn btn-primary" id="save-config-item-btn">${t('save')}</button>
+        `;
+        const modalInstance = renderModal('config-modal', title, formBody, footer);
+        
+        document.getElementById('save-config-item-btn').onclick = () => {
+            const newItem = {};
+            cols.forEach(col => {
+                const input = document.querySelector(`#config-modal [data-col="${col}"]`);
+                try {
+                    newItem[col] = JSON.parse(input.value);
+                } catch (e) {
+                    newItem[col] = input.type === 'number' ? Number(input.value) : input.value;
+                }
+            });
+            if (isNew) {
+                if (!localConfig[key]) localConfig[key] = [];
+                localConfig[key].push(newItem);
+            } else {
+                localConfig[key][index] = newItem;
+            }
+            modalInstance.hide();
+            render();
+            saveMainButton.classList.remove('d-none');
+        };
+    };
+
+    const renderCheatLogModal = (cheater) => {
+        const logHtml = (cheater.cheat_log || []).map(log => `
+            <li>TPS: <strong>${log.tps.toFixed(2)}</strong> (${log.taps} taps in ${log.timeDiff.toFixed(2)}s) at ${new Date(log.timestamp).toLocaleString()}</li>
+        `).join('');
+        renderModal('cheat-log-modal', `Cheat Log: ${cheater.name}`, `<ul class="list-unstyled">${logHtml}</ul>`, `<button class="btn" data-bs-dismiss="modal">${t('close')}</button>`);
+    };
+
+    const renderSocialsModal = (socialType) => {
+        const socials = localConfig.socials || {};
+        const isYouTube = socialType === 'youtube';
+        const title = isYouTube ? t('edit_youtube_settings') : t('edit_telegram_settings');
+        
+        const body = `
+            <div class="mb-3">
+                <label class="form-label">${t(`${socialType}_channel_url`)}</label>
+                <input type="text" id="social-url" class="form-control" value="${escapeHtml(socials[`${socialType}Url`] || '')}">
+                <small class="form-hint">${t(`${socialType}_channel_url_desc`)}</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">${t(`${socialType}_channel_id`)}</label>
+                <input type="text" id="social-id" class="form-control" value="${escapeHtml(socials[`${socialType}ChannelId`] || '')}">
+                <small class="form-hint">${t(`${socialType}_channel_id_desc`)}</small>
+            </div>
+        `;
+        const footer = `<button class="btn" data-bs-dismiss="modal">${t('cancel')}</button><button class="btn btn-primary" id="save-socials-btn">${t('save')}</button>`;
+        const modalInstance = renderModal('socials-modal', title, body, footer);
+        
+        document.getElementById('save-socials-btn').onclick = () => {
+            localConfig.socials[`${socialType}Url`] = document.getElementById('social-url').value;
+            localConfig.socials[`${socialType}ChannelId`] = document.getElementById('social-id').value;
+            modalInstance.hide();
+            render();
+            saveMainButton.classList.remove('d-none');
+        };
+    };
+    
     // --- EVENT LISTENERS & HANDLERS ---
     const handleTabClick = async (e) => {
         const button = e.target.closest('.tab-button');
@@ -807,7 +973,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'add-config':
                  const key = button.dataset.key;
                  const index = button.dataset.index;
-                 renderConfigForm(key, index);
+                 renderConfigForm(key, index ? parseInt(index, 10) : undefined);
                  break;
             case 'delete-config':
                  if (confirm(t('confirm_delete'))) {
@@ -823,7 +989,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 break;
             case 'view-cheat-log':
-                const cheater = (await fetchData('cheaters')).find(c => c.id === button.dataset.id);
+                const cheaters = await fetchData('cheaters');
+                const cheater = cheaters.find(c => c.id === button.dataset.id);
                 renderCheatLogModal(cheater);
                 break;
             case 'edit-socials':
@@ -853,7 +1020,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const configKey = target.dataset.configKey;
         if (configKey) {
             const subKey = target.dataset.subKey;
-            const value = target.type === 'number' ? parseFloat(target.value) : target.value;
+            let value = target.value;
+            if (target.type === 'number' || subKey === 'dayOfWeek' || subKey === 'startHourUTC' || subKey === 'durationHours') {
+                 value = parseFloat(target.value);
+            }
             if (subKey) {
                 if (!localConfig[configKey]) localConfig[configKey] = {};
                 localConfig[configKey][subKey] = value;
@@ -881,10 +1051,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // UI Icons
         const iconGroup = target.dataset.group;
         const iconKey = target.dataset.key;
-        if (iconGroup && iconKey) {
-            localConfig.uiIcons[iconGroup][iconKey] = target.value;
-             const img = target.nextElementSibling.querySelector('img');
-             if (img) img.src = target.value;
+        if (iconKey) {
+            if(iconGroup === 'nav') {
+                localConfig.uiIcons.nav[iconKey] = target.value;
+            } else {
+                localConfig.uiIcons[iconKey] = target.value;
+            }
+            const img = target.nextElementSibling.querySelector('img');
+            if (img) img.src = target.value;
         }
         
         // For settings page with generic fields
@@ -929,9 +1103,3 @@ window.tablerIcons = {
     'trending-up': '<path d="M3 17l6 -6l4 4l8 -8" /><path d="M14 7l7 0l0 7" />',
     'star': '<path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z" />',
 };
-
-// Functions to render modals will be added here if not already present.
-// For brevity, assuming they are defined and called from event handlers.
-// Example: renderPlayerDetailsModal, renderConfigForm, etc.
-// These would dynamically create and inject modal HTML into #modals-container
-// and use Bootstrap's modal JS API to show/hide them.
