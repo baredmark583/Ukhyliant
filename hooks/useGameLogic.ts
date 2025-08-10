@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -308,6 +309,25 @@ const API = {
   getBattleLeaderboard: async(): Promise<{ leaderboard?: BattleLeaderboardEntry[], error?: string }> => {
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/battle/leaderboard`);
+    return response.json();
+  },
+
+  // Admin APIs
+  getCellAnalytics: async (): Promise<any> => {
+    if (!API_BASE_URL) throw new Error("API URL is not configured.");
+    const response = await fetch(`${API_BASE_URL}/admin/api/cell-analytics`);
+    return response.json();
+  },
+
+  forceStartBattle: async (): Promise<{ ok: boolean, error?: string }> => {
+    if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
+    const response = await fetch(`${API_BASE_URL}/admin/api/battle/force-start`, { method: 'POST' });
+    return response.json();
+  },
+
+  forceEndBattle: async (): Promise<{ ok: boolean, error?: string }> => {
+    if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
+    const response = await fetch(`${API_BASE_URL}/admin/api/battle/force-end`, { method: 'POST' });
     return response.json();
   },
 };
@@ -758,5 +778,9 @@ export const useGame = () => {
         getBattleStatus,
         joinBattle,
         getBattleLeaderboard,
+        // Admin functions
+        getCellAnalytics: API.getCellAnalytics,
+        forceStartBattle: API.forceStartBattle,
+        forceEndBattle: API.forceEndBattle,
     };
 };

@@ -1,4 +1,5 @@
 
+
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -18,11 +19,10 @@ import {
     INITIAL_MAX_ENERGY,
     LOOTBOX_COST_COINS,
     LOOTBOX_COST_STARS,
-    INFORMANT_PROFIT_BONUS,
-    CELL_BANK_PROFIT_SHARE,
     CELL_BATTLE_TICKET_COST,
-    BATTLE_DURATION_SECONDS,
-    BATTLE_START_DAY,
+    BATTLE_SCHEDULE_DEFAULT,
+    BATTLE_REWARDS_DEFAULT,
+    CELL_ECONOMY_DEFAULTS,
 } from './constants.js';
 
 const { Pool } = pg;
@@ -128,7 +128,9 @@ export const initializeDb = async () => {
         CREATE TABLE IF NOT EXISTS cell_battles (
             id SERIAL PRIMARY KEY,
             start_time TIMESTAMPTZ NOT NULL,
-            end_time TIMESTAMPTZ NOT NULL
+            end_time TIMESTAMPTZ NOT NULL,
+            winner_details JSONB,
+            rewards_distributed BOOLEAN DEFAULT FALSE
         );
 
         CREATE TABLE IF NOT EXISTS cell_battle_participants (
@@ -145,9 +147,11 @@ export const initializeDb = async () => {
     try {
         await executeQuery(`ALTER TABLE daily_events ADD COLUMN IF NOT EXISTS combo_reward BIGINT DEFAULT 5000000;`);
         await executeQuery(`ALTER TABLE daily_events ADD COLUMN IF NOT EXISTS cipher_reward BIGINT DEFAULT 1000000;`);
-        console.log("Reward columns checked/added to 'daily_events' table.");
+        await executeQuery(`ALTER TABLE cell_battles ADD COLUMN IF NOT EXISTS winner_details JSONB;`);
+        await executeQuery(`ALTER TABLE cell_battles ADD COLUMN IF NOT EXISTS rewards_distributed BOOLEAN DEFAULT FALSE;`);
+        console.log("Columns checked/added to tables.");
     } catch (e) {
-         console.error("Could not add reward columns.", e.message);
+         console.error("Could not add new columns.", e.message);
     }
     
     // Safely add analytics columns to users table
@@ -197,6 +201,10 @@ export const initializeDb = async () => {
             lootboxCostCoins: LOOTBOX_COST_COINS,
             lootboxCostStars: LOOTBOX_COST_STARS,
             cellBattleTicketCost: CELL_BATTLE_TICKET_COST,
+            battleSchedule: BATTLE_SCHEDULE_DEFAULT,
+            battleRewards: BATTLE_REWARDS_DEFAULT,
+            informantProfitBonus: CELL_ECONOMY_DEFAULTS.informantProfitBonus,
+            cellBankProfitShare: CELL_ECONOMY_DEFAULTS.cellBankProfitShare,
         };
         await saveConfig(initialConfig);
         console.log("Initial game config seeded to the database.");
@@ -238,7 +246,11 @@ export const initializeDb = async () => {
         if (config.lootboxCostCoins === undefined) { config.lootboxCostCoins = LOOTBOX_COST_COINS; needsUpdate = true; }
         if (config.lootboxCostStars === undefined) { config.lootboxCostStars = LOOTBOX_COST_STARS; needsUpdate = true; }
         if (config.cellBattleTicketCost === undefined) { config.cellBattleTicketCost = CELL_BATTLE_TICKET_COST; needsUpdate = true; }
-        
+        if (!config.battleSchedule) { config.battleSchedule = BATTLE_SCHEDULE_DEFAULT; needsUpdate = true; }
+        if (!config.battleRewards) { config.battleRewards = BATTLE_REWARDS_DEFAULT; needsUpdate = true; }
+        if (config.informantProfitBonus === undefined) { config.informantProfitBonus = CELL_ECONOMY_DEFAULTS.informantProfitBonus; needsUpdate = true; }
+        if (config.cellBankProfitShare === undefined) { config.cellBankProfitShare = CELL_ECONOMY_DEFAULTS.cellBankProfitShare; needsUpdate = true; }
+
         if (needsUpdate) {
             await saveConfig(config);
             console.log("Updated existing game config with new fields (suspicion, cells, etc).");
@@ -616,7 +628,7 @@ const generateInviteCode = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
-const updateCellBankInDb = async (cellId, client) => {
+const updateCellBankInDb = async (cellId, client, config) => {
     const cellRes = await client.query('SELECT * FROM cells WHERE id = $1 FOR UPDATE', [cellId]);
     if (cellRes.rows.length === 0) return null;
     let cell = cellRes.rows[0];
@@ -629,7 +641,8 @@ const updateCellBankInDb = async (cellId, client) => {
     const timeDeltaSeconds = Math.max(0, Math.floor((now - lastUpdate) / 1000));
     
     if (timeDeltaSeconds > 0) {
-        const earnedProfit = (totalProfitPerHour * CELL_BANK_PROFIT_SHARE / 3600) * timeDeltaSeconds;
+        const bankShare = config.cellBankProfitShare ?? CELL_ECONOMY_DEFAULTS.cellBankProfitShare;
+        const earnedProfit = (totalProfitPerHour * bankShare / 3600) * timeDeltaSeconds;
         const updatedCellRes = await client.query(
             'UPDATE cells SET balance = balance + $1, last_profit_update = NOW() WHERE id = $2 RETURNING *',
             [earnedProfit, cellId]
@@ -639,7 +652,7 @@ const updateCellBankInDb = async (cellId, client) => {
     return cell;
 };
 
-const recalculateCellBonusForPlayer = async (player, client) => {
+const recalculateCellBonusForPlayer = async (player, client, config) => {
     const oldBonus = player.cellProfitBonus || 0;
     let newBonus = 0;
     
@@ -648,8 +661,9 @@ const recalculateCellBonusForPlayer = async (player, client) => {
         const informantCount = parseInt(informantsRes.rows[0].count, 10);
         
         if (informantCount > 0) {
+            const bonusPercent = config.informantProfitBonus ?? CELL_ECONOMY_DEFAULTS.informantProfitBonus;
             const baseProfit = (player.profitPerHour || 0) - (player.referralProfitPerHour || 0) - oldBonus;
-            newBonus = baseProfit * informantCount * INFORMANT_PROFIT_BONUS;
+            newBonus = baseProfit * informantCount * bonusPercent;
         }
     }
     
@@ -666,7 +680,7 @@ export const createCellInDb = async (userId, name, cost) => {
 
         let player = (await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId])).rows[0].data;
         if (!player) throw new Error("Player not found.");
-        if (player.cellId) throw new Error("Player is already in a cell.");
+        if (player.cellId) throw new Error("Player is already in a a cell.");
         
         const currentBalance = Number(player.balance || 0);
         if (currentBalance < cost) throw new Error("Not enough coins to create a cell.");
@@ -680,7 +694,7 @@ export const createCellInDb = async (userId, name, cost) => {
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
 
         await client.query('COMMIT');
-        return { player, cell: await getCellFromDb(newCell.id) };
+        return { player, cell: await getCellFromDb(newCell.id, await getGameConfig()) };
 
     } catch (e) {
         await client.query('ROLLBACK');
@@ -690,7 +704,7 @@ export const createCellInDb = async (userId, name, cost) => {
     }
 };
 
-export const joinCellInDb = async (userId, inviteCode, maxMembers) => {
+export const joinCellInDb = async (userId, inviteCode, config) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -704,14 +718,14 @@ export const joinCellInDb = async (userId, inviteCode, maxMembers) => {
         const cellId = cellRes.rows[0].id;
         
         const memberCountRes = await client.query("SELECT COUNT(*) FROM players WHERE data->>'cellId' = $1", [String(cellId)]);
-        if (parseInt(memberCountRes.rows[0].count, 10) >= maxMembers) throw new Error("Cell is full.");
+        if (parseInt(memberCountRes.rows[0].count, 10) >= config.cellMaxMembers) throw new Error("Cell is full.");
 
         player.cellId = cellId;
-        player = await recalculateCellBonusForPlayer(player, client);
+        player = await recalculateCellBonusForPlayer(player, client, config);
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         
         await client.query('COMMIT');
-        return { player, cell: await getCellFromDb(cellId) };
+        return { player, cell: await getCellFromDb(cellId, config) };
     } catch (e) {
         await client.query('ROLLBACK');
         throw e;
@@ -726,9 +740,10 @@ export const leaveCellFromDb = async (userId) => {
         await client.query('BEGIN');
         let player = (await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId])).rows[0].data;
         if (!player || !player.cellId) throw new Error("Player not in a cell.");
+        const config = await getGameConfig();
 
         player.cellId = null;
-        player = await recalculateCellBonusForPlayer(player, client);
+        player = await recalculateCellBonusForPlayer(player, client, config);
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
 
         await client.query('COMMIT');
@@ -741,12 +756,12 @@ export const leaveCellFromDb = async (userId) => {
     }
 };
 
-export const getCellFromDb = async (cellId) => {
+export const getCellFromDb = async (cellId, config) => {
     if (!cellId) return null;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        let cell = await updateCellBankInDb(cellId, client);
+        let cell = await updateCellBankInDb(cellId, client, config);
         if (!cell) {
             await client.query('ROLLBACK');
             return null;
@@ -796,7 +811,7 @@ export const recruitInformantInDb = async (userId, informantData, config) => {
         const membersRes = await client.query(`SELECT id FROM players WHERE (data->>'cellId')::int = $1`, [player.cellId]);
         for (const memberRow of membersRes.rows) {
             let memberPlayer = (await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [memberRow.id])).rows[0].data;
-            memberPlayer = await recalculateCellBonusForPlayer(memberPlayer, client);
+            memberPlayer = await recalculateCellBonusForPlayer(memberPlayer, client, config);
             await client.query('UPDATE players SET data = $1 WHERE id = $2', [memberPlayer, memberRow.id]);
         }
         
@@ -818,7 +833,7 @@ export const buyTicketInDb = async (userId, config) => {
         const player = await getPlayer(userId);
         if (!player || !player.cellId) throw new Error("Must be in a cell to buy a ticket.");
 
-        let cell = await updateCellBankInDb(player.cellId, client);
+        let cell = await updateCellBankInDb(player.cellId, client, config);
         const cost = config.cellBattleTicketCost || CELL_BATTLE_TICKET_COST;
         if (parseFloat(cell.balance) < cost) throw new Error("Insufficient funds in cell bank.");
         
@@ -828,7 +843,7 @@ export const buyTicketInDb = async (userId, config) => {
         );
         
         await client.query('COMMIT');
-        return await getCellFromDb(player.cellId);
+        return await getCellFromDb(player.cellId, config);
 
     } catch (e) {
         await client.query('ROLLBACK');
@@ -1330,26 +1345,78 @@ export const buyBoostInDb = async (userId, boostId, config) => {
 
 // --- BATTLE FUNCTIONS ---
 
-export const checkAndManageBattles = async () => {
+const distributeBattleRewards = async (battleId, rewards, client) => {
+    const winnersRes = await client.query(
+        'SELECT * FROM cell_battle_participants WHERE battle_id = $1 ORDER BY score DESC LIMIT 3',
+        [battleId]
+    );
+    const winners = winnersRes.rows;
+    if (winners.length === 0) return;
+
+    const winnerDetails = {};
+
+    // Distribute rewards to top 3
+    if (winners[0]) {
+        await client.query('UPDATE cells SET balance = balance + $1 WHERE id = $2', [rewards.firstPlace, winners[0].cell_id]);
+        winnerDetails.firstPlace = { cell_id: winners[0].cell_id, score: winners[0].score };
+    }
+    if (winners[1]) {
+        await client.query('UPDATE cells SET balance = balance + $1 WHERE id = $2', [rewards.secondPlace, winners[1].cell_id]);
+        winnerDetails.secondPlace = { cell_id: winners[1].cell_id, score: winners[1].score };
+    }
+    if (winners[2]) {
+        await client.query('UPDATE cells SET balance = balance + $1 WHERE id = $2', [rewards.thirdPlace, winners[2].cell_id]);
+        winnerDetails.thirdPlace = { cell_id: winners[2].cell_id, score: winners[2].score };
+    }
+
+    // Distribute to all other participants
+    await client.query(
+        `UPDATE cells SET balance = balance + $1
+         WHERE id IN (
+             SELECT cell_id FROM cell_battle_participants WHERE battle_id = $2
+         )`,
+        [rewards.participant, battleId]
+    );
+
+    await client.query(
+        'UPDATE cell_battles SET winner_details = $1, rewards_distributed = TRUE WHERE id = $2',
+        [winnerDetails, battleId]
+    );
+
+    console.log(`Rewards distributed for battle ${battleId}`);
+};
+
+export const checkAndManageBattles = async (config) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         
-        // Find the current or most recent battle
+        // 1. Check for finished battles that need rewards
+        const finishedBattlesRes = await client.query(
+            "SELECT * FROM cell_battles WHERE end_time <= NOW() AND rewards_distributed = FALSE"
+        );
+        for (const battle of finishedBattlesRes.rows) {
+            await distributeBattleRewards(battle.id, config.battleRewards, client);
+        }
+
+        // 2. Check if a new battle needs to be started
         const activeBattleRes = await client.query('SELECT * FROM cell_battles WHERE end_time > NOW() ORDER BY start_time DESC LIMIT 1');
-        let activeBattle = activeBattleRes.rows[0];
-        
-        // If no battle is active, check if we need to start a new one
-        if (!activeBattle) {
+        if (activeBattleRes.rows.length === 0) { // No active battle
+            const schedule = config.battleSchedule;
             const now = new Date();
-            const today = now.getUTCDay(); // Sunday = 0, Monday = 1...
             const lastBattleRes = await client.query('SELECT end_time FROM cell_battles ORDER BY end_time DESC LIMIT 1');
             const lastBattleEnd = lastBattleRes.rows[0]?.end_time;
             
-            // Start a new battle if it's the right day and no battle has ended recently (prevents duplicates)
-            if (today === BATTLE_START_DAY && (!lastBattleEnd || (now.getTime() - new Date(lastBattleEnd).getTime()) > 12 * 60 * 60 * 1000)) {
+            // Logic to check if we should start based on schedule.frequency is complex.
+            // Simplified: Start if it's the right day and time, and the last battle ended long enough ago.
+            // A full cron job implementation would be better.
+            const isTimeToStart = now.getUTCDay() === schedule.dayOfWeek && now.getUTCHours() >= schedule.startHourUTC;
+            const enoughTimePassed = !lastBattleEnd || (now.getTime() - new Date(lastBattleEnd).getTime()) > 12 * 60 * 60 * 1000;
+
+            if (isTimeToStart && enoughTimePassed) {
                 const startTime = new Date();
-                const endTime = new Date(startTime.getTime() + BATTLE_DURATION_SECONDS * 1000);
+                startTime.setUTCHours(schedule.startHourUTC, 0, 0, 0);
+                const endTime = new Date(startTime.getTime() + schedule.durationHours * 60 * 60 * 1000);
                 const newBattleRes = await client.query('INSERT INTO cell_battles (start_time, end_time) VALUES ($1, $2) RETURNING *', [startTime, endTime]);
                 console.log('New cell battle started:', newBattleRes.rows[0]);
             }
@@ -1446,4 +1513,78 @@ export const getBattleLeaderboard = async () => {
     `, [activeBattle.id]);
 
     return leaderboardRes.rows.map(r => ({ ...r, score: parseFloat(r.score) }));
+};
+
+export const forceStartBattle = async (config) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const activeBattleRes = await client.query('SELECT * FROM cell_battles WHERE end_time > NOW()');
+        if (activeBattleRes.rows.length > 0) throw new Error("A battle is already active.");
+        const schedule = config.battleSchedule;
+        const startTime = new Date();
+        const endTime = new Date(startTime.getTime() + schedule.durationHours * 60 * 60 * 1000);
+        await client.query('INSERT INTO cell_battles (start_time, end_time) VALUES ($1, $2)', [startTime, endTime]);
+        await client.query('COMMIT');
+        return true;
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const forceEndBattle = async (config) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const activeBattleRes = await client.query('SELECT * FROM cell_battles WHERE end_time > NOW() ORDER BY start_time DESC LIMIT 1');
+        if (activeBattleRes.rows.length === 0) throw new Error("No active battle to end.");
+        const battle = activeBattleRes.rows[0];
+        await client.query('UPDATE cell_battles SET end_time = NOW() WHERE id = $1', [battle.id]);
+        await distributeBattleRewards(battle.id, config.battleRewards, client);
+        await client.query('COMMIT');
+        return true;
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const getCellAnalytics = async () => {
+    const totalCellsRes = await executeQuery('SELECT COUNT(*) FROM cells');
+    const totalBankRes = await executeQuery('SELECT SUM(balance) as total_bank FROM cells');
+    const ticketsSpentRes = await executeQuery('SELECT SUM(ticket_count) FROM cell_battle_participants'); // This logic is flawed, should be based on ticket use
+    
+    const activeBattleRes = await executeQuery('SELECT id FROM cell_battles WHERE end_time > NOW() ORDER BY start_time DESC LIMIT 1');
+    const activeBattle = activeBattleRes.rows[0];
+    let participants = 0;
+    if (activeBattle) {
+        const participantsRes = await executeQuery('SELECT COUNT(*) FROM cell_battle_participants WHERE battle_id = $1', [activeBattle.id]);
+        participants = parseInt(participantsRes.rows[0].count, 10);
+    }
+    
+    const cellLeaderboardRes = await executeQuery(`
+        SELECT c.id, c.name, c.balance, (SELECT COUNT(*) FROM players WHERE (data->>'cellId')::int = c.id) as members,
+               (SELECT SUM((data->>'profitPerHour')::numeric) FROM players WHERE (data->>'cellId')::int = c.id) as total_profit
+        FROM cells c ORDER BY total_profit DESC NULLS LAST LIMIT 100
+    `);
+
+    const battleHistoryRes = await executeQuery(`
+        SELECT * FROM cell_battles WHERE rewards_distributed = TRUE ORDER BY end_time DESC LIMIT 10
+    `);
+    
+    return {
+        kpi: {
+            totalCells: parseInt(totalCellsRes.rows[0].count, 10),
+            battleParticipants: participants,
+            totalBank: parseFloat(totalBankRes.rows[0].total_bank || 0),
+            ticketsSpent: 0, // Placeholder
+        },
+        leaderboard: cellLeaderboardRes.rows.map(r => ({...r, members: parseInt(r.members, 10), total_profit: parseFloat(r.total_profit || 0), balance: parseFloat(r.balance || 0)})),
+        battleHistory: battleHistoryRes.rows
+    };
 };

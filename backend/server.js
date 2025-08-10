@@ -55,7 +55,10 @@ import {
     getBattleStatusForCell,
     joinActiveBattle,
     addTapsToBattle,
-    getBattleLeaderboard
+    getBattleLeaderboard,
+    forceStartBattle,
+    forceEndBattle,
+    getCellAnalytics
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
@@ -270,8 +273,9 @@ app.post('/api/login', async (req, res) => {
             return res.status(400).json({ error: 'Invalid Telegram user data.' });
         }
         
+        let config = await getGameConfig();
         // Ensure battle state is current for every login.
-        await checkAndManageBattles();
+        await checkAndManageBattles(config);
         
         const userId = String(tgUser.id);
         const userName = `${tgUser.first_name || ''} ${tgUser.last_name || ''}`.trim();
@@ -282,7 +286,6 @@ app.post('/api/login', async (req, res) => {
 
         let user = await getUser(userId);
         let player = await getPlayer(userId);
-        const config = await getGameConfig();
         
         if (!user) {
             // New user registration
@@ -678,7 +681,7 @@ app.post('/api/cell/join', async (req, res) => {
     try {
         const { userId, inviteCode } = req.body;
         const config = await getGameConfig();
-        const result = await joinCellInDb(userId, inviteCode, config.cellMaxMembers);
+        const result = await joinCellInDb(userId, inviteCode, config);
         res.json(result);
     } catch(e) {
         res.status(400).json({ error: e.message });
@@ -712,7 +715,8 @@ app.get('/api/cell/my-cell', async (req, res) => {
         const player = await getPlayer(userId);
         if (!player || !player.cellId) return res.json({ cell: null });
         
-        const cell = await getCellFromDb(player.cellId);
+        const config = await getGameConfig();
+        const cell = await getCellFromDb(player.cellId, config);
         res.json({ cell });
     } catch(e) {
         res.status(400).json({ error: e.message });
@@ -812,7 +816,8 @@ app.post('/api/battle/join', async (req, res) => {
     try {
         const { userId } = req.body;
         const status = await joinActiveBattle(userId);
-        const cell = await getCellFromDb((await getPlayer(userId)).cellId);
+        const config = await getGameConfig();
+        const cell = await getCellFromDb((await getPlayer(userId)).cellId, config);
         res.json({ status, cell });
     } catch (e) {
         res.status(400).json({ error: e.message });
@@ -920,6 +925,36 @@ app.get('/admin/api/social-stats', checkAdminAuth, async (req, res) => {
     }
     res.json(socialStatsCache);
 });
+
+app.get('/admin/api/cell-analytics', checkAdminAuth, async (req, res) => {
+    try {
+        const analytics = await getCellAnalytics();
+        res.json(analytics);
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/admin/api/battle/force-start', checkAdminAuth, async (req, res) => {
+    try {
+        const config = await getGameConfig();
+        await forceStartBattle(config);
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(400).json({ ok: false, error: e.message });
+    }
+});
+
+app.post('/admin/api/battle/force-end', checkAdminAuth, async (req, res) => {
+    try {
+        const config = await getGameConfig();
+        await forceEndBattle(config);
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(400).json({ ok: false, error: e.message });
+    }
+});
+
 
 // --- Server Initialization ---
 const startServer = async () => {

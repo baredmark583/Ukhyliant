@@ -1,4 +1,5 @@
 
+
 // This file makes the backend self-contained by providing initial data.
 // It prevents the server from trying to import files from the frontend.
 
@@ -84,11 +85,29 @@ export const LOOTBOX_COST_STARS = 5;
 export const CELL_CREATION_COST = 100000;
 export const CELL_MAX_MEMBERS = 10;
 export const INFORMANT_RECRUIT_COST = 1000000;
-export const INFORMANT_PROFIT_BONUS = 0.01; // 1%
-export const CELL_BANK_PROFIT_SHARE = 0.10; // 10%
 export const CELL_BATTLE_TICKET_COST = 1000000;
 export const BATTLE_DURATION_SECONDS = 24 * 60 * 60; // 24 hours
 export const BATTLE_START_DAY = 1; // 1 = Monday, 0 = Sunday
+
+export const CELL_ECONOMY_DEFAULTS = {
+    informantProfitBonus: 0.01, // 1%
+    cellBankProfitShare: 0.10, // 10%
+};
+
+export const BATTLE_REWARDS_DEFAULT = {
+    firstPlace: 10000000,
+    secondPlace: 5000000,
+    thirdPlace: 2000000,
+    participant: 100000
+};
+
+export const BATTLE_SCHEDULE_DEFAULT = {
+    frequency: 'weekly',
+    dayOfWeek: 1, // Monday
+    startHourUTC: 12, // Noon UTC
+    durationHours: 24,
+};
+
 
 // --- ANTI-CHEAT ---
 export const CHEAT_DETECTION_THRESHOLD_TPS = 25; // Taps per second

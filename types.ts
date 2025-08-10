@@ -148,6 +148,20 @@ export interface GameConfig {
     cellCreationCost: number;
     cellMaxMembers: number;
     cellBattleTicketCost: number;
+    informantProfitBonus: number;
+    cellBankProfitShare: number;
+    battleSchedule?: {
+        frequency: 'weekly' | 'biweekly' | 'monthly';
+        dayOfWeek: number; // 0=Sun, 1=Mon...
+        startHourUTC: number;
+        durationHours: number;
+    };
+    battleRewards?: {
+        firstPlace: number;
+        secondPlace: number;
+        thirdPlace: number;
+        participant: number;
+    };
 }
 
 export interface PlayerState {
