@@ -27,7 +27,7 @@
         --border-color: #374151; /* gray-700 */
         --tblr-font-sans-serif: 'IBM Plex Mono', monospace;
       }
-      body {
+      html, body {
         background-color: var(--bg-main);
         color: var(--text-primary);
         background-image:
@@ -78,7 +78,7 @@
         font-family: 'Russo One', sans-serif;
         color: var(--text-primary);
       }
-      .h1 { color: var(--text-primary); }
+      .h1, .h2, .h3, .h4, .h5, .h6 { color: var(--text-primary); }
       .h1.text-green { color: var(--accent-green); }
       .h1.text-yellow { color: #facc15; }
       
@@ -107,7 +107,14 @@
       
       .table { --tblr-table-border-color: var(--border-color); --tblr-table-color: var(--text-primary); }
       .table thead th { color: var(--text-primary); }
-      .subheader { color: var(--text-primary); }
+      
+      /* Override Tabler's text utilities */
+      .text-muted, .text-secondary {
+        color: var(--text-secondary) !important;
+      }
+      .subheader {
+          color: var(--text-secondary) !important;
+      }
       
       /* Chart colors */
       .chart-container {
