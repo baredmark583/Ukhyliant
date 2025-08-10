@@ -1557,7 +1557,7 @@ export const forceEndBattle = async (config) => {
 export const getCellAnalytics = async () => {
     const totalCellsRes = await executeQuery('SELECT COUNT(*) FROM cells');
     const totalBankRes = await executeQuery('SELECT SUM(balance) as total_bank FROM cells');
-    const ticketsSpentRes = await executeQuery('SELECT SUM(ticket_count) FROM cell_battle_participants'); // This logic is flawed, should be based on ticket use
+    const ticketsSpentRes = await executeQuery('SELECT COUNT(*) FROM cell_battle_participants');
     
     const activeBattleRes = await executeQuery('SELECT id FROM cell_battles WHERE end_time > NOW() ORDER BY start_time DESC LIMIT 1');
     const activeBattle = activeBattleRes.rows[0];
@@ -1582,7 +1582,7 @@ export const getCellAnalytics = async () => {
             totalCells: parseInt(totalCellsRes.rows[0].count, 10),
             battleParticipants: participants,
             totalBank: parseFloat(totalBankRes.rows[0].total_bank || 0),
-            ticketsSpent: 0, // Placeholder
+            ticketsSpent: parseInt(ticketsSpentRes.rows[0].count, 10) || 0,
         },
         leaderboard: cellLeaderboardRes.rows.map(r => ({...r, members: parseInt(r.members, 10), total_profit: parseFloat(r.total_profit || 0), balance: parseFloat(r.balance || 0)})),
         battleHistory: battleHistoryRes.rows

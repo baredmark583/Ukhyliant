@@ -935,6 +935,15 @@ app.get('/admin/api/cell-analytics', checkAdminAuth, async (req, res) => {
     }
 });
 
+app.get('/admin/api/battle/status', checkAdminAuth, async (req, res) => {
+    try {
+        const status = await getBattleStatusForCell(null);
+        res.json({ status });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.post('/admin/api/battle/force-start', checkAdminAuth, async (req, res) => {
     try {
         const config = await getGameConfig();
