@@ -87,6 +87,8 @@ export const INFORMANT_RECRUIT_COST = 1000000;
 export const INFORMANT_PROFIT_BONUS = 0.01; // 1%
 export const CELL_BANK_PROFIT_SHARE = 0.10; // 10%
 export const CELL_BATTLE_TICKET_COST = 1000000;
+export const BATTLE_DURATION_SECONDS = 24 * 60 * 60; // 24 hours
+export const BATTLE_START_DAY = 1; // 1 = Monday, 0 = Sunday
 
 // --- ANTI-CHEAT ---
 export const CHEAT_DETECTION_THRESHOLD_TPS = 25; // Taps per second

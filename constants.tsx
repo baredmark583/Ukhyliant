@@ -107,6 +107,10 @@ type TranslationKey =
   | 'recruit_informant' | 'informants' | 'no_informants_recruited' | 'informant_dossier' | 'recruit' | 'recruiting'
   // Big Brother
   | 'big_brother_is_watching' | 'penalty_title' | 'penalty_close'
+  // Cell Battles
+  | 'cell_battle' | 'battle_inactive' | 'battle_time_left' | 'join_battle' | 'view_leaderboard'
+  | 'battle_your_score' | 'battle_leaderboard_title' | 'rank' | 'score'
+  | 'battle_boosts' | 'battle_boosts_desc' | 'activate'
   // Generic
   | 'loading' | 'cancel';
 
@@ -247,6 +251,18 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     big_brother_is_watching: 'Big Brother is watching you',
     penalty_title: 'Penalty',
     penalty_close: 'Acknowledge',
+    cell_battle: 'Cell Battle',
+    battle_inactive: 'The battle is currently inactive. Check back soon!',
+    battle_time_left: 'Time Left',
+    join_battle: 'Join Battle (1 Ticket)',
+    view_leaderboard: 'View Leaderboard',
+    battle_your_score: 'Your Score',
+    battle_leaderboard_title: 'Battle Leaderboard',
+    rank: 'Rank',
+    score: 'Score',
+    battle_boosts: 'Battle Boosts',
+    battle_boosts_desc: 'Coming soon! Use cell funds to get an edge.',
+    activate: 'Activate',
     loading: 'Loading...',
     cancel: 'Cancel',
   },
@@ -385,6 +401,18 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     big_brother_is_watching: 'Великий брат стежить за тобою',
     penalty_title: 'Покарання',
     penalty_close: 'Зрозуміло',
+    cell_battle: 'Битва осередків',
+    battle_inactive: 'Битва наразі неактивна. Завітайте пізніше!',
+    battle_time_left: 'Залишилось часу',
+    join_battle: 'Вступити в бій (1 квиток)',
+    view_leaderboard: 'Переглянути лідерів',
+    battle_your_score: 'Ваш рахунок',
+    battle_leaderboard_title: 'Таблиця лідерів битви',
+    rank: 'Ранг',
+    score: 'Рахунок',
+    battle_boosts: 'Бойові бусти',
+    battle_boosts_desc: 'Незабаром! Використовуйте кошти осередку для переваги.',
+    activate: 'Активувати',
     loading: 'Завантаження...',
     cancel: 'Скасувати',
   },
@@ -523,6 +551,18 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     big_brother_is_watching: 'Большой брат следит за тобой',
     penalty_title: 'Наказание',
     penalty_close: 'Принять',
+    cell_battle: 'Битва ячеек',
+    battle_inactive: 'Битва в данный момент неактивна. Загляните позже!',
+    battle_time_left: 'Осталось времени',
+    join_battle: 'Вступить в бой (1 билет)',
+    view_leaderboard: 'Посмотреть лидеров',
+    battle_your_score: 'Ваш счёт',
+    battle_leaderboard_title: 'Таблица лидеров битвы',
+    rank: 'Ранг',
+    score: 'Счёт',
+    battle_boosts: 'Боевые бусты',
+    battle_boosts_desc: 'Скоро! Используйте средства ячейки для получения преимущества.',
+    activate: 'Активировать',
     loading: 'Загрузка...',
     cancel: 'Отмена',
   },

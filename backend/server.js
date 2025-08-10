@@ -50,7 +50,12 @@ import {
     buyUpgradeInDb,
     buyBoostInDb,
     processSuccessfulPayment,
-    buyTicketInDb
+    buyTicketInDb,
+    checkAndManageBattles,
+    getBattleStatusForCell,
+    joinActiveBattle,
+    addTapsToBattle,
+    getBattleLeaderboard
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
@@ -265,6 +270,9 @@ app.post('/api/login', async (req, res) => {
             return res.status(400).json({ error: 'Invalid Telegram user data.' });
         }
         
+        // Ensure battle state is current for every login.
+        await checkAndManageBattles();
+        
         const userId = String(tgUser.id);
         const userName = `${tgUser.first_name || ''} ${tgUser.last_name || ''}`.trim();
         const lang = tgUser.language_code || 'en';
@@ -377,7 +385,7 @@ app.post('/api/login', async (req, res) => {
 
 app.post('/api/player/:id', async (req, res) => {
     const { id } = req.params;
-    const clientState = req.body;
+    const { state: clientState, taps: clientTaps } = req.body;
     const dbClient = await pool.connect();
 
     try {
@@ -385,13 +393,18 @@ app.post('/api/player/:id', async (req, res) => {
 
         const dbRes = await dbClient.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [id]);
         if (dbRes.rows.length === 0) {
-            // This case should be rare, but handle it by creating a player record.
             await dbClient.query('INSERT INTO players (id, data) VALUES ($1, $2)', [id, clientState]);
             await dbClient.query('COMMIT');
             return res.sendStatus(201);
         }
         
         let serverState = dbRes.rows[0].data;
+        
+        // Add taps to battle if applicable
+        if (serverState.cellId && clientTaps > 0) {
+            await addTapsToBattle(serverState.cellId, clientTaps);
+        }
+        
         let finalState = { ...serverState }; // Start with the server's state as the source of truth
         let stateUpdatedForClient = false;
 
@@ -410,22 +423,20 @@ app.post('/api/player/:id', async (req, res) => {
             }
         }
 
-        // 2. Apply and clear any pending admin bonus. This is the crucial step.
-        // We use the client's balance as the base because it includes recent legitimate earnings (taps, etc.).
+        // 2. Apply and clear any pending admin bonus.
         if (serverState.adminBonus && Number(serverState.adminBonus) !== 0) {
             finalState.balance = (Number(clientState.balance) || 0) + Number(serverState.adminBonus);
-            finalState.adminBonus = 0; // Reset bonus after applying
-            stateUpdatedForClient = true; // Flag that we need to sync the client
+            finalState.adminBonus = 0;
+            stateUpdatedForClient = true;
             log('info', `Applied admin bonus of ${serverState.adminBonus} to user ${id}. New balance: ${finalState.balance}`);
         } else {
-            // If no bonus, just take the client's most recent balance.
             finalState.balance = clientState.balance;
         }
 
         // 3. Update other high-frequency fields from the client.
         finalState.energy = clientState.energy;
         finalState.dailyTaps = clientState.dailyTaps;
-        finalState.lastLoginTimestamp = clientState.lastLoginTimestamp; // Very important to keep this updated
+        finalState.lastLoginTimestamp = clientState.lastLoginTimestamp;
 
         // 4. Save the fully merged state.
         await dbClient.query('UPDATE players SET data = $1 WHERE id = $2', [finalState, id]);
@@ -433,9 +444,9 @@ app.post('/api/player/:id', async (req, res) => {
         
         // 5. Respond
         if (stateUpdatedForClient) {
-            res.json(finalState); // Send the synchronized state back to the client
+            res.json(finalState);
         } else {
-            res.sendStatus(200); // Just acknowledge the save
+            res.sendStatus(200);
         }
     } catch (error) {
         await dbClient.query('ROLLBACK');
@@ -784,6 +795,39 @@ app.get('/api/ominous-warning', async (req, res) => {
         res.status(500).json({ message: "The system is watching... but cannot speak right now." });
     }
 });
+
+// --- Battle API ---
+app.get('/api/battle/status', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        const player = await getPlayer(userId);
+        const status = await getBattleStatusForCell(player?.cellId);
+        res.json({ status });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/battle/join', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const status = await joinActiveBattle(userId);
+        const cell = await getCellFromDb((await getPlayer(userId)).cellId);
+        res.json({ status, cell });
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+app.get('/api/battle/leaderboard', async (req, res) => {
+    try {
+        const leaderboard = await getBattleLeaderboard();
+        res.json({ leaderboard });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 
 // --- Public API Routes ---
 app.get('/api/leaderboard', async (req, res) => {

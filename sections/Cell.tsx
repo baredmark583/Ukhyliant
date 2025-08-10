@@ -1,12 +1,19 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Cell as CellType, Informant } from '../types';
+import { Cell as CellType, Informant, BattleStatus, BattleLeaderboardEntry } from '../types';
 import { useTranslation, useGame, useAuth } from '../hooks/useGameLogic';
 
 const formatNumber = (num: number): string => {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
   return num.toLocaleString();
+};
+
+const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+    const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+    return `${h}:${m}:${s}`;
 };
 
 const InformantCard: React.FC<{informant: Informant}> = ({informant}) => {
@@ -23,11 +30,12 @@ const InformantCard: React.FC<{informant: Informant}> = ({informant}) => {
 
 const AccordionSection: React.FC<{
   title: string;
-  count: number;
+  count?: number;
   maxCount?: number;
   children: React.ReactNode;
-}> = ({ title, count, maxCount, children }) => {
-  const [isOpen, setIsOpen] = React.useState(true);
+  defaultOpen?: boolean;
+}> = ({ title, count, maxCount, children, defaultOpen = true }) => {
+  const [isOpen, setIsOpen] = React.useState(defaultOpen);
 
   return (
     <div className="themed-container overflow-hidden">
@@ -37,7 +45,7 @@ const AccordionSection: React.FC<{
         aria-expanded={isOpen}
       >
         <span>
-          {title} ({count}{maxCount !== undefined ? `/${maxCount}` : ''})
+          {title} {count !== undefined ? `(${count}${maxCount !== undefined ? `/${maxCount}` : ''})` : ''}
         </span>
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -63,6 +71,121 @@ const AccordionSection: React.FC<{
   );
 };
 
+
+const BattleSection: React.FC<{ cell: CellType, refetchCell: () => void }> = ({ cell, refetchCell }) => {
+    const t = useTranslation();
+    const { getBattleStatus, joinBattle, getBattleLeaderboard } = useGame();
+    const [status, setStatus] = useState<BattleStatus | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [leaderboard, setLeaderboard] = useState<BattleLeaderboardEntry[] | null>(null);
+    const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+    
+    const fetchStatus = useCallback(async () => {
+        const { status: fetchedStatus, error: fetchError } = await getBattleStatus();
+        if (fetchedStatus) setStatus(fetchedStatus);
+        if (fetchError) setError(fetchError);
+        setLoading(false);
+    }, [getBattleStatus]);
+
+    useEffect(() => {
+        fetchStatus();
+    }, [fetchStatus]);
+
+    useEffect(() => {
+        if (status?.isActive && status.timeRemaining > 0) {
+            const timer = setInterval(() => {
+                setStatus(prev => prev ? {...prev, timeRemaining: Math.max(0, prev.timeRemaining - 1)} : null);
+            }, 1000);
+            return () => clearInterval(timer);
+        }
+    }, [status]);
+    
+    const handleJoinBattle = async () => {
+        setError('');
+        const { status: newStatus, cell: updatedCell, error: joinError } = await joinBattle();
+        if (newStatus) setStatus(newStatus);
+        if (updatedCell) refetchCell(); // Update parent cell state (tickets)
+        if (joinError) setError(joinError);
+    };
+    
+    const handleViewLeaderboard = async () => {
+        setError('');
+        const { leaderboard: fetchedLeaderboard, error: leaderboardError } = await getBattleLeaderboard();
+        if (fetchedLeaderboard) setLeaderboard(fetchedLeaderboard);
+        if (leaderboardError) setError(leaderboardError);
+        setIsLeaderboardOpen(true);
+    };
+
+    const renderLeaderboardModal = () => (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col p-4" onClick={() => setIsLeaderboardOpen(false)}>
+            <div className="themed-container w-full max-w-lg mx-auto flex flex-col p-4" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-display text-white">{t('battle_leaderboard_title')}</h2>
+                    <button onClick={() => setIsLeaderboardOpen(false)} className="text-gray-400 text-3xl font-light">&times;</button>
+                </div>
+                {leaderboard ? (
+                    <div className="overflow-y-auto space-y-2" style={{maxHeight: '60vh'}}>
+                         <div className="flex items-center space-x-3 text-sm p-2 font-bold text-gray-400">
+                             <span className="w-8 text-center">{t('rank')}</span>
+                             <span className="flex-grow">{t('cell_name')}</span>
+                             <span className="w-24 text-right">{t('score')}</span>
+                         </div>
+                        {leaderboard.map((entry, index) => (
+                            <div key={entry.cellId} className="bg-black/20 p-2 flex items-center space-x-3 text-sm">
+                                <span className="font-bold w-8 text-center">{index + 1}</span>
+                                <span className="flex-grow font-semibold text-white truncate">{entry.cellName}</span>
+                                <span className="text-yellow-400 font-mono w-24 text-right">{formatNumber(entry.score)}</span>
+                            </div>
+                        ))}
+                    </div>
+                ) : <p>{t('loading')}</p>}
+            </div>
+        </div>
+    );
+    
+    if(loading) return <p className="text-center p-4 text-gray-400">{t('loading')}</p>
+    if(!status) return <p className="text-center p-4 text-red-400">{error || 'Could not load battle status.'}</p>
+
+    return (
+        <div className="space-y-3">
+            {isLeaderboardOpen && renderLeaderboardModal()}
+            {!status.isActive ? (
+                 <p className="text-center text-gray-400">{t('battle_inactive')}</p>
+            ) : (
+                <div className="space-y-3">
+                    <div className="text-center">
+                        <p className="text-gray-400 text-sm">{t('battle_time_left')}</p>
+                        <p className="font-mono text-2xl font-bold text-green-400">{formatTime(status.timeRemaining)}</p>
+                    </div>
+                    {status.isParticipant && (
+                        <div className="themed-container bg-green-900/30 border-green-500/50 p-3 text-center">
+                            <p className="text-sm text-green-300">{t('battle_your_score')}</p>
+                            <p className="text-2xl font-bold text-white">{formatNumber(status.myScore)}</p>
+                        </div>
+                    )}
+                    {error && <p className="text-red-400 text-center text-sm">{error}</p>}
+                    <div className="flex space-x-2">
+                        {!status.isParticipant && (
+                            <button onClick={handleJoinBattle} disabled={cell.ticketCount < 1} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 disabled:bg-gray-600">
+                                {t('join_battle')}
+                            </button>
+                        )}
+                        <button onClick={handleViewLeaderboard} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2">{t('view_leaderboard')}</button>
+                    </div>
+                </div>
+            )}
+             <div className="themed-container p-3 text-center space-y-2 opacity-50">
+                <h4 className="font-bold text-base text-gray-300">{t('battle_boosts')}</h4>
+                <p className="text-xs text-gray-400">{t('battle_boosts_desc')}</p>
+                <div className="flex justify-center space-x-2">
+                    <button disabled className="bg-gray-700 text-gray-500 font-bold p-2 text-xs">x2 Boost</button>
+                    <button disabled className="bg-gray-700 text-gray-500 font-bold p-2 text-xs">Auto-Tap</button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 const CellScreen: React.FC = () => {
     const { user } = useAuth();
@@ -198,7 +321,11 @@ const CellScreen: React.FC = () => {
                     </div>
                 </div>
 
-                <AccordionSection title={t('members')} count={cell.members.length} maxCount={config?.cellMaxMembers || 10}>
+                <AccordionSection title={t('cell_battle')} defaultOpen={true}>
+                    <BattleSection cell={cell} refetchCell={fetchCell} />
+                </AccordionSection>
+                
+                <AccordionSection title={t('members')} count={cell.members.length} maxCount={config?.cellMaxMembers || 10} defaultOpen={false}>
                     <div className="flex justify-between items-center mb-3 text-sm">
                         <span className="text-gray-400">{t('total_cell_profit')}</span>
                         <span className="font-bold text-green-400">+{formatNumber(cell.totalProfitPerHour)}/hr</span>
@@ -213,7 +340,7 @@ const CellScreen: React.FC = () => {
                     </ul>
                 </AccordionSection>
 
-                <AccordionSection title={t('informants')} count={cell.informants.length}>
+                <AccordionSection title={t('informants')} count={cell.informants.length} defaultOpen={false}>
                     <div className="space-y-3 max-h-48 overflow-y-auto no-scrollbar pr-2">
                         {cell.informants.length > 0 ? (
                             cell.informants.map(info => <InformantCard key={info.id} informant={info} />)

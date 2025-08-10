@@ -213,3 +213,18 @@ export interface LeaderboardPlayer {
     leagueName: LocalizedString;
     leagueIconUrl: string;
 }
+
+// For Cell Battles
+export interface BattleStatus {
+    isActive: boolean;
+    isParticipant: boolean;
+    battleId: number | null;
+    timeRemaining: number; // in seconds
+    myScore: number;
+}
+
+export interface BattleLeaderboardEntry {
+    cellId: number;
+    cellName: string;
+    score: number;
+}

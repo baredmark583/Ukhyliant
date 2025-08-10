@@ -20,7 +20,9 @@ import {
     LOOTBOX_COST_STARS,
     INFORMANT_PROFIT_BONUS,
     CELL_BANK_PROFIT_SHARE,
-    CELL_BATTLE_TICKET_COST
+    CELL_BATTLE_TICKET_COST,
+    BATTLE_DURATION_SECONDS,
+    BATTLE_START_DAY,
 } from './constants.js';
 
 const { Pool } = pg;
@@ -121,6 +123,20 @@ export const initializeDb = async () => {
             dossier TEXT NOT NULL,
             specialization VARCHAR(50) NOT NULL,
             created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS cell_battles (
+            id SERIAL PRIMARY KEY,
+            start_time TIMESTAMPTZ NOT NULL,
+            end_time TIMESTAMPTZ NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS cell_battle_participants (
+            id SERIAL PRIMARY KEY,
+            battle_id INTEGER NOT NULL REFERENCES cell_battles(id) ON DELETE CASCADE,
+            cell_id INTEGER NOT NULL REFERENCES cells(id) ON DELETE CASCADE,
+            score NUMERIC(30, 4) DEFAULT 0,
+            UNIQUE(battle_id, cell_id)
         );
     `);
     console.log("Database tables checked/created successfully.");
@@ -1310,4 +1326,124 @@ export const buyBoostInDb = async (userId, boostId, config) => {
     } finally {
         client.release();
     }
+};
+
+// --- BATTLE FUNCTIONS ---
+
+export const checkAndManageBattles = async () => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // Find the current or most recent battle
+        const activeBattleRes = await client.query('SELECT * FROM cell_battles WHERE end_time > NOW() ORDER BY start_time DESC LIMIT 1');
+        let activeBattle = activeBattleRes.rows[0];
+        
+        // If no battle is active, check if we need to start a new one
+        if (!activeBattle) {
+            const now = new Date();
+            const today = now.getUTCDay(); // Sunday = 0, Monday = 1...
+            const lastBattleRes = await client.query('SELECT end_time FROM cell_battles ORDER BY end_time DESC LIMIT 1');
+            const lastBattleEnd = lastBattleRes.rows[0]?.end_time;
+            
+            // Start a new battle if it's the right day and no battle has ended recently (prevents duplicates)
+            if (today === BATTLE_START_DAY && (!lastBattleEnd || (now.getTime() - new Date(lastBattleEnd).getTime()) > 12 * 60 * 60 * 1000)) {
+                const startTime = new Date();
+                const endTime = new Date(startTime.getTime() + BATTLE_DURATION_SECONDS * 1000);
+                const newBattleRes = await client.query('INSERT INTO cell_battles (start_time, end_time) VALUES ($1, $2) RETURNING *', [startTime, endTime]);
+                console.log('New cell battle started:', newBattleRes.rows[0]);
+            }
+        }
+        
+        await client.query('COMMIT');
+    } catch(e) {
+        await client.query('ROLLBACK');
+        console.error("Error managing cell battles:", e);
+    } finally {
+        client.release();
+    }
+};
+
+export const getBattleStatusForCell = async (cellId) => {
+    const activeBattleRes = await executeQuery('SELECT * FROM cell_battles WHERE end_time > NOW() ORDER BY start_time DESC LIMIT 1');
+    const activeBattle = activeBattleRes.rows[0];
+
+    if (!activeBattle) {
+        return { isActive: false, isParticipant: false, battleId: null, timeRemaining: 0, myScore: 0 };
+    }
+
+    const timeRemaining = Math.floor((new Date(activeBattle.end_time).getTime() - Date.now()) / 1000);
+    
+    if (cellId) {
+        const participantRes = await executeQuery('SELECT * FROM cell_battle_participants WHERE battle_id = $1 AND cell_id = $2', [activeBattle.id, cellId]);
+        const participant = participantRes.rows[0];
+        return {
+            isActive: true,
+            isParticipant: !!participant,
+            battleId: activeBattle.id,
+            timeRemaining: timeRemaining > 0 ? timeRemaining : 0,
+            myScore: participant ? parseFloat(participant.score) : 0,
+        };
+    }
+    
+    return { isActive: true, isParticipant: false, battleId: activeBattle.id, timeRemaining: timeRemaining > 0 ? timeRemaining : 0, myScore: 0 };
+};
+
+
+export const joinActiveBattle = async (userId) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const player = await getPlayer(userId);
+        if (!player || !player.cellId) throw new Error("Must be in a cell to join a battle.");
+
+        const status = await getBattleStatusForCell(player.cellId);
+        if (!status.isActive) throw new Error("No active battle to join.");
+        if (status.isParticipant) throw new Error("Your cell is already in the battle.");
+
+        const cell = (await client.query('SELECT * FROM cells WHERE id = $1 FOR UPDATE', [player.cellId])).rows[0];
+        if (!cell || cell.ticket_count < 1) throw new Error("Not enough battle tickets.");
+        
+        await client.query('UPDATE cells SET ticket_count = ticket_count - 1 WHERE id = $1', [player.cellId]);
+        await client.query('INSERT INTO cell_battle_participants (battle_id, cell_id) VALUES ($1, $2)', [status.battleId, player.cellId]);
+
+        await client.query('COMMIT');
+        return getBattleStatusForCell(player.cellId);
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const addTapsToBattle = async (cellId, taps) => {
+    try {
+        const status = await getBattleStatusForCell(cellId);
+        if (status.isActive && status.isParticipant) {
+             await executeQuery(
+                `UPDATE cell_battle_participants SET score = score + $1 WHERE battle_id = $2 AND cell_id = $3`,
+                [taps, status.battleId, cellId]
+            );
+        }
+    } catch(e) {
+        console.error(`Failed to add taps for cell ${cellId}`, e);
+    }
+};
+
+export const getBattleLeaderboard = async () => {
+    const activeBattleRes = await executeQuery('SELECT id FROM cell_battles WHERE end_time > NOW() ORDER BY start_time DESC LIMIT 1');
+    const activeBattle = activeBattleRes.rows[0];
+    if (!activeBattle) return [];
+
+    const leaderboardRes = await executeQuery(`
+        SELECT p.cell_id as "cellId", c.name as "cellName", p.score
+        FROM cell_battle_participants p
+        JOIN cells c ON p.cell_id = c.id
+        WHERE p.battle_id = $1
+        ORDER BY p.score DESC
+        LIMIT 50
+    `, [activeBattle.id]);
+
+    return leaderboardRes.rows.map(r => ({ ...r, score: parseFloat(r.score) }));
 };

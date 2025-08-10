@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
-import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell } from '../types';
+import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
 
 declare global {
@@ -28,12 +28,12 @@ const API = {
     return response.json();
   },
 
-  savePlayerState: async (userId: string, state: PlayerState): Promise<PlayerState | null> => {
+  savePlayerState: async (userId: string, state: PlayerState, taps: number): Promise<PlayerState | null> => {
      if (!API_BASE_URL) return null;
      const response = await fetch(`${API_BASE_URL}/api/player/${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(state)
+        body: JSON.stringify({ state, taps })
      });
      // If the server sends back an updated player state, parse and return it.
      if (response.ok && response.headers.get('Content-Type')?.includes('application/json')) {
@@ -288,6 +288,28 @@ const API = {
         return { message: 'Connection lost.' };
     }
   },
+
+  getBattleStatus: async(userId: string): Promise<{ status?: BattleStatus, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured." };
+    const response = await fetch(`${API_BASE_URL}/api/battle/status?userId=${userId}`);
+    return response.json();
+  },
+
+  joinBattle: async(userId: string): Promise<{ status?: BattleStatus, cell?: Cell, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured." };
+    const response = await fetch(`${API_BASE_URL}/api/battle/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+    });
+    return response.json();
+  },
+
+  getBattleLeaderboard: async(): Promise<{ leaderboard?: BattleLeaderboardEntry[], error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured." };
+    const response = await fetch(`${API_BASE_URL}/api/battle/leaderboard`);
+    return response.json();
+  },
 };
 
 // --- AUTH CONTEXT ---
@@ -421,13 +443,17 @@ export const useGame = () => {
     const [isTurboActive, setIsTurboActive] = useState(false);
     const [ominousMessage, setOminousMessage] = useState<string>('');
     const prevPenaltyLogLength = React.useRef<number | undefined>(undefined);
+    const tapsSinceLastSave = React.useRef(0);
 
     // Persist state to backend with debounce
     useEffect(() => {
         if (!user || !playerState) return;
         const handler = setTimeout(() => {
             const stateToSave = { ...playerState, lastLoginTimestamp: Date.now() };
-            API.savePlayerState(user.id, stateToSave).then(updatedState => {
+            const taps = tapsSinceLastSave.current;
+            tapsSinceLastSave.current = 0; // Reset after sending
+            
+            API.savePlayerState(user.id, stateToSave, taps).then(updatedState => {
                 // If the server sent back an updated state (e.g., after applying a bonus),
                 // update the client's state to match.
                 if (updatedState) {
@@ -531,6 +557,7 @@ export const useGame = () => {
     const handleTap = useCallback(() => {
         if (!playerState || playerState.energy < 1) return 0;
         const tapValue = effectiveCoinsPerTap * (isTurboActive ? 5 : 1);
+        tapsSinceLastSave.current += tapValue;
         setPlayerState(p => p ? {
             ...p,
             balance: p.balance + tapValue,
@@ -686,6 +713,18 @@ export const useGame = () => {
         return await API.buyCellTicket(user.id);
     }, [user]);
 
+    const getBattleStatus = useCallback(async () => {
+        if (!user) return { error: "User not found" };
+        return await API.getBattleStatus(user.id);
+    }, [user]);
+
+    const joinBattle = useCallback(async () => {
+        if (!user) return { error: "User not found" };
+        return await API.joinBattle(user.id);
+    }, [user]);
+
+    const getBattleLeaderboard = useCallback(() => API.getBattleLeaderboard(), []);
+
     return {
         playerState,
         config,
@@ -716,5 +755,8 @@ export const useGame = () => {
         buyCellTicket,
         ominousMessage,
         setOminousMessage,
+        getBattleStatus,
+        joinBattle,
+        getBattleLeaderboard,
     };
 };
