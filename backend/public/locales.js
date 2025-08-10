@@ -1,6 +1,6 @@
 
 
-const LOCALES = {
+window.LOCALES = {
     'en': {
         // Nav
         'nav_dashboard': 'Dashboard',

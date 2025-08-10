@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -44,12 +43,16 @@
         letter-spacing: 0.05em;
       }
       .page, .page-wrapper { background: transparent !important; }
-      .navbar, .card, .modal-content { 
+      .card, .modal-content { 
         background-color: var(--bg-card) !important;
         border: 1px solid var(--border-color) !important;
         color: var(--text-primary);
       }
       .modal-header, .modal-footer { border-color: var(--border-color); }
+      .navbar, .navbar-vertical {
+        background-color: var(--bg-card);
+        border-color: var(--border-color);
+      }
       .navbar-brand { font-family: 'Russo One', sans-serif; }
       
       .navbar-vertical .nav-link, .dropdown-item {
@@ -117,6 +120,26 @@
           flex: 0 0 auto;
           width: 20%;
         }
+      }
+      /* Fix for white background on config fieldsets */
+      .card fieldset.form-fieldset {
+        background: transparent !important;
+        border: 1px solid var(--border-color);
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+      }
+      .card fieldset.form-fieldset legend {
+        padding: 0 0.5rem;
+        width: auto;
+        float: none;
+        color: var(--text-secondary);
+        font-family: 'Russo One', sans-serif;
+        text-transform: uppercase;
+        font-size: .875em;
+        font-weight: 700;
+      }
+      .card .form-label {
+        color: var(--text-secondary);
       }
     </style>
 </head>

@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -12,16 +11,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CONFIG META (for dynamic table rendering) ---
     const configMeta = {
-        leagues: { title: 'leagues', cols: ['id', 'name', 'description', 'minProfitPerHour', 'iconUrl'] },
-        upgrades: { title: 'upgrades', cols: ['id', 'name', 'price', 'profitPerHour', 'category', 'suspicionModifier', 'iconUrl'] },
-        tasks: { title: 'tasks', cols: ['id', 'name', 'type', 'reward', 'requiredTaps', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
-        specialTasks: { title: 'specialTasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
-        blackMarketCards: { title: 'blackMarketCards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
-        coinSkins: { title: 'coinSkins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
-        uiIcons: { title: 'uiIcons' },
-        boosts: { title: 'boosts', cols: ['id', 'name', 'description', 'costCoins', 'suspicionModifier', 'iconUrl'] },
-        cellSettings: { title: 'cellSettings', fields: ['cellCreationCost', 'cellMaxMembers', 'informantRecruitCost', 'lootboxCostCoins', 'lootboxCostStars', 'cellBattleTicketCost', 'informantProfitBonus', 'cellBankProfitShare'] },
+        leagues: { titleKey: 'nav_leagues', cols: ['id', 'name', 'description', 'minProfitPerHour', 'iconUrl'] },
+        upgrades: { titleKey: 'nav_upgrades', cols: ['id', 'name', 'price', 'profitPerHour', 'category', 'suspicionModifier', 'iconUrl'] },
+        tasks: { titleKey: 'nav_daily_tasks', cols: ['id', 'name', 'type', 'reward', 'requiredTaps', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
+        specialTasks: { titleKey: 'nav_special_tasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
+        blackMarketCards: { titleKey: 'nav_market_cards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
+        coinSkins: { titleKey: 'nav_coin_skins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
+        uiIcons: { titleKey: 'nav_ui_icons' },
+        boosts: { titleKey: 'nav_boosts', cols: ['id', 'name', 'description', 'costCoins', 'suspicionModifier', 'iconUrl'] },
+        cellSettings: { titleKey: 'nav_cell_settings', fields: ['cellCreationCost', 'cellMaxMembers', 'informantRecruitCost', 'lootboxCostCoins', 'lootboxCostStars', 'cellBattleTicketCost', 'informantProfitBonus', 'cellBankProfitShare'] },
     };
+    
+    const tabTitleKeys = {
+        dashboard: 'nav_dashboard',
+        cheaters: 'nav_cheaters',
+        players: 'nav_players',
+        dailyEvents: 'nav_daily_events',
+        specialTasks: 'nav_special_tasks',
+        cellAnalytics: 'nav_cell_analytics',
+        cellConfiguration: 'nav_cell_config',
+        leagues: 'nav_leagues',
+        upgrades: 'nav_upgrades',
+        tasks: 'nav_daily_tasks',
+        boosts: 'nav_boosts',
+        blackMarketCards: 'nav_market_cards',
+        coinSkins: 'nav_coin_skins',
+        cellSettings: 'nav_cell_settings',
+        uiIcons: 'nav_ui_icons'
+    };
+
 
     // --- DOM ELEMENTS ---
     const tabContainer = document.getElementById('tab-content-container');
@@ -30,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalsContainer = document.getElementById('modals-container');
     
     // --- TRANSLATION FUNCTION ---
-    const t = (key) => LOCALES[currentLang]?.[key] || LOCALES['en']?.[key] || `[${key}]`;
+    const t = (key) => window.LOCALES[currentLang]?.[key] || window.LOCALES['en']?.[key] || `[${key}]`;
 
     // --- UTILS ---
     const escapeHtml = (unsafe) => {
@@ -184,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        const titleKey = configMeta[activeTab]?.title || activeTab;
+        const titleKey = tabTitleKeys[activeTab] || activeTab;
         tabTitle.textContent = t(titleKey);
         tabTitle.dataset.translate = titleKey;
 
@@ -460,7 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tabContainer.innerHTML = `
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">${t(meta.title)}</h3>
+                    <h3 class="card-title">${t(meta.titleKey)}</h3>
                     <div class="ms-auto">
                         <button class="btn btn-success" data-action="add-item" data-key="${key}">${t('add_new')}</button>
                     </div>
@@ -541,7 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         tabContainer.innerHTML = `
             <div class="card">
-                <div class="card-header"><h3 class="card-title">${t('cellSettings')}</h3></div>
+                <div class="card-header"><h3 class="card-title">${t(configMeta.cellSettings.titleKey)}</h3></div>
                 <div class="card-body">
                     <div class="row">
                     ${fields.map(field => `
@@ -574,7 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tabContainer.innerHTML = `
             <div class="card">
-                <div class="card-header"><h3 class="card-title">${t('uiIcons')}</h3></div>
+                <div class="card-header"><h3 class="card-title">${t(configMeta.uiIcons.titleKey)}</h3></div>
                 <div class="card-body">
                     ${renderGroup('icon_group_nav', nav)}
                     <hr class="my-4">
@@ -595,6 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="col-sm-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="row align-items-center"><div class="col-auto"><span class="bg-primary text-white avatar"><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-users-group" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 13a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M8 21v-1a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v1" /><path d="M15 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M17 10h2a2 2 0 0 1 2 2v1" /><path d="M5 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M3 13v-1a2 2 0 0 1 2 -2h2" /></svg></span></div><div class="col"><div class="font-weight-medium">${formatNumber(data.kpi.totalCells)}</div><div class="text-secondary">${t('kpi_total_cells')}</div></div></div></div></div></div>
             <div class="col-sm-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="row align-items-center"><div class="col-auto"><span class="bg-green text-white avatar"><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-sword" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M21 3v5l-11 9l-4 4l-3 -3l4 -4l9 -11z" /><path d="M5 14l-1 1" /><path d="M14 5l1 -1" /><path d="M18 9l2 2" /></svg></span></div><div class="col"><div class="font-weight-medium">${formatNumber(data.kpi.battleParticipants)}</div><div class="text-secondary">${t('kpi_battle_participants')}</div></div></div></div></div></div>
             <div class="col-sm-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="row align-items-center"><div class="col-auto"><span class="bg-yellow text-white avatar"><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-coin" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4h-2a2 2 0 0 1 -1.8 -1" /><path d="M12 6v2m0 8v2" /></svg></span></div><div class="col"><div class="font-weight-medium">${formatNumber(data.kpi.totalBank)}</div><div class="text-secondary">${t('kpi_total_bank')}</div></div></div></div></div></div>
+             <div class="col-sm-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="row align-items-center"><div class="col-auto"><span class="bg-danger text-white avatar"><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-ticket" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 5l0 2" /><path d="M15 11l0 2" /><path d="M15 17l0 2" /><path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></svg></span></div><div class="col"><div class="font-weight-medium">${formatNumber(data.kpi.ticketsSpent)}</div><div class="text-secondary">${t('kpi_tickets_spent')}</div></div></div></div></div></div>
         `;
 
         const leaderboardHtml = `
@@ -690,8 +709,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="card-body text-center">
                             <p>${t('battle_status')}: <span class="badge ${isActive ? 'bg-success' : 'bg-secondary'}">${isActive ? t('battle_status_active') : t('battle_status_inactive')}</span></p>
                             <div class="d-grid gap-2">
-                                <button id="force-start-btn" class="btn btn-success" ${isActive ? 'disabled' : ''}>${t('force_start_battle')}</button>
-                                <button id="force-end-btn" class="btn btn-danger" ${!isActive ? 'disabled' : ''}>${t('force_end_battle')}</button>
+                                <button id="force-start-btn" class="btn btn-success" data-action="force-start" ${isActive ? 'disabled' : ''}>${t('force_start_battle')}</button>
+                                <button id="force-end-btn" class="btn btn-danger" data-action="force-end" ${!isActive ? 'disabled' : ''}>${t('force_end_battle')}</button>
                             </div>
                         </div>
                     </div>
