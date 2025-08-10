@@ -22,25 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
         cellSettings: { titleKey: 'nav_cell_settings', fields: ['cellCreationCost', 'cellMaxMembers', 'informantRecruitCost', 'lootboxCostCoins', 'lootboxCostStars', 'cellBattleTicketCost', 'informantProfitBonus', 'cellBankProfitShare'] },
     };
     
-    const tabTitleKeys = {
-        dashboard: 'nav_dashboard',
-        cheaters: 'nav_cheaters',
-        players: 'nav_players',
-        dailyEvents: 'nav_daily_events',
-        specialTasks: 'nav_special_tasks',
-        cellAnalytics: 'nav_cell_analytics',
-        cellConfiguration: 'nav_cell_config',
-        leagues: 'nav_leagues',
-        upgrades: 'nav_upgrades',
-        tasks: 'nav_daily_tasks',
-        boosts: 'nav_boosts',
-        blackMarketCards: 'nav_market_cards',
-        coinSkins: 'nav_coin_skins',
-        cellSettings: 'nav_cell_settings',
-        uiIcons: 'nav_ui_icons'
-    };
-
-
     // --- DOM ELEMENTS ---
     const tabContainer = document.getElementById('tab-content-container');
     const tabTitle = document.getElementById('tab-title');
@@ -63,10 +44,19 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const applyTranslations = () => {
+        // Translate all static elements with data-translate attribute
         document.querySelectorAll('[data-translate]').forEach(el => {
             const key = el.dataset.translate;
             el.textContent = t(key);
         });
+        
+        // Update main page title based on the active tab
+        const activeButton = document.querySelector('.tab-button.active');
+        if (activeButton && activeButton.dataset.titleKey) {
+            tabTitle.textContent = t(activeButton.dataset.titleKey);
+        }
+
+        // Update language and flag
         document.querySelector('html').setAttribute('lang', currentLang);
         const flag = document.getElementById('lang-switcher-flag');
         if (flag) {
@@ -202,9 +192,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        const titleKey = tabTitleKeys[activeTab] || activeTab;
-        tabTitle.textContent = t(titleKey);
-        tabTitle.dataset.translate = titleKey;
+        const activeButton = document.querySelector(`.tab-button[data-tab="${activeTab}"]`);
+        if (activeButton && activeButton.dataset.titleKey) {
+            tabTitle.textContent = t(activeButton.dataset.titleKey);
+        } else {
+             tabTitle.textContent = activeTab.charAt(0).toUpperCase() + activeTab.slice(1);
+        }
 
         saveMainButton.classList.toggle('d-none', ['dashboard', 'players', 'cheaters', 'cellAnalytics', 'cellConfiguration'].includes(activeTab));
         showLoading();
