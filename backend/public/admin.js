@@ -43,6 +43,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (num === null || num === undefined) return '0';
         return Number(num).toLocaleString(currentLang === 'ru' ? 'ru-RU' : 'en-US');
     };
+
+    const getLocalizedText = (data) => {
+        if (typeof data === 'object' && data !== null && data.hasOwnProperty('en')) {
+            return escapeHtml(data[currentLang] || data['en']);
+        }
+        return escapeHtml(data);
+    };
     
     const applyTranslations = () => {
         document.querySelectorAll('[data-translate]').forEach(el => {
@@ -264,7 +271,13 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `).join('');
         
-        const topUpgradesHtml = (dashboardStats.popularUpgrades || []).map(u => `<li>${u.upgrade_id}: ${formatNumber(u.purchase_count)} ${t('purchases')}</li>`).join('');
+        const topUpgradesHtml = (dashboardStats.popularUpgrades || []).map(u => {
+            const allUpgrades = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
+            const upgradeInfo = allUpgrades.find(upg => upg.id === u.upgrade_id);
+            const name = upgradeInfo ? getLocalizedText(upgradeInfo.name) : u.upgrade_id;
+            return `<li>${name}: ${formatNumber(u.purchase_count)} ${t('purchases')}</li>`;
+        }).join('');
+
         const socialStatsHtml = `
             <div class="col-md-6 col-lg-3">
                 <div class="card">
@@ -471,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!Array.isArray(dailyEvent.combo_ids)) dailyEvent.combo_ids = [];
         
         const allCards = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
-        const cardOptions = allCards.map(c => `<option value="${c.id}">${c.name[currentLang] || c.name['en']}</option>`).join('');
+        const cardOptions = allCards.map(c => `<option value="${c.id}">${getLocalizedText(c.name)}</option>`).join('');
 
         const comboSelectors = [0, 1, 2].map(i => `
             <select class="form-select combo-card-select">
@@ -559,9 +572,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderTableCell = (data) => {
-        if (typeof data === 'object' && data !== null) return `<pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
         if (typeof data === 'string' && (data.startsWith('http') || data.startsWith('/assets'))) {
             return `<img src="${escapeHtml(data)}" alt="icon" style="width: 32px; height: 32px; object-fit: contain; background: #fff; padding: 2px;">`;
+        }
+        if (typeof data === 'object' && data !== null) {
+            // If it's a localized string object, show the current language
+            if (data.hasOwnProperty('en')) {
+                return getLocalizedText(data);
+            }
+            // Otherwise, show the JSON
+            return `<pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
         }
         return escapeHtml(data);
     };
@@ -622,12 +642,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const renderCellConfiguration = () => {
         const settingsData = localConfig || {};
-        const economyFields = ['informantProfitBonus', 'cellBankProfitShare'].map(field => `
-            <div class="mb-3">
-                <label class="form-label">${t(field.replace('informantProfitBonus', 'informant_bonus_percent').replace('cellBankProfitShare', 'bank_tax_percent'))}</label>
-                <input type="number" step="0.01" class="form-control" data-config-key="${field}" value="${escapeHtml(settingsData[field] || 0)}">
-            </div>
-        `).join('');
+        const economyFields = ['informantProfitBonus', 'cellBankProfitShare'].map(field => {
+            const labelKey = field.replace('informantProfitBonus', 'informant_bonus_percent').replace('cellBankProfitShare', 'bank_tax_percent');
+            const value = (parseFloat(settingsData[field] || 0) * 100).toFixed(2);
+            return `
+                <div class="mb-3">
+                    <label class="form-label">${t(labelKey)}</label>
+                    <input type="number" step="0.01" class="form-control" data-config-key="${field}" value="${value}">
+                </div>`;
+        }).join('');
 
         const rewardsFields = ['firstPlace', 'secondPlace', 'thirdPlace', 'participant'].map(field => `
              <div class="mb-3">
@@ -658,7 +681,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="card-body">${rewardsFields}</div>
                 </div>
             </div>
-             <div class="col-md-6">
+            <div class="col-md-6">
                 <div class="card">
                     <div class="card-header"><h3 class="card-title">${t('battle_schedule')}</h3></div>
                     <div class="card-body">
@@ -732,14 +755,21 @@ document.addEventListener('DOMContentLoaded', () => {
             </tr>
         `).join('');
 
-        const historyRows = data.battleHistory.map(b => `
+        const battleHistoryRows = (data.battleHistory || []).map(b => {
+             const winnerCell = (data.leaderboard || []).find(cell => cell.id === b.winner_details?.firstPlace?.cell_id);
+             const winnerName = winnerCell ? winnerCell.name : (b.winner_details?.firstPlace?.cell_id || 'N/A');
+             const prizePool = (b.winner_details && localConfig.battleRewards) 
+                 ? (localConfig.battleRewards.firstPlace + localConfig.battleRewards.secondPlace + localConfig.battleRewards.thirdPlace + localConfig.battleRewards.participant)
+                 : 'N/A';
+
+            return `
              <tr>
                 <td>${new Date(b.end_time).toLocaleString()}</td>
-                <td>${b.winner_details?.firstPlace?.cell_id || 'N/A'}</td>
+                <td>${escapeHtml(winnerName)}</td>
                 <td>${formatNumber(b.winner_details?.firstPlace?.score || 0)}</td>
-                <td>${formatNumber(Object.values(localConfig.battleRewards).reduce((s, r) => s + r, 0) * 1)}</td>
-            </tr>
-        `).join('');
+                <td>${formatNumber(prizePool)}</td>
+            </tr>`;
+        }).join('');
 
 
         tabContainer.innerHTML = `
@@ -759,7 +789,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="card-header"><h3 class="card-title">${t('battle_history')}</h3></div>
                         <div class="table-responsive" style="max-height: 400px;"><table class="table card-table table-vcenter">
                             <thead><tr><th>${t('battle_date')}</th><th>${t('winner')}</th><th>${t('score')}</th><th>${t('prize_pool')}</th></tr></thead>
-                            <tbody>${historyRows}</tbody>
+                            <tbody>${battleHistoryRows || `<tr><td colspan="4" class="text-center">${t('no_data')}</td></tr>`}</tbody>
                         </table></div>
                     </div>
                 </div>
@@ -844,7 +874,26 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const formBody = cols.map(col => {
             const value = item[col] || (col === 'id' && isNew ? `new_${key}_${Date.now()}` : '');
-            if (typeof value === 'object' && value !== null) {
+            
+            if (typeof value === 'object' && value !== null && value.hasOwnProperty('en')) {
+                return `
+                    <fieldset class="form-fieldset mb-3">
+                        <legend>${t(col) || col}</legend>
+                        <div class="mb-2">
+                            <label class="form-label">EN</label>
+                            <input type="text" class="form-control" data-lang-col="${col}" data-lang="en" value="${escapeHtml(value.en || '')}">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">RU</label>
+                            <input type="text" class="form-control" data-lang-col="${col}" data-lang="ru" value="${escapeHtml(value.ru || '')}">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">UA</label>
+                            <input type="text" class="form-control" data-lang-col="${col}" data-lang="ua" value="${escapeHtml(value.ua || '')}">
+                        </div>
+                    </fieldset>
+                 `;
+            } else if (typeof value === 'object' && value !== null) {
                 return `
                     <div class="mb-3">
                         <label class="form-label">${t(col) || col}</label>
@@ -871,11 +920,22 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('save-config-item-btn').onclick = () => {
             const newItem = {};
             cols.forEach(col => {
-                const input = document.querySelector(`#config-modal [data-col="${col}"]`);
-                try {
-                    newItem[col] = JSON.parse(input.value);
-                } catch (e) {
-                    newItem[col] = input.type === 'number' ? Number(input.value) : input.value;
+                const langInputs = document.querySelectorAll(`#config-modal [data-lang-col="${col}"]`);
+                if (langInputs.length > 0) {
+                     newItem[col] = {
+                         en: document.querySelector(`[data-lang-col="${col}"][data-lang="en"]`).value,
+                         ru: document.querySelector(`[data-lang-col="${col}"][data-lang="ru"]`).value,
+                         ua: document.querySelector(`[data-lang-col="${col}"][data-lang="ua"]`).value
+                     };
+                } else {
+                    const input = document.querySelector(`#config-modal [data-col="${col}"]`);
+                    if (input) {
+                        try {
+                            newItem[col] = JSON.parse(input.value);
+                        } catch (e) {
+                            newItem[col] = input.type === 'number' ? Number(input.value) : input.value;
+                        }
+                    }
                 }
             });
             if (isNew) {
@@ -1021,9 +1081,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (configKey) {
             const subKey = target.dataset.subKey;
             let value = target.value;
-            if (target.type === 'number' || subKey === 'dayOfWeek' || subKey === 'startHourUTC' || subKey === 'durationHours') {
+            
+            if (configKey === 'informantProfitBonus' || configKey === 'cellBankProfitShare') {
+                value = parseFloat(target.value) / 100;
+            } else if (target.type === 'number' || subKey === 'dayOfWeek' || subKey === 'startHourUTC' || subKey === 'durationHours') {
                  value = parseFloat(target.value);
             }
+
             if (subKey) {
                 if (!localConfig[configKey]) localConfig[configKey] = {};
                 localConfig[configKey][subKey] = value;
