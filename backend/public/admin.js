@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -910,7 +911,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            if (typeof value === 'object' && value !== null && value.hasOwnProperty('en') && value.hasOwnProperty('ru') && value.hasOwnProperty('ua')) {
+            const isLangObject = typeof value === 'object' && value !== null && (value.hasOwnProperty('en') || value.hasOwnProperty('ru') || value.hasOwnProperty('ua'));
+            const isRewardObject = typeof value === 'object' && value !== null && value.hasOwnProperty('type') && value.hasOwnProperty('amount');
+
+            if (isLangObject && !isRewardObject) {
                 return `
                     <fieldset class="form-fieldset mb-3">
                         <legend class="d-flex justify-content-between align-items-center">
@@ -972,10 +976,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <textarea class="form-control" rows="3" data-col="${col}">${escapeHtml(JSON.stringify(value, null, 2))}</textarea>
                     </div>`;
             } else {
+                const isReadonly = isNew && col === 'id';
                 return `
                     <div class="mb-3">
                         <label class="form-label">${t(col) || col}</label>
-                        <input type="${typeof value === 'number' ? 'number' : 'text'}" class="form-control" data-col="${col}" value="${escapeHtml(value)}">
+                        <input type="${typeof value === 'number' ? 'number' : 'text'}" class="form-control" data-col="${col}" value="${escapeHtml(value)}" ${isReadonly ? 'readonly' : ''}>
                     </div>`;
             }
         }).join('');

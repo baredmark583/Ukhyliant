@@ -46,12 +46,9 @@
       }
       .page, .page-wrapper { background: transparent !important; }
       .card, .modal-content { 
-        background-color: var(--bg-card) !important;
+        background: var(--bg-card) !important;
         border: 1px solid var(--border-color) !important;
         color: var(--text-primary);
-      }
-      .modal-content {
-          background-image: none !important;
       }
       .modal-header {
           border-color: var(--border-color);
@@ -144,13 +141,13 @@
       }
       
       /* Fix for white background on config fieldsets */
-      .card fieldset.form-fieldset {
+      fieldset.form-fieldset {
         background: transparent !important;
         border: 1px solid var(--border-color);
         padding: 1.25rem;
         margin-bottom: 1rem;
       }
-      .card fieldset.form-fieldset legend {
+      fieldset.form-fieldset legend {
         padding: 0 0.5rem;
         width: auto;
         float: none;

@@ -1,5 +1,3 @@
-
-
 // This file makes the backend self-contained by providing initial data.
 // It prevents the server from trying to import files from the frontend.
 
@@ -110,5 +108,5 @@ export const BATTLE_SCHEDULE_DEFAULT = {
 
 
 // --- ANTI-CHEAT ---
-export const CHEAT_DETECTION_THRESHOLD_TPS = 25; // Taps per second
+export const CHEAT_DETECTION_THRESHOLD_TPS = 19; // Taps per second
 export const CHEAT_DETECTION_STRIKES_TO_FLAG = 5; // Number of times the threshold can be exceeded before flagging

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 import SuspicionMeter from '../components/SuspicionMeter';
@@ -107,7 +108,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
   const handlePressEnd = async () => {
     const now = Date.now();
-    if (now - lastTapTime.current < 50) {
+    if (now - lastTapTime.current < 30) {
         if(pressTimer.current) pressTimer.current = null;
         return;
     }

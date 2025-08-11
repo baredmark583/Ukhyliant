@@ -413,7 +413,7 @@ app.post('/api/player/:id', async (req, res) => {
 
         // 1. Anti-Cheat Check
         const timeDiff = (Date.now() - (serverState.lastLoginTimestamp || Date.now())) / 1000;
-        const taps = (clientState.dailyTaps || 0) - (serverState.dailyTaps || 0);
+        const taps = clientTaps; // Use the direct tap count from the client
         if (timeDiff > 0.1 && taps > 0) {
             const tps = taps / timeDiff;
             if (tps > CHEAT_DETECTION_THRESHOLD_TPS) {
