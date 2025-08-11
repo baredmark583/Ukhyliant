@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -591,7 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const translationKey = groupKey ? `icon_${groupKey}_${key}` : `icon_${key}`;
         return `
             <div class="mb-3">
-                <label class="form-label">${t(translationKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`))}</label>
+                <label class="form-label">${t(translationKey)}</label>
                 <div class="input-group">
                     <input type="text" class="form-control" ${dataAttrs} value="${escapeHtml(value)}">
                     <span class="input-group-text"><img src="${escapeHtml(value)}" alt="" style="width: 24px; height: 24px; background: #fff;"></span>
