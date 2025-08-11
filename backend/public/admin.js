@@ -239,16 +239,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderDashboard = async () => {
         showLoading();
-        dashboardStats = await fetchData('dashboard-stats') || {};
-        playerLocations = await fetchData('player-locations') || [];
-        const socialStats = await fetchData('social-stats') || {};
+        // Fetch all data concurrently
+        const [stats, locations, socials] = await Promise.all([
+            fetchData('dashboard-stats'),
+            fetchData('player-locations'),
+            fetchData('social-stats')
+        ]);
+
+        dashboardStats = stats || {};
+        playerLocations = locations || [];
+        const socialStats = socials || {};
 
         const kpis = [
-            { key: 'total_players', value: formatNumber(dashboardStats.totalPlayers), icon: 'users' },
-            { key: 'new_players_24h', value: formatNumber(dashboardStats.newPlayersToday), icon: 'user-plus' },
-            { key: 'online_now', value: formatNumber(dashboardStats.onlineNow), icon: 'wifi' },
-            { key: 'total_profit_per_hour', value: formatNumber(dashboardStats.totalProfitPerHour), icon: 'trending-up' },
-            { key: 'earned_stars', value: formatNumber(dashboardStats.totalStarsEarned), icon: 'star' }
+            { key: 'total_players', value: formatNumber(dashboardStats.totalPlayers) },
+            { key: 'new_players_24h', value: formatNumber(dashboardStats.newPlayersToday) },
+            { key: 'online_now', value: formatNumber(dashboardStats.onlineNow) },
+            { key: 'total_profit_per_hour', value: formatNumber(dashboardStats.totalProfitPerHour) },
+            { key: 'earned_stars', value: formatNumber(dashboardStats.totalStarsEarned) }
         ];
 
         const kpiHtml = kpis.map(kpi => `
@@ -261,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `).join('');
-        
+
         const topUpgradeCount = (dashboardStats.popularUpgrades?.[0]?.purchase_count) || 1;
         const topUpgradesHtml = (dashboardStats.popularUpgrades || []).map(u => {
             const allUpgrades = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
@@ -269,17 +276,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const name = upgradeInfo ? getLocalizedText(upgradeInfo.name) : u.upgrade_id;
             const percentage = (u.purchase_count / topUpgradeCount) * 100;
             return `
-                 <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="text-sm">${name}</span>
-                        <span class="text-sm text-secondary">${formatNumber(u.purchase_count)}</span>
+                <div class="row g-2 align-items-center mb-3">
+                    <div class="col-auto">
+                        <span class="text-sm">${name}:</span>
                     </div>
-                    <div class="progress progress-sm">
-                        <div class="progress-bar" style="width: ${percentage}%" role="progressbar" aria-valuenow="${percentage}"></div>
+                    <div class="col">
+                        <div class="progress progress-sm">
+                            <div class="progress-bar" style="width: ${percentage}%" role="progressbar" aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
                     </div>
                 </div>
             `;
-        }).join('');
+        }).join('') || `<p class="text-secondary" data-translate="no_data">${t('no_data')}</p>`;
+
 
         tabContainer.innerHTML = `
             <div id="dashboard-layout">
@@ -322,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="card">
                             <div class="card-body">
                                 <h3 class="card-title" data-translate="top_5_upgrades">Топ 5 улучшений по покупкам</h3>
-                                ${topUpgradesHtml || `<p class="text-secondary" data-translate="no_data">${t('no_data')}</p>`}
+                                ${topUpgradesHtml}
                             </div>
                         </div>
                         <div class="card">
@@ -336,9 +345,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="row row-cards map-row">
                     <div class="col-12">
                         <div class="card h-100">
-                             <div class="card-body">
+                             <div class="card-body d-flex flex-column">
                                 <h3 class="card-title" data-translate="player_map">Карта игроков</h3>
-                                <div id="map-world" class="w-100 h-100"></div>
+                                <div id="map-world" class="w-100 h-100 flex-grow-1"></div>
                             </div>
                         </div>
                     </div>
@@ -350,24 +359,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (dashboardStats.registrations) {
             const ctx = document.getElementById('chart-registrations').getContext('2d');
             charts.registrations = new Chart(ctx, {
-                type: 'bar',
+                type: 'line',
                 data: {
-                    labels: dashboardStats.registrations.map(r => new Date(r.date).toLocaleDateString(currentLang)),
+                    labels: dashboardStats.registrations.map(r => new Date(r.date).toLocaleDateString(currentLang, {day: '2-digit', month: '2-digit'})),
                     datasets: [{
                         label: t('new_users_last_7_days'),
                         data: dashboardStats.registrations.map(r => r.count),
-                        backgroundColor: 'rgba(74, 222, 128, 0.6)',
-                        borderColor: 'rgba(74, 222, 128, 1)',
-                        borderWidth: 1
+                        backgroundColor: 'rgba(22, 163, 74, 0.4)',
+                        borderColor: 'rgba(34, 197, 94, 1)',
+                        pointBackgroundColor: 'rgba(34, 197, 94, 1)',
+                        pointBorderColor: '#fff',
+                        pointHoverRadius: 6,
+                        pointRadius: 4,
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
                     }]
                 },
-                options: { 
-                    maintainAspectRatio: false, 
-                    scales: { 
-                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: 'var(--text-secondary)'} },
-                        x: { grid: { display: false }, ticks: { color: 'var(--text-secondary)' } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'var(--text-secondary)'} },
+                        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'var(--text-secondary)' } }
                     },
-                    plugins: { legend: { display: false } }
+                    plugins: { legend: { display: false } },
+                    interaction: { intersect: false, mode: 'index' },
                 }
             });
         }
@@ -395,6 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
             });
         }
+        applyTranslationsToDOM();
     };
 
     const renderPlayers = async () => {
