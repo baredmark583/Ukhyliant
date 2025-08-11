@@ -109,4 +109,4 @@ export const BATTLE_SCHEDULE_DEFAULT = {
 
 // --- ANTI-CHEAT ---
 export const CHEAT_DETECTION_THRESHOLD_TPS = 19; // Taps per second
-export const CHEAT_DETECTION_STRIKES_TO_FLAG = 5; // Number of times the threshold can be exceeded before flagging
+export const CHEAT_DETECTION_STRIKES_TO_FLAG = 1; // Number of times the threshold can be exceeded before flagging

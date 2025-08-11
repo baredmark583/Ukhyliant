@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -290,6 +289,36 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }).join('') || `<p class="text-secondary" data-translate="no_data">${t('no_data')}</p>`;
 
+        const broadcastCardHtml = `
+            <div class="card">
+                <div class="card-header"><h3 class="card-title" data-translate="broadcast_message">Массовая рассылка</h3></div>
+                <div class="card-body">
+                    <p class="text-secondary" data-translate="broadcast_message_desc">Отправьте сообщение всем пользователям бота.</p>
+                    <div class="mb-3">
+                        <label class="form-label" data-translate="message_text">Текст сообщения</label>
+                        <textarea id="broadcast-text" class="form-control" rows="4"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" data-translate="image_url_optional">URL изображения (необязательно)</label>
+                        <input type="text" id="broadcast-image-url" class="form-control" placeholder="https://example.com/image.png">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" data-translate="button_url_optional">URL кнопки (необязательно)</label>
+                            <input type="text" id="broadcast-button-url" class="form-control" placeholder="https://t.me/yourchannel">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" data-translate="button_text_optional">Текст кнопки (необязательно)</label>
+                            <input type="text" id="broadcast-button-text" class="form-control">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary w-100" data-action="send-broadcast">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-send" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 14l11 -11" /><path d="M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5" /></svg>
+                        <span data-translate="send_broadcast">Отправить рассылку</span>
+                    </button>
+                </div>
+            </div>
+        `;
 
         tabContainer.innerHTML = `
             <div id="dashboard-layout">
@@ -341,6 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <input type="text" class="form-control" id="loadingScreenUrl" value="${escapeHtml(localConfig.loadingScreenImageUrl || '')}">
                             </div>
                         </div>
+                        ${broadcastCardHtml}
                     </div>
                 </div>
                 <div class="row row-cards map-row">
@@ -1148,6 +1178,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'edit-socials':
                 renderSocialsModal(button.dataset.social);
+                break;
+            case 'send-broadcast':
+                const text = document.getElementById('broadcast-text').value;
+                const imageUrl = document.getElementById('broadcast-image-url').value;
+                const buttonUrl = document.getElementById('broadcast-button-url').value;
+                const buttonText = document.getElementById('broadcast-button-text').value;
+            
+                if (!text.trim()) {
+                    alert(t('message_text_required'));
+                    return;
+                }
+                if ((buttonUrl && !buttonText) || (!buttonUrl && buttonText)) {
+                    alert(t('button_requires_url_and_text'));
+                    return;
+                }
+            
+                if (confirm(t('confirm_broadcast'))) {
+                    button.disabled = true;
+                    button.querySelector('span').textContent = t('sending_broadcast');
+                    const res = await postData('broadcast-message', { text, imageUrl, buttonUrl, buttonText });
+                    button.disabled = false;
+                    button.querySelector('span').textContent = t('send_broadcast');
+                    if (res) {
+                        alert(res.message);
+                    }
+                }
                 break;
              case 'force-start-battle':
                 const startRes = await postData('battle/force-start');

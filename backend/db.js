@@ -1622,3 +1622,8 @@ export const getCellAnalytics = async () => {
         battleHistory: battleHistoryRes.rows
     };
 };
+
+export const getAllUserIds = async () => {
+    const res = await executeQuery('SELECT id FROM users');
+    return res.rows.map(r => r.id);
+};

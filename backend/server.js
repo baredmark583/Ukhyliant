@@ -58,7 +58,8 @@ import {
     getBattleLeaderboard,
     forceStartBattle,
     forceEndBattle,
-    getCellAnalytics
+    getCellAnalytics,
+    getAllUserIds
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
@@ -935,6 +936,80 @@ app.post('/admin/api/translate-text', checkAdminAuth, async (req, res) => {
     } catch (e) {
         log('error', "AI translation failed", e);
         res.status(500).json({ error: "Failed to communicate with translation service." });
+    }
+});
+
+app.post('/admin/api/broadcast-message', checkAdminAuth, async (req, res) => {
+    const { text, imageUrl, buttonUrl, buttonText } = req.body;
+    const { BOT_TOKEN } = process.env;
+
+    if (!text || !BOT_TOKEN) {
+        return res.status(400).json({ error: 'Text and Bot Token are required.' });
+    }
+
+    try {
+        const userIds = await getAllUserIds();
+        
+        // Respond to admin immediately
+        res.json({ message: `Broadcast started for ${userIds.length} users.` });
+
+        // Perform the broadcast in the background
+        (async () => {
+            let reply_markup = undefined;
+            if (buttonUrl && buttonText) {
+                reply_markup = {
+                    inline_keyboard: [[{ text: buttonText, url: buttonUrl }]]
+                };
+            }
+
+            let successCount = 0;
+            let failureCount = 0;
+
+            for (const userId of userIds) {
+                try {
+                    const payload = {
+                        chat_id: userId,
+                        ...(reply_markup && { reply_markup })
+                    };
+
+                    let url;
+                    if (imageUrl) {
+                        url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
+                        payload.photo = imageUrl;
+                        payload.caption = text;
+                    } else {
+                        url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+                        payload.text = text;
+                    }
+
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    const data = await response.json();
+                    if (data.ok) {
+                        successCount++;
+                    } else {
+                        failureCount++;
+                        log('warn', `Failed to send broadcast to ${userId}: ${data.description}`);
+                    }
+
+                } catch (e) {
+                    failureCount++;
+                    log('error', `Broadcast error for user ${userId}`, e);
+                }
+                
+                // Rate limit: 20 messages per second is safe
+                await new Promise(resolve => setTimeout(resolve, 50)); 
+            }
+            log('info', `Broadcast finished. Success: ${successCount}, Failures: ${failureCount}`);
+        })();
+
+    } catch (error) {
+        log('error', 'Broadcast initiation failed', error);
+        res.status(500).json({ error: 'Failed to start broadcast.' });
     }
 });
 
