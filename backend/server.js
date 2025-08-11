@@ -396,56 +396,72 @@ app.post('/api/player/:id', async (req, res) => {
 
         const dbRes = await dbClient.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [id]);
         if (dbRes.rows.length === 0) {
+            // This case should be rare, but handle it gracefully
             await dbClient.query('INSERT INTO players (id, data) VALUES ($1, $2)', [id, clientState]);
             await dbClient.query('COMMIT');
-            return res.sendStatus(201);
+            return res.status(201).json(clientState);
         }
         
         let serverState = dbRes.rows[0].data;
         
-        // Add taps to battle if applicable
+        // Add taps to battle score if applicable
         if (serverState.cellId && clientTaps > 0) {
             await addTapsToBattle(serverState.cellId, clientTaps);
         }
         
-        let finalState = { ...serverState }; // Start with the server's state as the source of truth
+        let finalState = { ...serverState };
         let stateUpdatedForClient = false;
 
-        // 1. Anti-Cheat Check
+        // --- Core Sync and Update Logic ---
+        if (serverState.forceSync) {
+            // Admin reset has occurred. Server state is the source of truth.
+            // Ignore client's balance and energy, just apply new taps.
+            finalState.balance = (Number(serverState.balance) || 0) + Number(clientTaps || 0);
+            finalState.energy = clientState.energy;
+            finalState.dailyTaps = clientState.dailyTaps;
+            
+            delete finalState.forceSync; // Sync is done, remove the flag.
+            stateUpdatedForClient = true;
+            log('info', `Forcing sync for user ${id} after admin reset.`);
+        } else {
+            // Standard update logic
+            // 1. Apply any pending admin bonus.
+            const adminBonus = Number(serverState.adminBonus) || 0;
+            if (adminBonus !== 0) {
+                finalState.balance = (Number(clientState.balance) || 0) + adminBonus;
+                finalState.adminBonus = 0;
+                stateUpdatedForClient = true;
+                log('info', `Applied admin bonus of ${adminBonus} to user ${id}.`);
+            } else {
+                finalState.balance = clientState.balance;
+            }
+             // 2. Update high-frequency fields from the client.
+            finalState.energy = clientState.energy;
+            finalState.dailyTaps = clientState.dailyTaps;
+        }
+
+        // --- Anti-Cheat Check (applied on both paths) ---
         const timeDiff = (Date.now() - (serverState.lastLoginTimestamp || Date.now())) / 1000;
-        const taps = clientTaps; // Use the direct tap count from the client
-        if (timeDiff > 0.1 && taps > 0) {
-            const tps = taps / timeDiff;
+        if (timeDiff > 0.1 && clientTaps > 0) {
+            const tps = clientTaps / timeDiff;
             if (tps > CHEAT_DETECTION_THRESHOLD_TPS) {
                 finalState.cheatStrikes = (serverState.cheatStrikes || 0) + 1;
-                finalState.cheatLog = [...(serverState.cheatLog || []), { tps, taps, timeDiff, timestamp: new Date().toISOString() }];
+                finalState.cheatLog = [...(serverState.cheatLog || []), { tps, taps: clientTaps, timeDiff, timestamp: new Date().toISOString() }];
                 if (finalState.cheatStrikes >= CHEAT_DETECTION_STRIKES_TO_FLAG) {
                     finalState.isCheater = true;
                 }
                 log('warn', `High TPS detected for user ${id}: ${tps.toFixed(2)}`);
+                 stateUpdatedForClient = true; // Make sure client knows about cheat status
             }
         }
-
-        // 2. Apply and clear any pending admin bonus.
-        if (serverState.adminBonus && Number(serverState.adminBonus) !== 0) {
-            finalState.balance = (Number(clientState.balance) || 0) + Number(serverState.adminBonus);
-            finalState.adminBonus = 0;
-            stateUpdatedForClient = true;
-            log('info', `Applied admin bonus of ${serverState.adminBonus} to user ${id}. New balance: ${finalState.balance}`);
-        } else {
-            finalState.balance = clientState.balance;
-        }
-
-        // 3. Update other high-frequency fields from the client.
-        finalState.energy = clientState.energy;
-        finalState.dailyTaps = clientState.dailyTaps;
-        finalState.lastLoginTimestamp = clientState.lastLoginTimestamp;
-
-        // 4. Save the fully merged state.
+        
+        // Always update the timestamp
+        finalState.lastLoginTimestamp = Date.now();
+        
+        // --- Save and Respond ---
         await dbClient.query('UPDATE players SET data = $1 WHERE id = $2', [finalState, id]);
         await dbClient.query('COMMIT');
         
-        // 5. Respond
         if (stateUpdatedForClient) {
             res.json(finalState);
         } else {

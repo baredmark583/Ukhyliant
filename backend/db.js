@@ -1229,30 +1229,42 @@ export const resetPlayerProgress = async (userId) => {
         }
         let player = playerRes.rows[0].data;
 
-        // Reset progress but keep identity and referrals
+        // Full Progress Reset
         player.balance = 0;
+        player.adminBonus = 0; 
         player.profitPerHour = 0;
         player.tasksProfitPerHour = 0;
+        player.referralProfitPerHour = 0;
+        player.cellProfitBonus = 0;
         player.upgrades = {};
-        player.completedDailyTaskIds = [];
-        player.purchasedSpecialTaskIds = [];
         player.completedSpecialTaskIds = [];
-        player.dailyTaps = 0;
+        player.purchasedSpecialTaskIds = []; // Also reset purchased airdrop tasks
         player.tapGuruLevel = 0;
         player.energyLimitLevel = 0;
         player.unlockedSkins = [DEFAULT_COIN_SKIN_ID];
         player.currentSkinId = DEFAULT_COIN_SKIN_ID;
         player.suspicion = 0;
-        // Keep cellId and referrals
+        player.energy = INITIAL_MAX_ENERGY + (player.energyLimitLevel || 0) * 500;
         
-        // Reset cheat flags
-        delete player.isCheater;
-        delete player.cheatStrikes;
-        delete player.cheatLog;
+        // Cheat flags reset
+        player.isCheater = false;
+        player.cheatStrikes = 0;
+        player.cheatLog = [];
+        
+        // Daily Progress Reset
+        player.dailyTaps = 0;
+        player.completedDailyTaskIds = [];
+        player.claimedComboToday = false;
+        player.claimedCipherToday = false;
+        player.dailyUpgrades = [];
+        
+        // Sync flag to force client update
+        player.forceSync = true;
+        player.lastDailyReset = Date.now();
+        player.lastLoginTimestamp = Date.now(); // Crucial to prevent false cheat flags
         
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         
-        // After reset, we must recalculate the referrer's profit from scratch
         const userRes = await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId]);
         const referrerId = userRes.rows[0]?.referrer_id;
         if(referrerId) {
