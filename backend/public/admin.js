@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeTab = 'dashboard';
     let currentLang = localStorage.getItem('adminLang') || 'ru';
     let charts = {}; // To hold chart instances
+    let translationsCache = {}; // Cache for translations from the backend
 
     // --- CONFIG META (for dynamic table rendering) ---
     const configMeta = {
@@ -29,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalsContainer = document.getElementById('modals-container');
     
     // --- TRANSLATION FUNCTION ---
-    const t = (key) => window.LOCALES[currentLang]?.[key] || window.LOCALES['en']?.[key] || `[${key}]`;
+    const t = (key) => translationsCache[key] || `[${key}]`;
 
     // --- UTILS ---
     const escapeHtml = (unsafe) => {
@@ -50,10 +51,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return escapeHtml(data);
     };
     
-    const applyTranslations = () => {
+    const applyTranslationsToDOM = () => {
         document.querySelectorAll('[data-translate]').forEach(el => {
             const key = el.dataset.translate;
-            el.textContent = t(key);
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                if(el.placeholder) el.placeholder = t(key);
+            } else {
+                el.textContent = t(key);
+            }
         });
         
         const activeButton = document.querySelector('.tab-button.active');
@@ -174,6 +179,35 @@ document.addEventListener('DOMContentLoaded', () => {
             localConfig = await fetchData('config');
         }
     };
+
+    const fetchAndApplyTranslations = async (lang) => {
+        currentLang = lang; // Set lang immediately
+        localStorage.setItem('adminLang', currentLang);
+
+        const keysToTranslate = new Set();
+        // Get keys from static elements
+        document.querySelectorAll('[data-translate]').forEach(el => keysToTranslate.add(el.dataset.translate));
+        // Add keys from configMeta for table headers and dynamic content
+        Object.values(configMeta).forEach(meta => {
+            if (meta.titleKey) keysToTranslate.add(meta.titleKey);
+            if (meta.cols) meta.cols.forEach(col => keysToTranslate.add(col));
+        });
+        
+        // Add other known dynamic keys
+        ['loading', 'save_success', 'save_error', 'confirm_delete', 'confirm_delete_player', 'config_edit_item', 'config_add_item'].forEach(k => keysToTranslate.add(k));
+
+        try {
+            const result = await postData('translate', { keys: Array.from(keysToTranslate), targetLang: lang });
+            translationsCache = result || {};
+        } catch (error) {
+            console.error("Failed to fetch translations:", error);
+            translationsCache = {}; // Reset cache on failure
+        }
+        
+        // NOW that translations are cached, we can render.
+        // `render()` will automatically use the new cache via `t()` and `applyTranslationsToDOM()`
+        render(); 
+    };
     
     // --- RENDER LOGIC ---
     const render = () => {
@@ -195,11 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        const activeButton = document.querySelector(`.tab-button[data-tab="${activeTab}"]`);
-        if (activeButton && activeButton.dataset.titleKey) {
-            tabTitle.textContent = t(activeButton.dataset.titleKey);
-        }
-
         saveMainButton.classList.toggle('d-none', !configMeta[activeTab] && activeTab !== 'dailyEvents' && activeTab !== 'cellSettings' && activeTab !== 'cellConfiguration');
         
         switch (activeTab) {
@@ -233,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 break;
         }
-        applyTranslations();
+        applyTranslationsToDOM();
     };
 
     const renderDashboard = async () => {
@@ -262,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <div class="col">
                                 <div class="font-weight-medium">${kpi.value}</div>
-                                <div class="text-secondary">${t(kpi.key)}</div>
+                                <div class="text-secondary" data-translate="${kpi.key}">${t(kpi.key)}</div>
                             </div>
                         </div>
                     </div>
@@ -274,20 +303,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const allUpgrades = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
             const upgradeInfo = allUpgrades.find(upg => upg.id === u.upgrade_id);
             const name = upgradeInfo ? getLocalizedText(upgradeInfo.name) : u.upgrade_id;
-            return `<li>${name}: ${formatNumber(u.purchase_count)} ${t('purchases')}</li>`;
+            return `<li>${name}: ${formatNumber(u.purchase_count)} <span data-translate="purchases">${t('purchases')}</span></li>`;
         }).join('');
 
         const socialStatsHtml = `
             <div class="col-md-6 col-lg-3">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">${t('youtube_stats')}</h3>
-                        <div class="card-actions"><button class="btn btn-sm" data-action="edit-socials" data-social="youtube">${t('edit')}</button></div>
+                        <h3 class="card-title" data-translate="youtube_stats">${t('youtube_stats')}</h3>
+                        <div class="card-actions"><button class="btn btn-sm" data-action="edit-socials" data-social="youtube" data-translate="edit">${t('edit')}</button></div>
                     </div>
                     <div class="card-body">
                         <dl class="row">
-                            <dt class="col-8">${t('social_youtube_subs')}:</dt><dd class="col-4 text-end">${formatNumber(socialStats.youtubeSubscribers)}</dd>
-                            <dt class="col-8">${t('views')}:</dt><dd class="col-4 text-end">${formatNumber(socialStats.youtubeViews)}</dd>
+                            <dt class="col-8" data-translate="social_youtube_subs">${t('social_youtube_subs')}:</dt><dd class="col-4 text-end">${formatNumber(socialStats.youtubeSubscribers)}</dd>
+                            <dt class="col-8" data-translate="views">${t('views')}:</dt><dd class="col-4 text-end">${formatNumber(socialStats.youtubeViews)}</dd>
                         </dl>
                     </div>
                 </div>
@@ -295,12 +324,12 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="col-md-6 col-lg-3">
                  <div class="card">
                     <div class="card-header">
-                         <h3 class="card-title">${t('telegram_stats')}</h3>
-                         <div class="card-actions"><button class="btn btn-sm" data-action="edit-socials" data-social="telegram">${t('edit')}</button></div>
+                         <h3 class="card-title" data-translate="telegram_stats">${t('telegram_stats')}</h3>
+                         <div class="card-actions"><button class="btn btn-sm" data-action="edit-socials" data-social="telegram" data-translate="edit">${t('edit')}</button></div>
                     </div>
                     <div class="card-body">
                         <dl class="row">
-                            <dt class="col-8">${t('social_telegram_subs')}:</dt><dd class="col-4 text-end">${formatNumber(socialStats.telegramSubscribers)}</dd>
+                            <dt class="col-8" data-translate="social_telegram_subs">${t('social_telegram_subs')}:</dt><dd class="col-4 text-end">${formatNumber(socialStats.telegramSubscribers)}</dd>
                         </dl>
                     </div>
                 </div>
@@ -312,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="col-lg-8">
                     <div class="card">
                         <div class="card-body">
-                            <h3 class="card-title">${t('new_users_last_7_days')}</h3>
+                            <h3 class="card-title" data-translate="new_users_last_7_days">${t('new_users_last_7_days')}</h3>
                             <div class="chart-container" style="height: 300px;"><canvas id="chart-registrations"></canvas></div>
                         </div>
                     </div>
@@ -320,15 +349,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="col-lg-4">
                     <div class="card">
                         <div class="card-body">
-                            <h3 class="card-title">${t('top_5_upgrades')}</h3>
-                            <ul class="list-unstyled space-y-2">${topUpgradesHtml || `<li class="text-secondary">${t('no_data')}</li>`}</ul>
+                            <h3 class="card-title" data-translate="top_5_upgrades">${t('top_5_upgrades')}</h3>
+                            <ul class="list-unstyled space-y-2">${topUpgradesHtml || `<li class="text-secondary" data-translate="no_data">${t('no_data')}</li>`}</ul>
                         </div>
                     </div>
                 </div>
                  ${socialStatsHtml}
                  <div class="col-md-6 col-lg-6">
                     <div class="card">
-                        <div class="card-header"><h3 class="card-title">${t('loading_screen_image_url')}</h3></div>
+                        <div class="card-header"><h3 class="card-title" data-translate="loading_screen_image_url">${t('loading_screen_image_url')}</h3></div>
                         <div class="card-body">
                             <input type="text" class="form-control" id="loadingScreenUrl" value="${escapeHtml(localConfig.loadingScreenImageUrl || '')}">
                         </div>
@@ -339,7 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="col-12">
                     <div class="card">
                         <div class="card-body">
-                            <h3 class="card-title">${t('player_map')}</h3>
+                            <h3 class="card-title" data-translate="player_map">${t('player_map')}</h3>
                             <div id="map-world" style="height: 400px;"></div>
                         </div>
                     </div>
@@ -587,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderIconInput = (groupKey, key, value) => {
         const dataAttrs = groupKey ? `data-group="${groupKey}" data-key="${key}"` : `data-key="${key}"`;
-        const translationKey = groupKey ? `icon_${groupKey}_${key}` : `icon_${key}`;
+        const translationKey = `icon_${groupKey ? `${groupKey}_${key}` : key}`;
         return `
             <div class="mb-3">
                 <label class="form-label">${t(translationKey)}</label>
@@ -996,15 +1025,19 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const init = async () => {
         showLoading();
+        // Load core config first
         localConfig = await fetchData('config');
-        if (localConfig) {
-            document.querySelectorAll('.navbar').forEach(el => el.style.visibility = 'visible');
-            document.querySelector('.page-wrapper').style.visibility = 'visible';
-            render();
-        } else {
-             tabContainer.innerHTML = `<div class="alert alert-danger">${t('save_error')}</div>`;
+        if (!localConfig) {
+            tabContainer.innerHTML = `<div class="alert alert-danger">Failed to load core configuration. App cannot start.</div>`;
+            return;
         }
-        applyTranslations();
+
+        // Show main UI structure while translations are loading
+        document.querySelectorAll('.navbar').forEach(el => el.style.visibility = 'visible');
+        document.querySelector('.page-wrapper').style.visibility = 'visible');
+
+        // Fetch translations for the current language, then render the app
+        await fetchAndApplyTranslations(currentLang);
     };
 
     // --- MAIN EXECUTION ---
@@ -1148,9 +1181,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.lang-select-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
-            currentLang = e.currentTarget.dataset.lang;
-            localStorage.setItem('adminLang', currentLang);
-            applyTranslations();
+            const newLang = e.currentTarget.dataset.lang;
+            if (newLang !== currentLang) {
+                showLoading('translating');
+                fetchAndApplyTranslations(newLang);
+            }
         });
     });
 
