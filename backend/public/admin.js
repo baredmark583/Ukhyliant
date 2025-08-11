@@ -244,104 +244,102 @@ document.addEventListener('DOMContentLoaded', () => {
         const socialStats = await fetchData('social-stats') || {};
 
         const kpis = [
-            { key: 'total_players', value: formatNumber(dashboardStats.totalPlayers), icon: 'users', color: 'blue' },
-            { key: 'new_players_24h', value: formatNumber(dashboardStats.newPlayersToday), icon: 'user-plus', color: 'green' },
-            { key: 'online_now', value: formatNumber(dashboardStats.onlineNow), icon: 'wifi', color: 'azure' },
-            { key: 'total_profit_per_hour', value: formatNumber(dashboardStats.totalProfitPerHour), icon: 'trending-up', color: 'yellow' },
-            { key: 'earned_stars', value: formatNumber(dashboardStats.totalStarsEarned), icon: 'star', color: 'purple' }
+            { key: 'total_players', value: formatNumber(dashboardStats.totalPlayers), icon: 'users' },
+            { key: 'new_players_24h', value: formatNumber(dashboardStats.newPlayersToday), icon: 'user-plus' },
+            { key: 'online_now', value: formatNumber(dashboardStats.onlineNow), icon: 'wifi' },
+            { key: 'total_profit_per_hour', value: formatNumber(dashboardStats.totalProfitPerHour), icon: 'trending-up' },
+            { key: 'earned_stars', value: formatNumber(dashboardStats.totalStarsEarned), icon: 'star' }
         ];
 
         const kpiHtml = kpis.map(kpi => `
-            <div class="col-lg-2-4 col-md-4 col-6">
-                <div class="card card-sm">
+            <div class="col">
+                <div class="card card-sm h-100">
                     <div class="card-body">
-                        <div class="row align-items-center">
-                            <div class="col-auto">
-                                <span class="bg-${kpi.color}-lt text-${kpi.color} avatar">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-${kpi.icon}" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path>${window.tablerIcons[kpi.icon]}</svg>
-                                </span>
-                            </div>
-                            <div class="col">
-                                <div class="font-weight-medium">${kpi.value}</div>
-                                <div class="text-secondary" data-translate="${kpi.key}">${t(kpi.key)}</div>
-                            </div>
-                        </div>
+                        <div class="subheader" data-translate="${kpi.key}">${t(kpi.key)}</div>
+                        <div class="h1 mb-3">${kpi.value}</div>
                     </div>
                 </div>
             </div>
         `).join('');
         
+        const topUpgradeCount = (dashboardStats.popularUpgrades?.[0]?.purchase_count) || 1;
         const topUpgradesHtml = (dashboardStats.popularUpgrades || []).map(u => {
             const allUpgrades = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
             const upgradeInfo = allUpgrades.find(upg => upg.id === u.upgrade_id);
             const name = upgradeInfo ? getLocalizedText(upgradeInfo.name) : u.upgrade_id;
-            return `<li>${name}: ${formatNumber(u.purchase_count)} <span data-translate="purchases">${t('purchases')}</span></li>`;
+            const percentage = (u.purchase_count / topUpgradeCount) * 100;
+            return `
+                 <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-sm">${name}</span>
+                        <span class="text-sm text-secondary">${formatNumber(u.purchase_count)}</span>
+                    </div>
+                    <div class="progress progress-sm">
+                        <div class="progress-bar" style="width: ${percentage}%" role="progressbar" aria-valuenow="${percentage}"></div>
+                    </div>
+                </div>
+            `;
         }).join('');
 
-        const socialStatsHtml = `
-            <div class="col-md-6 col-lg-3">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title" data-translate="youtube_stats">${t('youtube_stats')}</h3>
-                        <div class="card-actions"><button class="btn btn-sm" data-action="edit-socials" data-social="youtube" data-translate="edit">${t('edit')}</button></div>
-                    </div>
-                    <div class="card-body">
-                        <dl class="row">
-                            <dt class="col-8" data-translate="social_youtube_subs">${t('social_youtube_subs')}:</dt><dd class="col-4 text-end">${formatNumber(socialStats.youtubeSubscribers)}</dd>
-                            <dt class="col-8" data-translate="views">${t('views')}:</dt><dd class="col-4 text-end">${formatNumber(socialStats.youtubeViews)}</dd>
-                        </dl>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 col-lg-3">
-                 <div class="card">
-                    <div class="card-header">
-                         <h3 class="card-title" data-translate="telegram_stats">${t('telegram_stats')}</h3>
-                         <div class="card-actions"><button class="btn btn-sm" data-action="edit-socials" data-social="telegram" data-translate="edit">${t('edit')}</button></div>
-                    </div>
-                    <div class="card-body">
-                        <dl class="row">
-                            <dt class="col-8" data-translate="social_telegram_subs">${t('social_telegram_subs')}:</dt><dd class="col-4 text-end">${formatNumber(socialStats.telegramSubscribers)}</dd>
-                        </dl>
-                    </div>
-                </div>
-            </div>`;
-
         tabContainer.innerHTML = `
-            <div class="row row-deck row-cards">${kpiHtml}</div>
-            <div class="row row-cards mt-4">
-                <div class="col-lg-8">
-                    <div class="card">
-                        <div class="card-body">
-                            <h3 class="card-title" data-translate="new_users_last_7_days">${t('new_users_last_7_days')}</h3>
-                            <div class="chart-container" style="height: 300px;"><canvas id="chart-registrations"></canvas></div>
+            <div id="dashboard-layout">
+                <div class="row row-deck row-cards kpi-row">
+                    ${kpiHtml}
+                </div>
+                <div class="row row-cards main-content-row">
+                    <div class="col-lg-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h3 class="card-title" data-translate="youtube_stats">Статистика YouTube</h3>
+                                <dl class="row">
+                                    <dt class="col-8" data-translate="social_youtube_subs">Подписчики:</dt><dd class="col-4 text-end">${formatNumber(socialStats.youtubeSubscribers)}</dd>
+                                    <dt class="col-8" data-translate="views">Просмотры:</dt><dd class="col-4 text-end">${formatNumber(socialStats.youtubeViews)}</dd>
+                                </dl>
+                                 <button class="btn btn-sm w-100 mt-2" data-action="edit-socials" data-social="youtube" data-translate="edit">Редактировать</button>
+                            </div>
+                        </div>
+                         <div class="card">
+                            <div class="card-body">
+                                <h3 class="card-title" data-translate="telegram_stats">Статистика Telegram</h3>
+                                 <dl class="row">
+                                    <dt class="col-8" data-translate="social_telegram_subs">Подписчики:</dt><dd class="col-4 text-end">${formatNumber(socialStats.telegramSubscribers)}</dd>
+                                </dl>
+                                <button class="btn btn-sm w-100 mt-2" data-action="edit-socials" data-social="telegram" data-translate="edit">Редактировать</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-5">
+                        <div class="card card-grow">
+                             <div class="card-body d-flex flex-column">
+                                <h3 class="card-title" data-translate="new_users_last_7_days">Новые игроки (7 дней)</h3>
+                                <div class="flex-grow-1" style="position: relative;">
+                                    <canvas id="chart-registrations" style="position: absolute; width: 100%; height: 100%;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h3 class="card-title" data-translate="top_5_upgrades">Топ 5 улучшений по покупкам</h3>
+                                ${topUpgradesHtml || `<p class="text-secondary" data-translate="no_data">${t('no_data')}</p>`}
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-body">
+                                <h3 class="card-title" data-translate="loading_screen_image_url">URL изображения экрана загрузки</h3>
+                                <input type="text" class="form-control" id="loadingScreenUrl" value="${escapeHtml(localConfig.loadingScreenImageUrl || '')}">
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h3 class="card-title" data-translate="top_5_upgrades">${t('top_5_upgrades')}</h3>
-                            <ul class="list-unstyled space-y-2">${topUpgradesHtml || `<li class="text-secondary" data-translate="no_data">${t('no_data')}</li>`}</ul>
-                        </div>
-                    </div>
-                </div>
-                 ${socialStatsHtml}
-                 <div class="col-md-6 col-lg-6">
-                    <div class="card">
-                        <div class="card-header"><h3 class="card-title" data-translate="loading_screen_image_url">${t('loading_screen_image_url')}</h3></div>
-                        <div class="card-body">
-                            <input type="text" class="form-control" id="loadingScreenUrl" value="${escapeHtml(localConfig.loadingScreenImageUrl || '')}">
-                        </div>
-                    </div>
-                </div>
-            </div>
-             <div class="row row-cards mt-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <h3 class="card-title" data-translate="player_map">${t('player_map')}</h3>
-                            <div id="map-world" style="height: 400px;"></div>
+                <div class="row row-cards map-row">
+                    <div class="col-12">
+                        <div class="card h-100">
+                             <div class="card-body">
+                                <h3 class="card-title" data-translate="player_map">Карта игроков</h3>
+                                <div id="map-world" class="w-100 h-100"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -363,7 +361,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         borderWidth: 1
                     }]
                 },
-                options: { maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                options: { 
+                    maintainAspectRatio: false, 
+                    scales: { 
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: 'var(--text-secondary)'} },
+                        x: { grid: { display: false }, ticks: { color: 'var(--text-secondary)' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
             });
         }
         
@@ -378,7 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 series: {
                     regions: [{
                         values: mapData,
-                        scale: ['#6366f1', '#3b82f6'], // Indigo to Blue
+                        scale: ['#374151', '#4ade80'], // Gray to Green
                         normalizeFunction: 'polynomial'
                     }]
                 },
