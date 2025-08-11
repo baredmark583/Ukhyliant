@@ -904,13 +904,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (col === 'id') value = `new_${key}_${Date.now()}`;
                 else if (typeof value === 'undefined') {
                     // Pre-fill default structures for certain types
-                    if (col === 'name' || col === 'description') value = { en: '', ru: '', ua: '' };
+                    if (['name', 'description'].includes(col)) value = { en: '', ru: '', ua: '' };
                     else if (col === 'reward') value = { type: 'coins', amount: 0 };
                     else value = '';
                 }
             }
             
-            if (typeof value === 'object' && value !== null && value.hasOwnProperty('en')) {
+            if (typeof value === 'object' && value !== null && value.hasOwnProperty('en') && value.hasOwnProperty('ru') && value.hasOwnProperty('ua')) {
                 return `
                     <fieldset class="form-fieldset mb-3">
                         <legend class="d-flex justify-content-between align-items-center">
@@ -952,15 +952,25 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </div>
                     </fieldset>`;
+            } else if (col === 'type' && (key === 'tasks' || key === 'specialTasks')) {
+                const taskTypes = ['taps', 'telegram_join', 'youtube_subscribe', 'twitter_follow', 'instagram_follow', 'video_watch', 'video_code'];
+                const options = taskTypes.map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${t(`task_type_${opt}`)}</option>`).join('');
+                return `<div class="mb-3">
+                            <label class="form-label">${t(col) || col}</label>
+                            <select class="form-select" data-col="${col}" id="task-type-select">${options}</select>
+                        </div>`;
+            } else if (col === 'secretCode') {
+                const isVisible = item.type === 'video_code';
+                return `<div class="mb-3" id="secret-code-container" style="display: ${isVisible ? 'block' : 'none'};">
+                            <label class="form-label">${t(col) || col}</label>
+                            <input type="text" class="form-control" data-col="${col}" value="${escapeHtml(value || '')}">
+                        </div>`;
             } else if (typeof value === 'object' && value !== null) {
                 return `
                     <div class="mb-3">
                         <label class="form-label">${t(col) || col}</label>
                         <textarea class="form-control" rows="3" data-col="${col}">${escapeHtml(JSON.stringify(value, null, 2))}</textarea>
                     </div>`;
-            } else if (col === 'type' && (key === 'tasks' || key === 'specialTasks')) {
-                const options = ['taps', 'telegram_join', 'video_watch', 'video_code'].map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${t(`task_type_${opt}`)}</option>`);
-                return `<div class="mb-3"><label class="form-label">${t(col) || col}</label><select class="form-select" data-col="${col}">${options}</select></div>`;
             } else {
                 return `
                     <div class="mb-3">
@@ -975,6 +985,17 @@ document.addEventListener('DOMContentLoaded', () => {
             <button type="button" class="btn btn-primary" id="save-config-item-btn">${t('save')}</button>
         `;
         const modalInstance = renderModal('config-modal', title, formBody, footer);
+
+        // Add event listener for task type dropdown to show/hide secret code field
+        const taskTypeSelect = document.getElementById('task-type-select');
+        if (taskTypeSelect) {
+            taskTypeSelect.addEventListener('change', (e) => {
+                const secretCodeContainer = document.getElementById('secret-code-container');
+                if (secretCodeContainer) {
+                    secretCodeContainer.style.display = e.target.value === 'video_code' ? 'block' : 'none';
+                }
+            });
+        }
         
         document.getElementById('save-config-item-btn').onclick = () => {
             const newItem = {};
