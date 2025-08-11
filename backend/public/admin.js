@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${kpiHtml}
                 </div>
                 <div class="row main-content-row">
-                    <div class="col-lg-3">
+                    <div class="col-lg-4">
                         <div class="card">
                             <div class="card-body">
                                 <h3 class="card-title" data-translate="youtube_stats">Статистика YouTube</h3>
@@ -346,18 +346,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <button class="btn btn-sm w-100 mt-2" data-action="edit-socials" data-social="telegram" data-translate="edit">Редактировать</button>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-lg-5">
-                        <div class="card card-grow">
-                             <div class="card-body d-flex flex-column">
-                                <h3 class="card-title" data-translate="new_users_last_7_days">Новые игроки (7 дней)</h3>
-                                <div class="flex-grow-1" style="position: relative;">
-                                    <canvas id="chart-registrations" style="position: absolute; width: 100%; height: 100%;"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-4">
                         <div class="card">
                             <div class="card-body">
                                 <h3 class="card-title" data-translate="top_5_upgrades">Топ 5 улучшений по покупкам</h3>
@@ -368,6 +356,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="card-body">
                                 <h3 class="card-title" data-translate="loading_screen_image_url">URL изображения экрана загрузки</h3>
                                 <input type="text" class="form-control" id="loadingScreenUrl" value="${escapeHtml(localConfig.loadingScreenImageUrl || '')}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-8">
+                        <div class="card card-grow">
+                             <div class="card-body d-flex flex-column">
+                                <h3 class="card-title" data-translate="new_users_last_7_days">Новые игроки (7 дней)</h3>
+                                <div class="flex-grow-1" style="position: relative;">
+                                    <canvas id="chart-registrations" style="position: absolute; width: 100%; height: 100%;"></canvas>
+                                </div>
                             </div>
                         </div>
                         ${broadcastCardHtml}
