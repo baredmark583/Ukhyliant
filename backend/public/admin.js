@@ -325,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="row row-deck row-cards kpi-row">
                     ${kpiHtml}
                 </div>
-                <div class="row row-cards main-content-row">
+                <div class="row main-content-row">
                     <div class="col-lg-3">
                         <div class="card">
                             <div class="card-body">
