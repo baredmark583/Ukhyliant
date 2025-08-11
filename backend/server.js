@@ -884,50 +884,6 @@ app.get('/admin/logout', (req, res) => {
     });
 });
 
-app.post('/admin/api/translate', checkAdminAuth, async (req, res) => {
-    if (!ai) {
-        return res.status(503).json({ error: "Translation service is not configured." });
-    }
-
-    const { keys, targetLang } = req.body;
-    if (!keys || !Array.isArray(keys) || keys.length === 0 || !targetLang) {
-        return res.status(400).json({ error: "Invalid request. 'keys' (array) and 'targetLang' are required." });
-    }
-
-    try {
-        const languageMap = { 'en': 'English', 'ua': 'Ukrainian', 'ru': 'Russian' };
-        const languageName = languageMap[targetLang] || 'English';
-        
-        const prompt = `You are an expert UI translator.
-Translate the following list of UI element keys into ${languageName}.
-The keys are descriptive (e.g., 'nav_dashboard', 'save_all_changes').
-Return a single, valid JSON object mapping the original keys to their translations.
-Do not add any commentary or markdown formatting.
-
-Example for target language Spanish:
-Input: ["save", "cancel", "player_name"]
-Output: {"save": "Guardar", "cancel": "Cancelar", "player_name": "Nombre del Jugador"}
-
-Keys to translate: ${JSON.stringify(keys)}
-`;
-
-        const result = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-        });
-
-        const textResponse = result.text.trim();
-        const jsonText = textResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        
-        const translations = JSON.parse(jsonText);
-        res.json(translations);
-
-    } catch (error) {
-        log('error', 'Gemini translation failed', error);
-        res.status(500).json({ error: 'Failed to get translations from AI service.' });
-    }
-});
-
 app.get('/admin/api/config', checkAdminAuth, async (req, res) => res.json(await getGameConfig()));
 app.post('/admin/api/config', checkAdminAuth, async (req, res) => {
     await saveConfig(req.body.config);

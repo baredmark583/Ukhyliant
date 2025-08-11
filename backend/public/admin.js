@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeTab = 'dashboard';
     let currentLang = localStorage.getItem('adminLang') || 'ru';
     let charts = {}; // To hold chart instances
-    let translationsCache = {}; // Cache for translations from the backend
 
     // --- CONFIG META (for dynamic table rendering) ---
     const configMeta = {
@@ -30,7 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalsContainer = document.getElementById('modals-container');
     
     // --- TRANSLATION FUNCTION ---
-    const t = (key) => translationsCache[key] || `[${key}]`;
+    const t = (key) => {
+        return window.LOCALES?.[currentLang]?.[key] || window.LOCALES?.['en']?.[key] || `[${key}]`;
+    }
 
     // --- UTILS ---
     const escapeHtml = (unsafe) => {
@@ -178,35 +179,6 @@ document.addEventListener('DOMContentLoaded', () => {
             saveMainButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M14 4l0 4l-6 0l0 -4" /></svg> ${t('save_all_changes')}`;
             localConfig = await fetchData('config');
         }
-    };
-
-    const fetchAndApplyTranslations = async (lang) => {
-        currentLang = lang; // Set lang immediately
-        localStorage.setItem('adminLang', currentLang);
-
-        const keysToTranslate = new Set();
-        // Get keys from static elements
-        document.querySelectorAll('[data-translate]').forEach(el => keysToTranslate.add(el.dataset.translate));
-        // Add keys from configMeta for table headers and dynamic content
-        Object.values(configMeta).forEach(meta => {
-            if (meta.titleKey) keysToTranslate.add(meta.titleKey);
-            if (meta.cols) meta.cols.forEach(col => keysToTranslate.add(col));
-        });
-        
-        // Add other known dynamic keys
-        ['loading', 'save_success', 'save_error', 'confirm_delete', 'confirm_delete_player', 'config_edit_item', 'config_add_item'].forEach(k => keysToTranslate.add(k));
-
-        try {
-            const result = await postData('translate', { keys: Array.from(keysToTranslate), targetLang: lang });
-            translationsCache = result || {};
-        } catch (error) {
-            console.error("Failed to fetch translations:", error);
-            translationsCache = {}; // Reset cache on failure
-        }
-        
-        // NOW that translations are cached, we can render.
-        // `render()` will automatically use the new cache via `t()` and `applyTranslationsToDOM()`
-        render(); 
     };
     
     // --- RENDER LOGIC ---
@@ -1032,12 +1004,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Show main UI structure while translations are loading
-        document.querySelectorAll('.navbar').forEach(el => el.style.visibility = 'visible');
-        document.querySelector('.page-wrapper').style.visibility = 'visible');
-
-        // Fetch translations for the current language, then render the app
-        await fetchAndApplyTranslations(currentLang);
+        render();
+        applyTranslationsToDOM();
     };
 
     // --- MAIN EXECUTION ---
@@ -1183,8 +1151,9 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const newLang = e.currentTarget.dataset.lang;
             if (newLang !== currentLang) {
-                showLoading('translating');
-                fetchAndApplyTranslations(newLang);
+                currentLang = newLang;
+                localStorage.setItem('adminLang', newLang);
+                render();
             }
         });
     });
