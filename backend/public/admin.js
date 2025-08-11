@@ -599,11 +599,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return `<img src="${escapeHtml(data)}" alt="icon" style="width: 32px; height: 32px; object-fit: contain; background: #fff; padding: 2px;">`;
         }
         if (typeof data === 'object' && data !== null) {
-            // If it's a localized string object, show the current language
-            if (data.hasOwnProperty('en')) {
+            if (data.hasOwnProperty('en')) { // Localized string
                 return getLocalizedText(data);
             }
-            // Otherwise, show the JSON
+            if (data.hasOwnProperty('type') && data.hasOwnProperty('amount')) { // Reward object
+                const typeKey = `reward_type_${data.type === 'profit' ? 'profit' : 'coins'}`;
+                return `${formatNumber(data.amount)} ${t(typeKey)}`;
+            }
+            // Fallback for other objects
             return `<pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
         }
         return escapeHtml(data);
@@ -896,12 +899,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const { cols } = configMeta[key];
         
         const formBody = cols.map(col => {
-            const value = item[col] || (col === 'id' && isNew ? `new_${key}_${Date.now()}` : '');
+            let value = item[col];
+             if (isNew) {
+                if (col === 'id') value = `new_${key}_${Date.now()}`;
+                else if (typeof value === 'undefined') {
+                    // Pre-fill default structures for certain types
+                    if (col === 'name' || col === 'description') value = { en: '', ru: '', ua: '' };
+                    else if (col === 'reward') value = { type: 'coins', amount: 0 };
+                    else value = '';
+                }
+            }
             
             if (typeof value === 'object' && value !== null && value.hasOwnProperty('en')) {
                 return `
                     <fieldset class="form-fieldset mb-3">
-                        <legend>${t(col) || col}</legend>
+                        <legend class="d-flex justify-content-between align-items-center">
+                            <span>${t(col) || col}</span>
+                            <button class="btn btn-sm btn-outline-info" data-action="translate-field" data-col="${col}">${t('translate')}</button>
+                        </legend>
                         <div class="mb-2">
                             <label class="form-label">EN</label>
                             <input type="text" class="form-control" data-lang-col="${col}" data-lang="en" value="${escapeHtml(value.en || '')}">
@@ -916,6 +931,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </fieldset>
                  `;
+            } else if (col === 'reward') {
+                const reward = value || { type: 'coins', amount: 0 };
+                const coinSelected = reward.type === 'coins' ? 'selected' : '';
+                const profitSelected = reward.type === 'profit' ? 'selected' : '';
+                 return `
+                    <fieldset class="form-fieldset mb-3">
+                        <legend>${t('reward')}</legend>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">${t('type')}</label>
+                                <select class="form-select" data-reward-col="${col}" data-reward-prop="type">
+                                    <option value="coins" ${coinSelected}>${t('reward_type_coins')}</option>
+                                    <option value="profit" ${profitSelected}>${t('reward_type_profit')}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">${t('amount')}</label>
+                                <input type="number" class="form-control" data-reward-col="${col}" data-reward-prop="amount" value="${escapeHtml(reward.amount || 0)}">
+                            </div>
+                        </div>
+                    </fieldset>`;
             } else if (typeof value === 'object' && value !== null) {
                 return `
                     <div class="mb-3">
@@ -944,12 +980,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const newItem = {};
             cols.forEach(col => {
                 const langInputs = document.querySelectorAll(`#config-modal [data-lang-col="${col}"]`);
+                const rewardTypeInput = document.querySelector(`#config-modal [data-reward-col="${col}"][data-reward-prop="type"]`);
+
                 if (langInputs.length > 0) {
                      newItem[col] = {
                          en: document.querySelector(`[data-lang-col="${col}"][data-lang="en"]`).value,
                          ru: document.querySelector(`[data-lang-col="${col}"][data-lang="ru"]`).value,
                          ua: document.querySelector(`[data-lang-col="${col}"][data-lang="ua"]`).value
                      };
+                } else if (rewardTypeInput) {
+                    const rewardAmountInput = document.querySelector(`#config-modal [data-reward-col="${col}"][data-reward-prop="amount"]`);
+                    newItem[col] = {
+                        type: rewardTypeInput.value,
+                        amount: Number(rewardAmountInput.value)
+                    };
                 } else {
                     const input = document.querySelector(`#config-modal [data-col="${col}"]`);
                     if (input) {
@@ -1037,10 +1081,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Delegation
     document.body.addEventListener('click', async (e) => {
         const target = e.target;
-        const action = target.closest('[data-action]')?.dataset.action;
-        if (!action) return;
-        
         const button = target.closest('[data-action]');
+        if (!button) return;
+
+        const action = button.dataset.action;
         
         switch (action) {
             case 'player-details':
@@ -1091,6 +1135,46 @@ document.addEventListener('DOMContentLoaded', () => {
                  if (endRes?.ok) {
                     alert('Battle ended!');
                     renderBattleStatus();
+                }
+                break;
+            case 'translate-field':
+                e.preventDefault();
+                const colName = button.dataset.col;
+                const form = button.closest('.modal-body');
+                const sourceInput = form.querySelector(`[data-lang-col="${colName}"][data-lang="en"]`);
+                const textToTranslate = sourceInput.value;
+                if (!textToTranslate.trim()) {
+                    alert('Please enter text in the English field first.');
+                    return;
+                }
+            
+                button.disabled = true;
+                button.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${t('translation_in_progress')}`;
+            
+                const targetLangs = ['ru', 'ua'];
+                const targetInputs = {};
+                targetLangs.forEach(lang => {
+                    targetInputs[lang] = form.querySelector(`[data-lang-col="${colName}"][data-lang="${lang}"]`);
+                });
+            
+                try {
+                    const result = await postData('translate-text', { text: textToTranslate, targetLangs });
+                    if (result && result.translations) {
+                        targetLangs.forEach(lang => {
+                            if (targetInputs[lang] && result.translations[lang]) {
+                                if(targetInputs[lang].value.trim() === '') { // Only fill empty fields
+                                    targetInputs[lang].value = result.translations[lang];
+                                }
+                            }
+                        });
+                    } else {
+                        throw new Error(result?.error || 'No translations returned.');
+                    }
+                } catch (err) {
+                    alert(`${t('translation_error')}: ${err.message}`);
+                } finally {
+                    button.disabled = false;
+                    button.innerHTML = t('translate');
                 }
                 break;
         }

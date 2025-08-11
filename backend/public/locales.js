@@ -50,6 +50,9 @@ window.LOCALES = {
         'confirm': 'Confirm',
         'cancel': 'Cancel',
         'details': 'Details',
+        'translate': 'Translate',
+        'translation_in_progress': 'Translating...',
+        'translation_error': 'Translation Error',
 
         // Dashboard
         'total_players': 'Total Players',
@@ -128,6 +131,7 @@ window.LOCALES = {
         'reward': 'Reward',
         'reward_type_coins': 'Coins',
         'reward_type_profit': 'Profit/hr',
+        'amount': 'Amount',
         'url': 'URL',
         'requiredTaps': 'Required Taps',
         'secretCode': 'Secret Code',
@@ -295,6 +299,9 @@ window.LOCALES = {
         'confirm': 'Подтвердить',
         'cancel': 'Отмена',
         'details': 'Детали',
+        'translate': 'Перевести',
+        'translation_in_progress': 'Перевод...',
+        'translation_error': 'Ошибка перевода',
 
         // Dashboard
         'total_players': 'Всего игроков',
@@ -373,6 +380,7 @@ window.LOCALES = {
         'reward': 'Награда',
         'reward_type_coins': 'Монеты',
         'reward_type_profit': 'Прибыль/час',
+        'amount': 'Количество',
         'url': 'URL',
         'requiredTaps': 'Нужно тапов',
         'secretCode': 'Секретный код',

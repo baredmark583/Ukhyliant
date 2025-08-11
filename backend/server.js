@@ -884,6 +884,44 @@ app.get('/admin/logout', (req, res) => {
     });
 });
 
+app.post('/admin/api/translate-text', checkAdminAuth, async (req, res) => {
+    if (!ai) {
+        return res.status(503).json({ error: "Translation service is not available." });
+    }
+    try {
+        const { text, targetLangs } = req.body;
+        if (!text || !targetLangs || !Array.isArray(targetLangs)) {
+            return res.status(400).json({ error: "Invalid request body" });
+        }
+        
+        const properties = {};
+        targetLangs.forEach(lang => {
+          properties[lang] = { type: Type.STRING, description: `The translation of the text in the language with this ISO 639-1 code: ${lang}` };
+        });
+
+        const responseSchema = {
+          type: Type.OBJECT,
+          properties,
+        };
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `Translate the following text into these languages: ${targetLangs.join(", ")}. The text is: "${text}"`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema,
+            },
+        });
+
+        const jsonText = response.text.trim();
+        const translations = JSON.parse(jsonText);
+        res.json({ translations });
+    } catch (e) {
+        log('error', "AI translation failed", e);
+        res.status(500).json({ error: "Failed to communicate with translation service." });
+    }
+});
+
 app.get('/admin/api/config', checkAdminAuth, async (req, res) => res.json(await getGameConfig()));
 app.post('/admin/api/config', checkAdminAuth, async (req, res) => {
     await saveConfig(req.body.config);
@@ -909,11 +947,23 @@ app.post('/admin/api/player/:id/reset-progress', checkAdminAuth, async(req, res)
 });
 app.get('/admin/api/cheaters', checkAdminAuth, async(req, res) => res.json(await getCheaters()));
 app.get('/admin/api/dashboard-stats', checkAdminAuth, async (req, res) => {
-    const stats = await getDashboardStats();
-    stats.onlineNow = await getOnlinePlayerCount();
-    res.json(stats);
+    try {
+        const stats = await getDashboardStats();
+        stats.onlineNow = await getOnlinePlayerCount();
+        res.json(stats);
+    } catch(e) {
+        log('error', 'Fetching dashboard stats failed', e);
+        res.status(500).json({ error: e.message });
+    }
 });
-app.get('/admin/api/player-locations', checkAdminAuth, async (req, res) => res.json(await getPlayerLocations()));
+app.get('/admin/api/player-locations', checkAdminAuth, async (req, res) => {
+    try {
+        res.json(await getPlayerLocations());
+    } catch (e) {
+        log('error', 'Fetching player locations failed', e);
+        res.status(500).json({ error: e.message });
+    }
+});
 app.get('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     res.json(await getDailyEvent(today));
@@ -925,10 +975,16 @@ app.post('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
     res.sendStatus(200);
 });
 app.get('/admin/api/social-stats', checkAdminAuth, async (req, res) => {
-    if (Date.now() - socialStatsCache.lastUpdated > 5 * 60 * 1000) { // 5 min cache
-        await updateSocialStatsCache();
+    try {
+        if (Date.now() - socialStatsCache.lastUpdated > 5 * 60 * 1000) { // 5 min cache
+            await updateSocialStatsCache();
+        }
+        res.json(socialStatsCache);
+    } catch (e) {
+        log('error', 'Fetching social stats failed', e);
+        // Return potentially stale data instead of failing
+        res.json(socialStatsCache);
     }
-    res.json(socialStatsCache);
 });
 
 app.get('/admin/api/cell-analytics', checkAdminAuth, async (req, res) => {
