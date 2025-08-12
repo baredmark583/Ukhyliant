@@ -194,6 +194,7 @@ export interface PlayerState {
   dailyUpgrades: string[];
   tapGuruLevel: number;
   energyLimitLevel: number;
+  suspicionLimitLevel?: number;
   unlockedSkins: string[];
   currentSkinId: string;
   suspicion: number;

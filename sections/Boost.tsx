@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Boost, Language, PlayerState, UiIcons } from '../types';
 import { useTranslation } from '../hooks/useGameLogic';
@@ -24,9 +25,12 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
       } else if (boost.id === 'boost_energy_limit') {
           level = playerState.energyLimitLevel || 0;
           cost = Math.floor(boost.costCoins * Math.pow(1.8, level));
+      } else if (boost.id === 'boost_suspicion_limit') {
+          level = playerState.suspicionLimitLevel || 0;
+          cost = Math.floor(boost.costCoins * Math.pow(2.0, level));
       }
       
-      const isMultiLevel = boost.id === 'boost_tap_guru' || boost.id === 'boost_energy_limit';
+      const isMultiLevel = boost.id === 'boost_tap_guru' || boost.id === 'boost_energy_limit' || boost.id === 'boost_suspicion_limit';
       return { level, cost, isMultiLevel };
   };
 
@@ -44,21 +48,21 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
           const canAfford = balance >= cost;
           
           return (
-            <div key={boost.id} className="neumorphic-raised rounded-2xl p-4 flex items-center justify-between">
-                <div className="flex items-center">
-                    <div className="w-12 h-12 mr-4 flex-shrink-0 flex items-center justify-center neumorphic-pressed rounded-full">
+            <div key={boost.id} className="card-glow bg-slate-800/50 rounded-2xl p-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center bg-slate-900/50 shadow-inner rounded-full p-1">
                         <img src={boost.iconUrl} alt={boost.name?.[lang]} className="w-10 h-10 object-contain" />
                     </div>
-                    <div>
-                        <h2 className="text-lg font-bold">{boost.name?.[lang]}</h2>
-                        <p className="text-sm text-[var(--text-secondary)]">{boost.description?.[lang]}</p>
+                    <div className="flex-grow min-w-0">
+                        <h2 className="text-base font-bold truncate">{boost.name?.[lang]}</h2>
+                        <p className="text-xs text-[var(--text-secondary)] truncate">{boost.description?.[lang]}</p>
                     </div>
                 </div>
 
                 <button
                     onClick={() => onBuyBoost(boost)}
                     disabled={!canAfford}
-                    className="neumorphic-raised-button rounded-xl px-4 py-2 font-bold text-base flex items-center space-x-2"
+                    className="interactive-button rounded-xl px-3 py-2 font-bold text-sm flex items-center space-x-2 flex-shrink-0"
                 >
                     <img src={uiIcons.coin} alt="coin" className="w-5 h-5"/>
                     <div className="flex flex-col items-start leading-tight">

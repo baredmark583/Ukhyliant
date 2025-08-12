@@ -25,6 +25,7 @@ interface ExchangeProps {
   onOpenLeaderboard: () => void;
   isTurboActive: boolean;
   effectiveMaxEnergy: number;
+  effectiveMaxSuspicion: number;
 }
 
 const formatBalance = (num: number): string => {
@@ -49,7 +50,7 @@ interface ClickFx {
   xOffset: number;
 }
 
-const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy }) => {
+const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion }) => {
   const t = useTranslation();
   const { balance, profitPerHour, energy, suspicion } = playerState;
   const [clicks, setClicks] = useState<ClickFx[]>([]);
@@ -178,7 +179,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
       {/* Top Section: Info Panel */}
       <div className="w-full flex items-start justify-between p-2 mb-2 text-center flex-shrink-0">
           <CircularProgressBar value={energy} max={effectiveMaxEnergy} iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={60} strokeWidth={6} />
-          <CircularProgressBar value={suspicion} max={100} iconUrl={config.uiIcons.suspicion} color="#f87171" size={60} strokeWidth={6} />
+          <CircularProgressBar value={suspicion} max={effectiveMaxSuspicion} iconUrl={config.uiIcons.suspicion} color="#f87171" size={60} strokeWidth={6} />
           <button onClick={onOpenLeaderboard} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
               {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-8 h-8" />}
           </button>
@@ -230,13 +231,13 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                         textShadow: '0px 0px 8px var(--accent-color)'
                     } as React.CSSProperties}
                     >
-                    +{click.value}
+                    +{click.value.toFixed(1)}
                     </div>
                 ))}
             </div>
 
             {/* Balance and Profit */}
-            <div className="flex flex-col items-center flex-shrink-0 my-2">
+            <div className="flex flex-col items-center flex-shrink-0 my-1">
                 <div className="flex items-center space-x-2">
                     <img src={config.uiIcons.coin} alt="coin" className="w-[5vh] h-[5vh] max-w-[32px] max-h-[32px]"/>
                     <h1 className="text-responsive-2xl font-display text-slate-100" style={{textShadow: 'none'}}>{formatBalance(balance)}</h1>
@@ -249,7 +250,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
             {/* Daily Cipher Section */}
             {dailyCipherWord && (
-                <div className="w-full mt-2 flex-shrink-0">
+                <div className="w-[90%] mx-auto mt-2 flex-shrink-0">
                     {claimedCipher ? (
                         <div className="flex items-center justify-center gap-2 h-10 bg-slate-900/50 shadow-inner rounded-lg">
                             <h3 className="font-display text-sm text-[var(--accent-color)]">{t('daily_cipher')}</h3>

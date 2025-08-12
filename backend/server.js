@@ -1,4 +1,5 @@
 
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -326,6 +327,7 @@ app.post('/api/login', async (req, res) => {
                 dailyUpgrades: [],
                 tapGuruLevel: 0,
                 energyLimitLevel: 0,
+                suspicionLimitLevel: 0,
                 unlockedSkins: [DEFAULT_COIN_SKIN_ID],
                 currentSkinId: DEFAULT_COIN_SKIN_ID,
                 suspicion: 0,

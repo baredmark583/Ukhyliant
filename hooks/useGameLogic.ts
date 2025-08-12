@@ -514,10 +514,15 @@ export const useGame = () => {
         if (!playerState) return INITIAL_MAX_ENERGY;
         return INITIAL_MAX_ENERGY + (playerState.energyLimitLevel || 0) * 500;
     }, [playerState?.energyLimitLevel]);
+    
+    const effectiveMaxSuspicion = useMemo(() => {
+        if (!playerState) return 100;
+        return 100 + (playerState.suspicionLimitLevel || 0) * 10;
+    }, [playerState?.suspicionLimitLevel]);
 
     const effectiveCoinsPerTap = useMemo(() => {
         if (!playerState) return 1;
-        return playerState.coinsPerTap + (playerState.tapGuruLevel || 0);
+        return (playerState.coinsPerTap || 1) * (1 + (playerState.tapGuruLevel || 0) * 0.10);
     }, [playerState?.coinsPerTap, playerState?.tapGuruLevel]);
 
     // Game loop for energy regen and passive income
@@ -783,6 +788,7 @@ export const useGame = () => {
         isTurboActive,
         effectiveMaxEnergy,
         effectiveCoinsPerTap,
+        effectiveMaxSuspicion,
         createCell,
         joinCell,
         getMyCell,

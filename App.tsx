@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -193,8 +194,8 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
     );
 
     return (
-        <div className="flex flex-col h-full text-white pt-4 px-4 items-center">
-            <div className="w-full max-w-md sticky top-0 bg-[var(--bg-color)] py-4 z-10">
+        <div className="flex flex-col h-full text-white pt-4 items-center">
+            <div className="w-full max-w-md sticky top-0 bg-[var(--bg-color)] py-4 px-4 z-10">
                 <h1 className="text-3xl font-display text-center mb-4">{t('profile')}</h1>
                 <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex gap-1 border border-slate-700">
                     <ProfileTabButton label={t('sub_contacts')} iconUrl={config.uiIcons.profile_tabs.contacts} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
@@ -464,7 +465,7 @@ const MainApp: React.FC = () => {
       claimDailyCombo, claimDailyCipher, getLeaderboard, 
       openCoinLootbox, purchaseLootboxWithStars, 
       setSkin,
-      isTurboActive, effectiveMaxEnergy,
+      isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion,
       systemMessage, setSystemMessage,
       purchaseResult, setPurchaseResult
   } = useGame();
@@ -636,7 +637,7 @@ const MainApp: React.FC = () => {
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} />;
       case 'mine':
         return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} />;
       case 'missions':
@@ -669,7 +670,7 @@ const MainApp: React.FC = () => {
                     onPurchaseStarLootbox={handlePurchaseStarLootbox}
                 />;
       default:
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion}/>;
     }
   };
 
