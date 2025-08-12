@@ -5,8 +5,8 @@
   --text-secondary: #B0B8C4;
   --accent-color: #50E3C2;
   --accent-color-glow: #1f9e83;
-  --shadow-light: #454d5c;
-  --shadow-dark: #252a33;
+  --shadow-light: #4A5364; /* Lighter and more distinct */
+  --shadow-dark: #20252E; /* Darker and more distinct */
   --error-color: #ff6b6b;
 }
 body {
@@ -32,16 +32,16 @@ body {
 /* Neumorphism Styles */
 .neumorphic-raised {
   background: var(--bg-color);
-  box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+  box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
   transition: box-shadow 0.2s ease-out;
 }
 .neumorphic-raised-button {
   background: var(--bg-color);
-  box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+  box-shadow: 5px 5px 10px var(--shadow-dark), -5px -5px 10px var(--shadow-light);
   transition: all 0.15s ease-out;
 }
 .neumorphic-raised-button:active {
-  box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
+  box-shadow: inset 5px 5px 10px var(--shadow-dark), inset -5px -5px 10px var(--shadow-light);
   transform: scale(0.98);
 }
 .neumorphic-raised-button:disabled {
@@ -52,12 +52,12 @@ body {
 
 .neumorphic-pressed {
   background: var(--bg-color);
-  box-shadow: inset 6px 6px 12px var(--shadow-dark), inset -6px -6px 12px var(--shadow-light);
+  box-shadow: inset 8px 8px 16px var(--shadow-dark), inset -8px -8px 16px var(--shadow-light);
 }
 
 .neumorphic-raised-top {
   background: var(--bg-color);
-  box-shadow: 0px -6px 12px var(--shadow-dark);
+  box-shadow: 0px -8px 16px var(--shadow-dark);
 }
 
 /* App-specific Styles */

@@ -41,9 +41,9 @@ const CircularProgressBar: React.FC<CircularProgressBarProps> = ({ value, max, s
           />
         </svg>
         <div className="flex flex-col items-center justify-center z-10 p-1">
-          <img src={iconUrl} alt={t(labelKey)} className="w-[40%] h-[40%] mb-0.5" />
-          <span className="text-responsive-xxs font-bold text-[var(--text-primary)] leading-tight">{t(labelKey)}</span>
-          <span className="font-mono text-responsive-xxs text-[var(--text-secondary)] leading-tight">{Math.floor(value)}</span>
+          <img src={iconUrl} alt={t(labelKey)} className="w-[40%] h-[40%]" />
+          <span className="text-[10px] font-bold text-[var(--text-primary)] leading-tight">{t(labelKey)}</span>
+          <span className="font-mono text-[9px] text-[var(--text-secondary)] leading-tight">{Math.floor(value)}</span>
         </div>
       </div>
     </div>

@@ -174,18 +174,19 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   return (
     <div className="flex flex-col h-full text-white p-2 sm:p-4 gap-2">
       {/* Top Section: Info Panel */}
-      <div className="w-full flex items-center justify-between neumorphic-raised rounded-2xl p-2 sm:p-3 text-center flex-shrink-0">
-          <CircularProgressBar value={energy} max={effectiveMaxEnergy} labelKey="energy" iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={70} />
-          
-          <div className="flex flex-col items-center justify-center">
-                <button onClick={onOpenLeaderboard} className="flex flex-col items-center justify-center p-1 text-center transition-opacity hover:opacity-80">
-                    {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-[4vh] h-[4vh] max-w-[32px] max-h-[32px] mb-1" />}
-                    <span className="text-responsive-xs text-[var(--text-secondary)]">{t('your_league')}</span>
-                </button>
-          </div>
-
-          <CircularProgressBar value={suspicion} max={100} labelKey="suspicion" iconUrl={config.uiIcons.suspicion} color="#f87171" size={70} />
+      <div className="w-full grid grid-cols-4 gap-2 sm:gap-4 p-2 mb-2 text-center flex-shrink-0">
+          <CircularProgressBar value={energy} max={effectiveMaxEnergy} labelKey="energy" iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={60} strokeWidth={6} />
+          <CircularProgressBar value={suspicion} max={100} labelKey="suspicion" iconUrl={config.uiIcons.suspicion} color="#f87171" size={60} strokeWidth={6} />
+          <button onClick={onOpenLeaderboard} className="neumorphic-raised-button rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
+              {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-6 h-6 mb-0.5" />}
+              <span className="text-[10px] font-bold text-[var(--text-secondary)] leading-tight">{t('league')}</span>
+          </button>
+          <button onClick={handleSwitchLanguage} className="neumorphic-raised-button rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
+              <img src="https://api.iconify.design/ph/globe-bold.svg?color=white" alt="Language" className="w-6 h-6 mb-0.5"/>
+              <span className="text-[10px] font-bold text-white leading-tight">{user.language.toUpperCase()}</span>
+          </button>
       </div>
+
 
       {/* Main Content Area: Coin Card */}
       <div className="flex-grow w-full flex items-center justify-center relative min-h-0">
