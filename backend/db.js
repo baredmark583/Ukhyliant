@@ -223,25 +223,45 @@ export const initializeDb = async () => {
         const config = res.rows[0].value;
         let needsUpdate = false;
         
-        const updateSuspicion = (item) => {
+        // Helper to check/migrate array properties
+        const checkArray = (key, initialValue) => {
+            if (!Array.isArray(config[key])) {
+                config[key] = initialValue;
+                needsUpdate = true;
+            }
+        };
+
+        checkArray('upgrades', INITIAL_UPGRADES);
+        checkArray('tasks', INITIAL_TASKS);
+        checkArray('specialTasks', INITIAL_SPECIAL_TASKS);
+        checkArray('boosts', INITIAL_BOOSTS);
+        checkArray('blackMarketCards', INITIAL_BLACK_MARKET_CARDS);
+        checkArray('coinSkins', INITIAL_COIN_SKINS);
+        checkArray('leagues', INITIAL_LEAGUES);
+
+        // After ensuring they are arrays, now we can run the suspicion migration.
+        const allInitialItems = [
+            ...INITIAL_UPGRADES, ...INITIAL_TASKS, ...INITIAL_SPECIAL_TASKS, 
+            ...INITIAL_BOOSTS, ...INITIAL_BLACK_MARKET_CARDS, ...INITIAL_COIN_SKINS
+        ];
+
+        const addSuspicionIfNeeded = (item) => {
             if (item.suspicionModifier === undefined) {
-                const initialItem = [...INITIAL_UPGRADES, ...INITIAL_TASKS, ...INITIAL_SPECIAL_TASKS, ...INITIAL_BOOSTS, ...INITIAL_BLACK_MARKET_CARDS, ...INITIAL_COIN_SKINS].find(i => i.id === item.id);
+                const initialItem = allInitialItems.find(i => i.id === item.id);
                 item.suspicionModifier = initialItem ? initialItem.suspicionModifier : 0;
                 needsUpdate = true;
             }
         };
 
-        config.upgrades?.forEach(updateSuspicion);
-        config.tasks?.forEach(updateSuspicion);
-        config.specialTasks?.forEach(updateSuspicion);
-        config.boosts?.forEach(updateSuspicion);
-        config.blackMarketCards?.forEach(updateSuspicion);
-        config.coinSkins?.forEach(updateSuspicion);
+        config.upgrades.forEach(addSuspicionIfNeeded);
+        config.tasks.forEach(addSuspicionIfNeeded);
+        config.specialTasks.forEach(addSuspicionIfNeeded);
+        config.boosts.forEach(addSuspicionIfNeeded);
+        config.blackMarketCards.forEach(addSuspicionIfNeeded);
+        config.coinSkins.forEach(addSuspicionIfNeeded);
 
-        if (!config.blackMarketCards) { config.blackMarketCards = INITIAL_BLACK_MARKET_CARDS; needsUpdate = true; }
-        if (!config.coinSkins) { config.coinSkins = INITIAL_COIN_SKINS; needsUpdate = true; }
+        // Now handle the other non-array properties.
         if (config.loadingScreenImageUrl === undefined) { config.loadingScreenImageUrl = ''; needsUpdate = true; }
-        if (!config.leagues) { config.leagues = INITIAL_LEAGUES; needsUpdate = true; }
         if (!config.socials || config.socials.twitter !== undefined) {
              config.socials = initialSocials; 
              needsUpdate = true; 

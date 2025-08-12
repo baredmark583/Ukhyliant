@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import CircularProgressBar from '../components/CircularProgressBar';
 import { PlayerState, League, User, GameConfig } from '../types';
@@ -177,7 +174,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   return (
     <div className="flex flex-col h-full text-white p-2 sm:p-4 gap-2">
       {/* Top Section: Info Panel */}
-      <div className="w-full flex items-start justify-between p-2 mb-2 text-center flex-shrink-0">
+      <div className="w-full flex items-center justify-center flex-wrap sm:justify-between gap-2 p-2 mb-2 text-center flex-shrink-0">
           <CircularProgressBar value={energy} max={effectiveMaxEnergy} iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={60} strokeWidth={6} />
           <CircularProgressBar value={suspicion} max={effectiveMaxSuspicion} iconUrl={config.uiIcons.suspicion} color="#f87171" size={60} strokeWidth={6} />
           <button onClick={onOpenLeaderboard} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
