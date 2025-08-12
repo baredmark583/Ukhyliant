@@ -21,11 +21,17 @@ const formatNumber = (num: number): string => {
   return num.toLocaleString('en-US');
 };
 
-const GlitchEffect = () => (
-    <div className="glitch-effect">
-        <div className="glitch-noise"></div>
-    </div>
-);
+const GlitchEffect = () => {
+    const t = useTranslation();
+    const message = t('why_not_state_language');
+    return (
+        <div className="glitch-effect">
+            <div className="glitch-message" data-text={message}>
+                {message}
+            </div>
+        </div>
+    );
+};
 
 
 const AppContainer: React.FC = () => {
@@ -477,14 +483,12 @@ const MainApp: React.FC = () => {
 
   useEffect(() => {
     if (isGlitching) {
-        setSystemMessage(t('why_not_state_language'));
         const timer = setTimeout(() => {
             setIsGlitching(false);
-            setSystemMessage('');
-        }, 1500);
+        }, 2000);
         return () => clearTimeout(timer);
     }
-  }, [isGlitching, setIsGlitching, setSystemMessage, t]);
+  }, [isGlitching, setIsGlitching]);
   
 
   if (!isAppReady || !user || !playerState || !config) {
