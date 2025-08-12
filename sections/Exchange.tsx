@@ -27,10 +27,9 @@ interface ExchangeProps {
 
 const formatBalance = (num: number): string => {
   if (num === null || num === undefined) return '0';
-  if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
-  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
-  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
-  return num.toLocaleString('en-US');
+  return new Intl.NumberFormat('en-US', {
+      maximumFractionDigits: 0
+  }).format(num);
 };
 
 const formatProfit = (num: number): string => {
@@ -173,71 +172,28 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
 
   return (
-    <div className="flex flex-col h-full text-white p-2 sm:p-4">
+    <div className="flex flex-col h-full text-white p-2 sm:p-4 gap-2">
       {/* Top Section: Info Panel */}
-      <div className="h-[20vh] min-h-[120px] max-h-[160px] w-full flex items-center justify-between neumorphic-raised rounded-2xl p-2 sm:p-3 text-center flex-shrink-0">
-          <CircularProgressBar value={energy} max={effectiveMaxEnergy} labelKey="energy" iconUrl={config.uiIcons.energy} color="var(--accent-color)" />
+      <div className="w-full flex items-center justify-between neumorphic-raised rounded-2xl p-2 sm:p-3 text-center flex-shrink-0">
+          <CircularProgressBar value={energy} max={effectiveMaxEnergy} labelKey="energy" iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={70} />
           
-          <div className="flex flex-col items-center justify-center h-full">
+          <div className="flex flex-col items-center justify-center">
                 <button onClick={onOpenLeaderboard} className="flex flex-col items-center justify-center p-1 text-center transition-opacity hover:opacity-80">
                     {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-[4vh] h-[4vh] max-w-[32px] max-h-[32px] mb-1" />}
                     <span className="text-responsive-xs text-[var(--text-secondary)]">{t('your_league')}</span>
                 </button>
-                <div className="flex items-center space-x-2 my-1">
-                    <img src={config.uiIcons.coin} alt="coin" className="w-[5vh] h-[5vh] max-w-[40px] max-h-[40px]"/>
-                    <h1 className="text-responsive-2xl font-display">{formatBalance(balance)}</h1>
-                </div>
-                <div className="text-responsive-sm text-[var(--accent-color)] flex items-center gap-1">
-                    <img src={config.uiIcons.energy} alt="" className="w-3 h-3"/>
-                    <span>+{formatProfit(profitPerHour)}/hr</span>
-                </div>
           </div>
 
-          <CircularProgressBar value={suspicion} max={100} labelKey="suspicion" iconUrl={config.uiIcons.suspicion} color="#f87171" />
+          <CircularProgressBar value={suspicion} max={100} labelKey="suspicion" iconUrl={config.uiIcons.suspicion} color="#f87171" size={70} />
       </div>
 
-      {/* Horizontal Daily Cipher Section */}
-       {dailyCipherWord && (
-          <div className="w-full neumorphic-raised rounded-2xl my-2 p-2">
-              {claimedCipher ? (
-                  <div className="flex items-center justify-center gap-2 h-10">
-                      <h3 className="font-display text-sm text-[var(--accent-color)]">{t('daily_cipher')}</h3>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color)]" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      <p className="text-[var(--accent-color)] font-bold text-xs">{t('claimed_today')}</p>
-                  </div>
-              ) : (
-                <>
-                  {!morseMode ? (
-                      <div className="flex items-center justify-between w-full gap-2 sm:gap-4 h-10">
-                          <h3 className="font-display text-sm sm:text-base text-[var(--accent-color)] flex-shrink-0">{t('daily_cipher')}</h3>
-                          <p className="text-[var(--text-secondary)] text-[11px] sm:text-xs text-center flex-1 min-w-0">{t('cipher_hint')}</p>
-                          <button onClick={() => setMorseMode(true)} className="neumorphic-raised-button bg-[var(--accent-color-glow)] text-white font-bold py-2 px-2 sm:px-3 text-xs rounded-lg flex-shrink-0 whitespace-nowrap">
-                              {t('enter_morse_mode')}
-                          </button>
-                      </div>
-                  ) : (
-                      <div className="flex items-center justify-between w-full gap-4 h-10">
-                          <h3 className="font-display text-base text-[var(--accent-color)] flex-shrink-0">{t('daily_cipher')}</h3>
-                          <div className="font-mono text-xl h-10 tracking-widest text-white neumorphic-pressed rounded-lg flex items-center justify-center w-full">
-                              {decodedWord}<span className="text-gray-500">{morseSequence}</span>
-                          </div>
-                          <button onClick={handleCancelMorse} className="text-xs text-gray-400 hover:text-white flex-shrink-0">
-                              {t('cancel_morse_mode')}
-                          </button>
-                      </div>
-                  )}
-                </>
-              )}
-          </div>
-      )}
-
-
-      {/* Main Content Area: Coin */}
-      <div className="flex-grow w-full flex items-center justify-center relative my-2 min-h-0">
-             <div
-                className="relative cursor-pointer select-none w-full max-w-[280px] sm:max-w-sm aspect-square neumorphic-pressed rounded-full flex items-center justify-center p-4"
+      {/* Main Content Area: Coin Card */}
+      <div className="flex-grow w-full flex items-center justify-center relative min-h-0">
+         <div className="neumorphic-raised rounded-2xl flex flex-col items-center justify-between p-2 sm:p-4 w-full h-full max-w-sm">
+            
+            {/* Clickable Coin Area */}
+            <div
+                className="relative cursor-pointer select-none w-full max-w-[280px] sm:max-w-xs aspect-square neumorphic-pressed rounded-full flex items-center justify-center p-4 flex-grow my-2"
                 onMouseDown={handlePressStart}
                 onMouseUp={handlePressEnd}
                 onTouchStart={handlePressStart}
@@ -275,6 +231,54 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                     </div>
                 ))}
             </div>
+
+            {/* Balance and Profit */}
+            <div className="flex flex-col items-center flex-shrink-0 my-2">
+                <div className="flex items-center space-x-2">
+                    <img src={config.uiIcons.coin} alt="coin" className="w-[5vh] h-[5vh] max-w-[32px] max-h-[32px]"/>
+                    <h1 className="text-responsive-2xl font-display">{formatBalance(balance)}</h1>
+                </div>
+                <div className="text-responsive-sm text-[var(--accent-color)] flex items-center gap-1">
+                    <img src={config.uiIcons.energy} alt="" className="w-3 h-3"/>
+                    <span>+{formatProfit(profitPerHour)}/hr</span>
+                </div>
+            </div>
+
+            {/* Daily Cipher Section */}
+            {dailyCipherWord && (
+                <div className="w-full mt-2 flex-shrink-0">
+                    {claimedCipher ? (
+                        <div className="flex items-center justify-center gap-2 h-10 neumorphic-pressed rounded-lg">
+                            <h3 className="font-display text-sm text-[var(--accent-color)]">{t('daily_cipher')}</h3>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color)]" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                    ) : (
+                      <>
+                        {!morseMode ? (
+                            <div className="flex items-center justify-between w-full gap-2 sm:gap-4 h-10">
+                                <h3 className="font-display text-sm sm:text-base text-[var(--accent-color)] flex-shrink-0">{t('daily_cipher')}</h3>
+                                <button onClick={() => setMorseMode(true)} className="neumorphic-raised-button bg-[var(--accent-color-glow)] text-white font-bold py-2 px-2 sm:px-3 text-xs rounded-lg flex-shrink-0 whitespace-nowrap">
+                                    {t('enter_morse_mode')}
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-between w-full gap-2 h-10">
+                                <div className="font-mono text-xl h-10 tracking-widest text-white neumorphic-pressed rounded-lg flex items-center justify-center w-full">
+                                    {decodedWord}<span className="text-gray-500">{morseSequence}</span>
+                                </div>
+                                <button onClick={handleCancelMorse} className="text-xs text-gray-400 hover:text-white flex-shrink-0">
+                                    {t('cancel_morse_mode')}
+                                </button>
+                            </div>
+                        )}
+                      </>
+                    )}
+                </div>
+            )}
+
+         </div>
       </div>
         <style>{`
             @keyframes pulse-fire {
