@@ -22,6 +22,13 @@ const formatNumber = (num: number): string => {
   return num.toLocaleString('en-US');
 };
 
+const GlitchEffect = () => (
+    <div className="glitch-effect">
+        <div className="glitch-noise"></div>
+    </div>
+);
+
+
 const AppContainer: React.FC = () => {
     const { user, isInitializing } = useAuth();
     
@@ -470,6 +477,13 @@ const MainApp: React.FC = () => {
     const timer = setTimeout(() => setIsAppReady(true), 1500);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (isGlitching) {
+        const timer = setTimeout(() => setIsGlitching(false), 500); // Glitch for 0.5s
+        return () => clearTimeout(timer);
+    }
+  }, [isGlitching, setIsGlitching]);
   
 
   if (!isAppReady || !user || !playerState || !config) {
@@ -672,6 +686,7 @@ const MainApp: React.FC = () => {
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col prevent-select">
+      {isGlitching && <GlitchEffect />}
       <main className="flex-grow overflow-hidden">
         {renderScreen()}
       </main>

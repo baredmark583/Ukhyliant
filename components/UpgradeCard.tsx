@@ -41,12 +41,12 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
         <div className="neumorphic-pressed rounded-full p-1 w-12 h-12 flex-shrink-0 mb-2">
           <img src={upgrade.iconUrl} alt={upgrade.name?.[lang]} className="w-full h-full object-contain" />
         </div>
-        <p className="text-white text-xs font-semibold leading-tight mb-1 h-8 flex items-center justify-center">{upgrade.name?.[lang]}</p>
-        <span className="text-[var(--text-secondary)] text-[11px]">{t('lvl')} {upgrade.level}</span>
+        <p className="text-white font-semibold leading-tight mb-1 h-8 flex items-center justify-center text-responsive-sm">{upgrade.name?.[lang]}</p>
+        <span className="text-[var(--text-secondary)] text-responsive-xs">{t('lvl')} {upgrade.level}</span>
       </div>
 
       {/* Bottom section: Profit, Suspicion, Price */}
-      <div className="w-full text-[11px] space-y-2">
+      <div className="w-full text-responsive-xs space-y-2">
         <div className="flex items-center justify-center space-x-3">
           <span className="text-[var(--accent-color)] font-semibold flex items-center">
               <img src={uiIcons.energy} alt="" className="w-3 h-3 mr-1"/>
@@ -61,7 +61,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
         </div>
         <div className="flex items-center justify-center space-x-1.5 w-full neumorphic-pressed rounded-lg py-1.5 mt-2">
           <img src={uiIcons.coin} alt="coin" className="w-4 h-4"/>
-          <span className="text-white font-bold text-sm">{formatNumber(upgrade.price)}</span>
+          <span className="text-white font-bold text-responsive-base">{formatNumber(upgrade.price)}</span>
         </div>
       </div>
     </button>

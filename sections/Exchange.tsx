@@ -1,8 +1,7 @@
 
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import ProgressBar from '../components/ProgressBar';
-import SuspicionMeter from '../components/SuspicionMeter';
+import CircularProgressBar from '../components/CircularProgressBar';
 import { PlayerState, League, User, GameConfig } from '../types';
 import { DEFAULT_COIN_SKIN_ID } from '../constants';
 import { useTranslation, useAuth } from '../hooks/useGameLogic';
@@ -174,30 +173,27 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
 
   return (
-    <div className="flex flex-col h-full text-white pt-4 px-4">
-      {/* Top Section: League, Balance, Profit/hr, Language */}
-      <div className="w-full flex items-center justify-between neumorphic-raised rounded-2xl p-2 text-center flex-shrink-0">
-          <button onClick={onOpenLeaderboard} className="flex flex-col items-center justify-center p-1 text-center transition-opacity hover:opacity-80">
-              {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-10 h-10 mb-1" />}
-              <span className="text-xs text-[var(--text-secondary)]">{t('your_league')}</span>
-          </button>
-
-          <div className="flex flex-col items-center px-2">
-                <div className="flex items-center space-x-2">
-                    <img src={config.uiIcons.coin} alt="coin" className="w-8 h-8"/>
-                    <h1 className="text-3xl font-display">{formatBalance(balance)}</h1>
+    <div className="flex flex-col h-full text-white p-2 sm:p-4">
+      {/* Top Section: Info Panel */}
+      <div className="h-[20vh] min-h-[120px] max-h-[160px] w-full flex items-center justify-between neumorphic-raised rounded-2xl p-2 sm:p-3 text-center flex-shrink-0">
+          <CircularProgressBar value={energy} max={effectiveMaxEnergy} labelKey="energy" iconUrl={config.uiIcons.energy} color="var(--accent-color)" />
+          
+          <div className="flex flex-col items-center justify-center h-full">
+                <button onClick={onOpenLeaderboard} className="flex flex-col items-center justify-center p-1 text-center transition-opacity hover:opacity-80">
+                    {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-[4vh] h-[4vh] max-w-[32px] max-h-[32px] mb-1" />}
+                    <span className="text-responsive-xs text-[var(--text-secondary)]">{t('your_league')}</span>
+                </button>
+                <div className="flex items-center space-x-2 my-1">
+                    <img src={config.uiIcons.coin} alt="coin" className="w-[5vh] h-[5vh] max-w-[40px] max-h-[40px]"/>
+                    <h1 className="text-responsive-2xl font-display">{formatBalance(balance)}</h1>
                 </div>
-                <div className="text-xs text-[var(--accent-color)] mt-1 flex items-center gap-1">
+                <div className="text-responsive-sm text-[var(--accent-color)] flex items-center gap-1">
                     <img src={config.uiIcons.energy} alt="" className="w-3 h-3"/>
                     <span>+{formatProfit(profitPerHour)}/hr</span>
                 </div>
           </div>
 
-          <div className="flex items-center justify-center">
-                <button onClick={handleSwitchLanguage} className="neumorphic-raised-button text-white font-bold w-12 h-12 flex items-center justify-center text-sm rounded-full">
-                  {user.language.toUpperCase()}
-              </button>
-          </div>
+          <CircularProgressBar value={suspicion} max={100} labelKey="suspicion" iconUrl={config.uiIcons.suspicion} color="#f87171" />
       </div>
 
       {/* Horizontal Daily Cipher Section */}
@@ -238,22 +234,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
       )}
 
 
-      {/* Main Content Area */}
-      <div className="flex-grow w-full flex items-stretch justify-center relative my-2 min-h-0 gap-3">
-        
-        {/* Left Bar: Stamina */}
-        <div className="flex-shrink-0 py-4">
-            <ProgressBar
-                value={energy}
-                max={effectiveMaxEnergy}
-                label={t('energy')}
-                iconUrl={config.uiIcons.energy}
-                orientation="vertical"
-            />
-        </div>
-
-        {/* Center Area: Coin */}
-        <div className="flex-grow flex items-center justify-center min-w-0 p-2">
+      {/* Main Content Area: Coin */}
+      <div className="flex-grow w-full flex items-center justify-center relative my-2 min-h-0">
              <div
                 className="relative cursor-pointer select-none w-full max-w-[280px] sm:max-w-sm aspect-square neumorphic-pressed rounded-full flex items-center justify-center p-4"
                 onMouseDown={handlePressStart}
@@ -293,17 +275,6 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                     </div>
                 ))}
             </div>
-        </div>
-
-        {/* Right Bar: Suspicion */}
-        <div className="flex-shrink-0 py-4">
-             <SuspicionMeter
-                value={suspicion}
-                max={100}
-                iconUrl={config.uiIcons.suspicion}
-                orientation="vertical"
-            />
-        </div>
       </div>
         <style>{`
             @keyframes pulse-fire {

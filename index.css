@@ -77,12 +77,34 @@ body {
   color: var(--text-secondary);
 }
 
-/* Old Glitch styles from previous theme (can be removed if no longer needed) */
+/* Responsive Text */
+.text-responsive-xxs { font-size: clamp(0.6rem, 2vw, 0.75rem); }
+.text-responsive-xs { font-size: clamp(0.65rem, 2.2vw, 0.8rem); }
+.text-responsive-sm { font-size: clamp(0.7rem, 2.5vw, 0.875rem); }
+.text-responsive-base { font-size: clamp(0.875rem, 3vw, 1rem); }
+.text-responsive-lg { font-size: clamp(1rem, 4vw, 1.25rem); }
+.text-responsive-xl { font-size: clamp(1.25rem, 6vw, 1.875rem); }
+.text-responsive-2xl { font-size: clamp(1.8rem, 8vw, 3rem); }
+
+/* Circular Progress Bar */
+.circular-progress-track {
+    fill: none;
+    stroke: var(--shadow-dark);
+}
+.circular-progress-bar {
+    fill: none;
+    stroke-linecap: round;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+    transition: stroke-dashoffset 0.3s ease;
+}
+
+/* Glitch effect styles */
 @keyframes noise-anim {
     0% { clip-path: inset(10% 0 80% 0); } 10% { clip-path: inset(90% 0 1% 0); } 20% { clip-path: inset(45% 0 45% 0); } 30% { clip-path: inset(25% 0 65% 0); } 40% { clip-path: inset(80% 0 5% 0); } 50% { clip-path: inset(15% 0 75% 0); } 60% { clip-path: inset(70% 0 10% 0); } 70% { clip-path: inset(30% 0 60% 0); } 80% { clip-path: inset(95% 0 2% 0); } 90% { clip-path: inset(5% 0 85% 0); } 100% { clip-path: inset(50% 0 40% 0); }
 }
 .glitch-effect {
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: black; z-index: 100;
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: black; z-index: 1000;
 }
 .glitch-noise {
     position: absolute; top: -100%; left: -100%; right: -100%; bottom: -100%;
@@ -91,13 +113,4 @@ body {
     background-size: 200px;
     opacity: 0.2;
     animation: noise-anim 1s linear infinite;
-}
-@keyframes shake {
-    0%, 100% { transform: translate(-50%, -50%); } 10% { transform: translate(-51%, -52%); } 20% { transform: translate(-49%, -48%); } 30% { transform: translate(-52%, -51%); } 40% { transform: translate(-48%, -49%); } 50% { transform: translate(-50%, -50%); } 60% { transform: translate(-51%, -49%); } 70% { transform: translate(-49%, -52%); } 80% { transform: translate(-52%, -48%); } 90% { transform: translate(-49%, -51%); }
-}
-.glitch-modal {
-    position: fixed; top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 101;
-    animation: shake 0.3s linear infinite;
 }
