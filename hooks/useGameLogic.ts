@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -289,17 +288,6 @@ const API = {
     return response.json();
   },
 
-  getOminousWarning: async(lang: Language): Promise<{message: string}> => {
-    if (!API_BASE_URL) return { message: 'The system is silent.' };
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/ominous-warning?lang=${lang}`);
-        if (!response.ok) return { message: 'Transmission error.' };
-        return response.json();
-    } catch (e) {
-        return { message: 'Connection lost.' };
-    }
-  },
-
   getBattleStatus: async(userId: string): Promise<{ status?: BattleStatus, error?: string }> => {
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/battle/status?userId=${userId}`);
@@ -501,9 +489,9 @@ export const useGame = () => {
 
     // Penalty detection effect
     useEffect(() => {
-        if (!user || !playerState) return;
+        if (!user || !playerState?.penaltyLog) return;
         
-        const currentLogLength = playerState.penaltyLog?.length || 0;
+        const currentLogLength = playerState.penaltyLog.length;
         
         // Initialize prev length on first run
         if (prevPenaltyLogLength.current === undefined) {
@@ -513,13 +501,14 @@ export const useGame = () => {
 
         if (currentLogLength > prevPenaltyLogLength.current) {
             // New penalty detected
-            API.getOminousWarning(user.language).then(data => {
-                setSystemMessage(data.message);
-            });
+            const newPenalty = playerState.penaltyLog[currentLogLength - 1];
+            if (newPenalty.message) {
+                setSystemMessage(newPenalty.message);
+            }
         }
         prevPenaltyLogLength.current = currentLogLength;
 
-    }, [playerState, user?.language]);
+    }, [playerState?.penaltyLog]);
 
     const effectiveMaxEnergy = useMemo(() => {
         if (!playerState) return INITIAL_MAX_ENERGY;
@@ -772,12 +761,6 @@ export const useGame = () => {
 
     const getBattleLeaderboard = useCallback(() => API.getBattleLeaderboard(), []);
 
-    const triggerOminousWarning = useCallback(async () => {
-        if (!user) return;
-        const data = await API.getOminousWarning(user.language);
-        setSystemMessage(data.message);
-    }, [user, setSystemMessage]);
-
     return {
         playerState,
         config,
@@ -808,7 +791,6 @@ export const useGame = () => {
         buyCellTicket,
         systemMessage,
         setSystemMessage,
-        triggerOminousWarning,
         purchaseResult,
         setPurchaseResult,
         getBattleStatus,

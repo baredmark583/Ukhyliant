@@ -1,5 +1,4 @@
 
-
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -23,6 +22,7 @@ import {
     BATTLE_SCHEDULE_DEFAULT,
     BATTLE_REWARDS_DEFAULT,
     CELL_ECONOMY_DEFAULTS,
+    PENALTY_MESSAGES,
 } from './constants.js';
 
 const { Pool } = pg;
@@ -60,19 +60,26 @@ const executeQuery = async (query, params) => {
     }
 }
 
-const applySuspicion = (player, modifier) => {
+const applySuspicion = (player, modifier, lang = 'en') => {
     if (modifier === null || modifier === undefined || modifier === 0) return player;
     
-    let currentSuspicion = Number(player.suspicion || 0); // Ensure value is a number
+    let currentSuspicion = Number(player.suspicion || 0);
     currentSuspicion += Number(modifier || 0);
 
     if (currentSuspicion >= 100) {
-        player.balance = Number(player.balance || 0) * 0.75; // Confiscate 25% of funds
-        currentSuspicion = 50; // Give them a second chance at 50% suspicion
-        player.penaltyLog = [...(player.penaltyLog || []), { type: 'confiscation_25_percent', timestamp: new Date().toISOString() }];
+        player.balance = Number(player.balance || 0) * 0.75;
+        currentSuspicion = 50;
+        
+        const messages = PENALTY_MESSAGES[lang] || PENALTY_MESSAGES.en;
+        const message = messages[Math.floor(Math.random() * messages.length)];
+        
+        player.penaltyLog = [...(player.penaltyLog || []), { 
+            type: 'confiscation_25_percent', 
+            timestamp: new Date().toISOString(),
+            message: message
+        }];
     }
     
-    // Clamp the suspicion value between 0 and 100
     player.suspicion = Math.max(0, Math.min(100, currentSuspicion));
     return player;
 };
@@ -455,9 +462,10 @@ export const completeAndRewardSpecialTask = async (userId, taskId, code) => {
         if (task.type === 'video_code' && task.secretCode && task.secretCode.toLowerCase() !== code?.toLowerCase()) {
             throw new Error("Incorrect secret code.");
         }
-
+        
+        const user = await getUser(userId);
         player = applyReward(player, task.reward);
-        player = applySuspicion(player, task.suspicionModifier);
+        player = applySuspicion(player, task.suspicionModifier, user.language);
         player.completedSpecialTaskIds = [...(player.completedSpecialTaskIds || []), taskId];
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
@@ -492,8 +500,9 @@ export const claimDailyTaskReward = async (userId, taskId, code) => {
             throw new Error("Incorrect secret code.");
         }
 
+        const user = await getUser(userId);
         player = applyReward(player, task.reward);
-        player = applySuspicion(player, task.suspicionModifier);
+        player = applySuspicion(player, task.suspicionModifier, user.language);
         player.completedDailyTaskIds = [...(player.completedDailyTaskIds || []), taskId];
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
@@ -921,7 +930,8 @@ export const openLootboxInDb = async (userId, boxType, config) => {
             player.unlockedSkins = [...new Set([...(player.unlockedSkins || []), wonItem.id])];
         }
 
-        player = applySuspicion(player, wonItem.suspicionModifier);
+        const user = await getUser(userId);
+        player = applySuspicion(player, wonItem.suspicionModifier, user.language);
         player.lastPurchaseResult = { type: 'lootbox', item: wonItem };
 
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
@@ -988,7 +998,8 @@ const grantStarLootboxItem = async (userId, config) => {
             player.unlockedSkins = [...new Set([...(player.unlockedSkins || []), wonItem.id])];
         }
 
-        player = applySuspicion(player, wonItem.suspicionModifier);
+        const user = await getUser(userId);
+        player = applySuspicion(player, wonItem.suspicionModifier, user.language);
         
         player.purchasedStarLootboxesCount = (player.purchasedStarLootboxesCount || 0) + 1;
         player.lastPurchaseResult = { type: 'lootbox', item: wonItem };
@@ -1306,7 +1317,8 @@ export const buyUpgradeInDb = async (userId, upgradeId, config) => {
         player.upgrades[upgradeId] = currentLevel + 1;
         player.dailyUpgrades = [...new Set([...(player.dailyUpgrades || []), upgradeId])];
         
-        player = applySuspicion(player, upgrade.suspicionModifier);
+        const user = await getUser(userId);
+        player = applySuspicion(player, upgrade.suspicionModifier, user.language);
         
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         const updatedPlayer = updatedPlayerRes.rows[0].data;
@@ -1363,7 +1375,8 @@ export const buyBoostInDb = async (userId, boostId, config) => {
                 break;
         }
         
-        player = applySuspicion(player, boost.suspicionModifier);
+        const user = await getUser(userId);
+        player = applySuspicion(player, boost.suspicionModifier, user.language);
         
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');

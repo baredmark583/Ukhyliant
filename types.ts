@@ -198,7 +198,7 @@ export interface PlayerState {
   currentSkinId: string;
   suspicion: number;
   cellId: number | null;
-  penaltyLog?: { type: string; timestamp: string }[];
+  penaltyLog?: { type: string; timestamp: string; message?: string }[];
 }
 
 export interface CellMember {

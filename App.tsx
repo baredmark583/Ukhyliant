@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -482,7 +481,7 @@ const MainApp: React.FC = () => {
         const timer = setTimeout(() => {
             setIsGlitching(false);
             setSystemMessage('');
-        }, 800);
+        }, 1500);
         return () => clearTimeout(timer);
     }
   }, [isGlitching, setIsGlitching, setSystemMessage, t]);
@@ -688,7 +687,8 @@ const MainApp: React.FC = () => {
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col prevent-select">
-      {(isGlitching || systemMessage) && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
+      {isGlitching && <GlitchEffect />}
+      {(systemMessage) && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
 
       {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
       {secretCodeTask && <SecretCodeModal task={secretCodeTask} lang={user.language} onClose={() => setSecretCodeTask(null)} onSubmit={async (code) => {

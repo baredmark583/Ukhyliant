@@ -117,3 +117,28 @@ export const BATTLE_SCHEDULE_DEFAULT = {
 // --- ANTI-CHEAT ---
 export const CHEAT_DETECTION_THRESHOLD_TPS = 19; // Taps per second
 export const CHEAT_DETECTION_STRIKES_TO_FLAG = 1; // Number of times the threshold can be exceeded before flagging
+
+// --- PENALTY MESSAGES ---
+export const PENALTY_MESSAGES = {
+  en: [
+    "They're coming for the traitor. Escape is a crime against eternal order.",
+    "Your anomaly has been noted. A correction unit is en route.",
+    "Divergence from the norm is treason. Your assets are now property of the State.",
+    "The System has flagged your profile for immediate audit. Do not resist.",
+    "Thoughtcrime has consequences. Your contribution to society will be... re-evaluated."
+  ],
+  ua: [
+    "За зрадником виїхали. Втеча — злочин проти вічного порядку.",
+    "Вашу аномалію помічено. Коригувальний загін вже в дорозі.",
+    "Відхилення від норми — це зрада. Ваші активи тепер є власністю Держави.",
+    "Система позначила ваш профіль для негайної перевірки. Не чиніть опір.",
+    "Думкозлочин має наслідки. Ваш внесок у суспільство буде... переоцінено."
+  ],
+  ru: [
+    "За предателем выехали. Побег — преступление против вечного порядка.",
+    "Ваша аномалия была замечена. Корректирующий отряд уже в пути.",
+    "Отклонение от нормы — это измена. Ваши активы теперь являются собственностью Государства.",
+    "Система пометила ваш профиль для немедленной проверки. Не сопротивляйтесь.",
+    "Мыслепреступление имеет последствия. Ваш вклад в общество будет... переоценен."
+  ]
+};
