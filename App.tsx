@@ -1,7 +1,5 @@
 
 
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -74,12 +72,12 @@ const NotInTelegramScreen: React.FC = () => (
 const ProfileTabButton = ({ label, iconUrl, isActive, onClick }: { label: string, iconUrl: string, isActive: boolean, onClick: () => void }) => (
     <button
         onClick={onClick}
-        className={`flex-1 flex flex-col items-center justify-center p-2 rounded-lg transition-colors duration-200 group ${
+        className={`flex-1 flex flex-col items-center justify-center p-2 rounded-lg transition-colors duration-200 group min-h-16 ${
             isActive ? 'bg-slate-900 shadow-inner' : 'hover:bg-slate-700/50'
         }`}
     >
-        <img src={iconUrl} alt={label} className={`w-6 h-6 mb-1 transition-all duration-200 ${isActive ? 'active-icon' : 'text-slate-400'}`} />
-        <span className={`text-xs font-bold transition-colors ${isActive ? 'text-[var(--accent-color)]' : 'text-slate-400 group-hover:text-white'}`}>{label}</span>
+        <img src={iconUrl} alt={label} className={`w-7 h-7 transition-all duration-200 ${isActive ? 'active-icon' : 'text-slate-400'}`} />
+        <span className={`text-xs font-bold transition-opacity duration-200 mt-1 ${isActive ? 'text-[var(--accent-color)] opacity-100' : 'opacity-0'}`}>{label}</span>
     </button>
 );
 
@@ -462,8 +460,7 @@ const MainApp: React.FC = () => {
       openCoinLootbox, purchaseLootboxWithStars, 
       setSkin,
       isTurboActive, effectiveMaxEnergy,
-      ominousMessage, setOminousMessage,
-      triggerOminousWarning,
+      systemMessage, setSystemMessage,
       purchaseResult, setPurchaseResult
   } = useGame();
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
@@ -481,11 +478,14 @@ const MainApp: React.FC = () => {
 
   useEffect(() => {
     if (isGlitching) {
-        triggerOminousWarning();
-        const timer = setTimeout(() => setIsGlitching(false), 500); // Glitch for 0.5s
+        setSystemMessage(t('why_not_state_language'));
+        const timer = setTimeout(() => {
+            setIsGlitching(false);
+            setSystemMessage('');
+        }, 800);
         return () => clearTimeout(timer);
     }
-  }, [isGlitching, setIsGlitching, triggerOminousWarning]);
+  }, [isGlitching, setIsGlitching, setSystemMessage, t]);
   
 
   if (!isAppReady || !user || !playerState || !config) {
@@ -688,12 +688,7 @@ const MainApp: React.FC = () => {
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col prevent-select">
-      {isGlitching && <GlitchEffect />}
-      <main className="flex-grow overflow-hidden">
-        {renderScreen()}
-      </main>
-      
-      {ominousMessage && <PenaltyModal message={ominousMessage} onClose={() => setOminousMessage('')} />}
+      {(isGlitching || systemMessage) && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
 
       {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
       {secretCodeTask && <SecretCodeModal task={secretCodeTask} lang={user.language} onClose={() => setSecretCodeTask(null)} onSubmit={async (code) => {

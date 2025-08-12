@@ -476,7 +476,7 @@ export const useGame = () => {
     const { user } = useAuth();
     const { playerState, setPlayerState, config, setConfig, purchaseResult, setPurchaseResult } = useGameContext();
     const [isTurboActive, setIsTurboActive] = useState(false);
-    const [ominousMessage, setOminousMessage] = useState<string>('');
+    const [systemMessage, setSystemMessage] = useState<string>('');
     const prevPenaltyLogLength = React.useRef<number | undefined>(undefined);
     const tapsSinceLastSave = React.useRef(0);
 
@@ -514,7 +514,7 @@ export const useGame = () => {
         if (currentLogLength > prevPenaltyLogLength.current) {
             // New penalty detected
             API.getOminousWarning(user.language).then(data => {
-                setOminousMessage(data.message);
+                setSystemMessage(data.message);
             });
         }
         prevPenaltyLogLength.current = currentLogLength;
@@ -775,8 +775,8 @@ export const useGame = () => {
     const triggerOminousWarning = useCallback(async () => {
         if (!user) return;
         const data = await API.getOminousWarning(user.language);
-        setOminousMessage(data.message);
-    }, [user, setOminousMessage]);
+        setSystemMessage(data.message);
+    }, [user, setSystemMessage]);
 
     return {
         playerState,
@@ -806,8 +806,8 @@ export const useGame = () => {
         leaveCell,
         recruitInformant,
         buyCellTicket,
-        ominousMessage,
-        setOminousMessage,
+        systemMessage,
+        setSystemMessage,
         triggerOminousWarning,
         purchaseResult,
         setPurchaseResult,

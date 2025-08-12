@@ -119,7 +119,8 @@ type TranslationKey =
   | 'schedule_day' | 'day_sun' | 'day_mon' | 'day_tue' | 'day_wed' | 'day_thu' | 'day_fri' | 'day_sat'
   | 'schedule_time_utc' | 'schedule_duration_hours'
   // Generic
-  | 'loading' | 'cancel';
+  | 'loading' | 'cancel'
+  | 'why_not_state_language';
 
 
 export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
@@ -316,6 +317,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     day_sat: 'Saturday',
     schedule_time_utc: 'Start Time (UTC)',
     schedule_duration_hours: 'Duration (Hours)',
+    why_not_state_language: 'Is there a reason you are not using the state language? The system is watching.'
   },
   ua: {
     exchange: 'Схрон',
@@ -510,6 +512,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     day_sat: 'Субота',
     schedule_time_utc: 'Час початку (UTC)',
     schedule_duration_hours: 'Тривалість (години)',
+    why_not_state_language: 'Чому не державною? Система все бачить.'
   },
   ru: {
     exchange: 'Схрон',
@@ -704,5 +707,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     day_sat: 'Суббота',
     schedule_time_utc: 'Время начала (UTC)',
     schedule_duration_hours: 'Длительность (часы)',
+    why_not_state_language: 'Почему не на государственном языке? Система всё видит.'
   },
 };

@@ -177,8 +177,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
     <div className="flex flex-col h-full text-white p-2 sm:p-4 gap-2">
       {/* Top Section: Info Panel */}
       <div className="w-full flex items-start justify-between p-2 mb-2 text-center flex-shrink-0">
-          <CircularProgressBar value={energy} max={effectiveMaxEnergy} labelKey="energy" iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={60} strokeWidth={6} />
-          <CircularProgressBar value={suspicion} max={100} labelKey="suspicion" iconUrl={config.uiIcons.suspicion} color="#f87171" size={60} strokeWidth={6} />
+          <CircularProgressBar value={energy} max={effectiveMaxEnergy} iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={60} strokeWidth={6} />
+          <CircularProgressBar value={suspicion} max={100} iconUrl={config.uiIcons.suspicion} color="#f87171" size={60} strokeWidth={6} />
           <button onClick={onOpenLeaderboard} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
               {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-8 h-8" />}
           </button>

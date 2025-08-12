@@ -6,13 +6,11 @@ interface CircularProgressBarProps {
   max: number;
   size?: number;
   strokeWidth?: number;
-  labelKey: 'energy' | 'suspicion';
   iconUrl: string;
   color: string;
 }
 
-const CircularProgressBar: React.FC<CircularProgressBarProps> = ({ value, max, size = 80, strokeWidth = 8, labelKey, iconUrl, color }) => {
-  const t = useTranslation();
+const CircularProgressBar: React.FC<CircularProgressBarProps> = ({ value, max, size = 60, strokeWidth = 8, iconUrl, color }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const clampedValue = Math.min(value, max);
@@ -40,10 +38,9 @@ const CircularProgressBar: React.FC<CircularProgressBarProps> = ({ value, max, s
           style={{ filter: `drop-shadow(0 0 3px ${color})` }}
         />
       </svg>
-      <div className="flex flex-col items-center justify-center z-10 p-1">
-        <img src={iconUrl} alt={t(labelKey)} className="w-[40%] h-[40%]" />
-        <span className="text-[10px] font-bold text-[var(--text-primary)] leading-tight">{t(labelKey)}</span>
-        <span className="font-mono text-[9px] text-[var(--text-secondary)] leading-tight">{Math.floor(value)}</span>
+      <div className="flex flex-col items-center justify-center z-10 p-1 space-y-0.5">
+        <img src={iconUrl} alt="icon" className="w-[45%] h-[45%]" />
+        <span className="font-mono text-[11px] font-bold text-[var(--text-primary)] leading-tight">{Math.floor(value)}</span>
       </div>
     </div>
   );
