@@ -1,7 +1,8 @@
 
 
 
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
@@ -70,16 +71,18 @@ const NotInTelegramScreen: React.FC = () => (
     </div>
 );
 
-const TabButton = ({ label, isActive, onClick }: { label: string, isActive: boolean, onClick: () => void }) => (
+const ProfileTabButton = ({ label, iconUrl, isActive, onClick }: { label: string, iconUrl: string, isActive: boolean, onClick: () => void }) => (
     <button
         onClick={onClick}
-        className={`px-4 py-2 text-sm font-bold transition-all flex-1 text-center rounded-lg ${
-            isActive ? 'bg-slate-900 shadow-inner text-[var(--accent-color)]' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+        className={`flex-1 flex flex-col items-center justify-center p-2 rounded-lg transition-colors duration-200 group ${
+            isActive ? 'bg-slate-900 shadow-inner' : 'hover:bg-slate-700/50'
         }`}
     >
-        {label}
+        <img src={iconUrl} alt={label} className={`w-6 h-6 mb-1 transition-all duration-200 ${isActive ? 'active-icon' : 'text-slate-400'}`} />
+        <span className={`text-xs font-bold transition-colors ${isActive ? 'text-[var(--accent-color)]' : 'text-slate-400 group-hover:text-white'}`}>{label}</span>
     </button>
 );
+
 
 interface ProfileScreenProps {
   playerState: PlayerState;
@@ -190,16 +193,12 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
         <div className="flex flex-col h-full text-white pt-4 px-4 items-center">
             <div className="w-full max-w-md sticky top-0 bg-[var(--bg-color)] py-4 z-10">
                 <h1 className="text-3xl font-display text-center mb-4">{t('profile')}</h1>
-                <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex flex-col gap-1 border border-slate-700">
-                    <div className="flex gap-1">
-                        <TabButton label={t('sub_contacts')} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
-                        <TabButton label={t('sub_boosts')} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
-                        <TabButton label={t('sub_disguise')} isActive={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
-                    </div>
-                    <div className="flex gap-1">
-                        <TabButton label={t('sub_market')} isActive={activeTab === 'market'} onClick={() => setActiveTab('market')} />
-                        <TabButton label={t('sub_cell')} isActive={activeTab === 'cell'} onClick={() => setActiveTab('cell')} />
-                    </div>
+                <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex gap-1 border border-slate-700">
+                    <ProfileTabButton label={t('sub_contacts')} iconUrl={config.uiIcons.profile_tabs.contacts} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
+                    <ProfileTabButton label={t('sub_boosts')} iconUrl={config.uiIcons.profile_tabs.boosts} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
+                    <ProfileTabButton label={t('sub_disguise')} iconUrl={config.uiIcons.profile_tabs.skins} isActive={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
+                    <ProfileTabButton label={t('sub_market')} iconUrl={config.uiIcons.profile_tabs.market} isActive={activeTab === 'market'} onClick={() => setActiveTab('market')} />
+                    <ProfileTabButton label={t('sub_cell')} iconUrl={config.uiIcons.profile_tabs.cell} isActive={activeTab === 'cell'} onClick={() => setActiveTab('cell')} />
                 </div>
             </div>
             
@@ -464,6 +463,7 @@ const MainApp: React.FC = () => {
       setSkin,
       isTurboActive, effectiveMaxEnergy,
       ominousMessage, setOminousMessage,
+      triggerOminousWarning,
       purchaseResult, setPurchaseResult
   } = useGame();
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
@@ -481,10 +481,11 @@ const MainApp: React.FC = () => {
 
   useEffect(() => {
     if (isGlitching) {
+        triggerOminousWarning();
         const timer = setTimeout(() => setIsGlitching(false), 500); // Glitch for 0.5s
         return () => clearTimeout(timer);
     }
-  }, [isGlitching, setIsGlitching]);
+  }, [isGlitching, setIsGlitching, triggerOminousWarning]);
   
 
   if (!isAppReady || !user || !playerState || !config) {

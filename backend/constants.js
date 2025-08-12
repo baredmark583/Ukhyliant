@@ -21,6 +21,13 @@ export const INITIAL_UI_ICONS = {
     airdrop: "https://api.iconify.design/ph/parachute-bold.svg?color=white",
     profile: "https://api.iconify.design/ph/user-bold.svg?color=white"
   },
+  profile_tabs: {
+    contacts: "https://api.iconify.design/ph/users-three-bold.svg?color=white",
+    boosts: "https://api.iconify.design/ph/rocket-launch-bold.svg?color=white",
+    skins: "https://api.iconify.design/ph/paint-brush-bold.svg?color=white",
+    market: "https://api.iconify.design/ph/storefront-bold.svg?color=white",
+    cell: "https://api.iconify.design/ph/users-group-bold.svg?color=white"
+  },
   energy: "https://api.iconify.design/ph/lightning-bold.svg?color=%2367e8f9", // cyan-300
   coin: "/assets/coin.svg",
   star: "https://api.iconify.design/ph/star-four-bold.svg?color=%2360a5fa", // blue-400

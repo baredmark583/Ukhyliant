@@ -772,6 +772,12 @@ export const useGame = () => {
 
     const getBattleLeaderboard = useCallback(() => API.getBattleLeaderboard(), []);
 
+    const triggerOminousWarning = useCallback(async () => {
+        if (!user) return;
+        const data = await API.getOminousWarning(user.language);
+        setOminousMessage(data.message);
+    }, [user, setOminousMessage]);
+
     return {
         playerState,
         config,
@@ -802,6 +808,7 @@ export const useGame = () => {
         buyCellTicket,
         ominousMessage,
         setOminousMessage,
+        triggerOminousWarning,
         purchaseResult,
         setPurchaseResult,
         getBattleStatus,

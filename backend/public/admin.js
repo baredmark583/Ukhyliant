@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -658,6 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const iconsData = localConfig.uiIcons || {};
         const iconGroups = {
             nav: { titleKey: 'icon_group_nav', keys: ['exchange', 'mine', 'missions', 'airdrop', 'profile'] },
+            profile_tabs: { titleKey: 'icon_group_profile_tabs', keys: ['contacts', 'boosts', 'skins', 'market', 'cell'] },
             gameplay: { titleKey: 'icon_group_gameplay', keys: ['energy', 'coin', 'star', 'suspicion'] },
             market: { titleKey: 'icon_group_market', keys: ['marketCoinBox', 'marketStarBox'] }
         };
@@ -665,8 +667,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let formHtml = '';
         for (const [groupKey, group] of Object.entries(iconGroups)) {
             formHtml += `<fieldset class="form-fieldset"><legend>${t(group.titleKey)}</legend>`;
-            if (groupKey === 'nav') {
-                 formHtml += group.keys.map(key => renderIconInput('nav', key, iconsData.nav?.[key] || '')).join('');
+            if (groupKey === 'nav' || groupKey === 'profile_tabs') {
+                 formHtml += group.keys.map(key => renderIconInput(groupKey, key, iconsData[groupKey]?.[key] || '')).join('');
             } else {
                  formHtml += group.keys.map(key => renderIconInput(null, key, iconsData[key] || '')).join('');
             }
@@ -1015,50 +1017,61 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const footer = `
             <button type="button" class="btn" data-bs-dismiss="modal">${t('cancel')}</button>
-            <button type="button" class="btn btn-primary" id="save-config-item-btn">${t('save')}</button>
+            <button type="button" class="btn btn-primary" id="save-config-btn">${t('save')}</button>
         `;
+        
         const modalInstance = renderModal('config-modal', title, formBody, footer);
 
-        // Add event listener for task type dropdown to show/hide secret code field
+        // Dynamic visibility for secretCode field
         const taskTypeSelect = document.getElementById('task-type-select');
         if (taskTypeSelect) {
             taskTypeSelect.addEventListener('change', (e) => {
-                const secretCodeContainer = document.getElementById('secret-code-container');
-                if (secretCodeContainer) {
-                    secretCodeContainer.style.display = e.target.value === 'video_code' ? 'block' : 'none';
+                const container = document.getElementById('secret-code-container');
+                if (container) {
+                    container.style.display = e.target.value === 'video_code' ? 'block' : 'none';
                 }
             });
         }
         
-        document.getElementById('save-config-item-btn').onclick = () => {
-            const newItem = {};
+        document.getElementById('save-config-btn').onclick = () => {
+            const newItem = isNew ? { id: item.id } : { ...item };
+            let hasError = false;
             cols.forEach(col => {
-                const langInputs = document.querySelectorAll(`#config-modal [data-lang-col="${col}"]`);
-                const rewardTypeInput = document.querySelector(`#config-modal [data-reward-col="${col}"][data-reward-prop="type"]`);
-
+                const langInputs = document.querySelectorAll(`[data-lang-col="${col}"]`);
+                const rewardInputs = document.querySelectorAll(`[data-reward-col="${col}"]`);
+                
                 if (langInputs.length > 0) {
-                     newItem[col] = {
-                         en: document.querySelector(`[data-lang-col="${col}"][data-lang="en"]`).value,
-                         ru: document.querySelector(`[data-lang-col="${col}"][data-lang="ru"]`).value,
-                         ua: document.querySelector(`[data-lang-col="${col}"][data-lang="ua"]`).value
-                     };
-                } else if (rewardTypeInput) {
-                    const rewardAmountInput = document.querySelector(`#config-modal [data-reward-col="${col}"][data-reward-prop="amount"]`);
                     newItem[col] = {
-                        type: rewardTypeInput.value,
-                        amount: Number(rewardAmountInput.value)
+                        en: document.querySelector(`[data-lang-col="${col}"][data-lang="en"]`).value,
+                        ru: document.querySelector(`[data-lang-col="${col}"][data-lang="ru"]`).value,
+                        ua: document.querySelector(`[data-lang-col="${col}"][data-lang="ua"]`).value,
+                    };
+                } else if (rewardInputs.length > 0) {
+                     newItem[col] = {
+                        type: document.querySelector(`[data-reward-col="${col}"][data-reward-prop="type"]`).value,
+                        amount: Number(document.querySelector(`[data-reward-col="${col}"][data-reward-prop="amount"]`).value) || 0,
                     };
                 } else {
-                    const input = document.querySelector(`#config-modal [data-col="${col}"]`);
+                    const input = document.querySelector(`[data-col="${col}"]`);
                     if (input) {
-                        try {
-                            newItem[col] = JSON.parse(input.value);
-                        } catch (e) {
-                            newItem[col] = input.type === 'number' ? Number(input.value) : input.value;
+                        const value = input.value;
+                        if (input.type === 'number') {
+                            newItem[col] = Number(value);
+                        } else if (input.tagName === 'TEXTAREA') {
+                            try {
+                                newItem[col] = JSON.parse(value);
+                            } catch (e) {
+                                newItem[col] = value;
+                            }
+                        } else {
+                            newItem[col] = value;
                         }
                     }
                 }
             });
+
+            if (hasError) return;
+
             if (isNew) {
                 if (!localConfig[key]) localConfig[key] = [];
                 localConfig[key].push(newItem);
@@ -1066,124 +1079,161 @@ document.addEventListener('DOMContentLoaded', () => {
                 localConfig[key][index] = newItem;
             }
             modalInstance.hide();
-            render();
-            saveMainButton.classList.remove('d-none');
+            renderConfigTable(key);
+            applyTranslationsToDOM();
         };
     };
+    
+    const renderCheatLogModal = async (playerId) => {
+        const player = await fetchData(`player/${playerId}/details`);
+        if (!player || !player.cheatLog) { alert('Could not load cheat log'); return; }
 
-    const renderCheatLogModal = (cheater) => {
-        const logHtml = (cheater.cheat_log || []).map(log => `
-            <li>TPS: <strong>${log.tps.toFixed(2)}</strong> (${log.taps} taps in ${log.timeDiff.toFixed(2)}s) at ${new Date(log.timestamp).toLocaleString()}</li>
-        `).join('');
-        renderModal('cheat-log-modal', `Cheat Log: ${cheater.name}`, `<ul class="list-unstyled">${logHtml}</ul>`, `<button class="btn" data-bs-dismiss="modal">${t('close')}</button>`);
+        const logHtml = player.cheatLog.map(log => `
+            <tr>
+                <td>${new Date(log.timestamp).toLocaleString()}</td>
+                <td>${log.tps.toFixed(2)}</td>
+                <td>${log.taps}</td>
+                <td>${log.timeDiff.toFixed(2)}s</td>
+            </tr>
+        `).join('') || `<tr><td colspan="4" class="text-center">${t('no_data')}</td></tr>`;
+
+        const body = `
+            <div class="table-responsive">
+                <table class="table table-vcenter">
+                    <thead><tr><th>Timestamp</th><th>TPS</th><th>Taps</th><th>Time Diff</th></tr></thead>
+                    <tbody>${logHtml}</tbody>
+                </table>
+            </div>
+        `;
+        const footer = `<button type="button" class="btn" data-bs-dismiss="modal">${t('close')}</button>`;
+        renderModal('cheat-log-modal', `${t('cheat_log')}: ${escapeHtml(player.name)}`, body, footer);
     };
 
     const renderSocialsModal = (socialType) => {
         const socials = localConfig.socials || {};
-        const isYouTube = socialType === 'youtube';
-        const title = isYouTube ? t('edit_youtube_settings') : t('edit_telegram_settings');
-        
-        const body = `
+        const isYoutube = socialType === 'youtube';
+
+        const body = isYoutube ? `
             <div class="mb-3">
-                <label class="form-label">${t(`${socialType}_channel_url`)}</label>
-                <input type="text" id="social-url" class="form-control" value="${escapeHtml(socials[`${socialType}Url`] || '')}">
-                <small class="form-hint">${t(`${socialType}_channel_url_desc`)}</small>
+                <label class="form-label">${t('youtube_channel_url')}</label>
+                <input type="text" id="social-url" class="form-control" value="${socials.youtubeUrl || ''}">
+                <small class="form-hint">${t('youtube_channel_url_desc')}</small>
             </div>
             <div class="mb-3">
-                <label class="form-label">${t(`${socialType}_channel_id`)}</label>
-                <input type="text" id="social-id" class="form-control" value="${escapeHtml(socials[`${socialType}ChannelId`] || '')}">
-                <small class="form-hint">${t(`${socialType}_channel_id_desc`)}</small>
+                <label class="form-label">${t('youtube_channel_id')}</label>
+                <input type="text" id="social-id" class="form-control" value="${socials.youtubeChannelId || ''}">
+                <small class="form-hint">${t('youtube_channel_id_desc')}</small>
+            </div>
+        ` : `
+             <div class="mb-3">
+                <label class="form-label">${t('telegram_channel_url')}</label>
+                <input type="text" id="social-url" class="form-control" value="${socials.telegramUrl || ''}">
+                 <small class="form-hint">${t('telegram_channel_url_desc')}</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">${t('telegram_channel_id')}</label>
+                <input type="text" id="social-id" class="form-control" value="${socials.telegramChannelId || ''}">
+                <small class="form-hint">${t('telegram_channel_id_desc')}</small>
             </div>
         `;
-        const footer = `<button class="btn" data-bs-dismiss="modal">${t('cancel')}</button><button class="btn btn-primary" id="save-socials-btn">${t('save')}</button>`;
-        const modalInstance = renderModal('socials-modal', title, body, footer);
-        
+
+        const footer = `
+            <button type="button" class="btn" data-bs-dismiss="modal">${t('cancel')}</button>
+            <button type="button" class="btn btn-primary" id="save-socials-btn">${t('save')}</button>`;
+
+        const modalInstance = renderModal('socials-modal', isYoutube ? t('edit_youtube_settings') : t('edit_telegram_settings'), body, footer);
+
         document.getElementById('save-socials-btn').onclick = () => {
-            localConfig.socials[`${socialType}Url`] = document.getElementById('social-url').value;
-            localConfig.socials[`${socialType}ChannelId`] = document.getElementById('social-id').value;
+            const url = document.getElementById('social-url').value;
+            const id = document.getElementById('social-id').value;
+            if (isYoutube) {
+                localConfig.socials.youtubeUrl = url;
+                localConfig.socials.youtubeChannelId = id;
+            } else {
+                localConfig.socials.telegramUrl = url;
+                localConfig.socials.telegramChannelId = id;
+            }
             modalInstance.hide();
-            render();
-            saveMainButton.classList.remove('d-none');
+            renderDashboard();
         };
     };
     
-    // --- EVENT LISTENERS & HANDLERS ---
-    const handleTabClick = async (e) => {
-        const button = e.target.closest('.tab-button');
-        if (button && button.dataset.tab !== activeTab) {
-            activeTab = button.dataset.tab;
-            render();
-        }
-    };
-    
-    const init = async () => {
-        showLoading();
-        // Load core config first
-        localConfig = await fetchData('config');
-        if (!localConfig) {
-            tabContainer.innerHTML = `<div class="alert alert-danger">Failed to load core configuration. App cannot start.</div>`;
-            return;
-        }
-
-        render();
-        applyTranslationsToDOM();
-    };
-
-    // --- MAIN EXECUTION ---
-    init();
-
-    // Event Delegation
+    // --- EVENT LISTENERS ---
     document.body.addEventListener('click', async (e) => {
-        const target = e.target;
-        const button = target.closest('[data-action]');
-        if (!button) return;
+        const target = e.target.closest('[data-action]');
+        if (!target) return;
 
-        const action = button.dataset.action;
-        
+        const { action, key, index, id, col, social } = target.dataset;
+
         switch (action) {
-            case 'player-details':
-                renderPlayerDetailsModal(button.dataset.id);
-                break;
-            case 'delete-player':
-                 if (confirm(t('confirm_delete_player'))) {
-                    await deleteData(`player/${button.dataset.id}`);
-                    renderPlayers();
+            case 'delete-config':
+                if (confirm(t('confirm_delete'))) {
+                    localConfig[key].splice(index, 1);
+                    renderConfigTable(key);
                 }
+                break;
+            case 'add-config':
+                renderConfigForm(key);
                 break;
             case 'edit-config':
-            case 'add-config':
-                 const key = button.dataset.key;
-                 const index = button.dataset.index;
-                 renderConfigForm(key, index ? parseInt(index, 10) : undefined);
-                 break;
-            case 'delete-config':
-                 if (confirm(t('confirm_delete'))) {
-                     localConfig[button.dataset.key].splice(button.dataset.index, 1);
-                     render();
-                 }
-                 break;
-            case 'reset-progress':
-                 if (confirm(t('confirm_reset_progress'))) {
-                    const res = await postData(`player/${button.dataset.id}/reset-progress`);
-                    alert(res ? t('progress_reset_success') : t('error_resetting_progress'));
-                    renderCheaters();
+                renderConfigForm(key, Number(index));
+                break;
+            case 'translate-field':
+                e.preventDefault();
+                target.disabled = true;
+                target.innerHTML = `<span class="spinner-border spinner-border-sm"></span> ${t('translation_in_progress')}`;
+                try {
+                    const enInput = document.querySelector(`[data-lang-col="${col}"][data-lang="en"]`);
+                    const textToTranslate = enInput.value;
+                    const res = await postData('translate-text', { text: textToTranslate, targetLangs: ['ru', 'ua'] });
+                    if (res && res.translations) {
+                        document.querySelector(`[data-lang-col="${col}"][data-lang="ru"]`).value = res.translations.ru || '';
+                        document.querySelector(`[data-lang-col="${col}"][data-lang="ua"]`).value = res.translations.ua || '';
+                    } else {
+                        alert(t('translation_error'));
+                    }
+                } catch (error) {
+                    console.error('Translation error:', error);
+                    alert(t('translation_error'));
+                } finally {
+                    target.disabled = false;
+                    target.textContent = t('translate');
                 }
                 break;
-            case 'view-cheat-log':
-                const cheaters = await fetchData('cheaters');
-                const cheater = cheaters.find(c => c.id === button.dataset.id);
-                renderCheatLogModal(cheater);
+            case 'delete-player':
+                if (confirm(t('confirm_delete_player'))) {
+                    const res = await deleteData(`player/${id}`);
+                    if (res) renderPlayers();
+                }
                 break;
-            case 'edit-socials':
-                renderSocialsModal(button.dataset.social);
+            case 'player-details':
+                renderPlayerDetailsModal(id);
+                break;
+            case 'view-cheat-log':
+                renderCheatLogModal(id);
+                break;
+            case 'reset-progress':
+                if (confirm(t('confirm_reset_progress'))) {
+                    const res = await postData(`player/${id}/reset-progress`);
+                    if (res) { alert(t('progress_reset_success')); renderCheaters(); }
+                    else { alert(t('error_resetting_progress')); }
+                }
+                break;
+            case 'force-start-battle':
+                await postData('battle/force-start');
+                renderCellConfiguration();
+                break;
+            case 'force-end-battle':
+                await postData('battle/force-end');
+                renderCellConfiguration();
                 break;
             case 'send-broadcast':
                 const text = document.getElementById('broadcast-text').value;
                 const imageUrl = document.getElementById('broadcast-image-url').value;
                 const buttonUrl = document.getElementById('broadcast-button-url').value;
                 const buttonText = document.getElementById('broadcast-button-text').value;
-            
-                if (!text.trim()) {
+
+                if (!text) {
                     alert(t('message_text_required'));
                     return;
                 }
@@ -1191,169 +1241,123 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert(t('button_requires_url_and_text'));
                     return;
                 }
-            
+                
                 if (confirm(t('confirm_broadcast'))) {
-                    button.disabled = true;
-                    button.querySelector('span').textContent = t('sending_broadcast');
+                    target.disabled = true;
+                    target.innerHTML = `<span class="spinner-border spinner-border-sm"></span> ${t('sending_broadcast')}`;
                     const res = await postData('broadcast-message', { text, imageUrl, buttonUrl, buttonText });
-                    button.disabled = false;
-                    button.querySelector('span').textContent = t('send_broadcast');
-                    if (res) {
-                        alert(res.message);
-                    }
+                    if(res) alert(res.message);
+                    target.disabled = false;
+                    target.innerHTML = `<svg ...</svg> ${t('send_broadcast')}`;
                 }
                 break;
-             case 'force-start-battle':
-                const startRes = await postData('battle/force-start');
-                if (startRes?.ok) {
-                    alert('Battle started!');
-                    renderBattleStatus();
-                }
-                break;
-            case 'force-end-battle':
-                const endRes = await postData('battle/force-end');
-                 if (endRes?.ok) {
-                    alert('Battle ended!');
-                    renderBattleStatus();
-                }
-                break;
-            case 'translate-field':
-                e.preventDefault();
-                const colName = button.dataset.col;
-                const form = button.closest('.modal-body');
-                const sourceInput = form.querySelector(`[data-lang-col="${colName}"][data-lang="en"]`);
-                const textToTranslate = sourceInput.value;
-                if (!textToTranslate.trim()) {
-                    alert('Please enter text in the English field first.');
-                    return;
-                }
-            
-                button.disabled = true;
-                button.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${t('translation_in_progress')}`;
-            
-                const targetLangs = ['ru', 'ua'];
-                const targetInputs = {};
-                targetLangs.forEach(lang => {
-                    targetInputs[lang] = form.querySelector(`[data-lang-col="${colName}"][data-lang="${lang}"]`);
-                });
-            
-                try {
-                    const result = await postData('translate-text', { text: textToTranslate, targetLangs });
-                    if (result && result.translations) {
-                        targetLangs.forEach(lang => {
-                            if (targetInputs[lang] && result.translations[lang]) {
-                                if(targetInputs[lang].value.trim() === '') { // Only fill empty fields
-                                    targetInputs[lang].value = result.translations[lang];
-                                }
-                            }
-                        });
-                    } else {
-                        throw new Error(result?.error || 'No translations returned.');
-                    }
-                } catch (err) {
-                    alert(`${t('translation_error')}: ${err.message}`);
-                } finally {
-                    button.disabled = false;
-                    button.innerHTML = t('translate');
-                }
+            case 'edit-socials':
+                renderSocialsModal(social);
                 break;
         }
     });
 
-    document.body.addEventListener('change', (e) => {
+    document.body.addEventListener('input', (e) => {
         const target = e.target;
-        
-        // Config change in cell config page
-        const configKey = target.dataset.configKey;
-        if (configKey) {
-            const subKey = target.dataset.subKey;
-            let value = target.value;
-            
-            if (configKey === 'informantProfitBonus' || configKey === 'cellBankProfitShare') {
-                value = parseFloat(target.value) / 100;
-            } else if (target.type === 'number' || subKey === 'dayOfWeek' || subKey === 'startHourUTC' || subKey === 'durationHours') {
-                 value = parseFloat(target.value);
-            }
+        if (!target) return;
 
-            if (subKey) {
-                if (!localConfig[configKey]) localConfig[configKey] = {};
-                localConfig[configKey][subKey] = value;
-            } else {
-                localConfig[configKey] = value;
-            }
-             saveMainButton.classList.remove('d-none');
+        // --- Live search for players ---
+        if (target.id === 'player-search') {
+            const searchTerm = target.value.toLowerCase();
+            const filteredPlayers = allPlayers.filter(p => 
+                p.id.toLowerCase().includes(searchTerm) || p.name.toLowerCase().includes(searchTerm)
+            );
+            document.getElementById('players-table-body').innerHTML = generatePlayerRows(filteredPlayers);
             return;
         }
 
-        // Daily events
-        if (target.id === 'cipher-word-input') dailyEvent.cipher_word = target.value;
-        if (target.id === 'combo-reward-input') dailyEvent.combo_reward = parseInt(target.value);
-        if (target.id === 'cipher-reward-input') dailyEvent.cipher_reward = parseInt(target.value);
+        // --- Live updates for Daily Events ---
         if (target.classList.contains('combo-card-select')) {
-            const selects = Array.from(document.querySelectorAll('.combo-card-select'));
-            dailyEvent.combo_ids = selects.map(s => s.value).filter(v => v);
+            const selects = document.querySelectorAll('.combo-card-select');
+            dailyEvent.combo_ids = Array.from(selects).map(s => s.value).filter(Boolean);
+            return;
+        }
+        if (target.id === 'cipher-word-input') {
+            dailyEvent.cipher_word = target.value;
+            return;
+        }
+        if (target.id === 'combo-reward-input') {
+            dailyEvent.combo_reward = Number(target.value) || 0;
+            return;
+        }
+        if (target.id === 'cipher-reward-input') {
+            dailyEvent.cipher_reward = Number(target.value) || 0;
+            return;
         }
 
-        // Loading screen URL
-        if (target.id === 'loadingScreenUrl') {
-            localConfig.loadingScreenImageUrl = target.value;
+        // --- Live updates for generic config fields ---
+        const key = target.dataset.key;
+        if (key && localConfig.hasOwnProperty(key)) {
+             localConfig[key] = target.value;
+             if (target.type === 'number') {
+                localConfig[key] = Number(target.value) || 0;
+             }
         }
         
-        // UI Icons
-        const iconGroup = target.dataset.group;
-        const iconKey = target.dataset.key;
-        if (iconKey) {
-            if(iconGroup === 'nav') {
-                localConfig.uiIcons.nav[iconKey] = target.value;
-            } else {
-                localConfig.uiIcons[iconKey] = target.value;
-            }
+        // --- Live updates for UI Icons ---
+        const groupKey = target.dataset.group;
+        if (groupKey) {
+            localConfig.uiIcons[groupKey][key] = target.value;
+            const img = target.nextElementSibling.querySelector('img');
+            if (img) img.src = target.value;
+        } else if (key && localConfig.uiIcons && localConfig.uiIcons.hasOwnProperty(key)) {
+            localConfig.uiIcons[key] = target.value;
             const img = target.nextElementSibling.querySelector('img');
             if (img) img.src = target.value;
         }
         
-        // For settings page with generic fields
-        const genericKey = target.dataset.key;
-        if(genericKey && configMeta.cellSettings.fields.includes(genericKey)) {
-             localConfig[genericKey] = parseFloat(target.value);
-        }
-
-        if (target.closest('.card')) {
-            saveMainButton.classList.remove('d-none');
-        }
-    });
-    
-    document.body.addEventListener('input', (e) => {
-        const target = e.target;
-        if (target.id === 'player-search') {
-            const searchTerm = target.value.toLowerCase();
-            const filteredPlayers = allPlayers.filter(p => p.id.includes(searchTerm) || p.name.toLowerCase().includes(searchTerm));
-            document.getElementById('players-table-body').innerHTML = generatePlayerRows(filteredPlayers);
-        }
-    });
-    
-    // Switch lang
-    document.querySelectorAll('.lang-select-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            const newLang = e.currentTarget.dataset.lang;
-            if (newLang !== currentLang) {
-                currentLang = newLang;
-                localStorage.setItem('adminLang', newLang);
-                render();
+        // --- Live updates for special config sections (Cell config, etc)
+        const configKey = target.dataset.configKey;
+        const subKey = target.dataset.subKey;
+        if (configKey) {
+            if (subKey) {
+                 if (!localConfig[configKey]) localConfig[configKey] = {};
+                 let value = target.value;
+                 if (target.type === 'number' || target.tagName === 'SELECT') {
+                    value = Number(target.value)
+                 }
+                 localConfig[configKey][subKey] = value;
+            } else {
+                 if(target.type === 'number'){
+                    localConfig[configKey] = parseFloat(target.value) / 100;
+                 }
             }
-        });
+        }
     });
 
-    document.querySelector('.navbar-nav').addEventListener('click', handleTabClick);
-    saveMainButton.addEventListener('click', saveAllChanges);
-});
+    saveMainButton.onclick = saveAllChanges;
 
-// Helper for icon paths - replace with your actual icon paths or a library
-window.tablerIcons = {
-    'users': '<path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /><path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /><path d="M21 21v-2a4 4 0 0 0 -3 -3.85" />',
-    'user-plus': '<path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M16 19h6" /><path d="M19 16v6" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4" />',
-    'wifi': '<path d="M12 18l.01 0" /><path d="M9.172 15.172a4 4 0 0 1 5.656 0" /><path d="M6.343 12.343a8 8 0 0 1 11.314 0" /><path d="M3.515 9.515c4.686 -4.687 12.284 -4.687 17 0" />',
-    'trending-up': '<path d="M3 17l6 -6l4 4l8 -8" /><path d="M14 7l7 0l0 7" />',
-    'star': '<path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z" />',
-};
+    const init = async () => {
+        showLoading();
+        document.querySelectorAll('.tab-button').forEach(btn => btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            activeTab = btn.dataset.tab;
+            window.location.hash = activeTab; // Update hash for deep linking
+            render();
+        }));
+        
+        document.querySelectorAll('.lang-select-btn').forEach(btn => btn.addEventListener('click', (e) => {
+             e.preventDefault();
+             currentLang = btn.dataset.lang;
+             localStorage.setItem('adminLang', currentLang);
+             applyTranslationsToDOM();
+        }));
+
+        localConfig = await fetchData('config');
+
+        // Check hash on load
+        const hash = window.location.hash.substring(1);
+        if (hash && (configMeta[hash] || ['dashboard', 'players', 'cheaters', 'dailyEvents', 'cellAnalytics', 'cellConfiguration'].includes(hash))) {
+            activeTab = hash;
+        }
+        
+        render();
+    };
+
+    init();
+});

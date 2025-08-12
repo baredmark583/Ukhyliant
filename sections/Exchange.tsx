@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import CircularProgressBar from '../components/CircularProgressBar';
 import { PlayerState, League, User, GameConfig } from '../types';
@@ -179,12 +180,11 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
           <CircularProgressBar value={energy} max={effectiveMaxEnergy} labelKey="energy" iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={60} strokeWidth={6} />
           <CircularProgressBar value={suspicion} max={100} labelKey="suspicion" iconUrl={config.uiIcons.suspicion} color="#f87171" size={60} strokeWidth={6} />
           <button onClick={onOpenLeaderboard} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
-              {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-6 h-6 mb-0.5" />}
-              <span className="text-[10px] font-bold text-[var(--text-secondary)] leading-tight">{t('league')}</span>
+              {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-8 h-8" />}
           </button>
           <button onClick={handleSwitchLanguage} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
-              <img src="https://api.iconify.design/ph/globe-bold.svg?color=white" alt="Language" className="w-6 h-6 mb-0.5"/>
-              <span className="text-[10px] font-bold text-white leading-tight">{user.language.toUpperCase()}</span>
+              <img src="https://api.iconify.design/ph/globe-bold.svg?color=white" alt="Language" className="w-8 h-8"/>
+              <span className="text-xs font-bold text-white leading-tight">{user.language.toUpperCase()}</span>
           </button>
       </div>
 
@@ -195,7 +195,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             
             {/* Clickable Coin Area */}
             <div
-                className="relative cursor-pointer select-none w-full max-w-[280px] sm:max-w-xs aspect-square border-2 border-slate-700/50 rounded-full flex items-center justify-center p-4 my-auto shadow-inner bg-slate-900/50"
+                className="relative cursor-pointer select-none w-full max-w-[224px] aspect-square border-2 border-slate-700/50 rounded-full flex items-center justify-center p-4 my-auto shadow-inner bg-slate-900/50"
                 onMouseDown={handlePressStart}
                 onMouseUp={handlePressEnd}
                 onTouchStart={handlePressStart}

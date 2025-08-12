@@ -236,7 +236,7 @@ export const initializeDb = async () => {
              config.socials = initialSocials; 
              needsUpdate = true; 
         }
-        if (!config.uiIcons || !config.uiIcons.suspicion) { 
+        if (!config.uiIcons || !config.uiIcons.suspicion || !config.uiIcons.profile_tabs) { 
             config.uiIcons = INITIAL_UI_ICONS; 
             needsUpdate = true; 
         }

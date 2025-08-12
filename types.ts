@@ -126,6 +126,13 @@ export interface UiIcons {
     profile: string;
     airdrop: string;
   };
+  profile_tabs: {
+    contacts: string;
+    boosts: string;
+    skins: string;
+    market: string;
+    cell: string;
+  };
   energy: string;
   coin: string;
   star: string;
