@@ -21,7 +21,7 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
 
   if (!config.dailyEvent || combo_ids.length !== 3) {
       return (
-        <div className="mb-4 p-2 neumorphic-raised rounded-2xl text-center flex-shrink-0">
+        <div className="mb-4 p-2 card-glow rounded-2xl text-center flex-shrink-0">
             <h2 className="text-base font-display text-[var(--accent-color)]">{t('daily_combo')}</h2>
             <p className="text-[var(--text-secondary)] text-xs">{t('combo_not_active')}</p>
         </div>
@@ -33,7 +33,7 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
   const isClaimed = playerState.claimedComboToday;
 
   return (
-    <div className="mb-4 p-2 neumorphic-raised rounded-2xl flex-shrink-0">
+    <div className="mb-4 p-2 card-glow rounded-2xl flex-shrink-0">
         <div className="flex flex-col sm:flex-row justify-between items-center text-center sm:text-left gap-2">
             <div className="flex-shrink-0 w-full sm:w-auto sm:pr-4">
                 <h2 className="text-base font-display text-[var(--accent-color)]">{t('daily_combo')}</h2>
@@ -44,7 +44,7 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
                     const isUpgradedToday = upgradedCardsToday.includes(id);
                     const upgrade = upgrades.find(u => u.id === id);
                     return (
-                        <div key={index} className="w-10 h-10 neumorphic-pressed rounded-lg flex items-center justify-center p-0.5">
+                        <div key={index} className="w-10 h-10 bg-slate-900/50 shadow-inner rounded-lg flex items-center justify-center p-0.5">
                             {isUpgradedToday && upgrade ? (
                                 <img src={upgrade.iconUrl} alt={upgrade.name?.[lang]} className="w-full h-full object-contain" />
                             ) : (
@@ -56,14 +56,14 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
             </div>
             <div className="flex-shrink-0 w-full sm:w-28 sm:pl-4">
                 {isClaimed ? (
-                    <button disabled className="w-full py-2 font-bold text-xs neumorphic-pressed rounded-lg text-gray-500 cursor-not-allowed text-center">
+                    <button disabled className="w-full py-2 font-bold text-xs bg-slate-900/50 shadow-inner rounded-lg text-gray-500 cursor-not-allowed text-center">
                         {t('claimed_today')}
                     </button>
                 ) : (
                     <button
                         onClick={onClaimCombo}
                         disabled={!allComboCardsUpgradedToday}
-                        className="w-full py-2 font-bold text-xs text-white neumorphic-raised-button rounded-lg bg-[var(--accent-color-glow)] text-center"
+                        className="w-full py-2 font-bold text-xs text-white interactive-button rounded-lg bg-[var(--accent-color-glow)] text-center disabled:bg-slate-800 disabled:text-slate-500 disabled:border-slate-700"
                     >
                         {t('claim_reward')}
                     </button>
@@ -110,8 +110,8 @@ const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang
                             onClick={() => setActiveCategory(category)}
                             className={`px-3 py-1.5 text-sm font-bold whitespace-nowrap rounded-lg transition-all ${
                                 isActive
-                                    ? 'neumorphic-pressed text-[var(--accent-color)]'
-                                    : 'neumorphic-raised-button text-[var(--text-secondary)]'
+                                    ? 'bg-slate-900 shadow-inner text-[var(--accent-color)]'
+                                    : 'interactive-button text-[var(--text-secondary)]'
                             }`}
                         >
                             {category}

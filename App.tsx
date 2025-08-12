@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -73,7 +74,7 @@ const TabButton = ({ label, isActive, onClick }: { label: string, isActive: bool
     <button
         onClick={onClick}
         className={`px-4 py-2 text-sm font-bold transition-all flex-1 text-center rounded-lg ${
-            isActive ? 'neumorphic-pressed text-[var(--accent-color)]' : 'text-[var(--text-secondary)] hover:text-white'
+            isActive ? 'bg-slate-900 shadow-inner text-[var(--accent-color)]' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
         }`}
     >
         {label}
@@ -104,25 +105,25 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
         };
         return (
             <div className="w-full max-w-md space-y-4 text-center">
-                <div className="neumorphic-raised p-4 rounded-xl">
+                <div className="card-glow p-4 rounded-xl">
                     <p className="text-[var(--text-secondary)] text-lg">{t('your_referrals')}</p>
                     <p className="text-5xl font-display my-1">{playerState.referrals}</p>
                 </div>
-                <div className="neumorphic-raised p-4 rounded-xl">
+                <div className="card-glow p-4 rounded-xl">
                     <p className="text-[var(--text-secondary)] text-lg">{t('referral_bonus')}</p>
                     <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2">
                         <span>+{REFERRAL_BONUS.toLocaleString()}</span>
                         <img src={config.uiIcons.coin} alt="coin" className="w-6 h-6" />
                     </p>
                 </div>
-                 <div className="neumorphic-raised p-4 rounded-xl">
+                 <div className="card-glow p-4 rounded-xl">
                     <p className="text-[var(--text-secondary)] text-lg">{t('profit_from_referrals')}</p>
                     <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2 text-[var(--accent-color)]">
                         <span>+{formatNumber(playerState.referralProfitPerHour)}/hr</span>
                         <img src={config.uiIcons.energy} alt="energy" className="w-6 h-6" />
                     </p>
                 </div>
-                <button onClick={handleCopyReferral} className="w-full neumorphic-raised-button text-white font-bold py-3 px-4 text-lg">
+                <button onClick={handleCopyReferral} className="w-full interactive-button text-white font-bold py-3 px-4 text-lg rounded-lg">
                     {copied ? t('copied') : t('invite_friends')}
                 </button>
             </div>
@@ -138,7 +139,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                     {unlockedSkins.map(skin => {
                         const isSelected = playerState.currentSkinId === skin.id;
                         return (
-                            <div key={skin.id} className={`neumorphic-raised rounded-xl p-3 flex flex-col items-center text-center ${isSelected ? 'border-2 border-[var(--accent-color)]' : ''}`}>
+                            <div key={skin.id} className={`card-glow rounded-xl p-3 flex flex-col items-center text-center transition-all ${isSelected ? 'border-2 border-[var(--accent-color)]' : ''}`}>
                                 <div className="w-16 h-16 mb-2 flex items-center justify-center">
                                     <img src={skin.iconUrl} alt={skin.name[user.language]} className="w-full h-full object-contain" />
                                 </div>
@@ -147,7 +148,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                                 <button
                                     onClick={() => onSetSkin(skin.id)}
                                     disabled={isSelected}
-                                    className="w-full mt-2 py-1 text-xs font-bold neumorphic-raised-button disabled:neumorphic-pressed disabled:text-black"
+                                    className="w-full mt-2 py-1 text-xs font-bold interactive-button rounded-md disabled:bg-slate-900 disabled:shadow-inner disabled:text-slate-500"
                                 >
                                     {isSelected ? t('selected') : t('select_skin')}
                                 </button>
@@ -162,22 +163,22 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
     const MarketContent = () => (
         <div className="w-full max-w-md space-y-6">
             <p className="text-center text-[var(--text-secondary)] max-w-xs mx-auto">{t('black_market_desc')}</p>
-            <div className="neumorphic-raised rounded-2xl p-6 text-center">
+            <div className="card-glow rounded-2xl p-6 text-center">
                 <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
                     <img src={config.uiIcons.marketCoinBox} alt={t('lootbox_coin')} className="w-full h-full object-contain" />
                 </div>
                 <h2 className="text-2xl font-display mb-2">{t('lootbox_coin')}</h2>
-                <button onClick={() => onOpenCoinLootbox('coin')} className="w-full neumorphic-raised-button font-bold py-3 px-4 text-lg flex items-center justify-center space-x-2">
+                <button onClick={() => onOpenCoinLootbox('coin')} className="w-full interactive-button rounded-lg font-bold py-3 px-4 text-lg flex items-center justify-center space-x-2">
                     <span>{t('open_for')} {(config.lootboxCostCoins || 0).toLocaleString()}</span>
                     <img src={config.uiIcons.coin} alt="coin" className="w-6 h-6" />
                 </button>
             </div>
-            <div className="neumorphic-raised rounded-2xl p-6 text-center">
+            <div className="card-glow rounded-2xl p-6 text-center">
                  <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
                     <img src={config.uiIcons.marketStarBox} alt={t('lootbox_star')} className="w-full h-full object-contain" />
                 </div>
                 <h2 className="text-2xl font-display mb-2">{t('lootbox_star')}</h2>
-                <button onClick={() => onPurchaseStarLootbox('star')} className="w-full neumorphic-raised-button font-bold py-3 px-4 text-lg flex items-center justify-center space-x-2">
+                <button onClick={() => onPurchaseStarLootbox('star')} className="w-full interactive-button rounded-lg font-bold py-3 px-4 text-lg flex items-center justify-center space-x-2">
                     <span>{t('open_for')} {(config.lootboxCostStars || 0)}</span>
                     <img src={config.uiIcons.star} alt="star" className="w-6 h-6" />
                 </button>
@@ -189,7 +190,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
         <div className="flex flex-col h-full text-white pt-4 px-4 items-center">
             <div className="w-full max-w-md sticky top-0 bg-[var(--bg-color)] py-4 z-10">
                 <h1 className="text-3xl font-display text-center mb-4">{t('profile')}</h1>
-                <div className="neumorphic-pressed rounded-xl p-1 flex flex-col gap-1">
+                <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex flex-col gap-1 border border-slate-700">
                     <div className="flex gap-1">
                         <TabButton label={t('sub_contacts')} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
                         <TabButton label={t('sub_boosts')} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
@@ -247,12 +248,12 @@ const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedTasks, 
     
     const getButton = () => {
         if (isCompleted) {
-            return <button disabled className="neumorphic-pressed font-bold py-2 px-4 text-sm w-full text-center text-[var(--text-secondary)]">{t('completed')}</button>;
+            return <button disabled className="bg-slate-900 shadow-inner rounded-lg font-bold py-2 px-4 text-sm w-full text-center text-[var(--text-secondary)]">{t('completed')}</button>;
         }
 
         if (!isDaily && (task as SpecialTask).priceStars > 0 && !isPurchased && onPurchase) {
             return (
-                <button onClick={() => onPurchase(task as SpecialTask)} className="neumorphic-raised-button font-bold py-2 px-3 text-sm flex items-center justify-center space-x-1.5 w-full">
+                <button onClick={() => onPurchase(task as SpecialTask)} className="interactive-button rounded-lg font-bold py-2 px-3 text-sm flex items-center justify-center space-x-1.5 w-full">
                     <span>{t('unlock_for')} {(task as SpecialTask).priceStars}</span>
                     <img src={uiIcons.star} alt="star" className="w-4 h-4"/>
                 </button>
@@ -267,7 +268,7 @@ const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedTasks, 
         }
 
         return (
-            <button onClick={() => onClaim(task)} disabled={claimIsDisabled} className="neumorphic-raised-button font-bold py-2 px-4 text-sm w-full text-center disabled:opacity-50 disabled:cursor-not-allowed">
+            <button onClick={() => onClaim(task)} disabled={claimIsDisabled} className="interactive-button rounded-lg font-bold py-2 px-4 text-sm w-full text-center disabled:opacity-50 disabled:cursor-not-allowed">
                 {progressDisplay || buttonText}
             </button>
         );
@@ -276,11 +277,11 @@ const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedTasks, 
     const rewardIconUrl = task.reward?.type === 'profit' ? uiIcons.energy : uiIcons.coin;
     
     return (
-         <div className={`neumorphic-raised rounded-2xl p-3 flex flex-col justify-between min-h-48 space-y-4 transition-opacity ${isCompleted ? 'opacity-60' : ''}`}>
+         <div className={`card-glow bg-slate-800/50 rounded-2xl p-3 flex flex-col justify-between min-h-48 space-y-4 transition-opacity ${isCompleted ? 'opacity-60' : ''}`}>
             <div className="flex-grow min-w-0">
                 <div className="flex items-start space-x-3 mb-2">
                     {task.imageUrl && (
-                        <div className="neumorphic-pressed rounded-lg p-1 w-14 h-14 flex-shrink-0">
+                        <div className="bg-slate-900/50 shadow-inner rounded-lg p-1 w-14 h-14 flex-shrink-0">
                             <img src={task.imageUrl} alt={task.name?.[lang]} className="w-full h-full object-contain" />
                         </div>
                     )}
@@ -388,14 +389,14 @@ const LeaderboardScreen: React.FC<{
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex flex-col p-4" onClick={onClose}>
-            <div className="neumorphic-raised rounded-2xl w-full max-w-lg mx-auto flex flex-col p-4" onClick={e => e.stopPropagation()}>
+            <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-lg mx-auto flex flex-col p-4" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-display text-white">{t('leaderboard')}</h2>
                     <button onClick={onClose} className="text-gray-400 text-3xl font-light">&times;</button>
                 </div>
                 {loading ? <p className="text-center text-[var(--text-secondary)] py-8">{t('loading')}</p> : (
                     <>
-                        <div className="neumorphic-pressed rounded-xl p-3 mb-4 flex justify-between items-center">
+                        <div className="bg-slate-900/50 shadow-inner rounded-xl p-3 mb-4 flex justify-between items-center">
                             <div>
                                 <p className="text-sm text-[var(--text-secondary)]">{t('your_league')}</p>
                                 <p className="font-bold text-lg text-white">{currentLeague?.name[user.language] || 'N/A'}</p>
@@ -407,7 +408,7 @@ const LeaderboardScreen: React.FC<{
                         </div>
                         <div className="overflow-y-auto space-y-2" style={{maxHeight: '60vh'}}>
                             {data?.topPlayers.map((player, index) => (
-                                <div key={player.id} className="neumorphic-pressed rounded-lg p-2 flex items-center space-x-3 text-sm">
+                                <div key={player.id} className="bg-slate-900/30 rounded-lg p-2 flex items-center space-x-3 text-sm">
                                     <span className="font-bold w-6 text-center">{index + 1}</span>
                                     <img src={player.leagueIconUrl} alt="league" className="w-8 h-8"/>
                                     <span className="flex-grow font-semibold text-white truncate">{player.name}</span>
@@ -436,16 +437,16 @@ const PurchaseResultModal: React.FC<{
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="neumorphic-raised rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" onClick={e => e.stopPropagation()}>
+            <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" onClick={e => e.stopPropagation()}>
                 <h2 className="text-xl font-bold text-white mb-4">{title}!</h2>
-                <div className="w-32 h-32 mb-4 neumorphic-pressed rounded-2xl p-2 flex items-center justify-center">
+                <div className="w-32 h-32 mb-4 bg-slate-900/50 shadow-inner rounded-2xl p-2 flex items-center justify-center">
                     <img src={item.iconUrl || item.imageUrl} alt={item.name[lang]} className="w-full h-full object-contain" />
                 </div>
                 <p className="text-lg font-bold text-white mb-2">{item.name[lang]}</p>
                 {isLootboxItem && 'profitBoostPercent' in item && item.profitBoostPercent > 0 && <p className="text-[var(--accent-color)]">+{item.profitBoostPercent}% {t('profit_boost')}</p>}
                 {isLootboxItem && 'profitPerHour' in item && <p className="text-[var(--accent-color)]">+{item.profitPerHour.toLocaleString()}/hr</p>}
                 
-                <button onClick={onClose} className="w-full neumorphic-raised-button font-bold py-3 mt-6 text-lg">
+                <button onClick={onClose} className="w-full interactive-button rounded-lg font-bold py-3 mt-6 text-lg">
                     {t('close')}
                 </button>
             </div>
@@ -615,12 +616,12 @@ const MainApp: React.FC = () => {
       return (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
               <div 
-                className="neumorphic-raised rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" 
+                className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" 
                 onClick={e => e.stopPropagation()}
               >
                   <h2 className="text-2xl font-display text-red-400 mb-4">{t('penalty_title')}</h2>
                   <p className="text-lg text-white text-center mb-6">"{message}"</p>
-                  <button onClick={onClose} className="w-full neumorphic-raised-button font-bold py-3 mt-2 text-lg">
+                  <button onClick={onClose} className="w-full interactive-button rounded-lg font-bold py-3 mt-2 text-lg">
                       {t('penalty_close')}
                   </button>
               </div>
@@ -671,16 +672,16 @@ const MainApp: React.FC = () => {
   const NavItem = ({ screen, label, iconUrl, active }: { screen: Screen, label: string, iconUrl: string, active: boolean }) => (
     <button
       onClick={() => setActiveScreen(screen)}
-      className={`flex flex-col items-center justify-center text-xs w-full pt-2 pb-1 transition-colors duration-200 group ${active ? 'text-[var(--accent-color)]' : 'text-[var(--text-secondary)]'}`}
+      className={`flex flex-col items-center justify-center text-xs w-full pt-2 pb-1 transition-colors duration-200 group ${active ? 'text-[var(--accent-color)]' : 'text-slate-400 hover:text-white'}`}
     >
-        <div className={`w-12 h-8 flex items-center justify-center rounded-full transition-all duration-200 ${active ? 'neumorphic-pressed' : ''}`}>
+        <div className={`w-12 h-8 flex items-center justify-center rounded-full transition-all duration-200 ${active ? 'bg-slate-700/50' : ''}`}>
             <img 
                 src={iconUrl} 
                 alt={label} 
                 className={`w-7 h-7 transition-all duration-200 ${active ? 'active-icon' : ''}`} 
             />
         </div>
-        <span className={`transition-opacity duration-200 ${active ? 'opacity-100' : 'opacity-0'}`}>{label}</span>
+        <span className={`transition-opacity duration-200 font-bold ${active ? 'opacity-100' : 'opacity-0'}`}>{label}</span>
     </button>
   );
 
@@ -702,8 +703,8 @@ const MainApp: React.FC = () => {
       {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
       <NotificationToast notification={notification} />
 
-      <nav className="flex-shrink-0 neumorphic-raised-top">
-        <div className="grid grid-cols-5 justify-around items-center max-w-xl mx-auto">
+      <nav className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-t border-slate-700">
+        <div className="grid grid-cols-5 justify-around items-start max-w-xl mx-auto">
           <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} />
           <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} />
           <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} />

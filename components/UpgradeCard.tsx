@@ -32,13 +32,13 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
     <button
       onClick={() => onBuy(upgrade.id)}
       disabled={!canAfford}
-      className={`w-full h-52 p-2 neumorphic-raised-button rounded-2xl flex flex-col justify-between items-center text-center ${
-        !canAfford ? 'opacity-50 cursor-not-allowed' : ''
+      className={`w-full h-52 p-2 card-glow bg-slate-800/50 hover:bg-slate-800 rounded-2xl flex flex-col justify-between items-center text-center transition-all duration-200 ${
+        !canAfford ? 'opacity-50 cursor-not-allowed hover:bg-slate-800/50' : ''
       }`}
     >
       {/* Top section: Icon, Name, Level */}
       <div className="flex flex-col items-center">
-        <div className="neumorphic-pressed rounded-full p-1 w-12 h-12 flex-shrink-0 mb-2">
+        <div className="bg-slate-900/70 rounded-full p-1 w-12 h-12 flex-shrink-0 mb-2 shadow-inner">
           <img src={upgrade.iconUrl} alt={upgrade.name?.[lang]} className="w-full h-full object-contain" />
         </div>
         <p className="text-white font-semibold leading-tight mb-1 h-8 flex items-center justify-center text-responsive-sm">{upgrade.name?.[lang]}</p>
@@ -59,7 +59,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
                 </span>
             )}
         </div>
-        <div className="flex items-center justify-center space-x-1.5 w-full neumorphic-pressed rounded-lg py-1.5 mt-2">
+        <div className="flex items-center justify-center space-x-1.5 w-full bg-slate-900/70 rounded-lg py-1.5 mt-2 shadow-inner">
           <img src={uiIcons.coin} alt="coin" className="w-4 h-4"/>
           <span className="text-white font-bold text-responsive-base">{formatNumber(upgrade.price)}</span>
         </div>

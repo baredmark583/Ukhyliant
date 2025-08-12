@@ -22,7 +22,7 @@ const SecretCodeModal: React.FC<SecretCodeModalProps> = ({ task, onClose, onSubm
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="neumorphic-raised rounded-2xl w-full max-w-sm flex flex-col p-6" onClick={e => e.stopPropagation()}>
+      <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-white truncate pr-4">{task.name?.[lang]}</h2>
           <button onClick={onClose} className="text-gray-400 text-3xl font-light flex-shrink-0">&times;</button>
@@ -35,7 +35,7 @@ const SecretCodeModal: React.FC<SecretCodeModalProps> = ({ task, onClose, onSubm
             type="text"
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
-            className="w-full input-neumorphic mb-4 text-center font-mono tracking-widest text-lg"
+            className="w-full input-field mb-4 text-center font-mono tracking-widest text-lg"
             placeholder="CODE"
             autoFocus
             autoCapitalize="characters"
@@ -43,7 +43,7 @@ const SecretCodeModal: React.FC<SecretCodeModalProps> = ({ task, onClose, onSubm
           <button
             type="submit"
             disabled={!code.trim()}
-            className="w-full neumorphic-raised-button font-bold py-3 text-lg"
+            className="w-full interactive-button rounded-lg font-bold py-3 text-lg"
           >
             {t('check')}
           </button>
