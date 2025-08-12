@@ -276,7 +276,7 @@ const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedTasks, 
     const rewardIconUrl = task.reward?.type === 'profit' ? uiIcons.energy : uiIcons.coin;
     
     return (
-         <div className={`neumorphic-raised rounded-2xl p-3 flex flex-col justify-between h-full space-y-4 transition-opacity ${isCompleted ? 'opacity-60' : ''}`}>
+         <div className={`neumorphic-raised rounded-2xl p-3 flex flex-col justify-between min-h-48 space-y-4 transition-opacity ${isCompleted ? 'opacity-60' : ''}`}>
             <div className="flex-grow min-w-0">
                 <div className="flex items-start space-x-3 mb-2">
                     {task.imageUrl && (
@@ -315,9 +315,9 @@ const MissionsScreen: React.FC<{
         <div className="flex flex-col h-full text-white pt-4 px-4">
             <h1 className="text-3xl font-display text-center mb-6 flex-shrink-0">{t('missions')}</h1>
             <div className="flex-grow overflow-x-auto no-scrollbar -mx-4 px-4">
-                <div className="inline-flex h-full space-x-3 pb-4">
+                <div className="inline-flex space-x-3 pb-4">
                     {tasks.map(task => (
-                        <div key={task.id} className="w-60 h-full flex-shrink-0">
+                        <div key={task.id} className="w-60 flex-shrink-0">
                             <TaskCard
                                 task={task}
                                 playerState={playerState}
@@ -349,9 +349,9 @@ const AirdropScreen: React.FC<{
             <h1 className="text-3xl font-display text-center mb-2 flex-shrink-0">{t('airdrop_tasks')}</h1>
             <p className="text-center text-[var(--text-secondary)] mb-6 flex-shrink-0">{t('airdrop_description')}</p>
             <div className="flex-grow overflow-x-auto no-scrollbar -mx-4 px-4">
-                <div className="inline-flex h-full space-x-3 pb-4">
+                <div className="inline-flex space-x-3 pb-4">
                     {specialTasks.map(task => (
-                       <div key={task.id} className="w-60 h-full flex-shrink-0">
+                       <div key={task.id} className="w-60 flex-shrink-0">
                             <TaskCard
                                 task={task}
                                 playerState={playerState}

@@ -174,7 +174,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   return (
     <div className="flex flex-col h-full text-white p-2 sm:p-4 gap-2">
       {/* Top Section: Info Panel */}
-      <div className="w-full grid grid-cols-4 gap-2 sm:gap-4 p-2 mb-2 text-center flex-shrink-0">
+      <div className="w-full flex items-start justify-between p-2 mb-2 text-center flex-shrink-0">
           <CircularProgressBar value={energy} max={effectiveMaxEnergy} labelKey="energy" iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={60} strokeWidth={6} />
           <CircularProgressBar value={suspicion} max={100} labelKey="suspicion" iconUrl={config.uiIcons.suspicion} color="#f87171" size={60} strokeWidth={6} />
           <button onClick={onOpenLeaderboard} className="neumorphic-raised-button rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
@@ -194,7 +194,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             
             {/* Clickable Coin Area */}
             <div
-                className="relative cursor-pointer select-none w-full max-w-[280px] sm:max-w-xs aspect-square neumorphic-pressed rounded-full flex items-center justify-center p-4 flex-grow my-2"
+                className="relative cursor-pointer select-none w-full max-w-[280px] sm:max-w-xs aspect-square neumorphic-pressed rounded-full flex items-center justify-center p-4 my-auto"
                 onMouseDown={handlePressStart}
                 onMouseUp={handlePressEnd}
                 onTouchStart={handlePressStart}

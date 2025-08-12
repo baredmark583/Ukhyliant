@@ -32,7 +32,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
     <button
       onClick={() => onBuy(upgrade.id)}
       disabled={!canAfford}
-      className={`w-full h-full p-2 neumorphic-raised-button rounded-2xl flex flex-col justify-between items-center text-center ${
+      className={`w-full h-52 p-2 neumorphic-raised-button rounded-2xl flex flex-col justify-between items-center text-center ${
         !canAfford ? 'opacity-50 cursor-not-allowed' : ''
       }`}
     >
