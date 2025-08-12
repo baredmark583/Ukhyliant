@@ -17,21 +17,21 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ value, max, label, iconUrl, o
         {label && (
           <div className="text-center text-sm mb-2">
             {iconUrl && <img src={iconUrl} alt="icon" className="w-6 h-6 mx-auto mb-1" />}
-            <span className="font-bold text-gray-200">{label}</span>
+            <span className="font-bold text-[var(--text-primary)]">{label}</span>
           </div>
         )}
-        <div className="h-full w-3 bg-black/30 border border-gray-600 flex-grow flex flex-col-reverse">
+        <div className="h-full w-4 rounded-full neumorphic-pressed flex-grow flex flex-col-reverse p-0.5">
           <div
-            className="w-full bg-green-500"
+            className="w-full rounded-full neumorphic-raised"
             style={{
               height: `${percentage}%`,
               transition: 'height 0.3s ease-in-out',
-              backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 4px, rgba(0,0,0,0.3) 4px, rgba(0,0,0,0.3) 5px)'
+              background: 'var(--accent-color)'
             }}
           ></div>
         </div>
          {label && (
-            <span className="font-mono text-gray-400 text-xs mt-2">{Math.floor(value)}/{max}</span>
+            <span className="font-mono text-[var(--text-secondary)] text-xs mt-2">{Math.floor(value)}/{max}</span>
          )}
       </div>
     );
@@ -42,20 +42,20 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ value, max, label, iconUrl, o
     <div className="w-full">
       {label && (
         <div className="flex justify-between items-center text-sm mb-1 px-1">
-          <span className="font-bold flex items-center gap-2 text-gray-200">
+          <span className="font-bold flex items-center gap-2 text-[var(--text-primary)]">
             {iconUrl && <img src={iconUrl} alt="icon" className="w-5 h-5" />}
             {label}
           </span>
-          <span className="font-mono text-gray-400">{Math.floor(value)} / {max}</span>
+          <span className="font-mono text-[var(--text-secondary)]">{Math.floor(value)} / {max}</span>
         </div>
       )}
-      <div className="w-full bg-black/30 h-4 border border-gray-600">
+      <div className="w-full h-4 rounded-full neumorphic-pressed p-0.5">
         <div 
-          className="h-full bg-green-500" 
+          className="h-full rounded-full neumorphic-raised" 
           style={{ 
             width: `${percentage}%`, 
             transition: 'width 0.3s ease-in-out',
-            backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(0,0,0,0.3) 4px, rgba(0,0,0,0.3) 5px)'
+            background: 'var(--accent-color)'
           }}
         ></div>
       </div>

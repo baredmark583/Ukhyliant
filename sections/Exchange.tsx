@@ -176,10 +176,10 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   return (
     <div className="flex flex-col h-full text-white pt-4 px-4">
       {/* Top Section: League, Balance, Profit/hr, Language */}
-      <div className="w-full flex items-center justify-between themed-container p-2 text-center flex-shrink-0">
+      <div className="w-full flex items-center justify-between neumorphic-raised rounded-2xl p-2 text-center flex-shrink-0">
           <button onClick={onOpenLeaderboard} className="flex flex-col items-center justify-center p-1 text-center transition-opacity hover:opacity-80">
               {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-10 h-10 mb-1" />}
-              <span className="text-xs text-gray-300">{t('your_league')}</span>
+              <span className="text-xs text-[var(--text-secondary)]">{t('your_league')}</span>
           </button>
 
           <div className="flex flex-col items-center px-2">
@@ -187,14 +187,14 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                     <img src={config.uiIcons.coin} alt="coin" className="w-8 h-8"/>
                     <h1 className="text-3xl font-display">{formatBalance(balance)}</h1>
                 </div>
-                <div className="text-xs text-green-400 mt-1 flex items-center gap-1">
+                <div className="text-xs text-[var(--accent-color)] mt-1 flex items-center gap-1">
                     <img src={config.uiIcons.energy} alt="" className="w-3 h-3"/>
                     <span>+{formatProfit(profitPerHour)}/hr</span>
                 </div>
           </div>
 
           <div className="flex items-center justify-center">
-                <button onClick={handleSwitchLanguage} className="border border-gray-700 hover:border-gray-500 text-white font-bold w-12 h-12 flex items-center justify-center text-sm transition-colors">
+                <button onClick={handleSwitchLanguage} className="neumorphic-raised-button text-white font-bold w-12 h-12 flex items-center justify-center text-sm rounded-full">
                   {user.language.toUpperCase()}
               </button>
           </div>
@@ -202,29 +202,29 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
       {/* Horizontal Daily Cipher Section */}
        {dailyCipherWord && (
-          <div className="w-full themed-container my-2 p-2">
+          <div className="w-full neumorphic-raised rounded-2xl my-2 p-2">
               {claimedCipher ? (
                   <div className="flex items-center justify-center gap-2 h-10">
-                      <h3 className="font-display text-sm text-green-300">{t('daily_cipher')}</h3>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                      <h3 className="font-display text-sm text-[var(--accent-color)]">{t('daily_cipher')}</h3>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color)]" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
-                      <p className="text-green-400 font-bold text-xs">{t('claimed_today')}</p>
+                      <p className="text-[var(--accent-color)] font-bold text-xs">{t('claimed_today')}</p>
                   </div>
               ) : (
                 <>
                   {!morseMode ? (
                       <div className="flex items-center justify-between w-full gap-2 sm:gap-4 h-10">
-                          <h3 className="font-display text-sm sm:text-base text-green-300 flex-shrink-0">{t('daily_cipher')}</h3>
-                          <p className="text-gray-400 text-[11px] sm:text-xs text-center flex-1 min-w-0">{t('cipher_hint')}</p>
-                          <button onClick={() => setMorseMode(true)} className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-2 sm:px-3 text-xs transition-transform active:scale-95 flex-shrink-0 whitespace-nowrap">
+                          <h3 className="font-display text-sm sm:text-base text-[var(--accent-color)] flex-shrink-0">{t('daily_cipher')}</h3>
+                          <p className="text-[var(--text-secondary)] text-[11px] sm:text-xs text-center flex-1 min-w-0">{t('cipher_hint')}</p>
+                          <button onClick={() => setMorseMode(true)} className="neumorphic-raised-button bg-[var(--accent-color-glow)] text-white font-bold py-2 px-2 sm:px-3 text-xs rounded-lg flex-shrink-0 whitespace-nowrap">
                               {t('enter_morse_mode')}
                           </button>
                       </div>
                   ) : (
                       <div className="flex items-center justify-between w-full gap-4 h-10">
-                          <h3 className="font-display text-base text-green-300 flex-shrink-0">{t('daily_cipher')}</h3>
-                          <div className="font-mono text-xl h-10 tracking-widest text-white bg-black/50 border border-gray-600 flex items-center justify-center w-full">
+                          <h3 className="font-display text-base text-[var(--accent-color)] flex-shrink-0">{t('daily_cipher')}</h3>
+                          <div className="font-mono text-xl h-10 tracking-widest text-white neumorphic-pressed rounded-lg flex items-center justify-center w-full">
                               {decodedWord}<span className="text-gray-500">{morseSequence}</span>
                           </div>
                           <button onClick={handleCancelMorse} className="text-xs text-gray-400 hover:text-white flex-shrink-0">
@@ -255,7 +255,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
         {/* Center Area: Coin */}
         <div className="flex-grow flex items-center justify-center min-w-0 p-2">
              <div
-                className="relative cursor-pointer select-none w-full max-w-[280px] sm:max-w-sm aspect-square"
+                className="relative cursor-pointer select-none w-full max-w-[280px] sm:max-w-sm aspect-square neumorphic-pressed rounded-full flex items-center justify-center p-4"
                 onMouseDown={handlePressStart}
                 onMouseUp={handlePressEnd}
                 onTouchStart={handlePressStart}
@@ -268,7 +268,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                     style={{ transform: `scale(${scale})`, transition: 'transform 0.1s cubic-bezier(0.22, 1, 0.36, 1)' }}
                   >
                     {isTurboActive && (
-                    <div className="absolute inset-0 rounded-full animate-pulse-fire" style={{ boxShadow: '0 0 40px 10px var(--accent-green), 0 0 60px 20px var(--accent-green-glow)' }}></div>
+                    <div className="absolute inset-0 rounded-full animate-pulse-fire" style={{ boxShadow: '0 0 40px 10px var(--accent-color), 0 0 60px 20px var(--accent-color-glow)' }}></div>
                     )}
                     <img
                         src={coinSkinUrl}

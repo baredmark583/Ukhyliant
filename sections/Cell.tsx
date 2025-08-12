@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Cell as CellType, Informant, BattleStatus, BattleLeaderboardEntry } from '../types';
 import { useTranslation, useGame, useAuth } from '../hooks/useGameLogic';
@@ -19,11 +18,11 @@ const formatTime = (seconds: number) => {
 const InformantCard: React.FC<{informant: Informant}> = ({informant}) => {
     const t = useTranslation();
     return (
-        <div className="themed-container p-3 space-y-2 text-sm">
+        <div className="neumorphic-raised rounded-xl p-3 space-y-2 text-sm">
             <h4 className="font-bold text-base text-amber-300">{informant.name}</h4>
             <p className="text-gray-300 whitespace-pre-wrap font-mono text-xs">{informant.dossier}</p>
-            <p className="text-gray-400"><span className="font-semibold text-gray-200">Specialization:</span> {informant.specialization}</p>
-             <p className="text-green-400 text-xs font-bold">Effect: +1% profit for all cell members</p>
+            <p className="text-[var(--text-secondary)]"><span className="font-semibold text-gray-200">Specialization:</span> {informant.specialization}</p>
+             <p className="text-[var(--accent-color)] text-xs font-bold">Effect: +1% profit for all cell members</p>
         </div>
     );
 };
@@ -38,7 +37,7 @@ const AccordionSection: React.FC<{
   const [isOpen, setIsOpen] = React.useState(defaultOpen);
 
   return (
-    <div className="themed-container overflow-hidden">
+    <div className="neumorphic-raised rounded-2xl overflow-hidden">
       <button
         className="w-full flex justify-between items-center p-3 text-left font-bold"
         onClick={() => setIsOpen(!isOpen)}
@@ -64,7 +63,7 @@ const AccordionSection: React.FC<{
         className={`transition-all duration-300 ease-in-out grid ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
       >
         <div className="overflow-hidden">
-          <div className="p-3 border-t border-gray-700">{children}</div>
+          <div className="p-3 border-t border-[var(--shadow-dark)]">{children}</div>
         </div>
       </div>
     </div>
@@ -119,20 +118,20 @@ const BattleSection: React.FC<{ cell: CellType, refetchCell: () => void }> = ({ 
 
     const renderLeaderboardModal = () => (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col p-4" onClick={() => setIsLeaderboardOpen(false)}>
-            <div className="themed-container w-full max-w-lg mx-auto flex flex-col p-4" onClick={e => e.stopPropagation()}>
+            <div className="neumorphic-raised rounded-2xl w-full max-w-lg mx-auto flex flex-col p-4" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-display text-white">{t('battle_leaderboard_title')}</h2>
                     <button onClick={() => setIsLeaderboardOpen(false)} className="text-gray-400 text-3xl font-light">&times;</button>
                 </div>
                 {leaderboard ? (
                     <div className="overflow-y-auto space-y-2" style={{maxHeight: '60vh'}}>
-                         <div className="flex items-center space-x-3 text-sm p-2 font-bold text-gray-400">
+                         <div className="flex items-center space-x-3 text-sm p-2 font-bold text-[var(--text-secondary)]">
                              <span className="w-8 text-center">{t('rank')}</span>
                              <span className="flex-grow">{t('cell_name')}</span>
                              <span className="w-24 text-right">{t('score')}</span>
                          </div>
                         {leaderboard.map((entry, index) => (
-                            <div key={entry.cellId} className="bg-black/20 p-2 flex items-center space-x-3 text-sm">
+                            <div key={entry.cellId} className="neumorphic-pressed rounded-lg p-2 flex items-center space-x-3 text-sm">
                                 <span className="font-bold w-8 text-center">{index + 1}</span>
                                 <span className="flex-grow font-semibold text-white truncate">{entry.cellName}</span>
                                 <span className="text-yellow-400 font-mono w-24 text-right">{formatNumber(entry.score)}</span>
@@ -144,22 +143,22 @@ const BattleSection: React.FC<{ cell: CellType, refetchCell: () => void }> = ({ 
         </div>
     );
     
-    if(loading) return <p className="text-center p-4 text-gray-400">{t('loading')}</p>
+    if(loading) return <p className="text-center p-4 text-[var(--text-secondary)]">{t('loading')}</p>
     if(!status) return <p className="text-center p-4 text-red-400">{error || 'Could not load battle status.'}</p>
 
     return (
         <div className="space-y-3">
             {isLeaderboardOpen && renderLeaderboardModal()}
             {!status.isActive ? (
-                 <p className="text-center text-gray-400">{t('battle_inactive')}</p>
+                 <p className="text-center text-[var(--text-secondary)]">{t('battle_inactive')}</p>
             ) : (
                 <div className="space-y-3">
                     <div className="text-center">
-                        <p className="text-gray-400 text-sm">{t('battle_time_left')}</p>
-                        <p className="font-mono text-2xl font-bold text-green-400">{formatTime(status.timeRemaining)}</p>
+                        <p className="text-[var(--text-secondary)] text-sm">{t('battle_time_left')}</p>
+                        <p className="font-mono text-2xl font-bold text-[var(--accent-color)]">{formatTime(status.timeRemaining)}</p>
                     </div>
                     {status.isParticipant && (
-                        <div className="themed-container bg-green-900/30 border-green-500/50 p-3 text-center">
+                        <div className="neumorphic-pressed rounded-xl bg-green-900/30 border-green-500/50 p-3 text-center">
                             <p className="text-sm text-green-300">{t('battle_your_score')}</p>
                             <p className="text-2xl font-bold text-white">{formatNumber(status.myScore)}</p>
                         </div>
@@ -167,20 +166,20 @@ const BattleSection: React.FC<{ cell: CellType, refetchCell: () => void }> = ({ 
                     {error && <p className="text-red-400 text-center text-sm">{error}</p>}
                     <div className="flex space-x-2">
                         {!status.isParticipant && (
-                            <button onClick={handleJoinBattle} disabled={cell.ticketCount < 1} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 disabled:bg-gray-600">
+                            <button onClick={handleJoinBattle} disabled={cell.ticketCount < 1} className="w-full neumorphic-raised-button font-bold py-2">
                                 {t('join_battle')}
                             </button>
                         )}
-                        <button onClick={handleViewLeaderboard} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2">{t('view_leaderboard')}</button>
+                        <button onClick={handleViewLeaderboard} className="w-full neumorphic-raised-button font-bold py-2">{t('view_leaderboard')}</button>
                     </div>
                 </div>
             )}
-             <div className="themed-container p-3 text-center space-y-2 opacity-50">
+             <div className="neumorphic-pressed rounded-xl p-3 text-center space-y-2 opacity-50">
                 <h4 className="font-bold text-base text-gray-300">{t('battle_boosts')}</h4>
-                <p className="text-xs text-gray-400">{t('battle_boosts_desc')}</p>
+                <p className="text-xs text-[var(--text-secondary)]">{t('battle_boosts_desc')}</p>
                 <div className="flex justify-center space-x-2">
-                    <button disabled className="bg-gray-700 text-gray-500 font-bold p-2 text-xs">x2 Boost</button>
-                    <button disabled className="bg-gray-700 text-gray-500 font-bold p-2 text-xs">Auto-Tap</button>
+                    <button disabled className="neumorphic-raised-button font-bold p-2 text-xs">x2 Boost</button>
+                    <button disabled className="neumorphic-raised-button font-bold p-2 text-xs">Auto-Tap</button>
                 </div>
             </div>
         </div>
@@ -300,23 +299,23 @@ const CellScreen: React.FC = () => {
             <div className="w-full max-w-md space-y-4">
                 <h2 className="text-2xl font-display text-center">{cell.name}</h2>
                 
-                <div className="themed-container p-3">
+                <div className="neumorphic-raised rounded-xl p-3">
                     <div className="flex justify-between items-center">
-                        <span className="text-gray-400">{t('invite_code')}</span>
+                        <span className="text-[var(--text-secondary)]">{t('invite_code')}</span>
                         <div className="flex items-center space-x-2">
-                             <span className="font-mono bg-black/30 px-2 py-1 border border-gray-600">{cell.invite_code}</span>
-                             <button onClick={handleCopyInvite} className="px-3 py-1 bg-blue-600 text-white font-bold text-sm">{copied ? t('copied') : t('copy')}</button>
+                             <span className="font-mono neumorphic-pressed rounded-md px-2 py-1">{cell.invite_code}</span>
+                             <button onClick={handleCopyInvite} className="px-3 py-1 neumorphic-raised-button font-bold text-sm">{copied ? t('copied') : t('copy')}</button>
                         </div>
                     </div>
                 </div>
 
-                <div className="themed-container p-3">
+                <div className="neumorphic-raised rounded-xl p-3">
                      <div className="flex justify-between items-center text-sm mb-2">
-                        <span className="text-gray-400">{t('cell_bank')}</span>
+                        <span className="text-[var(--text-secondary)]">{t('cell_bank')}</span>
                         <span className="font-bold text-yellow-400">{formatNumber(cell.balance)}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-400">{t('cell_tickets')}</span>
+                        <span className="text-[var(--text-secondary)]">{t('cell_tickets')}</span>
                         <span className="font-bold text-blue-400">{cell.ticketCount || 0}</span>
                     </div>
                 </div>
@@ -327,14 +326,14 @@ const CellScreen: React.FC = () => {
                 
                 <AccordionSection title={t('members')} count={cell.members.length} maxCount={config?.cellMaxMembers || 10} defaultOpen={false}>
                     <div className="flex justify-between items-center mb-3 text-sm">
-                        <span className="text-gray-400">{t('total_cell_profit')}</span>
-                        <span className="font-bold text-green-400">+{formatNumber(cell.totalProfitPerHour)}/hr</span>
+                        <span className="text-[var(--text-secondary)]">{t('total_cell_profit')}</span>
+                        <span className="font-bold text-[var(--accent-color)]">+{formatNumber(cell.totalProfitPerHour)}/hr</span>
                     </div>
                     <ul className="space-y-2 max-h-48 overflow-y-auto no-scrollbar pr-2">
                         {cell.members.map(member => (
-                            <li key={member.id} className="bg-black/20 p-2 flex justify-between items-center">
-                                <span className={member.id === user?.id ? 'font-bold text-green-300' : ''}>{member.name}</span>
-                                <span className="text-sm text-green-400">+{formatNumber(member.profitPerHour)}/hr</span>
+                            <li key={member.id} className="neumorphic-pressed rounded-lg p-2 flex justify-between items-center">
+                                <span className={member.id === user?.id ? 'font-bold text-[var(--accent-color)]' : ''}>{member.name}</span>
+                                <span className="text-sm text-[var(--accent-color)]">+{formatNumber(member.profitPerHour)}/hr</span>
                             </li>
                         ))}
                     </ul>
@@ -353,13 +352,13 @@ const CellScreen: React.FC = () => {
                 {error && <p className="text-red-400 text-center text-sm mt-2">{error}</p>}
                 
                 <div className="space-y-2 pt-2">
-                    <button onClick={handleBuyTicket} disabled={!canAffordTicket || isBuyingTicket} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 disabled:bg-gray-600">
+                    <button onClick={handleBuyTicket} disabled={!canAffordTicket || isBuyingTicket} className="w-full neumorphic-raised-button font-bold py-2">
                         {isBuyingTicket ? t('loading') : `${t('buy_ticket')} (${formatNumber(ticketCost)})`}
                     </button>
-                    <button onClick={handleRecruitInformant} disabled={isRecruiting} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 disabled:bg-gray-600">
+                    <button onClick={handleRecruitInformant} disabled={isRecruiting} className="w-full neumorphic-raised-button font-bold py-2">
                         {isRecruiting ? t('recruiting') : t('recruit_informant')}
                     </button>
-                    <button onClick={handleLeaveCell} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2">{t('leave_cell')}</button>
+                    <button onClick={handleLeaveCell} className="w-full neumorphic-raised-button font-bold py-2">{t('leave_cell')}</button>
                 </div>
             </div>
         );
@@ -374,13 +373,13 @@ const CellScreen: React.FC = () => {
                     value={cellName}
                     onChange={(e) => setCellName(e.target.value)}
                     placeholder={t('enter_cell_name')}
-                    className="w-full bg-black/30 border border-gray-600 text-white py-2 px-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-center"
+                    className="w-full input-neumorphic text-center"
                 />
-                <p className="text-center text-sm text-gray-400">Cost: {config?.cellCreationCost.toLocaleString()} coins</p>
+                <p className="text-center text-sm text-[var(--text-secondary)]">Cost: {config?.cellCreationCost.toLocaleString()} coins</p>
                 {error && <p className="text-red-400 text-center text-sm">{error}</p>}
                 <div className="flex space-x-2">
-                     <button onClick={() => { setCreateMode(false); setError('') }} className="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2">{t('cancel')}</button>
-                    <button onClick={handleCreateCell} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2">{t('create')}</button>
+                     <button onClick={() => { setCreateMode(false); setError('') }} className="w-full neumorphic-raised-button font-bold py-2">{t('cancel')}</button>
+                    <button onClick={handleCreateCell} className="w-full neumorphic-raised-button font-bold py-2">{t('create')}</button>
                 </div>
             </div>
         );
@@ -395,13 +394,13 @@ const CellScreen: React.FC = () => {
                     value={inviteCode}
                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                     placeholder={t('enter_invite_code')}
-                    className="w-full bg-black/30 border border-gray-600 text-white py-2 px-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-center"
+                    className="w-full input-neumorphic text-center"
                     autoCapitalize="characters"
                 />
                 {error && <p className="text-red-400 text-center text-sm">{error}</p>}
                 <div className="flex space-x-2">
-                     <button onClick={() => { setJoinMode(false); setError('') }} className="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2">{t('cancel')}</button>
-                    <button onClick={handleJoinCell} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2">{t('join')}</button>
+                     <button onClick={() => { setJoinMode(false); setError('') }} className="w-full neumorphic-raised-button font-bold py-2">{t('cancel')}</button>
+                    <button onClick={handleJoinCell} className="w-full neumorphic-raised-button font-bold py-2">{t('join')}</button>
                 </div>
             </div>
         );
@@ -410,10 +409,10 @@ const CellScreen: React.FC = () => {
     return (
         <div className="w-full max-w-md text-center space-y-4">
             <h2 className="text-2xl font-display">{t('cell')}</h2>
-            <p className="text-gray-400">{t('no_cell_info')}</p>
+            <p className="text-[var(--text-secondary)]">{t('no_cell_info')}</p>
             <div className="flex space-x-4">
-                <button onClick={() => setCreateMode(true)} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3">{t('create_cell')}</button>
-                <button onClick={() => setJoinMode(true)} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3">{t('join_cell')}</button>
+                <button onClick={() => setCreateMode(true)} className="w-full neumorphic-raised-button font-bold py-3">{t('create_cell')}</button>
+                <button onClick={() => setJoinMode(true)} className="w-full neumorphic-raised-button font-bold py-3">{t('join_cell')}</button>
             </div>
         </div>
     );

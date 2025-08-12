@@ -25,30 +25,30 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
   const canAfford = balance >= upgrade.price;
   const suspicionMod = upgrade.suspicionModifier;
   
-  const suspicionColor = suspicionMod > 0 ? 'text-red-400' : suspicionMod < 0 ? 'text-green-400' : 'text-gray-500';
+  const suspicionColor = suspicionMod > 0 ? 'text-red-400' : suspicionMod < 0 ? 'text-[var(--accent-color)]' : 'text-gray-500';
   const suspicionSign = suspicionMod > 0 ? '+' : '';
 
   return (
     <button
       onClick={() => onBuy(upgrade.id)}
       disabled={!canAfford}
-      className={`w-full h-full p-2 themed-container flex flex-col justify-between items-center text-center transition-all duration-150 active:scale-95 ${
-        !canAfford ? 'opacity-50 cursor-not-allowed' : 'hover:border-green-400/80 hover:bg-[rgba(74,222,128,0.05)]'
+      className={`w-full h-full p-2 neumorphic-raised-button rounded-2xl flex flex-col justify-between items-center text-center ${
+        !canAfford ? 'opacity-50 cursor-not-allowed' : ''
       }`}
     >
       {/* Top section: Icon, Name, Level */}
       <div className="flex flex-col items-center">
-        <div className="border border-gray-700 p-1 w-12 h-12 flex-shrink-0 mb-2">
+        <div className="neumorphic-pressed rounded-full p-1 w-12 h-12 flex-shrink-0 mb-2">
           <img src={upgrade.iconUrl} alt={upgrade.name?.[lang]} className="w-full h-full object-contain" />
         </div>
         <p className="text-white text-xs font-semibold leading-tight mb-1 h-8 flex items-center justify-center">{upgrade.name?.[lang]}</p>
-        <span className="text-gray-400 text-[11px]">{t('lvl')} {upgrade.level}</span>
+        <span className="text-[var(--text-secondary)] text-[11px]">{t('lvl')} {upgrade.level}</span>
       </div>
 
       {/* Bottom section: Profit, Suspicion, Price */}
       <div className="w-full text-[11px] space-y-2">
         <div className="flex items-center justify-center space-x-3">
-          <span className="text-green-400 font-semibold flex items-center">
+          <span className="text-[var(--accent-color)] font-semibold flex items-center">
               <img src={uiIcons.energy} alt="" className="w-3 h-3 mr-1"/>
               +{formatNumber(upgrade.profitPerHour)}
           </span>
@@ -59,7 +59,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
                 </span>
             )}
         </div>
-        <div className="flex items-center justify-center space-x-1.5 w-full bg-black/20 py-1.5 border-t border-gray-700/50">
+        <div className="flex items-center justify-center space-x-1.5 w-full neumorphic-pressed rounded-lg py-1.5 mt-2">
           <img src={uiIcons.coin} alt="coin" className="w-4 h-4"/>
           <span className="text-white font-bold text-sm">{formatNumber(upgrade.price)}</span>
         </div>

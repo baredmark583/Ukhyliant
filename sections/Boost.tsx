@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Boost, Language, PlayerState, UiIcons } from '../types';
 import { useTranslation } from '../hooks/useGameLogic';
@@ -34,7 +33,7 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
   return (
     <div className="flex flex-col h-full text-white pt-4 px-4 items-center">
       <h1 className="text-3xl font-display text-center mb-2">{t('boosts')}</h1>
-      <p className="text-lg text-gray-400 mb-6 flex items-center space-x-2">
+      <p className="text-lg text-[var(--text-secondary)] mb-6 flex items-center space-x-2">
         <img src={uiIcons.coin} alt="coin" className="w-6 h-6" />
         <span className="font-bold text-white">{balance.toLocaleString()}</span>
       </p>
@@ -45,25 +44,21 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
           const canAfford = balance >= cost;
           
           return (
-            <div key={boost.id} className="themed-container p-4 flex items-center justify-between">
+            <div key={boost.id} className="neumorphic-raised rounded-2xl p-4 flex items-center justify-between">
                 <div className="flex items-center">
-                    <div className="w-12 h-12 mr-4 flex-shrink-0 flex items-center justify-center">
+                    <div className="w-12 h-12 mr-4 flex-shrink-0 flex items-center justify-center neumorphic-pressed rounded-full">
                         <img src={boost.iconUrl} alt={boost.name?.[lang]} className="w-10 h-10 object-contain" />
                     </div>
                     <div>
                         <h2 className="text-lg font-bold">{boost.name?.[lang]}</h2>
-                        <p className="text-sm text-gray-400">{boost.description?.[lang]}</p>
+                        <p className="text-sm text-[var(--text-secondary)]">{boost.description?.[lang]}</p>
                     </div>
                 </div>
 
                 <button
                     onClick={() => onBuyBoost(boost)}
                     disabled={!canAfford}
-                    className={`px-4 py-2 font-bold text-base transition-colors flex items-center space-x-2 active:scale-95 border ${
-                    !canAfford
-                        ? 'bg-gray-700 border-gray-600 text-gray-500 cursor-not-allowed'
-                        : 'bg-green-600 border-green-500 hover:bg-green-500 text-white'
-                    }`}
+                    className="neumorphic-raised-button rounded-xl px-4 py-2 font-bold text-base flex items-center space-x-2"
                 >
                     <img src={uiIcons.coin} alt="coin" className="w-5 h-5"/>
                     <div className="flex flex-col items-start leading-tight">

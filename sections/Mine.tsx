@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Upgrade, UpgradeCategory, Language, PlayerState, GameConfig, UiIcons } from '../types';
 import UpgradeCard from '../components/UpgradeCard';
@@ -22,9 +21,9 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
 
   if (!config.dailyEvent || combo_ids.length !== 3) {
       return (
-        <div className="mb-4 p-2 bg-green-900/20 border border-green-500/50 text-center flex-shrink-0">
-            <h2 className="text-base font-display text-green-300">{t('daily_combo')}</h2>
-            <p className="text-gray-400 text-xs">{t('combo_not_active')}</p>
+        <div className="mb-4 p-2 neumorphic-raised rounded-2xl text-center flex-shrink-0">
+            <h2 className="text-base font-display text-[var(--accent-color)]">{t('daily_combo')}</h2>
+            <p className="text-[var(--text-secondary)] text-xs">{t('combo_not_active')}</p>
         </div>
       );
   }
@@ -34,18 +33,18 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
   const isClaimed = playerState.claimedComboToday;
 
   return (
-    <div className="mb-4 p-2 bg-green-900/20 border border-green-500/50 flex-shrink-0">
+    <div className="mb-4 p-2 neumorphic-raised rounded-2xl flex-shrink-0">
         <div className="flex flex-col sm:flex-row justify-between items-center text-center sm:text-left gap-2">
             <div className="flex-shrink-0 w-full sm:w-auto sm:pr-4">
-                <h2 className="text-base font-display text-green-300">{t('daily_combo')}</h2>
-                <p className="text-xs text-gray-400">{t('find_cards')}</p>
+                <h2 className="text-base font-display text-[var(--accent-color)]">{t('daily_combo')}</h2>
+                <p className="text-xs text-[var(--text-secondary)]">{t('find_cards')}</p>
             </div>
             <div className="flex justify-center items-center space-x-2 flex-grow my-2 sm:my-0">
                 {combo_ids.map((id, index) => {
                     const isUpgradedToday = upgradedCardsToday.includes(id);
                     const upgrade = upgrades.find(u => u.id === id);
                     return (
-                        <div key={index} className="w-10 h-10 bg-black/30 flex items-center justify-center border border-dashed border-gray-600 p-0.5">
+                        <div key={index} className="w-10 h-10 neumorphic-pressed rounded-lg flex items-center justify-center p-0.5">
                             {isUpgradedToday && upgrade ? (
                                 <img src={upgrade.iconUrl} alt={upgrade.name?.[lang]} className="w-full h-full object-contain" />
                             ) : (
@@ -57,14 +56,14 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
             </div>
             <div className="flex-shrink-0 w-full sm:w-28 sm:pl-4">
                 {isClaimed ? (
-                    <button disabled className="w-full py-2 font-bold text-xs bg-gray-700 text-gray-500 cursor-not-allowed text-center">
+                    <button disabled className="w-full py-2 font-bold text-xs neumorphic-pressed rounded-lg text-gray-500 cursor-not-allowed text-center">
                         {t('claimed_today')}
                     </button>
                 ) : (
                     <button
                         onClick={onClaimCombo}
                         disabled={!allComboCardsUpgradedToday}
-                        className="w-full py-2 font-bold text-xs text-white transition-colors disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed bg-green-600 hover:bg-green-500 text-center"
+                        className="w-full py-2 font-bold text-xs text-white neumorphic-raised-button rounded-lg bg-[var(--accent-color-glow)] text-center"
                     >
                         {t('claim_reward')}
                     </button>
@@ -109,10 +108,10 @@ const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang
                         <button
                             key={category}
                             onClick={() => setActiveCategory(category)}
-                            className={`px-3 py-1.5 text-sm font-bold whitespace-nowrap transition-colors ${
+                            className={`px-3 py-1.5 text-sm font-bold whitespace-nowrap rounded-lg transition-all ${
                                 isActive
-                                    ? 'bg-green-600/80 text-white'
-                                    : 'themed-container hover:bg-gray-700/50 text-gray-300'
+                                    ? 'neumorphic-pressed text-[var(--accent-color)]'
+                                    : 'neumorphic-raised-button text-[var(--text-secondary)]'
                             }`}
                         >
                             {category}
