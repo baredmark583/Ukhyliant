@@ -699,6 +699,10 @@ const MainApp: React.FC = () => {
       {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
       <NotificationToast notification={notification} />
 
+      <main className="flex-grow min-h-0 overflow-y-auto">
+        {renderScreen()}
+      </main>
+
       <nav className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-t border-slate-700">
         <div className="grid grid-cols-5 justify-around items-start max-w-xl mx-auto">
           <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} />
