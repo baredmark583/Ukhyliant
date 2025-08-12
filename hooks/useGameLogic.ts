@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -522,7 +523,8 @@ export const useGame = () => {
 
     const effectiveCoinsPerTap = useMemo(() => {
         if (!playerState) return 1;
-        return (playerState.coinsPerTap || 1) * (1 + (playerState.tapGuruLevel || 0) * 0.10);
+        // Compounding formula for Guru Tapper
+        return (playerState.coinsPerTap || 1) * Math.pow(1.10, playerState.tapGuruLevel || 0);
     }, [playerState?.coinsPerTap, playerState?.tapGuruLevel]);
 
     // Game loop for energy regen and passive income
@@ -597,7 +599,7 @@ export const useGame = () => {
     const handleTap = useCallback(() => {
         if (!playerState || playerState.energy < 1) return 0;
         const tapValue = effectiveCoinsPerTap * (isTurboActive ? 5 : 1);
-        tapsSinceLastSave.current += tapValue;
+        tapsSinceLastSave.current += 1;
         setPlayerState(p => p ? {
             ...p,
             balance: p.balance + tapValue,

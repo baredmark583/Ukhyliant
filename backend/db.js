@@ -219,71 +219,66 @@ export const initializeDb = async () => {
         await saveConfig(initialConfig);
         console.log("Initial game config seeded to the database.");
     } else {
-        // Ensure new config fields exist on old installations
+        // --- CONFIG MIGRATION ---
+        // Ensure new config fields exist on old installations with a robust method
         const config = res.rows[0].value;
         let needsUpdate = false;
         
-        // Helper to check/migrate array properties
-        const checkArray = (key, initialValue) => {
-            if (!Array.isArray(config[key])) {
+        // Helper to migrate array-based configurations. Ensures property is an array
+        // and adds any new items from constants that are missing in the DB.
+        const migrateArrayConfig = (configKey, initialArray) => {
+            if (!Array.isArray(config[configKey])) {
+                console.warn(`Config property '${configKey}' was not an array. Resetting.`);
+                config[configKey] = [];
+                needsUpdate = true;
+            }
+
+            const existingIds = new Set(config[configKey].map(item => item.id));
+            for (const initialItem of initialArray) {
+                if (!existingIds.has(initialItem.id)) {
+                    config[configKey].push(initialItem);
+                    console.log(`Migrating: Added missing item '${initialItem.id}' to '${configKey}'.`);
+                    needsUpdate = true;
+                }
+            }
+        };
+
+        // Migrate all array configs
+        migrateArrayConfig('upgrades', INITIAL_UPGRADES);
+        migrateArrayConfig('tasks', INITIAL_TASKS);
+        migrateArrayConfig('specialTasks', INITIAL_SPECIAL_TASKS);
+        migrateArrayConfig('boosts', INITIAL_BOOSTS);
+        migrateArrayConfig('blackMarketCards', INITIAL_BLACK_MARKET_CARDS);
+        migrateArrayConfig('coinSkins', INITIAL_COIN_SKINS);
+        migrateArrayConfig('leagues', INITIAL_LEAGUES);
+
+        // Migrate all non-array (single value) properties
+        const checkSingleProp = (key, initialValue) => {
+            if (config[key] === undefined) {
                 config[key] = initialValue;
                 needsUpdate = true;
             }
         };
-
-        checkArray('upgrades', INITIAL_UPGRADES);
-        checkArray('tasks', INITIAL_TASKS);
-        checkArray('specialTasks', INITIAL_SPECIAL_TASKS);
-        checkArray('boosts', INITIAL_BOOSTS);
-        checkArray('blackMarketCards', INITIAL_BLACK_MARKET_CARDS);
-        checkArray('coinSkins', INITIAL_COIN_SKINS);
-        checkArray('leagues', INITIAL_LEAGUES);
-
-        // After ensuring they are arrays, now we can run the suspicion migration.
-        const allInitialItems = [
-            ...INITIAL_UPGRADES, ...INITIAL_TASKS, ...INITIAL_SPECIAL_TASKS, 
-            ...INITIAL_BOOSTS, ...INITIAL_BLACK_MARKET_CARDS, ...INITIAL_COIN_SKINS
-        ];
-
-        const addSuspicionIfNeeded = (item) => {
-            if (item.suspicionModifier === undefined) {
-                const initialItem = allInitialItems.find(i => i.id === item.id);
-                item.suspicionModifier = initialItem ? initialItem.suspicionModifier : 0;
-                needsUpdate = true;
-            }
-        };
-
-        config.upgrades.forEach(addSuspicionIfNeeded);
-        config.tasks.forEach(addSuspicionIfNeeded);
-        config.specialTasks.forEach(addSuspicionIfNeeded);
-        config.boosts.forEach(addSuspicionIfNeeded);
-        config.blackMarketCards.forEach(addSuspicionIfNeeded);
-        config.coinSkins.forEach(addSuspicionIfNeeded);
-
-        // Now handle the other non-array properties.
-        if (config.loadingScreenImageUrl === undefined) { config.loadingScreenImageUrl = ''; needsUpdate = true; }
-        if (!config.socials || config.socials.twitter !== undefined) {
-             config.socials = initialSocials; 
-             needsUpdate = true; 
-        }
-        if (!config.uiIcons || !config.uiIcons.suspicion || !config.uiIcons.profile_tabs) { 
-            config.uiIcons = INITIAL_UI_ICONS; 
-            needsUpdate = true; 
-        }
-        if (config.cellCreationCost === undefined) { config.cellCreationCost = CELL_CREATION_COST; needsUpdate = true; }
-        if (config.cellMaxMembers === undefined) { config.cellMaxMembers = CELL_MAX_MEMBERS; needsUpdate = true; }
-        if (config.informantRecruitCost === undefined) { config.informantRecruitCost = INFORMANT_RECRUIT_COST; needsUpdate = true; }
-        if (config.lootboxCostCoins === undefined) { config.lootboxCostCoins = LOOTBOX_COST_COINS; needsUpdate = true; }
-        if (config.lootboxCostStars === undefined) { config.lootboxCostStars = LOOTBOX_COST_STARS; needsUpdate = true; }
-        if (config.cellBattleTicketCost === undefined) { config.cellBattleTicketCost = CELL_BATTLE_TICKET_COST; needsUpdate = true; }
-        if (!config.battleSchedule) { config.battleSchedule = BATTLE_SCHEDULE_DEFAULT; needsUpdate = true; }
-        if (!config.battleRewards) { config.battleRewards = BATTLE_REWARDS_DEFAULT; needsUpdate = true; }
-        if (config.informantProfitBonus === undefined) { config.informantProfitBonus = CELL_ECONOMY_DEFAULTS.informantProfitBonus; needsUpdate = true; }
-        if (config.cellBankProfitShare === undefined) { config.cellBankProfitShare = CELL_ECONOMY_DEFAULTS.cellBankProfitShare; needsUpdate = true; }
+        
+        checkSingleProp('loadingScreenImageUrl', '');
+        checkSingleProp('cellCreationCost', CELL_CREATION_COST);
+        checkSingleProp('cellMaxMembers', CELL_MAX_MEMBERS);
+        checkSingleProp('informantRecruitCost', INFORMANT_RECRUIT_COST);
+        checkSingleProp('lootboxCostCoins', LOOTBOX_COST_COINS);
+        checkSingleProp('lootboxCostStars', LOOTBOX_COST_STARS);
+        checkSingleProp('cellBattleTicketCost', CELL_BATTLE_TICKET_COST);
+        checkSingleProp('battleSchedule', BATTLE_SCHEDULE_DEFAULT);
+        checkSingleProp('battleRewards', BATTLE_REWARDS_DEFAULT);
+        checkSingleProp('informantProfitBonus', CELL_ECONOMY_DEFAULTS.informantProfitBonus);
+        checkSingleProp('cellBankProfitShare', CELL_ECONOMY_DEFAULTS.cellBankProfitShare);
+        
+        // Special object properties
+        if (!config.socials) { config.socials = initialSocials; needsUpdate = true; }
+        if (!config.uiIcons) { config.uiIcons = INITIAL_UI_ICONS; needsUpdate = true; }
 
         if (needsUpdate) {
             await saveConfig(config);
-            console.log("Updated existing game config with new fields (suspicion, cells, etc).");
+            console.log("Successfully migrated and updated game config with new fields/items.");
         }
     }
 };

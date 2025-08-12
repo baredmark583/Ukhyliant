@@ -43,8 +43,9 @@ export const INITIAL_SPECIAL_TASKS: SpecialTask[] = [
 export const INITIAL_BOOSTS: Boost[] = [
     { id: 'boost_full_energy', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, iconUrl: 'https://api.iconify.design/twemoji/high-voltage.svg', costCoins: 2000, suspicionModifier: 1 },
     { id: 'boost_turbo_mode', name: { en: 'Turbo Mode', ua: 'Турбо-режим', ru: 'Турбо-режим' }, description: { en: 'x5 coins per tap for 20 seconds!', ua: 'x5 монет за тап протягом 20 секунд!', ru: 'x5 монет за тап в течение 20 секунд!' }, iconUrl: 'https://api.iconify.design/twemoji/fire.svg', costCoins: 2000, suspicionModifier: 2 },
-    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+10% coins per each tap (permanent).', ua: '+10% монет за кожен тап (постійно).', ru: '+10% монет за каждый тап (постоянно).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
+    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+10% per tap (compounding).', ua: '+10% за тап (складний відсоток).', ru: '+10% за тап (сложный процент).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
     { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: '+500 to your max energy capacity.', ua: '+500 до максимального запасу енергії.', ru: '+500 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
+    { id: 'boost_suspicion_limit', name: { en: 'Suspicion Limit', ua: 'Ліміт Підозри', ru: 'Лимит Подозрения' }, description: { en: '+10 to max suspicion capacity.', ua: '+10 до макс. запасу підозри.', ru: '+10 к макс. запасу подозрения.' }, iconUrl: 'https://api.iconify.design/ph/shield-warning-fill.svg?color=white', costCoins: 1000, suspicionModifier: 0 },
 ];
 
 export const INITIAL_BLACK_MARKET_CARDS: BlackMarketCard[] = [
@@ -88,7 +89,7 @@ type TranslationKey =
   // Notifications
   | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked'
   // Boosts
-  | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased'
+  | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased' | 'suspicion_limit'
   // Market & Skins
   | 'market' | 'skins' | 'black_market' | 'black_market_desc' | 'open_for' | 'open'
   | 'lootbox_coin' | 'lootbox_star' | 'profit_from_referrals'
@@ -213,6 +214,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     energy_limit: 'Energy Limit',
     turbo_mode: 'Turbo Mode',
     full_energy: 'Full Energy',
+    suspicion_limit: 'Suspicion Limit',
     boost_purchased: 'Boost purchased!',
     market: 'Market',
     skins: 'Skins',
@@ -408,6 +410,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     energy_limit: 'Ліміт Енергії',
     turbo_mode: 'Турбо-режим',
     full_energy: 'Повна Енергія',
+    suspicion_limit: 'Ліміт Підозри',
     boost_purchased: 'Буст придбано!',
     market: 'Ринок',
     skins: 'Скіни',
@@ -603,6 +606,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     energy_limit: 'Лимит Энергии',
     turbo_mode: 'Турбо-режим',
     full_energy: 'Полная Энергия',
+    suspicion_limit: 'Лимит Подозрения',
     boost_purchased: 'Буст приобретён!',
     market: 'Рынок',
     skins: 'Скины',
