@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -81,12 +76,12 @@ const NotInTelegramScreen: React.FC = () => (
 const ProfileTabButton = ({ label, iconUrl, isActive, onClick }: { label: string, iconUrl: string, isActive: boolean, onClick: () => void }) => (
     <button
         onClick={onClick}
-        className={`flex-grow min-w-16 flex flex-col items-center justify-center p-2 rounded-lg transition-colors duration-200 group min-h-16 ${
+        className={`flex-1 flex flex-col items-center justify-center p-1 rounded-lg transition-colors duration-200 group aspect-square max-w-16 ${
             isActive ? 'bg-slate-900 shadow-inner' : 'hover:bg-slate-700/50'
         }`}
     >
-        <img src={iconUrl} alt={label} className={`w-7 h-7 transition-all duration-200 ${isActive ? 'active-icon' : 'text-slate-400'}`} />
-        <span className={`text-xs font-bold transition-opacity duration-200 mt-1 ${isActive ? 'text-[var(--accent-color)] opacity-100' : 'opacity-0'}`}>{label}</span>
+        <img src={iconUrl} alt={label} className={`w-7/12 h-7/12 object-contain transition-all duration-200 ${isActive ? 'active-icon' : 'text-slate-400'}`} />
+        <span className={`text-responsive-xxs font-bold transition-opacity duration-200 mt-1 ${isActive ? 'text-[var(--accent-color)] opacity-100' : 'opacity-0'}`}>{label}</span>
     </button>
 );
 
@@ -200,7 +195,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
         <div className="flex flex-col h-full text-white pt-4 items-center">
             <div className="w-full max-w-md sticky top-0 bg-[var(--bg-color)] py-4 px-4 z-10">
                 <h1 className="text-3xl font-display text-center mb-4">{t('profile')}</h1>
-                <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex flex-wrap justify-center gap-1 border border-slate-700">
+                <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex flex-nowrap justify-around items-center gap-1 border border-slate-700">
                     <ProfileTabButton label={t('sub_contacts')} iconUrl={config.uiIcons.profile_tabs.contacts} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
                     <ProfileTabButton label={t('sub_boosts')} iconUrl={config.uiIcons.profile_tabs.boosts} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
                     <ProfileTabButton label={t('sub_disguise')} iconUrl={config.uiIcons.profile_tabs.skins} isActive={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
