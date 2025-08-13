@@ -511,7 +511,8 @@ export const useGame = () => {
 
     const effectiveMaxEnergy = useMemo(() => {
         if (!playerState) return INITIAL_MAX_ENERGY;
-        const calculatedMax = INITIAL_MAX_ENERGY * Math.pow(10, playerState.energyLimitLevel || 0);
+        // Rebalanced: x2 multiplier for Energy Limit
+        const calculatedMax = INITIAL_MAX_ENERGY * Math.pow(2, playerState.energyLimitLevel || 0);
         return Math.min(calculatedMax, 1_000_000_000_000); // Cap at 1 Trillion
     }, [playerState?.energyLimitLevel]);
     
@@ -522,8 +523,10 @@ export const useGame = () => {
 
     const effectiveCoinsPerTap = useMemo(() => {
         if (!playerState) return 1;
-        // x2 multiplier for Guru Tapper
-        const calculatedTap = (playerState.coinsPerTap || 1) * Math.pow(2, playerState.tapGuruLevel || 0);
+        // Rebalanced: +50% compounding per level for Guru Tapper
+        const baseTap = playerState.coinsPerTap || 1;
+        const level = playerState.tapGuruLevel || 0;
+        const calculatedTap = Math.ceil(baseTap * Math.pow(1.5, level));
         return Math.min(calculatedTap, 1_000_000_000); // Cap at 1 Billion
     }, [playerState?.coinsPerTap, playerState?.tapGuruLevel]);
 
