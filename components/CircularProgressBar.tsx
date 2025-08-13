@@ -35,7 +35,6 @@ const CircularProgressBar: React.FC<CircularProgressBarProps> = ({ value, max, s
           r={radius}
           cx={size / 2}
           cy={size / 2}
-          style={{ filter: `drop-shadow(0 0 3px ${color})` }}
         />
       </svg>
       <div className="flex flex-col items-center justify-center z-10 p-1 space-y-0.5">

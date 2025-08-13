@@ -1316,7 +1316,7 @@ export const buyBoostInDb = async (userId, boostId, config) => {
 
         switch(boost.id) {
             case 'boost_full_energy':
-                const maxEnergy = INITIAL_MAX_ENERGY + (player.energyLimitLevel || 0) * 500;
+                const maxEnergy = INITIAL_MAX_ENERGY * Math.pow(10, player.energyLimitLevel || 0);
                 player.energy = maxEnergy;
                 break;
             case 'boost_tap_guru':

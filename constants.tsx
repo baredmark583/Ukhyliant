@@ -43,8 +43,8 @@ export const INITIAL_SPECIAL_TASKS: SpecialTask[] = [
 export const INITIAL_BOOSTS: Boost[] = [
     { id: 'boost_full_energy', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, iconUrl: 'https://api.iconify.design/twemoji/high-voltage.svg', costCoins: 2000, suspicionModifier: 1 },
     { id: 'boost_turbo_mode', name: { en: 'Turbo Mode', ua: 'Турбо-режим', ru: 'Турбо-режим' }, description: { en: 'x5 coins per tap for 20 seconds!', ua: 'x5 монет за тап протягом 20 секунд!', ru: 'x5 монет за тап в течение 20 секунд!' }, iconUrl: 'https://api.iconify.design/twemoji/fire.svg', costCoins: 2000, suspicionModifier: 2 },
-    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+10% per tap (compounding).', ua: '+10% за тап (складний відсоток).', ru: '+10% за тап (сложный процент).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
-    { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: '+500 to your max energy capacity.', ua: '+500 до максимального запасу енергії.', ru: '+500 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
+    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: 'x2 coins per tap.', ua: 'x2 монети за тап.', ru: 'x2 монеты за тап.' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
+    { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: 'x10 to your max energy capacity.', ua: 'x10 до максимального запасу енергії.', ru: 'x10 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
     { id: 'boost_suspicion_limit', name: { en: 'Suspicion Limit', ua: 'Ліміт Підозри', ru: 'Лимит Подозрения' }, description: { en: '+10 to max suspicion capacity.', ua: '+10 до макс. запасу підозри.', ru: '+10 к макс. запасу подозрения.' }, iconUrl: 'https://api.iconify.design/ph/shield-warning-fill.svg?color=white', costCoins: 1000, suspicionModifier: 0 },
 ];
 
@@ -66,7 +66,7 @@ export const INITIAL_COIN_SKINS: CoinSkin[] = [
 export const INITIAL_MAX_ENERGY = 1000;
 export const ENERGY_REGEN_RATE = 2; // per second
 export const SAVE_DEBOUNCE_MS = 1000;
-export const REFERRAL_BONUS = 5000; // Coins for each referral
+export const REFERRAL_BONUS = 50000; // Coins for each referral
 export const REFERRAL_PROFIT_SHARE = 0.10; // 10%
 
 
@@ -119,6 +119,8 @@ type TranslationKey =
   | 'schedule_frequency' | 'freq_weekly' | 'freq_biweekly' | 'freq_monthly'
   | 'schedule_day' | 'day_sun' | 'day_mon' | 'day_tue' | 'day_wed' | 'day_thu' | 'day_fri' | 'day_sat'
   | 'schedule_time_utc' | 'schedule_duration_hours'
+  // Tooltips
+  | 'tooltip_energy' | 'tooltip_suspicion'
   // Generic
   | 'loading' | 'cancel'
   | 'why_not_state_language';
@@ -319,6 +321,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     day_sat: 'Saturday',
     schedule_time_utc: 'Start Time (UTC)',
     schedule_duration_hours: 'Duration (Hours)',
+    tooltip_energy: 'This is your tappable coin pool. Each tap spends coins from here.',
+    tooltip_suspicion: 'This grows with illegal activities. If it fills up, your assets will be confiscated!',
     why_not_state_language: 'Is there a reason you are not using the state language? The system is watching.'
   },
   ua: {
@@ -515,6 +519,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     day_sat: 'Субота',
     schedule_time_utc: 'Час початку (UTC)',
     schedule_duration_hours: 'Тривалість (години)',
+    tooltip_energy: 'Це ваш запас монет для тапів. Кожен тап витрачає монети звідси.',
+    tooltip_suspicion: 'Рівень підозри зростає від незаконних дій. Якщо він заповниться, ваші активи конфіскують!',
     why_not_state_language: 'Чому не державною? Система все бачить.'
   },
   ru: {
@@ -711,6 +717,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     day_sat: 'Суббота',
     schedule_time_utc: 'Время начала (UTC)',
     schedule_duration_hours: 'Длительность (часы)',
+    tooltip_energy: 'Это ваш запас монет для тапов. Каждый тап тратит монеты отсюда.',
+    tooltip_suspicion: 'Уровень подозрения растет от незаконных действий. Если он заполнится, ваши активы конфискуют!',
     why_not_state_language: 'Почему не на государственном языке? Система всё видит.'
   },
 };

@@ -513,7 +513,7 @@ export const useGame = () => {
 
     const effectiveMaxEnergy = useMemo(() => {
         if (!playerState) return INITIAL_MAX_ENERGY;
-        return INITIAL_MAX_ENERGY + (playerState.energyLimitLevel || 0) * 500;
+        return INITIAL_MAX_ENERGY * Math.pow(10, playerState.energyLimitLevel || 0);
     }, [playerState?.energyLimitLevel]);
     
     const effectiveMaxSuspicion = useMemo(() => {
@@ -523,8 +523,8 @@ export const useGame = () => {
 
     const effectiveCoinsPerTap = useMemo(() => {
         if (!playerState) return 1;
-        // Compounding formula for Guru Tapper
-        return (playerState.coinsPerTap || 1) * Math.pow(1.10, playerState.tapGuruLevel || 0);
+        // x2 multiplier for Guru Tapper
+        return (playerState.coinsPerTap || 1) * Math.pow(2, playerState.tapGuruLevel || 0);
     }, [playerState?.coinsPerTap, playerState?.tapGuruLevel]);
 
     // Game loop for energy regen and passive income
@@ -597,13 +597,14 @@ export const useGame = () => {
     }, [playerState?.profitPerHour, config?.leagues]);
 
     const handleTap = useCallback(() => {
-        if (!playerState || playerState.energy < 1) return 0;
         const tapValue = effectiveCoinsPerTap * (isTurboActive ? 5 : 1);
+        if (!playerState || playerState.energy < tapValue) return 0;
+        
         tapsSinceLastSave.current += 1;
         setPlayerState(p => p ? {
             ...p,
             balance: p.balance + tapValue,
-            energy: Math.max(0, p.energy - 1),
+            energy: Math.max(0, p.energy - tapValue),
             dailyTaps: p.dailyTaps + 1,
         } : null);
         return tapValue;

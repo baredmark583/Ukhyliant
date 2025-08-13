@@ -173,9 +173,8 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                     <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
                         <img src={config.uiIcons.marketCoinBox} alt={t('lootbox_coin')} className="w-full h-full object-contain" />
                     </div>
-                    <h2 className="text-base font-display mb-2">{t('lootbox_coin')}</h2>
                     <button onClick={() => onOpenCoinLootbox('coin')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
-                        <span>{t('open_for')} {formatNumber(config.lootboxCostCoins || 0)}</span>
+                        <span>{formatNumber(config.lootboxCostCoins || 0)}</span>
                         <img src={config.uiIcons.coin} alt="coin" className="w-5 h-5" />
                     </button>
                 </div>
@@ -183,9 +182,8 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                      <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
                         <img src={config.uiIcons.marketStarBox} alt={t('lootbox_star')} className="w-full h-full object-contain" />
                     </div>
-                    <h2 className="text-base font-display mb-2">{t('lootbox_star')}</h2>
                     <button onClick={() => onPurchaseStarLootbox('star')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
-                        <span>{t('open_for')} {(config.lootboxCostStars || 0)}</span>
+                        <span>{(config.lootboxCostStars || 0)}</span>
                         <img src={config.uiIcons.star} alt="star" className="w-5 h-5" />
                     </button>
                 </div>
@@ -631,6 +629,9 @@ const MainApp: React.FC = () => {
       showNotification(t('selected'), 'success');
   };
 
+  const handleEnergyClick = () => showNotification(t('tooltip_energy'), 'success');
+  const handleSuspicionClick = () => showNotification(t('tooltip_suspicion'), 'success');
+
   const PenaltyModal: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
       const t = useTranslation();
       return (
@@ -652,7 +653,7 @@ const MainApp: React.FC = () => {
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} />;
       case 'mine':
         return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} />;
       case 'missions':
@@ -685,7 +686,7 @@ const MainApp: React.FC = () => {
                     onPurchaseStarLootbox={handlePurchaseStarLootbox}
                 />;
       default:
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion}/>;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick}/>;
     }
   };
 
