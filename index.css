@@ -8,6 +8,8 @@
   --accent-color-glow: rgba(52, 211, 153, 0.5);
   --error-color: #f43f5e; /* rose-500 */
   --border-color: #334155; /* slate-700 */
+  --shadow-light: #293447; /* Lighter shade of slate-800 for neumorphism */
+  --shadow-dark: #141b29;  /* Darker shade of slate-900 for neumorphism */
 }
 body {
   font-family: 'IBM Plex Mono', monospace;
@@ -85,14 +87,55 @@ body {
   filter: drop-shadow(0 0 5px var(--accent-color));
 }
 
-.input-neumorphic { /* Keep for SecretCodeModal */
-  background-color: var(--bg-color);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  color: var(--text-primary);
-  padding: 12px 16px;
+/* --- Neumorphic Styles --- */
+.neumorphic-raised {
+  background: var(--bg-card);
+  border-radius: 12px;
+  box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
 }
+.neumorphic-pressed {
+  background: var(--bg-card);
+  border-radius: 12px;
+  box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+}
+.neumorphic-raised-button {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  box-shadow: 2px 2px 5px var(--shadow-dark), -2px -2px 5px var(--shadow-light);
+  transition: all 0.15s ease-out;
+}
+.neumorphic-raised-button:hover:not(:disabled) {
+  background-color: #334155; /* slate-700 */
+  color: white;
+}
+.neumorphic-raised-button:active:not(:disabled), .neumorphic-raised-button:disabled {
+  box-shadow: inset 2px 2px 5px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light);
+  transform: scale(0.98);
+  opacity: 1;
+}
+.neumorphic-raised-button:disabled {
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+.input-neumorphic {
+  background-color: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+  color: var(--text-primary);
+  transition: box-shadow 0.2s ease-in-out;
+}
+.input-neumorphic:focus {
+  box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light), 0 0 0 2px var(--accent-color);
+}
+.input-neumorphic::placeholder {
+  color: var(--text-secondary);
+}
+
 
 /* Responsive Text */
 .text-responsive-xxs { font-size: clamp(0.6rem, 2vw, 0.75rem); line-height: 1.2; }

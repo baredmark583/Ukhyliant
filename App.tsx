@@ -166,34 +166,36 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
     };
     
     const MarketContent = () => (
-        <div className="w-full max-w-md space-y-6">
-            <p className="text-center text-[var(--text-secondary)] max-w-xs mx-auto">{t('black_market_desc')}</p>
-            <div className="card-glow rounded-2xl p-6 text-center">
-                <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
-                    <img src={config.uiIcons.marketCoinBox} alt={t('lootbox_coin')} className="w-full h-full object-contain" />
+        <div className="w-full max-w-md">
+            <p className="text-center text-[var(--text-secondary)] max-w-xs mx-auto mb-6">{t('black_market_desc')}</p>
+             <div className="grid grid-cols-2 gap-4">
+                <div className="card-glow rounded-2xl p-4 text-center">
+                    <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
+                        <img src={config.uiIcons.marketCoinBox} alt={t('lootbox_coin')} className="w-full h-full object-contain" />
+                    </div>
+                    <h2 className="text-xl font-display mb-2">{t('lootbox_coin')}</h2>
+                    <button onClick={() => onOpenCoinLootbox('coin')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
+                        <span>{t('open_for')} {(config.lootboxCostCoins || 0).toLocaleString()}</span>
+                        <img src={config.uiIcons.coin} alt="coin" className="w-5 h-5" />
+                    </button>
                 </div>
-                <h2 className="text-2xl font-display mb-2">{t('lootbox_coin')}</h2>
-                <button onClick={() => onOpenCoinLootbox('coin')} className="w-full interactive-button rounded-lg font-bold py-3 px-4 text-lg flex items-center justify-center space-x-2">
-                    <span>{t('open_for')} {(config.lootboxCostCoins || 0).toLocaleString()}</span>
-                    <img src={config.uiIcons.coin} alt="coin" className="w-6 h-6" />
-                </button>
-            </div>
-            <div className="card-glow rounded-2xl p-6 text-center">
-                 <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
-                    <img src={config.uiIcons.marketStarBox} alt={t('lootbox_star')} className="w-full h-full object-contain" />
+                <div className="card-glow rounded-2xl p-4 text-center">
+                     <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
+                        <img src={config.uiIcons.marketStarBox} alt={t('lootbox_star')} className="w-full h-full object-contain" />
+                    </div>
+                    <h2 className="text-xl font-display mb-2">{t('lootbox_star')}</h2>
+                    <button onClick={() => onPurchaseStarLootbox('star')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
+                        <span>{t('open_for')} {(config.lootboxCostStars || 0)}</span>
+                        <img src={config.uiIcons.star} alt="star" className="w-5 h-5" />
+                    </button>
                 </div>
-                <h2 className="text-2xl font-display mb-2">{t('lootbox_star')}</h2>
-                <button onClick={() => onPurchaseStarLootbox('star')} className="w-full interactive-button rounded-lg font-bold py-3 px-4 text-lg flex items-center justify-center space-x-2">
-                    <span>{t('open_for')} {(config.lootboxCostStars || 0)}</span>
-                    <img src={config.uiIcons.star} alt="star" className="w-6 h-6" />
-                </button>
             </div>
         </div>
     );
 
     return (
-        <div className="flex flex-col h-full text-white pt-4 items-center">
-            <div className="w-full max-w-md sticky top-0 bg-[var(--bg-color)] py-4 px-4 z-10">
+        <div className="flex flex-col h-full text-white items-center">
+            <div className="w-full max-w-md sticky top-0 bg-[var(--bg-color)] pt-4 px-4 z-10">
                 <h1 className="text-3xl font-display text-center mb-4">{t('profile')}</h1>
                 <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex flex-nowrap justify-around items-center gap-1 border border-slate-700">
                     <ProfileTabButton label={t('sub_contacts')} iconUrl={config.uiIcons.profile_tabs.contacts} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
@@ -204,7 +206,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                 </div>
             </div>
             
-            <div className="w-full max-w-md flex-grow overflow-y-auto no-scrollbar pt-4 flex justify-center">
+            <div className="w-full max-w-md flex-grow overflow-y-auto no-scrollbar pt-4 flex justify-center px-4">
                 {activeTab === 'contacts' && <ContactsContent />}
                 {activeTab === 'boosts' && <BoostScreen playerState={playerState} boosts={config.boosts} onBuyBoost={onBuyBoost} lang={user.language} uiIcons={config.uiIcons} />}
                 {activeTab === 'skins' && <SkinsContent />}
