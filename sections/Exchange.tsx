@@ -26,18 +26,12 @@ interface ExchangeProps {
   effectiveMaxSuspicion: number;
 }
 
-const formatBalance = (num: number): string => {
+const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
-  return new Intl.NumberFormat('en-US', {
-      maximumFractionDigits: 0
-  }).format(num);
-};
-
-const formatProfit = (num: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    notation: 'compact',
-    maximumFractionDigits: 2,
-  }).format(num);
+  if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
+  if (num >= 10000) return `${(num / 1000).toFixed(1)}K`;
+  return num.toLocaleString('en-US');
 };
 
 interface ClickFx {
@@ -238,11 +232,11 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             <div className="flex flex-col items-center flex-shrink-0 my-1">
                 <div className="flex items-center space-x-2">
                     <img src={config.uiIcons.coin} alt="coin" className="w-[5vh] h-[5vh] max-w-[32px] max-h-[32px]"/>
-                    <h1 className="text-responsive-2xl font-display text-slate-100" style={{textShadow: 'none'}}>{formatBalance(balance)}</h1>
+                    <h1 className="text-responsive-2xl font-display text-slate-100" style={{textShadow: 'none'}}>{formatNumber(balance)}</h1>
                 </div>
                 <div className="text-responsive-sm text-[var(--accent-color)] flex items-center gap-1 font-bold">
                     <img src={config.uiIcons.energy} alt="" className="w-3 h-3"/>
-                    <span>+{formatProfit(profitPerHour)}/hr</span>
+                    <span>+{formatNumber(profitPerHour)}/hr</span>
                 </div>
             </div>
 

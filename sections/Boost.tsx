@@ -11,6 +11,14 @@ interface BoostProps {
   uiIcons: UiIcons;
 }
 
+const formatNumber = (num: number): string => {
+  if (num === null || num === undefined) return '0';
+  if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
+  if (num >= 10000) return `${(num / 1000).toFixed(1)}K`;
+  return num.toLocaleString('en-US');
+};
+
 const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, lang, uiIcons }) => {
   const t = useTranslation();
   const { balance } = playerState;
@@ -58,7 +66,7 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
                 >
                     <img src={uiIcons.coin} alt="coin" className="w-5 h-5"/>
                     <div className="flex flex-col items-start leading-tight">
-                        <span className="text-xs">{cost.toLocaleString()}</span>
+                        <span className="text-xs">{formatNumber(cost)}</span>
                         {isMultiLevel && <span className="text-xs text-white/70">{t('lvl')} {level}</span>}
                     </div>
                 </button>

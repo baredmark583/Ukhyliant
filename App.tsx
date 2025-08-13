@@ -16,7 +16,7 @@ const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
   if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
-  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+  if (num >= 10000) return `${(num / 1000).toFixed(1)}K`;
   return num.toLocaleString('en-US');
 };
 
@@ -173,9 +173,9 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                     <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
                         <img src={config.uiIcons.marketCoinBox} alt={t('lootbox_coin')} className="w-full h-full object-contain" />
                     </div>
-                    <h2 className="text-xl font-display mb-2">{t('lootbox_coin')}</h2>
+                    <h2 className="text-base font-display mb-2">{t('lootbox_coin')}</h2>
                     <button onClick={() => onOpenCoinLootbox('coin')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
-                        <span>{t('open_for')} {(config.lootboxCostCoins || 0).toLocaleString()}</span>
+                        <span>{t('open_for')} {formatNumber(config.lootboxCostCoins || 0)}</span>
                         <img src={config.uiIcons.coin} alt="coin" className="w-5 h-5" />
                     </button>
                 </div>
@@ -183,7 +183,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                      <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
                         <img src={config.uiIcons.marketStarBox} alt={t('lootbox_star')} className="w-full h-full object-contain" />
                     </div>
-                    <h2 className="text-xl font-display mb-2">{t('lootbox_star')}</h2>
+                    <h2 className="text-base font-display mb-2">{t('lootbox_star')}</h2>
                     <button onClick={() => onPurchaseStarLootbox('star')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
                         <span>{t('open_for')} {(config.lootboxCostStars || 0)}</span>
                         <img src={config.uiIcons.star} alt="star" className="w-5 h-5" />
@@ -295,7 +295,7 @@ const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedTasks, 
                 {'description' in task && <p className="text-[var(--text-secondary)] text-xs text-left" title={(task as SpecialTask).description?.[lang]}>{(task as SpecialTask).description?.[lang]}</p>}
                 <div className="text-yellow-400 text-sm text-left mt-2 flex items-center space-x-1 font-bold">
                     <img src={rewardIconUrl} alt="reward" className="w-4 h-4" />
-                    <span>+{task.reward.amount.toLocaleString()}</span>
+                    <span>+{formatNumber(task.reward.amount)}</span>
                     {task.reward.type === 'profit' && <span className="text-[var(--text-secondary)] font-normal ml-1">/hr</span>}
                 </div>
             </div>
@@ -447,7 +447,7 @@ const PurchaseResultModal: React.FC<{
                 </div>
                 <p className="text-lg font-bold text-white mb-2">{item.name[lang]}</p>
                 {isLootboxItem && 'profitBoostPercent' in item && item.profitBoostPercent > 0 && <p className="text-[var(--accent-color)]">+{item.profitBoostPercent}% {t('profit_boost')}</p>}
-                {isLootboxItem && 'profitPerHour' in item && <p className="text-[var(--accent-color)]">+{item.profitPerHour.toLocaleString()}/hr</p>}
+                {isLootboxItem && 'profitPerHour' in item && <p className="text-[var(--accent-color)]">+{formatNumber(item.profitPerHour)}/hr</p>}
                 
                 <button onClick={onClose} className="w-full interactive-button rounded-lg font-bold py-3 mt-6 text-lg">
                     {t('close')}
@@ -539,8 +539,8 @@ const MainApp: React.FC = () => {
       if (result.player) {
           window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
           const rewardText = task.reward?.type === 'profit'
-              ? `+${task.reward?.amount?.toLocaleString() ?? 0}/hr <img src="${config.uiIcons.energy}" class="w-4 h-4 inline-block -mt-1"/>`
-              : `+${task.reward?.amount?.toLocaleString() ?? 0} <img src="${config.uiIcons.coin}" class="w-4 h-4 inline-block -mt-1"/>`;
+              ? `+${formatNumber(task.reward.amount)}/hr <img src="${config.uiIcons.energy}" class="w-4 h-4 inline-block -mt-1"/>`
+              : `+${formatNumber(task.reward.amount)} <img src="${config.uiIcons.coin}" class="w-4 h-4 inline-block -mt-1"/>`;
           showNotification(`${task.name?.[user.language]} ${t('task_completed')} <span class="whitespace-nowrap">${rewardText}</span>`, 'success');
           
           setStartedTasks(prev => {
@@ -590,7 +590,7 @@ const MainApp: React.FC = () => {
     if (result.player) {
         const rewardAmount = result.reward || 0;
         if (rewardAmount > 0) {
-            showNotification(`${t('cipher_solved')} +${rewardAmount.toLocaleString()}`, 'success');
+            showNotification(`${t('cipher_solved')} +${formatNumber(rewardAmount)}`, 'success');
         } else {
             showNotification(t('cipher_solved'), 'success');
         }
@@ -604,7 +604,7 @@ const MainApp: React.FC = () => {
   const handleClaimCombo = async () => {
     const result = await claimDailyCombo();
     if (result.player && result.reward) {
-        showNotification(`${t('combo_collected')} +${result.reward.toLocaleString()}`, 'success');
+        showNotification(`${t('combo_collected')} +${formatNumber(result.reward)}`, 'success');
     } else if (result.error) {
         showNotification(result.error, 'error');
     }
