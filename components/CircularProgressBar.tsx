@@ -10,6 +10,12 @@ interface CircularProgressBarProps {
   color: string;
 }
 
+const formatNumber = (num: number): string => {
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+  if (num >= 10000) return `${(num / 1000).toFixed(1)}K`;
+  return Math.floor(num).toString();
+};
+
 const CircularProgressBar: React.FC<CircularProgressBarProps> = ({ value, max, size = 60, strokeWidth = 8, iconUrl, color }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
@@ -39,7 +45,7 @@ const CircularProgressBar: React.FC<CircularProgressBarProps> = ({ value, max, s
       </svg>
       <div className="flex flex-col items-center justify-center z-10 p-1 space-y-0.5">
         <img src={iconUrl} alt="icon" className="w-[45%] h-[45%]" />
-        <span className="font-mono text-[11px] font-bold text-[var(--text-primary)] leading-tight">{Math.floor(value)}</span>
+        <span className="font-mono text-[10px] font-bold text-[var(--text-primary)] leading-tight">{formatNumber(value)}</span>
       </div>
     </div>
   );

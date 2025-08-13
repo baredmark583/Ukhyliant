@@ -2,6 +2,7 @@
 import React from 'react';
 import { Boost, Language, PlayerState, UiIcons } from '../types';
 import { useTranslation } from '../hooks/useGameLogic';
+import { BOOST_PURCHASE_LIMITS } from '../constants';
 
 interface BoostProps {
   playerState: PlayerState;
@@ -48,6 +49,9 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
         {(boosts || []).map(boost => {
           const { level, cost, isMultiLevel } = getBoostDetails(boost);
           const canAfford = balance >= cost;
+          const limit = BOOST_PURCHASE_LIMITS[boost.id];
+          const purchasesToday = playerState.dailyBoostPurchases?.[boost.id] || 0;
+          const isLimitReached = limit !== undefined && purchasesToday >= limit;
           
           return (
             <div key={boost.id} className="card-glow bg-slate-800/50 rounded-2xl p-3 flex flex-col items-center text-center justify-between">
@@ -56,12 +60,17 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
                         <img src={boost.iconUrl} alt={boost.name?.[lang]} className="w-12 h-12 object-contain" />
                     </div>
                     <h2 className="text-sm font-bold leading-tight">{boost.name?.[lang]}</h2>
-                    <p className="text-xs text-[var(--text-secondary)] mt-1">{boost.description?.[lang]}</p>
+                    <p className="text-xs text-[var(--text-secondary)] mt-1 h-10">{boost.description?.[lang]}</p>
+                    {limit !== undefined && (
+                        <p className={`text-xs mt-1 font-bold ${isLimitReached ? 'text-red-400' : 'text-gray-400'}`}>
+                            {isLimitReached ? t('limit_reached') : `${t('limit_today')} ${purchasesToday}/${limit}`}
+                        </p>
+                    )}
                 </div>
 
                 <button
                     onClick={() => onBuyBoost(boost)}
-                    disabled={!canAfford}
+                    disabled={!canAfford || isLimitReached}
                     className="w-full mt-3 interactive-button rounded-xl px-2 py-2 font-bold text-sm flex items-center justify-center space-x-2 flex-shrink-0 disabled:opacity-50"
                 >
                     <img src={uiIcons.coin} alt="coin" className="w-5 h-5"/>

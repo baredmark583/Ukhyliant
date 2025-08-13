@@ -200,6 +200,7 @@ export interface PlayerState {
   suspicion: number;
   cellId: number | null;
   penaltyLog?: { type: string; timestamp: string; message?: string }[];
+  dailyBoostPurchases?: Record<string, number>;
 }
 
 export interface CellMember {

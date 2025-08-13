@@ -95,6 +95,13 @@ export const CELL_BATTLE_TICKET_COST = 1000000;
 export const BATTLE_DURATION_SECONDS = 24 * 60 * 60; // 24 hours
 export const BATTLE_START_DAY = 1; // 1 = Monday, 0 = Sunday
 
+export const BOOST_PURCHASE_LIMITS = {
+  'boost_tap_guru': 10,
+  'boost_energy_limit': 10,
+  'boost_suspicion_limit': 10,
+  'boost_full_energy': 3,
+};
+
 export const CELL_ECONOMY_DEFAULTS = {
     informantProfitBonus: 0.01, // 1%
     cellBankProfitShare: 0.10, // 10%

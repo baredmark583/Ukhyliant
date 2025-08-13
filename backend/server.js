@@ -332,6 +332,7 @@ app.post('/api/login', async (req, res) => {
                 currentSkinId: DEFAULT_COIN_SKIN_ID,
                 suspicion: 0,
                 cellId: null,
+                dailyBoostPurchases: {},
             };
             await savePlayer(userId, player);
         } else {

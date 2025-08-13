@@ -69,6 +69,13 @@ export const SAVE_DEBOUNCE_MS = 1000;
 export const REFERRAL_BONUS = 50000; // Coins for each referral
 export const REFERRAL_PROFIT_SHARE = 0.10; // 10%
 
+export const BOOST_PURCHASE_LIMITS: Record<string, number> = {
+  'boost_tap_guru': 10,
+  'boost_energy_limit': 10,
+  'boost_suspicion_limit': 10,
+  'boost_full_energy': 3,
+};
+
 
 // --- TRANSLATIONS ---
 type TranslationKey = 
@@ -90,6 +97,7 @@ type TranslationKey =
   | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked'
   // Boosts
   | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased' | 'suspicion_limit'
+  | 'limit_today' | 'limit_reached'
   // Market & Skins
   | 'market' | 'skins' | 'black_market' | 'black_market_desc' | 'open_for' | 'open'
   | 'lootbox_coin' | 'lootbox_star' | 'profit_from_referrals'
@@ -218,6 +226,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     full_energy: 'Full Energy',
     suspicion_limit: 'Suspicion Limit',
     boost_purchased: 'Boost purchased!',
+    limit_today: 'Limit today:',
+    limit_reached: 'Limit reached',
     market: 'Market',
     skins: 'Skins',
     black_market: 'Black Market',
@@ -416,6 +426,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     full_energy: 'Повна Енергія',
     suspicion_limit: 'Ліміт Підозри',
     boost_purchased: 'Буст придбано!',
+    limit_today: 'Ліміт сьогодні:',
+    limit_reached: 'Ліміт вичерпано',
     market: 'Ринок',
     skins: 'Скіни',
     black_market: 'Чорний ринок',
@@ -614,6 +626,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     full_energy: 'Полная Энергия',
     suspicion_limit: 'Лимит Подозрения',
     boost_purchased: 'Буст приобретён!',
+    limit_today: 'Лимит сегодня:',
+    limit_reached: 'Лимит исчерпан',
     market: 'Рынок',
     skins: 'Скины',
     black_market: 'Черный рынок',

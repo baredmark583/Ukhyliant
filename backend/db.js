@@ -24,6 +24,7 @@ import {
     BATTLE_REWARDS_DEFAULT,
     CELL_ECONOMY_DEFAULTS,
     PENALTY_MESSAGES,
+    BOOST_PURCHASE_LIMITS,
 } from './constants.js';
 
 const { Pool } = pg;
@@ -1187,6 +1188,7 @@ export const resetPlayerDailyProgress = async (userId) => {
     player.claimedComboToday = false;
     player.claimedCipherToday = false;
     player.dailyUpgrades = [];
+    player.dailyBoostPurchases = {};
     player.lastDailyReset = Date.now();
     await savePlayer(userId, player);
     return player;
@@ -1302,6 +1304,13 @@ export const buyBoostInDb = async (userId, boostId, config) => {
         const boost = config.boosts.find(b => b.id === boostId);
         if (!boost) throw new Error('Boost not found');
 
+        const limit = BOOST_PURCHASE_LIMITS[boostId];
+        const purchasesToday = player.dailyBoostPurchases?.[boostId] || 0;
+
+        if (limit !== undefined && purchasesToday >= limit) {
+            throw new Error('Daily purchase limit reached.');
+        }
+
         let cost = boost.costCoins;
         if (boost.id === 'boost_tap_guru') {
             cost = Math.floor(boost.costCoins * Math.pow(1.5, player.tapGuruLevel || 0));
@@ -1313,6 +1322,11 @@ export const buyBoostInDb = async (userId, boostId, config) => {
         
         if (player.balance < cost) throw new Error('Not enough coins');
         player.balance -= cost;
+
+        if (limit !== undefined) {
+            if (!player.dailyBoostPurchases) player.dailyBoostPurchases = {};
+            player.dailyBoostPurchases[boostId] = purchasesToday + 1;
+        }
 
         switch(boost.id) {
             case 'boost_full_energy':
