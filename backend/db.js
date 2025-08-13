@@ -1,4 +1,3 @@
-
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -1403,7 +1402,7 @@ export const getDashboardStats = async () => {
 };
 
 export const getOnlinePlayerCount = async (minutes = 5) => {
-    const res = await executeQuery("SELECT COUNT(*) FROM users WHERE last_seen >= NOW() - INTERVAL '$1 minutes'", [minutes]);
+    const res = await executeQuery("SELECT COUNT(*) FROM users WHERE last_seen >= NOW() - ($1 * INTERVAL '1 minute')", [minutes]);
     return parseInt(res.rows[0].count, 10);
 };
 
