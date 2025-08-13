@@ -86,6 +86,7 @@ export const INITIAL_COIN_SKINS = [
 export const REFERRAL_BONUS = 50000;
 export const REFERRAL_PROFIT_SHARE = 0.10; // 10%
 export const INITIAL_MAX_ENERGY = 1000;
+export const MAX_ENERGY_CAP = 1_000_000_000_000;
 export const LOOTBOX_COST_COINS = 50000;
 export const LOOTBOX_COST_STARS = 5;
 export const CELL_CREATION_COST = 100000;

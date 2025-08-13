@@ -14,6 +14,7 @@ type ProfileTab = 'contacts' | 'boosts' | 'skins' | 'market' | 'cell';
 
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
+  if (num >= 1_000_000_000_000) return `${(num / 1_000_000_000_000).toFixed(2)}T`;
   if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
   if (num >= 10000) return `${(num / 1000).toFixed(1)}K`;
@@ -170,6 +171,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
             <p className="text-center text-[var(--text-secondary)] max-w-xs mx-auto mb-6">{t('black_market_desc')}</p>
              <div className="grid grid-cols-2 gap-4">
                 <div className="card-glow rounded-2xl p-4 text-center">
+                    <h3 className="font-bold text-base mb-2">{t('lootbox_coin')}</h3>
                     <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
                         <img src={config.uiIcons.marketCoinBox} alt={t('lootbox_coin')} className="w-full h-full object-contain" />
                     </div>
@@ -179,6 +181,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                     </button>
                 </div>
                 <div className="card-glow rounded-2xl p-4 text-center">
+                    <h3 className="font-bold text-base mb-2">{t('lootbox_star')}</h3>
                      <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
                         <img src={config.uiIcons.marketStarBox} alt={t('lootbox_star')} className="w-full h-full object-contain" />
                     </div>

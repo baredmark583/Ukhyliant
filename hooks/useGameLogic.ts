@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -513,7 +511,8 @@ export const useGame = () => {
 
     const effectiveMaxEnergy = useMemo(() => {
         if (!playerState) return INITIAL_MAX_ENERGY;
-        return INITIAL_MAX_ENERGY * Math.pow(10, playerState.energyLimitLevel || 0);
+        const calculatedMax = INITIAL_MAX_ENERGY * Math.pow(10, playerState.energyLimitLevel || 0);
+        return Math.min(calculatedMax, 1_000_000_000_000); // Cap at 1 Trillion
     }, [playerState?.energyLimitLevel]);
     
     const effectiveMaxSuspicion = useMemo(() => {
@@ -524,7 +523,8 @@ export const useGame = () => {
     const effectiveCoinsPerTap = useMemo(() => {
         if (!playerState) return 1;
         // x2 multiplier for Guru Tapper
-        return (playerState.coinsPerTap || 1) * Math.pow(2, playerState.tapGuruLevel || 0);
+        const calculatedTap = (playerState.coinsPerTap || 1) * Math.pow(2, playerState.tapGuruLevel || 0);
+        return Math.min(calculatedTap, 1_000_000_000); // Cap at 1 Billion
     }, [playerState?.coinsPerTap, playerState?.tapGuruLevel]);
 
     // Game loop for energy regen and passive income

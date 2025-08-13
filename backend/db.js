@@ -1,5 +1,3 @@
-
-
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -17,6 +15,7 @@ import {
     INFORMANT_RECRUIT_COST,
     REFERRAL_PROFIT_SHARE,
     INITIAL_MAX_ENERGY,
+    MAX_ENERGY_CAP,
     LOOTBOX_COST_COINS,
     LOOTBOX_COST_STARS,
     CELL_BATTLE_TICKET_COST,
@@ -1331,7 +1330,7 @@ export const buyBoostInDb = async (userId, boostId, config) => {
         switch(boost.id) {
             case 'boost_full_energy':
                 const maxEnergy = INITIAL_MAX_ENERGY * Math.pow(10, player.energyLimitLevel || 0);
-                player.energy = maxEnergy;
+                player.energy = Math.min(maxEnergy, MAX_ENERGY_CAP);
                 break;
             case 'boost_tap_guru':
                 player.tapGuruLevel = (player.tapGuruLevel || 0) + 1;

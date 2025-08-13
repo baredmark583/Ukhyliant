@@ -1,5 +1,3 @@
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import CircularProgressBar from '../components/CircularProgressBar';
 import { PlayerState, League, User, GameConfig } from '../types';
@@ -30,6 +28,7 @@ interface ExchangeProps {
 
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
+  if (num >= 1_000_000_000_000) return `${(num / 1_000_000_000_000).toFixed(2)}T`;
   if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
   if (num >= 10000) return `${(num / 1000).toFixed(1)}K`;
@@ -51,6 +50,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const [scale, setScale] = useState(1);
   const { switchLanguage } = useAuth();
   
+  const [morseError, setMorseError] = useState(false);
   const [morseMode, setMorseMode] = useState(false);
   const [morseSequence, setMorseSequence] = useState('');
   const [decodedWord, setDecodedWord] = useState('');
@@ -103,7 +103,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
   const handlePressEnd = async () => {
     const now = Date.now();
-    if (now - lastTapTime.current < 30) {
+    // Increased debounce to prevent accidental double-taps, especially on sensitive screens.
+    if (now - lastTapTime.current < 100) {
         if(pressTimer.current) pressTimer.current = null;
         return;
     }
@@ -117,10 +118,12 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
     if (morseMode && !claimedCipher && dailyCipherWord) {
       if (morseCharTimeout.current) clearTimeout(morseCharTimeout.current);
 
-      const morseChar = pressDuration < 200 ? '.' : '-';
+      // Increased duration threshold to make distinguishing dots and dashes easier.
+      const morseChar = pressDuration < 350 ? '.' : '-';
       const newSequence = morseSequence + morseChar;
       setMorseSequence(newSequence);
 
+      // Increased timeout to give the user more time between characters.
       morseCharTimeout.current = window.setTimeout(async () => {
           const charToEvaluate = MORSE_CHAR_MAP[newSequence];
           const nextExpectedChar = dailyCipherWord[decodedWord.length];
@@ -136,11 +139,13 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                   }
               }
           } else {
+              // On error, shake the input but don't reset the whole word, just the current character sequence.
               window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-              setDecodedWord(''); // Reset the whole word on error
+              setMorseError(true);
+              setTimeout(() => setMorseError(false), 500); // Reset shake after animation
           }
           setMorseSequence(''); // Reset sequence input after evaluation
-      }, 1200);
+      }, 1500);
 
     } else {
       const tapValue = onTap();
@@ -267,7 +272,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                             </div>
                         ) : (
                             <div className="flex items-center justify-between w-full gap-2 h-10">
-                                <div className="font-mono text-xl h-10 tracking-widest text-white bg-slate-900/50 shadow-inner rounded-lg flex items-center justify-center w-full">
+                                <div className={`font-mono text-xl h-10 tracking-widest text-white bg-slate-900/50 shadow-inner rounded-lg flex items-center justify-center w-full transition-transform ${morseError ? 'animate-shake' : ''}`}>
                                     {decodedWord}<span className="text-gray-500">{morseSequence}</span>
                                 </div>
                                 <button onClick={handleCancelMorse} className="text-xs text-gray-400 hover:text-white flex-shrink-0">
