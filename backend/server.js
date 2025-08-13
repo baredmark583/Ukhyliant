@@ -59,12 +59,14 @@ import {
     forceStartBattle,
     forceEndBattle,
     getCellAnalytics,
-    getAllUserIds
+    getAllUserIds,
+    processBoostPaymentInDb
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
     LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID,
-    CHEAT_DETECTION_THRESHOLD_TPS, CHEAT_DETECTION_STRIKES_TO_FLAG
+    CHEAT_DETECTION_THRESHOLD_TPS, CHEAT_DETECTION_STRIKES_TO_FLAG,
+    BOOST_PURCHASE_LIMITS
 } from './constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -626,6 +628,22 @@ app.post('/api/create-star-invoice', async (req, res) => {
             payload = `lootbox-${userId}-${itemId}`;
             price = config.lootboxCostStars || 0;
             if (price <= 0) return res.status(400).json({ ok: false, error: "Lootbox not for sale." });
+        } else if (payloadType === 'boost') {
+            const boost = config.boosts.find(b => b.id === itemId);
+            if (!boost) return res.status(404).json({ ok: false, error: "Boost not found." });
+            
+            const limit = BOOST_PURCHASE_LIMITS[itemId];
+            const purchasesToday = player.dailyBoostPurchases?.[itemId] || 0;
+            if (limit !== undefined && purchasesToday >= limit) {
+                return res.status(400).json({ ok: false, error: "Daily limit for this boost reached." });
+            }
+
+            if (!boost.costStars || boost.costStars <= 0) return res.status(400).json({ ok: false, error: "This boost is not for sale with stars." });
+
+            title = boost.name['en'] || 'Special Boost';
+            description = boost.description['en'] || 'Activate this powerful boost.';
+            payload = `boost-${userId}-${itemId}`;
+            price = boost.costStars;
         } else {
             return res.status(400).json({ ok: false, error: "Invalid payload type." });
         }

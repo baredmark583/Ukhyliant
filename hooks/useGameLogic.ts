@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -194,7 +195,7 @@ const API = {
     }
   },
   
-  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox', itemId: string): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
+  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox' | 'boost', itemId: string): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
     if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/create-star-invoice`, {
@@ -637,6 +638,16 @@ export const useGame = () => {
         return result;
     }, [user, setPlayerState]);
 
+    const purchaseBoostWithStars = useCallback(async (boost: Boost) => {
+        if (!user) return { error: 'User not found' };
+        const result = await API.createStarInvoice(user.id, 'boost', boost.id);
+        if (result.ok && result.invoiceLink) {
+            window.Telegram.WebApp.openInvoice(result.invoiceLink);
+            return { success: true };
+        }
+        return { error: result.error || 'Failed to start payment.' };
+    }, [user]);
+
     const claimTaskReward = useCallback(async (task: DailyTask, code?: string) => {
         if (!user) return { error: 'User not found' };
         const result = await API.claimDailyTask(user.id, task.id, code);
@@ -782,6 +793,7 @@ export const useGame = () => {
         allUpgrades,
         currentLeague,
         buyBoost,
+        purchaseBoostWithStars,
         claimTaskReward,
         purchaseSpecialTask,
         completeSpecialTask,

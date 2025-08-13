@@ -1,3 +1,4 @@
+
 // This file makes the backend self-contained by providing initial data.
 // It prevents the server from trying to import files from the frontend.
 
@@ -66,6 +67,7 @@ export const INITIAL_BOOSTS = [
     { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+50% to coins per tap (compounding).', ua: '+50% до монет за тап (складний відсоток).', ru: '+50% к монетам за тап (сложный процент).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
     { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: 'x2 to your max energy capacity.', ua: 'x2 до максимального запасу енергії.', ru: 'x2 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
     { id: 'boost_suspicion_limit', name: { en: 'Suspicion Limit', ua: 'Ліміт Підозри', ru: 'Лимит Подозрения' }, description: { en: '+10 to max suspicion capacity.', ua: '+10 до макс. запасу підозри.', ru: '+10 к макс. запасу подозрения.' }, iconUrl: 'https://api.iconify.design/ph/shield-warning-fill.svg?color=white', costCoins: 1000, suspicionModifier: 0 },
+    { id: 'boost_reset_limits', name: { en: 'Reset Limits', ua: 'Скинути ліміти', ru: 'Сбросить лимиты' }, description: { en: 'Resets the daily purchase limits for all other boosts.', ua: 'Скидає денні ліміти на покупки для всіх інших бустів.', ru: 'Сбрасывает дневные лимиты на покупки для всех остальных бустов.' }, iconUrl: 'https://api.iconify.design/ph/timer-bold.svg?color=white', costStars: 5, suspicionModifier: 0 },
 ];
 
 export const INITIAL_BLACK_MARKET_CARDS = [
@@ -101,6 +103,7 @@ export const BOOST_PURCHASE_LIMITS = {
   'boost_energy_limit': 10,
   'boost_suspicion_limit': 10,
   'boost_full_energy': 3,
+  'boost_reset_limits': 3,
 };
 
 export const CELL_ECONOMY_DEFAULTS = {

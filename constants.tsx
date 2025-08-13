@@ -46,6 +46,7 @@ export const INITIAL_BOOSTS: Boost[] = [
     { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+50% to coins per tap (compounding).', ua: '+50% до монет за тап (складний відсоток).', ru: '+50% к монетам за тап (сложный процент).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
     { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: 'x2 to your max energy capacity.', ua: 'x2 до максимального запасу енергії.', ru: 'x2 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
     { id: 'boost_suspicion_limit', name: { en: 'Suspicion Limit', ua: 'Ліміт Підозри', ru: 'Лимит Подозрения' }, description: { en: '+10 to max suspicion capacity.', ua: '+10 до макс. запасу підозри.', ru: '+10 к макс. запасу подозрения.' }, iconUrl: 'https://api.iconify.design/ph/shield-warning-fill.svg?color=white', costCoins: 1000, suspicionModifier: 0 },
+    { id: 'boost_reset_limits', name: { en: 'Reset Limits', ua: 'Скинути ліміти', ru: 'Сбросить лимиты' }, description: { en: 'Resets the daily purchase limits for all other boosts.', ua: 'Скидає денні ліміти на покупки для всіх інших бустів.', ru: 'Сбрасывает дневные лимиты на покупки для всех остальных бустов.' }, iconUrl: 'https://api.iconify.design/ph/timer-bold.svg?color=white', costStars: 5, suspicionModifier: 0 },
 ];
 
 export const INITIAL_BLACK_MARKET_CARDS: BlackMarketCard[] = [
@@ -74,6 +75,7 @@ export const BOOST_PURCHASE_LIMITS: Record<string, number> = {
   'boost_energy_limit': 10,
   'boost_suspicion_limit': 10,
   'boost_full_energy': 3,
+  'boost_reset_limits': 3,
 };
 
 
@@ -97,7 +99,7 @@ type TranslationKey =
   | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked'
   // Boosts
   | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased' | 'suspicion_limit'
-  | 'limit_today' | 'limit_reached'
+  | 'limit_today' | 'limit_reached' | 'reset_limits' | 'reset_limits_desc' | 'limits_reset_success'
   // Market & Skins
   | 'market' | 'skins' | 'black_market' | 'black_market_desc' | 'open_for' | 'open'
   | 'lootbox_coin' | 'lootbox_star' | 'profit_from_referrals'
@@ -228,6 +230,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     boost_purchased: 'Boost purchased!',
     limit_today: 'Limit today:',
     limit_reached: 'Limit reached',
+    reset_limits: 'Reset Limits',
+    reset_limits_desc: 'Resets the daily purchase limits for all other boosts.',
+    limits_reset_success: 'Daily limits have been reset!',
     market: 'Market',
     skins: 'Skins',
     black_market: 'Black Market',
@@ -428,6 +433,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     boost_purchased: 'Буст придбано!',
     limit_today: 'Ліміт сьогодні:',
     limit_reached: 'Ліміт вичерпано',
+    reset_limits: 'Скинути ліміти',
+    reset_limits_desc: 'Скидає денні ліміти на покупки для всіх інших бустів.',
+    limits_reset_success: 'Денні ліміти скинуто!',
     market: 'Ринок',
     skins: 'Скіни',
     black_market: 'Чорний ринок',
@@ -628,6 +636,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     boost_purchased: 'Буст приобретён!',
     limit_today: 'Лимит сегодня:',
     limit_reached: 'Лимит исчерпан',
+    reset_limits: 'Сбросить лимиты',
+    reset_limits_desc: 'Сбрасывает дневные лимиты на покупки для всех остальных бустов.',
+    limits_reset_success: 'Дневные лимиты сброшены!',
     market: 'Рынок',
     skins: 'Скины',
     black_market: 'Черный рынок',

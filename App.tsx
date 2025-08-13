@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
@@ -428,7 +429,7 @@ const LeaderboardScreen: React.FC<{
 };
 
 const PurchaseResultModal: React.FC<{
-    result: { type: 'lootbox' | 'task', item: any };
+    result: { type: 'lootbox' | 'task' | 'boost_result', item: any };
     onClose: () => void;
     lang: Language;
     uiIcons: UiIcons;
@@ -437,7 +438,8 @@ const PurchaseResultModal: React.FC<{
     const { item } = result;
     
     const isLootboxItem = result.type === 'lootbox';
-    const title = isLootboxItem ? t('won_item') : t('task_unlocked');
+    const isBoostResult = result.type === 'boost_result';
+    const title = isBoostResult ? t('boost_purchased') : isLootboxItem ? t('won_item') : t('task_unlocked');
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -449,6 +451,7 @@ const PurchaseResultModal: React.FC<{
                 <p className="text-lg font-bold text-white mb-2">{item.name[lang]}</p>
                 {isLootboxItem && 'profitBoostPercent' in item && item.profitBoostPercent > 0 && <p className="text-[var(--accent-color)]">+{item.profitBoostPercent}% {t('profit_boost')}</p>}
                 {isLootboxItem && 'profitPerHour' in item && <p className="text-[var(--accent-color)]">+{formatNumber(item.profitPerHour)}/hr</p>}
+                {isBoostResult && 'description' in item && <p className="text-[var(--accent-color)] text-center">{item.description[lang]}</p>}
                 
                 <button onClick={onClose} className="w-full interactive-button rounded-lg font-bold py-3 mt-6 text-lg">
                     {t('close')}
@@ -462,7 +465,7 @@ const MainApp: React.FC = () => {
   const { user, isGlitching, setIsGlitching } = useAuth();
   const { 
       playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, 
-      claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask,
+      claimTaskReward, buyBoost, purchaseBoostWithStars, purchaseSpecialTask, completeSpecialTask,
       claimDailyCombo, claimDailyCipher, getLeaderboard, 
       openCoinLootbox, purchaseLootboxWithStars, 
       setSkin,
@@ -528,14 +531,21 @@ const MainApp: React.FC = () => {
   };
   
   const handleBuyBoost = async (boost: Boost) => {
-    const result = await buyBoost(boost);
-    if (result.player) {
-        showNotification(t('boost_purchased'), 'success');
-        if (boost.id === 'boost_turbo_mode') {
-            setActiveScreen('exchange');
+    if (boost.costStars && boost.costStars > 0) {
+        const result = await purchaseBoostWithStars(boost);
+        if (result?.error) {
+            showNotification(result.error, 'error');
         }
-    } else if (result.error) {
-        showNotification(result.error, 'error');
+    } else {
+        const result = await buyBoost(boost);
+        if (result.player) {
+            showNotification(t('boost_purchased'), 'success');
+            if (boost.id === 'boost_turbo_mode') {
+                setActiveScreen('exchange');
+            }
+        } else if (result.error) {
+            showNotification(result.error, 'error');
+        }
     }
   };
 

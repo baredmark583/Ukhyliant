@@ -72,7 +72,8 @@ export interface Boost {
   name: LocalizedString;
   description: LocalizedString;
   iconUrl: string;
-  costCoins: number; // Cost in coins
+  costCoins?: number; // Cost in coins
+  costStars?: number; // Cost in Telegram Stars
   suspicionModifier: number;
 }
 
