@@ -528,6 +528,9 @@ const MainApp: React.FC = () => {
     const result = await buyBoost(boost);
     if (result.player) {
         showNotification(t('boost_purchased'), 'success');
+        if (boost.id === 'boost_turbo_mode') {
+            setActiveScreen('exchange');
+        }
     } else if (result.error) {
         showNotification(result.error, 'error');
     }
