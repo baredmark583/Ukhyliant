@@ -76,7 +76,7 @@ const NotInTelegramScreen: React.FC = () => (
 const ProfileTabButton = ({ label, iconUrl, isActive, onClick }: { label: string, iconUrl: string, isActive: boolean, onClick: () => void }) => (
     <button
         onClick={onClick}
-        className={`flex-1 flex flex-col items-center justify-center p-1 rounded-lg transition-colors duration-200 group aspect-square max-w-16 ${
+        className={`flex-1 flex flex-col items-center justify-center p-1 rounded-lg transition-colors duration-200 group aspect-square ${
             isActive ? 'bg-slate-900 shadow-inner' : 'hover:bg-slate-700/50'
         }`}
     >
@@ -474,6 +474,21 @@ const MainApp: React.FC = () => {
   const [startedTasks, setStartedTasks] = useState<Set<string>>(new Set());
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
+
+    useEffect(() => {
+        const tg = window.Telegram?.WebApp;
+        if (!tg) return;
+
+        const handleViewportChange = () => {
+            setIsFullScreen(tg.isExpanded);
+        };
+
+        tg.onEvent('viewportChanged', handleViewportChange);
+        return () => {
+            tg.offEvent('viewportChanged', handleViewportChange);
+        };
+    }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsAppReady(true), 1500);
@@ -689,7 +704,7 @@ const MainApp: React.FC = () => {
   );
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col prevent-select">
+    <div className={`h-screen w-screen overflow-hidden flex flex-col prevent-select transition-all duration-300 ${isFullScreen ? 'pt-4' : ''}`}>
       {isGlitching && <GlitchEffect />}
       {(systemMessage) && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
 
