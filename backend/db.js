@@ -150,6 +150,14 @@ export const initializeDb = async () => {
             score NUMERIC(30, 4) DEFAULT 0,
             UNIQUE(battle_id, cell_id)
         );
+
+        CREATE TABLE IF NOT EXISTS star_transactions (
+            id SERIAL PRIMARY KEY,
+            user_id VARCHAR(255) NOT NULL,
+            amount INTEGER NOT NULL,
+            payload VARCHAR(255),
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
     `);
     console.log("Database tables checked/created successfully.");
 
@@ -1097,13 +1105,19 @@ export const buyUpgradeInDb = async (userId, upgradeId, config) => {
         if (!upgrade) throw new Error('Upgrade not found.');
 
         const level = player.upgrades?.[upgradeId] || 0;
-        const price = Math.floor((upgrade.price || upgrade.profitPerHour * 10) * Math.pow(1.15, level));
+        const basePrice = upgrade.price || upgrade.profitPerHour * 10;
+        const price = Math.floor(basePrice * Math.pow(1.15, level));
 
         if (Number(player.balance || 0) < price) throw new Error('Not enough coins.');
 
         player.balance = Number(player.balance || 0) - price;
         player.upgrades[upgradeId] = (player.upgrades[upgradeId] || 0) + 1;
-        player.profitPerHour = (player.profitPerHour || 0) + (upgrade.profitPerHour || 0);
+
+        // Calculate compounding profit to add for this level
+        const baseProfit = upgrade.profitPerHour || 0;
+        const profitToAdd = Math.floor(baseProfit * Math.pow(1.07, level));
+        player.profitPerHour = (player.profitPerHour || 0) + profitToAdd;
+
         player.dailyUpgrades = [...new Set([...(player.dailyUpgrades || []), upgradeId])];
 
         const user = await getUser(userId);
@@ -1126,6 +1140,7 @@ export const buyUpgradeInDb = async (userId, upgradeId, config) => {
         client.release();
     }
 };
+
 
 export const buyBoostInDb = async (userId, boostId, config) => {
     const client = await pool.connect();
@@ -1294,9 +1309,16 @@ export const processBoostPaymentInDb = async (userId, boostId, config) => {
     }
 };
 
-export const processSuccessfulPayment = async (payload) => {
+export const processSuccessfulPayment = async (payload, totalAmount) => {
     const [type, userId, itemId] = payload.split('-');
     const config = await getGameConfig();
+
+    if (totalAmount && totalAmount > 0) {
+        await executeQuery(
+            'INSERT INTO star_transactions (user_id, amount, payload) VALUES ($1, $2, $3)',
+            [userId, totalAmount, payload]
+        );
+    }
 
     if (type === 'task') {
         await unlockSpecialTask(userId, itemId, config);
@@ -1346,7 +1368,7 @@ export const getAllPlayersForAdmin = async () => {
     const res = await executeQuery(`
         SELECT u.id, u.name, u.language,
                (p.data->>'balance')::numeric AS balance,
-               (p.data->>'profitPerHour')::numeric AS profitPerHour,
+               (p.data->>'profitPerHour')::numeric AS "profitPerHour",
                (p.data->>'referrals')::int AS referrals
         FROM users u
         JOIN players p ON u.id = p.id
@@ -1366,7 +1388,8 @@ export const getDashboardStats = async () => {
         SELECT
             (SELECT COUNT(*) FROM users) AS "totalPlayers",
             (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '24 hours') AS "newPlayersToday",
-            (SELECT SUM((data->>'profitPerHour')::numeric) FROM players) AS "totalProfitPerHour"
+            (SELECT SUM((data->>'profitPerHour')::numeric) FROM players) AS "totalProfitPerHour",
+            (SELECT SUM(amount) FROM star_transactions) AS "totalStarsEarned"
     `;
     const registrationsQuery = `
         SELECT date_trunc('day', created_at)::date AS date, COUNT(*) AS count
@@ -1396,8 +1419,7 @@ export const getDashboardStats = async () => {
         totalProfitPerHour: parseFloat(statsRes.rows[0].totalProfitPerHour),
         registrations: regRes.rows.map(r => ({ date: r.date, count: parseInt(r.count, 10) })),
         popularUpgrades: upgradesRes.rows.map(u => ({ ...u, purchase_count: parseInt(u.purchase_count, 10) })),
-        // totalStarsEarned is conceptual for now
-        totalStarsEarned: 0,
+        totalStarsEarned: parseInt(statsRes.rows[0].totalStarsEarned, 10) || 0,
     };
 };
 

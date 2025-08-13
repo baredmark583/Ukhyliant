@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -580,19 +581,33 @@ export const useGame = () => {
     }, [user, setPlayerState, setPurchaseResult]);
 
     const allUpgrades = useMemo(() => {
-        const regularUpgrades = (config?.upgrades || []).map(u => ({...u, price: Math.floor(u.price * Math.pow(1.15, playerState?.upgrades[u.id] || 0))}));
-        const marketCards: (BlackMarketCard & { category: UpgradeCategory, price: number })[] = (config?.blackMarketCards || [])
-          .filter(c => playerState?.upgrades[c.id])
-          .map(c => ({
-              ...c, 
-              category: UpgradeCategory.Special, 
-              price: Math.floor((c.price || c.profitPerHour * 10) * Math.pow(1.15, playerState?.upgrades[c.id] || 0))
-          }));
+        const regularUpgrades = (config?.upgrades || []).map(u => {
+            const level = playerState?.upgrades[u.id] || 0;
+            const price = Math.floor(u.price * Math.pow(1.15, level));
+            const profitPerHour = Math.floor(u.profitPerHour * Math.pow(1.07, level));
+            return {...u, price, profitPerHour, level };
+        });
+
+        const marketCards = (config?.blackMarketCards || [])
+          .filter(c => playerState?.upgrades[c.id]) // Only show unlocked market cards
+          .map(c => {
+              const level = playerState?.upgrades[c.id] || 0;
+              const basePrice = c.price || c.profitPerHour * 10;
+              const price = Math.floor(basePrice * Math.pow(1.15, level));
+              const profitPerHour = Math.floor(c.profitPerHour * Math.pow(1.07, level));
+              return {
+                  ...c, 
+                  category: UpgradeCategory.Special, 
+                  price,
+                  profitPerHour,
+                  level
+              };
+          });
         
-        const combined = [...regularUpgrades, ...marketCards];
-        return combined.map(u => ({...u, level: playerState?.upgrades[u.id] || 0}));
+        return [...regularUpgrades, ...marketCards];
 
     }, [config?.upgrades, config?.blackMarketCards, playerState?.upgrades]);
+
 
     const currentLeague = useMemo(() => {
         const profit = playerState?.profitPerHour || 0;

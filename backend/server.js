@@ -258,7 +258,7 @@ app.post('/api/telegram-webhook', express.json(), async (req, res) => {
         const payment = update.message.successful_payment;
         log('info', `Received successful payment for payload: ${payment.invoice_payload}`);
         try {
-            await processSuccessfulPayment(payment.invoice_payload);
+            await processSuccessfulPayment(payment.invoice_payload, payment.total_amount);
         } catch (error) {
             log('error', `Failed to process successful payment for payload ${payment.invoice_payload}`, error);
         }
