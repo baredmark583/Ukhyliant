@@ -83,12 +83,12 @@ type TranslationKey =
   | 'claim_reward' | 'completed' | 'airdrop_tasks' | 'airdrop_description' | 'unlock_for' | 'go_to_task' | 'claim'
   | 'edit_special_tasks' | 'task_type' | 'url' | 'price_stars' | 'add_new_special_task' | 'translate'
   | 'telegram_join' | 'social_follow' | 'video_watch' | 'referral_bonus' | 'your_referrals' | 'invite_friends'
-  | 'your_contacts_list' | 'no_contacts_invited'
+  | 'your_contacts_list' | 'no_contacts_invited' | 'bonus'
   // Daily Events
   | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today' | 'combo_not_active'
   | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard' | 'your_league' | 'total_players'
   // Notifications
-  | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked'
+  | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked' | 'wallet_bonus_notification'
   // Boosts
   | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased' | 'suspicion_limit'
   // Market & Skins
@@ -200,6 +200,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     invite_friends: 'Invite a Contact',
     your_contacts_list: 'Your Contacts',
     no_contacts_invited: 'You have not invited any contacts yet.',
+    bonus: 'Bonus',
     daily_combo: 'Daily Combo',
     daily_cipher: 'Daily Cipher',
     find_cards: 'Find and upgrade these cards!',
@@ -217,6 +218,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     combo_collected: 'Combo collected!',
     cipher_solved: 'Cipher solved!',
     task_unlocked: 'Task Unlocked',
+    wallet_bonus_notification: "Wallet connected! You've received a bonus!",
     guru_tapper: 'Guru Tapper',
     energy_limit: 'Energy Limit',
     turbo_mode: 'Turbo Mode',
@@ -405,6 +407,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     invite_friends: 'Запросити контакт',
     your_contacts_list: 'Ваші контакти',
     no_contacts_invited: 'Ви ще не запросили жодного контакту.',
+    bonus: 'Бонус',
     daily_combo: 'Щоденне комбо',
     daily_cipher: 'Щоденний шифр',
     find_cards: 'Знайди та прокачай ці картки!',
@@ -422,6 +425,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     combo_collected: 'Комбо зібрано!',
     cipher_solved: 'Шифр розгадано!',
     task_unlocked: 'Завдання розблоковано',
+    wallet_bonus_notification: 'Гаманець підключено! Ви отримали бонус!',
     guru_tapper: 'Гуру Тапів',
     energy_limit: 'Ліміт Енергії',
     turbo_mode: 'Турбо-режим',
@@ -610,6 +614,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     invite_friends: 'Пригласить контакт',
     your_contacts_list: 'Ваши контакты',
     no_contacts_invited: 'Вы еще не пригласили ни одного контакта.',
+    bonus: 'Бонус',
     daily_combo: 'Ежедневное комбо',
     daily_cipher: 'Ежедневный Шифр',
     find_cards: 'Найди и прокачай эти карты!',
@@ -627,6 +632,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     combo_collected: 'Комбо собрано!',
     cipher_solved: 'Шифр разгадан!',
     task_unlocked: 'Задание разблокировано',
+    wallet_bonus_notification: 'Кошелек подключен! Вы получили бонус!',
     guru_tapper: 'Гуру Тапов',
     energy_limit: 'Лимит Энергии',
     turbo_mode: 'Турбо-режим',

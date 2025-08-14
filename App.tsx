@@ -148,7 +148,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                                                 <p className="text-white font-semibold truncate">{friend.name}</p>
                                             </div>
                                             <div className="text-right flex-shrink-0">
-                                                 <p className="text-xs text-slate-400">Bonus</p>
+                                                 <p className="text-xs text-slate-400">{t('bonus')}</p>
                                                 <p className="text-sm text-[var(--accent-color)] font-mono font-bold">
                                                     +{formatNumber(friend.profitBonus)}/hr
                                                 </p>
@@ -377,7 +377,8 @@ const MainApp: React.FC = () => {
       connectWallet,
       isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion,
       systemMessage, setSystemMessage,
-      purchaseResult, setPurchaseResult
+      purchaseResult, setPurchaseResult,
+      walletConnectionMessage, setWalletConnectionMessage
   } = useGame();
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -387,7 +388,6 @@ const MainApp: React.FC = () => {
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
-  const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
 
     useEffect(() => {
         const tg = window.Telegram?.WebApp;
@@ -418,22 +418,29 @@ const MainApp: React.FC = () => {
   }, [isGlitching, setIsGlitching]);
   
 
-  if (!isAppReady || !user || !playerState || !config) {
-    return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
-  }
-  
-  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+  const showNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
     setTimeout(() => {
         setNotification(prev => (prev?.message === message ? null : prev));
     }, 3000);
-  };
+  }, []);
+  
+  useEffect(() => {
+      if (walletConnectionMessage) {
+          showNotification(walletConnectionMessage, 'success');
+          setWalletConnectionMessage(''); // Clear after showing
+      }
+  }, [walletConnectionMessage, setWalletConnectionMessage, showNotification]);
+
+  if (!isAppReady || !user || !playerState || !config) {
+    return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
+  }
   
   const handleBuyUpgrade = async (upgradeId: string) => {
     const result = await buyUpgrade(upgradeId);
-    if(result) {
+    if(result && result.player) {
         const upgrade = allUpgrades.find(u => u.id === upgradeId);
-        showNotification(`${upgrade?.name?.[user.language]} Lvl ${result.upgrades[upgradeId]}`);
+        showNotification(`${upgrade?.name?.[user.language]} Lvl ${result.player.upgrades[upgradeId]}`);
     }
   };
   

@@ -1,5 +1,4 @@
 import React from 'react';
-import { useTranslation } from '../hooks/useGameLogic';
 
 interface CircularProgressBarProps {
   value: number;

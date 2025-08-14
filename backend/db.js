@@ -368,21 +368,51 @@ export const getFriendsList = async (userId, config) => {
     return friends;
 };
 
-export const connectWalletInDb = async (userId, walletAddress) => {
-    const res = await executeQuery(
-        'UPDATE users SET wallet_address = $1 WHERE id = $2 RETURNING *', 
-        [walletAddress, userId]
-    );
-    if (res.rows.length === 0) {
-        throw new Error('User not found');
+export const connectWalletInDb = async (userId, newWalletAddress) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const userRes = await client.query('SELECT wallet_address FROM users WHERE id = $1 FOR UPDATE', [userId]);
+        if (userRes.rows.length === 0) throw new Error('User not found');
+        const currentUserAddress = userRes.rows[0].wallet_address;
+
+        let player = (await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId])).rows[0].data;
+        if (!player) throw new Error('Player not found');
+
+        let message = '';
+        const wasConnected = !!currentUserAddress;
+
+        if (currentUserAddress !== newWalletAddress) {
+            await client.query('UPDATE users SET wallet_address = $1 WHERE id = $2', [newWalletAddress, userId]);
+            player.connectedWallet = newWalletAddress;
+
+            if (!wasConnected && newWalletAddress) {
+                player.balance = (Number(player.balance) || 0) + 1000000;
+                player.profitPerHour = (Number(player.profitPerHour) || 0) + 1000;
+                message = "Wallet connected! You've received +1,000,000 coins and +1,000/hr profit!";
+            } else if (newWalletAddress) {
+                message = "Wallet reconnected.";
+            } else {
+                message = "Wallet disconnected.";
+            }
+        } else {
+            player.connectedWallet = newWalletAddress;
+            message = newWalletAddress ? "Wallet already connected." : "Wallet already disconnected.";
+        }
+
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
+        await client.query('COMMIT');
+
+        return { player, message };
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error(`Transaction failed for connectWalletInDb for user ${userId}:`, error);
+        throw error;
+    } finally {
+        client.release();
     }
-    // Update player state to reflect connection
-    const player = await getPlayer(userId);
-    if (player) {
-        player.connectedWallet = walletAddress;
-        await savePlayer(userId, player);
-    }
-    return { user: res.rows[0], player };
 };
 
 export const updateUserAccessInfo = async (id, { country }) => {
