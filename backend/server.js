@@ -98,7 +98,16 @@ const log = (level, message, data = '') => {
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors({ origin: '*', credentials: true }));
+// Correct CORS setup for separate frontend/backend servers
+app.use(cors({
+    origin: (origin, callback) => {
+        // In a real production environment, you would whitelist your frontend domain
+        // For development or a flexible setup, reflecting the origin is a safe approach.
+        callback(null, origin);
+    },
+    credentials: true
+}));
+
 // Use express.json() for all routes EXCEPT the webhook
 app.use((req, res, next) => {
     if (req.path === '/api/telegram-webhook') {
@@ -483,9 +492,9 @@ app.post('/api/player/:id', async (req, res) => {
     }
 });
 
-const verifySignature = (ton_proof, account) => {
+const verifySignature = (walletData) => {
     try {
-        const { address, chain, proof: { timestamp, domain, signature, payload } } = walletData;
+        const { address, proof: { timestamp, domain, signature, payload } } = walletData;
 
         const walletAddress = Address.parse(address);
 
@@ -500,8 +509,8 @@ const verifySignature = (ton_proof, account) => {
             payload: payload,
         };
 
-        const_wc = Buffer.alloc(4);
-        const_wc.writeUInt32BE(message.workchain, 0);
+        const wc = Buffer.alloc(4);
+        wc.writeUInt32BE(message.workchain, 0);
 
         const ts = Buffer.alloc(8);
         ts.writeBigUInt64LE(BigInt(message.timestamp), 0);
@@ -511,7 +520,7 @@ const verifySignature = (ton_proof, account) => {
 
         const m = Buffer.concat([
             Buffer.from('ton-proof-item-v2/'),
-            const_wc,
+            wc,
             message.address,
             dl,
             Buffer.from(message.domain.value),
@@ -525,7 +534,7 @@ const verifySignature = (ton_proof, account) => {
             sha256(m)
         ]);
 
-        return nacl.sign.detached.verify(sha256(signingMessage), Buffer.from(signature, 'base64'), Buffer.from(account.publicKey, 'hex'));
+        return nacl.sign.detached.verify(sha256(signingMessage), Buffer.from(signature, 'base64'), Buffer.from(walletData.account.publicKey, 'hex'));
     } catch (e) {
         console.error("Signature verification error:", e);
         return false;
@@ -541,11 +550,10 @@ app.post('/api/user/connect-wallet', async (req, res) => {
             return res.status(400).json({ error: "Invalid wallet data provided" });
         }
         
-        // For now, we trust the frontend SDK. Production should re-verify the signature.
-        // const isValid = verifySignature(walletData);
-        // if (!isValid) {
-        //     return res.status(403).json({ error: "Signature verification failed" });
-        // }
+        const isValid = verifySignature(walletData);
+        if (!isValid) {
+             return res.status(403).json({ error: "Signature verification failed" });
+        }
         
         const walletAddress = Address.parse(walletData.address).toString({ bounceable: false });
         const { player } = await connectWalletInDb(userId, walletAddress);
@@ -1204,17 +1212,6 @@ app.get('/admin/api/battle/status', checkAdminAuth, async (req, res) => {
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
-});
-
-
-// Serve React App
-const buildPath = path.resolve(__dirname, '../..'); // Assuming backend is in a subdir
-app.use(express.static(buildPath));
-app.use(express.static(path.join(buildPath, 'assets')));
-
-// Catch-all to serve index.html for any other request
-app.get('*', (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
 });
 
 // --- Server Startup ---
