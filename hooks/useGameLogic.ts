@@ -1,8 +1,10 @@
 
-
-import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, useCallback, useMemo } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
+import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
+import { Address } from '@ton/ton';
+
 
 declare global {
   interface Window {
@@ -26,6 +28,16 @@ const API = {
       const errorData = await response.json();
       throw new Error(errorData.error || 'Login failed');
     }
+    return response.json();
+  },
+  
+  connectWallet: async (userId: string, walletData: any): Promise<{ player?: PlayerState, error?: string}> => {
+    if (!API_BASE_URL) return { error: "API not configured" };
+    const response = await fetch(`${API_BASE_URL}/api/user/connect-wallet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, walletData }),
+    });
     return response.json();
   },
 
@@ -196,7 +208,7 @@ const API = {
     }
   },
   
-  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox' | 'boost', itemId: string): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
+  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox', itemId: string): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
     if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/create-star-invoice`, {
@@ -339,6 +351,7 @@ interface AuthContextType {
   isInitializing: boolean;
   isGlitching: boolean;
   setIsGlitching: React.Dispatch<React.SetStateAction<boolean>>;
+  connectedWalletAddress: string | null;
 }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -363,6 +376,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
     const [isGlitching, setIsGlitching] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [purchaseResult, setPurchaseResult] = useState<any | null>(null);
+    const [connectedWalletAddress, setConnectedWalletAddress] = useState<string | null>(null);
+    
+    const [tonConnectUI] = useTonConnectUI();
+    const wallet = useTonWallet();
 
     useEffect(() => {
         const init = async () => {
@@ -382,6 +399,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
                     setUser(loginData.user);
                     setPlayerState(loginData.player);
                     setConfig(loginData.config);
+                    if (loginData.user.walletAddress) {
+                         setConnectedWalletAddress(loginData.user.walletAddress);
+                    }
                 } else {
                     throw new Error("Failed to get complete login data from backend.");
                 }
@@ -394,6 +414,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
         };
         init();
     }, []);
+    
+    // Listen to wallet connection changes and sync with backend
+    useEffect(() => {
+        if (!tonConnectUI || !user || !wallet) {
+            return;
+        }
+
+        const rawAddress = wallet.account?.address;
+        const friendlyAddress = rawAddress ? Address.parse(rawAddress).toString({ bounceable: false }) : null;
+
+        if(friendlyAddress && friendlyAddress !== connectedWalletAddress) {
+            API.connectWallet(user.id, wallet.account).then(res => {
+                if (res.player) {
+                    setPlayerState(res.player);
+                    setConnectedWalletAddress(friendlyAddress);
+                } else if(res.error) {
+                    console.error("Failed to connect wallet:", res.error);
+                    // Optionally show an error to the user
+                    tonConnectUI.disconnect();
+                }
+            });
+        } else if (!friendlyAddress && connectedWalletAddress) {
+            // Handle disconnection if needed (usually handled by backend, but can clear client state)
+            setConnectedWalletAddress(null);
+        }
+        
+    }, [wallet, tonConnectUI, user, connectedWalletAddress]);
+
 
     const switchLanguage = async (lang: Language) => {
         if (user) {
@@ -409,6 +457,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
         setUser(null);
         setPlayerState(null);
         setConfig(null);
+        tonConnectUI.disconnect();
         window.location.reload();
     };
 
@@ -422,7 +471,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
         switchLanguage,
         isInitializing,
         isGlitching,
-        setIsGlitching
+        setIsGlitching,
+        connectedWalletAddress,
     };
 
     const gameContextValue: GameContextType = {
@@ -462,12 +512,14 @@ export const useTranslation = () => {
 
 // --- MAIN GAME LOGIC HOOK ---
 export const useGame = () => {
-    const { user } = useAuth();
+    const { user, connectedWalletAddress } = useAuth();
     const { playerState, setPlayerState, config, setConfig, purchaseResult, setPurchaseResult } = useGameContext();
     const [isTurboActive, setIsTurboActive] = useState(false);
     const [systemMessage, setSystemMessage] = useState<string>('');
     const prevPenaltyLogLength = React.useRef<number | undefined>(undefined);
     const tapsSinceLastSave = React.useRef(0);
+    const [tonConnectUI] = useTonConnectUI();
+
 
     // Persist state to backend with debounce
     useEffect(() => {
@@ -513,9 +565,7 @@ export const useGame = () => {
 
     const effectiveMaxEnergy = useMemo(() => {
         if (!playerState) return INITIAL_MAX_ENERGY;
-        // Rebalanced: x2 multiplier for Energy Limit
-        const calculatedMax = INITIAL_MAX_ENERGY * Math.pow(2, playerState.energyLimitLevel || 0);
-        return Math.min(calculatedMax, 1_000_000_000_000); // Cap at 1 Trillion
+        return INITIAL_MAX_ENERGY + (playerState.energyLimitLevel || 0) * 500;
     }, [playerState?.energyLimitLevel]);
     
     const effectiveMaxSuspicion = useMemo(() => {
@@ -525,11 +575,8 @@ export const useGame = () => {
 
     const effectiveCoinsPerTap = useMemo(() => {
         if (!playerState) return 1;
-        // Rebalanced: +50% compounding per level for Guru Tapper
-        const baseTap = playerState.coinsPerTap || 1;
-        const level = playerState.tapGuruLevel || 0;
-        const calculatedTap = Math.ceil(baseTap * Math.pow(1.5, level));
-        return Math.min(calculatedTap, 1_000_000_000); // Cap at 1 Billion
+        // Compounding formula for Guru Tapper
+        return (playerState.coinsPerTap || 1) * Math.pow(1.10, playerState.tapGuruLevel || 0);
     }, [playerState?.coinsPerTap, playerState?.tapGuruLevel]);
 
     // Game loop for energy regen and passive income
@@ -581,33 +628,19 @@ export const useGame = () => {
     }, [user, setPlayerState, setPurchaseResult]);
 
     const allUpgrades = useMemo(() => {
-        const regularUpgrades = (config?.upgrades || []).map(u => {
-            const level = playerState?.upgrades[u.id] || 0;
-            const price = Math.floor(u.price * Math.pow(1.15, level));
-            const profitPerHour = Math.floor(u.profitPerHour * Math.pow(1.07, level));
-            return {...u, price, profitPerHour, level };
-        });
-
-        const marketCards = (config?.blackMarketCards || [])
-          .filter(c => playerState?.upgrades[c.id]) // Only show unlocked market cards
-          .map(c => {
-              const level = playerState?.upgrades[c.id] || 0;
-              const basePrice = c.price || c.profitPerHour * 10;
-              const price = Math.floor(basePrice * Math.pow(1.15, level));
-              const profitPerHour = Math.floor(c.profitPerHour * Math.pow(1.07, level));
-              return {
-                  ...c, 
-                  category: UpgradeCategory.Special, 
-                  price,
-                  profitPerHour,
-                  level
-              };
-          });
+        const regularUpgrades = (config?.upgrades || []).map(u => ({...u, price: Math.floor(u.price * Math.pow(1.15, playerState?.upgrades[u.id] || 0))}));
+        const marketCards: (BlackMarketCard & { category: UpgradeCategory, price: number })[] = (config?.blackMarketCards || [])
+          .filter(c => playerState?.upgrades[c.id])
+          .map(c => ({
+              ...c, 
+              category: UpgradeCategory.Special, 
+              price: Math.floor((c.price || c.profitPerHour * 10) * Math.pow(1.15, playerState?.upgrades[c.id] || 0))
+          }));
         
-        return [...regularUpgrades, ...marketCards];
+        const combined = [...regularUpgrades, ...marketCards];
+        return combined.map(u => ({...u, level: playerState?.upgrades[u.id] || 0}));
 
     }, [config?.upgrades, config?.blackMarketCards, playerState?.upgrades]);
-
 
     const currentLeague = useMemo(() => {
         const profit = playerState?.profitPerHour || 0;
@@ -616,14 +649,13 @@ export const useGame = () => {
     }, [playerState?.profitPerHour, config?.leagues]);
 
     const handleTap = useCallback(() => {
+        if (!playerState || playerState.energy < 1) return 0;
         const tapValue = effectiveCoinsPerTap * (isTurboActive ? 5 : 1);
-        if (!playerState || playerState.energy < tapValue) return 0;
-        
         tapsSinceLastSave.current += 1;
         setPlayerState(p => p ? {
             ...p,
             balance: p.balance + tapValue,
-            energy: Math.max(0, p.energy - tapValue),
+            energy: Math.max(0, p.energy - 1),
             dailyTaps: p.dailyTaps + 1,
         } : null);
         return tapValue;
@@ -652,16 +684,6 @@ export const useGame = () => {
         }
         return result;
     }, [user, setPlayerState]);
-
-    const purchaseBoostWithStars = useCallback(async (boost: Boost) => {
-        if (!user) return { error: 'User not found' };
-        const result = await API.createStarInvoice(user.id, 'boost', boost.id);
-        if (result.ok && result.invoiceLink) {
-            window.Telegram.WebApp.openInvoice(result.invoiceLink);
-            return { success: true };
-        }
-        return { error: result.error || 'Failed to start payment.' };
-    }, [user]);
 
     const claimTaskReward = useCallback(async (task: DailyTask, code?: string) => {
         if (!user) return { error: 'User not found' };
@@ -747,6 +769,10 @@ export const useGame = () => {
             setPlayerState(result.player);
         }
     }, [user, setPlayerState]);
+    
+    const connectWallet = useCallback(async () => {
+       await tonConnectUI.openModal();
+    }, [tonConnectUI]);
 
     const createCell = useCallback(async (name: string) => {
         if (!user) return { error: 'User not found' };
@@ -799,7 +825,7 @@ export const useGame = () => {
     const getBattleLeaderboard = useCallback(() => API.getBattleLeaderboard(), []);
 
     return {
-        playerState,
+        playerState: playerState ? { ...playerState, connectedWallet: connectedWalletAddress } : null,
         config,
         setPlayerState,
         setConfig,
@@ -808,7 +834,6 @@ export const useGame = () => {
         allUpgrades,
         currentLeague,
         buyBoost,
-        purchaseBoostWithStars,
         claimTaskReward,
         purchaseSpecialTask,
         completeSpecialTask,
@@ -818,6 +843,7 @@ export const useGame = () => {
         openCoinLootbox,
         purchaseLootboxWithStars,
         setSkin,
+        connectWallet,
         isTurboActive,
         effectiveMaxEnergy,
         effectiveCoinsPerTap,

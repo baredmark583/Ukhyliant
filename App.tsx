@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
 import CellScreen from './sections/Cell';
+import AirdropScreen from './components/AirdropScreen';
 import { REFERRAL_BONUS, TELEGRAM_BOT_NAME, MINI_APP_NAME } from './constants';
 import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League, UiIcons, Cell } from './types';
 import NotificationToast from './components/NotificationToast';
@@ -15,7 +15,6 @@ type ProfileTab = 'contacts' | 'boosts' | 'skins' | 'market' | 'cell';
 
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
-  if (num >= 1_000_000_000_000) return `${(num / 1_000_000_000_000).toFixed(2)}T`;
   if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
   if (num >= 10000) return `${(num / 1000).toFixed(1)}K`;
@@ -172,22 +171,22 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
             <p className="text-center text-[var(--text-secondary)] max-w-xs mx-auto mb-6">{t('black_market_desc')}</p>
              <div className="grid grid-cols-2 gap-4">
                 <div className="card-glow rounded-2xl p-4 text-center">
-                    <h3 className="font-bold text-base mb-2">{t('lootbox_coin')}</h3>
                     <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
                         <img src={config.uiIcons.marketCoinBox} alt={t('lootbox_coin')} className="w-full h-full object-contain" />
                     </div>
+                    <h2 className="text-base font-display mb-2">{t('lootbox_coin')}</h2>
                     <button onClick={() => onOpenCoinLootbox('coin')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
-                        <span>{formatNumber(config.lootboxCostCoins || 0)}</span>
+                        <span>{t('open_for')} {formatNumber(config.lootboxCostCoins || 0)}</span>
                         <img src={config.uiIcons.coin} alt="coin" className="w-5 h-5" />
                     </button>
                 </div>
                 <div className="card-glow rounded-2xl p-4 text-center">
-                    <h3 className="font-bold text-base mb-2">{t('lootbox_star')}</h3>
                      <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
                         <img src={config.uiIcons.marketStarBox} alt={t('lootbox_star')} className="w-full h-full object-contain" />
                     </div>
+                    <h2 className="text-base font-display mb-2">{t('lootbox_star')}</h2>
                     <button onClick={() => onPurchaseStarLootbox('star')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
-                        <span>{(config.lootboxCostStars || 0)}</span>
+                        <span>{t('open_for')} {(config.lootboxCostStars || 0)}</span>
                         <img src={config.uiIcons.star} alt="star" className="w-5 h-5" />
                     </button>
                 </div>
@@ -340,41 +339,6 @@ const MissionsScreen: React.FC<{
     );
 };
 
-const AirdropScreen: React.FC<{
-    specialTasks: SpecialTask[];
-    playerState: PlayerState;
-    onClaim: (task: DailyTask | SpecialTask) => void;
-    onPurchase: (task: SpecialTask) => void;
-    lang: Language;
-    startedTasks: Set<string>;
-    uiIcons: UiIcons;
-}> = ({ specialTasks, playerState, onClaim, onPurchase, lang, startedTasks, uiIcons }) => {
-    const t = useTranslation();
-    return (
-        <div className="flex flex-col h-full text-white pt-4 px-4">
-            <h1 className="text-3xl font-display text-center mb-2 flex-shrink-0">{t('airdrop_tasks')}</h1>
-            <p className="text-center text-[var(--text-secondary)] mb-6 flex-shrink-0">{t('airdrop_description')}</p>
-            <div className="flex-grow overflow-x-auto no-scrollbar -mx-4 px-4">
-                <div className="inline-flex space-x-3 pb-4">
-                    {specialTasks.map(task => (
-                       <div key={task.id} className="w-60 flex-shrink-0">
-                            <TaskCard
-                                task={task}
-                                playerState={playerState}
-                                onClaim={onClaim}
-                                onPurchase={onPurchase}
-                                lang={lang}
-                                startedTasks={startedTasks}
-                                uiIcons={uiIcons}
-                            />
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
 const LeaderboardScreen: React.FC<{
     onClose: () => void;
     getLeaderboard: () => Promise<{ topPlayers: LeaderboardPlayer[]; totalPlayers: number } | null>;
@@ -429,7 +393,7 @@ const LeaderboardScreen: React.FC<{
 };
 
 const PurchaseResultModal: React.FC<{
-    result: { type: 'lootbox' | 'task' | 'boost_result', item: any };
+    result: { type: 'lootbox' | 'task', item: any };
     onClose: () => void;
     lang: Language;
     uiIcons: UiIcons;
@@ -438,8 +402,7 @@ const PurchaseResultModal: React.FC<{
     const { item } = result;
     
     const isLootboxItem = result.type === 'lootbox';
-    const isBoostResult = result.type === 'boost_result';
-    const title = isBoostResult ? t('boost_purchased') : isLootboxItem ? t('won_item') : t('task_unlocked');
+    const title = isLootboxItem ? t('won_item') : t('task_unlocked');
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -451,7 +414,6 @@ const PurchaseResultModal: React.FC<{
                 <p className="text-lg font-bold text-white mb-2">{item.name[lang]}</p>
                 {isLootboxItem && 'profitBoostPercent' in item && item.profitBoostPercent > 0 && <p className="text-[var(--accent-color)]">+{item.profitBoostPercent}% {t('profit_boost')}</p>}
                 {isLootboxItem && 'profitPerHour' in item && <p className="text-[var(--accent-color)]">+{formatNumber(item.profitPerHour)}/hr</p>}
-                {isBoostResult && 'description' in item && <p className="text-[var(--accent-color)] text-center">{item.description[lang]}</p>}
                 
                 <button onClick={onClose} className="w-full interactive-button rounded-lg font-bold py-3 mt-6 text-lg">
                     {t('close')}
@@ -465,10 +427,11 @@ const MainApp: React.FC = () => {
   const { user, isGlitching, setIsGlitching } = useAuth();
   const { 
       playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, 
-      claimTaskReward, buyBoost, purchaseBoostWithStars, purchaseSpecialTask, completeSpecialTask,
+      claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask,
       claimDailyCombo, claimDailyCipher, getLeaderboard, 
       openCoinLootbox, purchaseLootboxWithStars, 
       setSkin,
+      connectWallet,
       isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion,
       systemMessage, setSystemMessage,
       purchaseResult, setPurchaseResult
@@ -481,6 +444,7 @@ const MainApp: React.FC = () => {
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
+  const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
 
     useEffect(() => {
         const tg = window.Telegram?.WebApp;
@@ -531,21 +495,11 @@ const MainApp: React.FC = () => {
   };
   
   const handleBuyBoost = async (boost: Boost) => {
-    if (boost.costStars && boost.costStars > 0) {
-        const result = await purchaseBoostWithStars(boost);
-        if (result?.error) {
-            showNotification(result.error, 'error');
-        }
-    } else {
-        const result = await buyBoost(boost);
-        if (result.player) {
-            showNotification(t('boost_purchased'), 'success');
-            if (boost.id === 'boost_turbo_mode') {
-                setActiveScreen('exchange');
-            }
-        } else if (result.error) {
-            showNotification(result.error, 'error');
-        }
+    const result = await buyBoost(boost);
+    if (result.player) {
+        showNotification(t('boost_purchased'), 'success');
+    } else if (result.error) {
+        showNotification(result.error, 'error');
     }
   };
 
@@ -645,9 +599,6 @@ const MainApp: React.FC = () => {
       showNotification(t('selected'), 'success');
   };
 
-  const handleEnergyClick = () => showNotification(t('tooltip_energy'), 'success');
-  const handleSuspicionClick = () => showNotification(t('tooltip_suspicion'), 'success');
-
   const PenaltyModal: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
       const t = useTranslation();
       return (
@@ -669,7 +620,7 @@ const MainApp: React.FC = () => {
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} />;
       case 'mine':
         return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} />;
       case 'missions':
@@ -683,13 +634,13 @@ const MainApp: React.FC = () => {
                 />;
        case 'airdrop':
         return <AirdropScreen
-                    specialTasks={config.specialTasks}
                     playerState={playerState}
                     onClaim={handleClaimTask}
                     onPurchase={purchaseSpecialTask}
                     lang={user.language}
                     startedTasks={startedTasks}
                     uiIcons={config.uiIcons}
+                    connectWallet={connectWallet}
                 />;
       case 'profile':
         return <ProfileScreen
@@ -702,7 +653,7 @@ const MainApp: React.FC = () => {
                     onPurchaseStarLootbox={handlePurchaseStarLootbox}
                 />;
       default:
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick}/>;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion}/>;
     }
   };
 

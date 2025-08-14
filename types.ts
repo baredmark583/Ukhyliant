@@ -1,4 +1,5 @@
 
+
 export type Language = 'en' | 'ua' | 'ru';
 
 export interface LocalizedString {
@@ -15,6 +16,7 @@ export interface User {
   language: Language;
   role: UserRole;
   referrerId?: string;
+  walletAddress?: string; // TON wallet address
 }
 
 export interface League {
@@ -72,8 +74,7 @@ export interface Boost {
   name: LocalizedString;
   description: LocalizedString;
   iconUrl: string;
-  costCoins?: number; // Cost in coins
-  costStars?: number; // Cost in Telegram Stars
+  costCoins: number; // Cost in coins
   suspicionModifier: number;
 }
 
@@ -133,6 +134,7 @@ export interface UiIcons {
     skins: string;
     market: string;
     cell: string;
+    airdrop: string;
   };
   energy: string;
   coin: string;
@@ -201,7 +203,7 @@ export interface PlayerState {
   suspicion: number;
   cellId: number | null;
   penaltyLog?: { type: string; timestamp: string; message?: string }[];
-  dailyBoostPurchases?: Record<string, number>;
+  connectedWallet?: string;
 }
 
 export interface CellMember {

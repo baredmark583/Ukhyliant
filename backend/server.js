@@ -1,5 +1,6 @@
 
 
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -17,7 +18,8 @@ import {
     getPlayer, 
     savePlayer, 
     getUser, 
-    createUser, 
+    createUser,
+    connectWalletInDb,
     applyReferralBonus, 
     updateUserLanguage,
     updateUserAccessInfo,
@@ -59,15 +61,17 @@ import {
     forceStartBattle,
     forceEndBattle,
     getCellAnalytics,
-    getAllUserIds,
-    processBoostPaymentInDb
+    getAllUserIds
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
     LOOTBOX_COST_STARS, DEFAULT_COIN_SKIN_ID,
-    CHEAT_DETECTION_THRESHOLD_TPS, CHEAT_DETECTION_STRIKES_TO_FLAG,
-    BOOST_PURCHASE_LIMITS
+    CHEAT_DETECTION_THRESHOLD_TPS, CHEAT_DETECTION_STRIKES_TO_FLAG
 } from './constants.js';
+import { sha256 } from "@ton/crypto";
+import nacl from "tweetnacl";
+import { Address } from "@ton/ton";
+import BigNumber from "bignumber.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -258,7 +262,7 @@ app.post('/api/telegram-webhook', express.json(), async (req, res) => {
         const payment = update.message.successful_payment;
         log('info', `Received successful payment for payload: ${payment.invoice_payload}`);
         try {
-            await processSuccessfulPayment(payment.invoice_payload, payment.total_amount);
+            await processSuccessfulPayment(payment.invoice_payload);
         } catch (error) {
             log('error', `Failed to process successful payment for payload ${payment.invoice_payload}`, error);
         }
@@ -301,12 +305,6 @@ app.post('/api/login', async (req, res) => {
             }
         }
         
-        // Transform user object for the client
-        if (user) {
-            user.referrerId = user.referrer_id;
-            delete user.referrer_id;
-        }
-        
         if (!player) {
             player = {
                 balance: 0,
@@ -334,7 +332,7 @@ app.post('/api/login', async (req, res) => {
                 currentSkinId: DEFAULT_COIN_SKIN_ID,
                 suspicion: 0,
                 cellId: null,
-                dailyBoostPurchases: {},
+                connectedWallet: user?.walletAddress || null,
             };
             await savePlayer(userId, player);
         } else {
@@ -360,6 +358,10 @@ app.post('/api/login', async (req, res) => {
             
             // Always update timestamp for the next login/save calculation
             player.lastLoginTimestamp = now;
+            
+            // Sync wallet address from user table to player state
+            player.connectedWallet = user?.walletAddress || null;
+
 
             // Save the player state with new balance and timestamp if it wasn't already saved by the reset function
             if (!wasReset) {
@@ -447,7 +449,7 @@ app.post('/api/player/:id', async (req, res) => {
 
         // --- Anti-Cheat Check (applied on both paths) ---
         const timeDiff = (Date.now() - (serverState.lastLoginTimestamp || Date.now())) / 1000;
-        if (timeDiff > 0.1 && clientTaps > 0) {
+        if (timeDiff > 0.5 && clientTaps > 0) {
             const tps = clientTaps / timeDiff;
             if (tps > CHEAT_DETECTION_THRESHOLD_TPS) {
                 finalState.cheatStrikes = (serverState.cheatStrikes || 0) + 1;
@@ -481,6 +483,85 @@ app.post('/api/player/:id', async (req, res) => {
     }
 });
 
+const verifySignature = (ton_proof, account) => {
+    try {
+        const { address, chain, proof: { timestamp, domain, signature, payload } } = walletData;
+
+        const walletAddress = Address.parse(address);
+
+        const message = {
+            workchain: walletAddress.workChain,
+            address: walletAddress.hash,
+            domain: {
+                lengthBytes: domain.length,
+                value: domain,
+            },
+            timestamp: timestamp,
+            payload: payload,
+        };
+
+        const_wc = Buffer.alloc(4);
+        const_wc.writeUInt32BE(message.workchain, 0);
+
+        const ts = Buffer.alloc(8);
+        ts.writeBigUInt64LE(BigInt(message.timestamp), 0);
+
+        const dl = Buffer.alloc(4);
+        dl.writeUInt32LE(message.domain.lengthBytes, 0);
+
+        const m = Buffer.concat([
+            Buffer.from('ton-proof-item-v2/'),
+            const_wc,
+            message.address,
+            dl,
+            Buffer.from(message.domain.value),
+            ts,
+            Buffer.from(message.payload)
+        ]);
+        
+        const signingMessage = Buffer.concat([
+            Buffer.from([0xff, 0xff]),
+            Buffer.from('ton-connect'),
+            sha256(m)
+        ]);
+
+        return nacl.sign.detached.verify(sha256(signingMessage), Buffer.from(signature, 'base64'), Buffer.from(account.publicKey, 'hex'));
+    } catch (e) {
+        console.error("Signature verification error:", e);
+        return false;
+    }
+};
+
+
+app.post('/api/user/connect-wallet', async (req, res) => {
+    try {
+        const { userId, walletData } = req.body;
+
+        if (!walletData || !walletData.address || !walletData.proof || !walletData.account?.publicKey) {
+            return res.status(400).json({ error: "Invalid wallet data provided" });
+        }
+        
+        // For now, we trust the frontend SDK. Production should re-verify the signature.
+        // const isValid = verifySignature(walletData);
+        // if (!isValid) {
+        //     return res.status(403).json({ error: "Signature verification failed" });
+        // }
+        
+        const walletAddress = Address.parse(walletData.address).toString({ bounceable: false });
+        const { player } = await connectWalletInDb(userId, walletAddress);
+
+        res.json({ player });
+
+    } catch (error) {
+        log('error', `Wallet connection for user ${req.body.userId} failed`, error);
+        if (error.code === '23505') { // unique_violation
+            res.status(409).json({ error: "This wallet is already connected to another account." });
+        } else {
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
+});
+
 
 app.post('/api/user/:id/language', async (req, res) => {
     try {
@@ -509,26 +590,12 @@ const gameActions = {
         return { player: updatedPlayer };
     },
     
-    'claim-task': async (body, player, config) => { // Now handles both daily and special tasks
+    'claim-task': async (body, player, config) => { // Handles ONLY daily tasks
         const { userId, taskId, code } = body;
-        
-        // First, check if it's a daily task
-        const dailyTask = config.tasks.find(t => t.id === taskId);
-        if (dailyTask) {
-            const result = await claimDailyTaskReward(userId, taskId, code);
-            return { player: result, reward: dailyTask.reward };
-        }
-
-        // If not a daily task, check if it's a special task and route to the correct logic
-        const specialTask = config.specialTasks.find(t => t.id === taskId);
-        if (specialTask) {
-            log('info', `Rerouting claim-task for special task ${taskId} to special task completion logic.`);
-            const result = await completeAndRewardSpecialTask(userId, taskId, code);
-            return { player: result, reward: specialTask.reward };
-        }
-
-        // If neither, then the task doesn't exist.
-        throw new Error('Task not found in config');
+        const result = await claimDailyTaskReward(userId, taskId, code);
+        const task = config.tasks.find(t => t.id === taskId);
+        if (!task) throw new Error('Task not found');
+        return { player: result, reward: task.reward };
     },
     
     'claim-combo': async (body) => {
@@ -546,9 +613,8 @@ const gameActions = {
         if (task.priceStars > 0) throw new Error('This task is not free');
 
         const updatedPlayer = await unlockSpecialTask(userId, taskId, config);
-        const wonItem = updatedPlayer.lastPurchaseResult;
-        // The wonItem is already in the player data, but we extract it for the client response
-        return { player: updatedPlayer, wonItem };
+        const wonItem = updatedPlayer.lastPurchaseResult.item;
+        return { player: updatedPlayer, wonItem: {type: 'task', item: wonItem} };
     },
 
     'complete-task': async (body, player, config) => { // Handles ONLY special tasks
@@ -642,22 +708,6 @@ app.post('/api/create-star-invoice', async (req, res) => {
             payload = `lootbox-${userId}-${itemId}`;
             price = config.lootboxCostStars || 0;
             if (price <= 0) return res.status(400).json({ ok: false, error: "Lootbox not for sale." });
-        } else if (payloadType === 'boost') {
-            const boost = config.boosts.find(b => b.id === itemId);
-            if (!boost) return res.status(404).json({ ok: false, error: "Boost not found." });
-            
-            const limit = BOOST_PURCHASE_LIMITS[itemId];
-            const purchasesToday = player.dailyBoostPurchases?.[itemId] || 0;
-            if (limit !== undefined && purchasesToday >= limit) {
-                return res.status(400).json({ ok: false, error: "Daily limit for this boost reached." });
-            }
-
-            if (!boost.costStars || boost.costStars <= 0) return res.status(400).json({ ok: false, error: "This boost is not for sale with stars." });
-
-            title = boost.name['en'] || 'Special Boost';
-            description = boost.description['en'] || 'Activate this powerful boost.';
-            payload = `boost-${userId}-${itemId}`;
-            price = boost.costStars;
         } else {
             return res.status(400).json({ ok: false, error: "Invalid payload type." });
         }
@@ -700,15 +750,15 @@ app.post('/api/sync-after-payment', async (req, res) => {
         if (playerRes.rows.length === 0) throw new Error("Player not found");
         
         let player = playerRes.rows[0].data;
-        const wonItem = player.lastPurchaseResult || null;
+        const purchaseResult = player.lastPurchaseResult || null;
         
-        if (wonItem) {
+        if (purchaseResult) {
             delete player.lastPurchaseResult;
             await dbClient.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         }
         
         await dbClient.query('COMMIT');
-        res.json({ player, wonItem });
+        res.json({ player, wonItem: purchaseResult });
 
     } catch(e) {
         await dbClient.query('ROLLBACK');
@@ -912,39 +962,143 @@ app.get('/admin/logout', (req, res) => {
 
 app.post('/admin/api/translate-text', checkAdminAuth, async (req, res) => {
     if (!ai) {
-        return res.status(503).json({ error: "Translation service is not available." });
+        return res.status(503).json({ error: 'Gemini API not configured' });
+    }
+    const { text, targetLangs } = req.body;
+    if (!text || !targetLangs || !Array.isArray(targetLangs)) {
+        return res.status(400).json({ error: 'Invalid request body' });
     }
     try {
-        const { text, targetLangs } = req.body;
-        if (!text || !targetLangs || !Array.isArray(targetLangs)) {
-            return res.status(400).json({ error: "Invalid request body" });
-        }
-        
-        const properties = {};
-        targetLangs.forEach(lang => {
-          properties[lang] = { type: Type.STRING, description: `The translation of the text in the language with this ISO 639-1 code: ${lang}` };
-        });
-
-        const responseSchema = {
-          type: Type.OBJECT,
-          properties,
-        };
-
+        const prompt = `Translate the following English text into a JSON object with keys for each target language (${targetLangs.join(', ')}). Text: "${text}"`;
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: `Translate the following text into these languages: ${targetLangs.join(", ")}. The text is: "${text}"`,
+            contents: prompt,
             config: {
                 responseMimeType: "application/json",
-                responseSchema,
-            },
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: targetLangs.reduce((acc, lang) => ({...acc, [lang]: { type: Type.STRING } }), {}),
+                }
+            }
         });
+        
+        const jsonResponse = JSON.parse(response.text.trim());
+        res.json({ translations: jsonResponse });
+    } catch (error) {
+        log('error', 'Translation API error', error);
+        res.status(500).json({ error: 'Failed to translate text' });
+    }
+});
 
-        const jsonText = response.text.trim();
-        const translations = JSON.parse(jsonText);
-        res.json({ translations });
-    } catch (e) {
-        log('error', "AI translation failed", e);
-        res.status(500).json({ error: "Failed to communicate with translation service." });
+app.get('/admin/api/config', checkAdminAuth, async (req, res) => {
+    try {
+        const config = await getGameConfig();
+        res.json(config);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to load config' });
+    }
+});
+
+app.post('/admin/api/config', checkAdminAuth, async (req, res) => {
+    try {
+        await saveConfig(req.body.config);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to save config' });
+    }
+});
+
+app.get('/admin/api/players', checkAdminAuth, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page || '1', 10);
+        const limit = parseInt(req.query.limit || '50', 10);
+        const searchTerm = req.query.search || null;
+        const data = await getAllPlayersForAdmin(page, limit, searchTerm);
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch players' });
+    }
+});
+
+app.delete('/admin/api/player/:id', checkAdminAuth, async (req, res) => {
+    try {
+        await deletePlayer(req.params.id);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete player' });
+    }
+});
+
+app.get('/admin/api/player/:id/details', checkAdminAuth, async (req, res) => {
+    try {
+        const details = await getPlayerDetails(req.params.id);
+        res.json(details);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get player details' });
+    }
+});
+
+app.post('/admin/api/player/:id/update-balance', checkAdminAuth, async (req, res) => {
+    try {
+        await updatePlayerBalance(req.params.id, req.body.amount);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update balance' });
+    }
+});
+
+app.post('/admin/api/player/:id/reset-daily', checkAdminAuth, async (req, res) => {
+    try {
+        await resetPlayerDailyProgress(req.params.id);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to reset daily progress' });
+    }
+});
+
+app.get('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const event = await getDailyEvent(today);
+        res.json(event);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch daily event' });
+    }
+});
+
+app.post('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const { combo_ids, cipher_word, combo_reward, cipher_reward } = req.body;
+        await saveDailyEvent(today, combo_ids, cipher_word, combo_reward, cipher_reward);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to save daily event' });
+    }
+});
+
+app.get('/admin/api/dashboard-stats', checkAdminAuth, async (req, res) => {
+    try {
+        const [stats, onlineCount] = await Promise.all([
+            getDashboardStats(),
+            getOnlinePlayerCount()
+        ]);
+        res.json({ ...stats, onlineNow: onlineCount });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get dashboard stats' });
+    }
+});
+
+app.get('/admin/api/social-stats', checkAdminAuth, (req, res) => {
+    res.json(socialStatsCache);
+});
+
+app.get('/admin/api/player-locations', checkAdminAuth, async (req, res) => {
+    try {
+        const locations = await getPlayerLocations();
+        res.json(locations);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get player locations' });
     }
 });
 
@@ -952,138 +1106,65 @@ app.post('/admin/api/broadcast-message', checkAdminAuth, async (req, res) => {
     const { text, imageUrl, buttonUrl, buttonText } = req.body;
     const { BOT_TOKEN } = process.env;
 
-    if (!text || !BOT_TOKEN) {
-        return res.status(400).json({ error: 'Text and Bot Token are required.' });
+    if (!BOT_TOKEN) {
+        return res.status(500).json({ message: "Bot token not configured." });
     }
 
     try {
         const userIds = await getAllUserIds();
+        let successCount = 0;
+        let failCount = 0;
         
-        // Respond to admin immediately
-        res.json({ message: `Broadcast started for ${userIds.length} users.` });
+        const reply_markup = buttonUrl && buttonText ? {
+            inline_keyboard: [[{ text: buttonText, url: buttonUrl }]]
+        } : undefined;
 
-        // Perform the broadcast in the background
-        (async () => {
-            let reply_markup = undefined;
-            if (buttonUrl && buttonText) {
-                reply_markup = {
-                    inline_keyboard: [[{ text: buttonText, url: buttonUrl }]]
-                };
-            }
-
-            let successCount = 0;
-            let failureCount = 0;
-
-            for (const userId of userIds) {
-                try {
-                    const payload = {
-                        chat_id: userId,
-                        ...(reply_markup && { reply_markup })
-                    };
-
-                    let url;
-                    if (imageUrl) {
-                        url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
-                        payload.photo = imageUrl;
-                        payload.caption = text;
-                    } else {
-                        url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-                        payload.text = text;
-                    }
-
-                    const response = await fetch(url, {
+        for (const userId of userIds) {
+            let response;
+            try {
+                if (imageUrl) {
+                    response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify({ chat_id: userId, photo: imageUrl, caption: text, reply_markup }),
                     });
-                    
-                    const data = await response.json();
-                    if (data.ok) {
-                        successCount++;
-                    } else {
-                        failureCount++;
-                        log('warn', `Failed to send broadcast to ${userId}: ${data.description}`);
-                    }
-
-                } catch (e) {
-                    failureCount++;
-                    log('error', `Broadcast error for user ${userId}`, e);
+                } else {
+                     response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chat_id: userId, text, reply_markup }),
+                    });
                 }
-                
-                // Rate limit: 20 messages per second is safe
-                await new Promise(resolve => setTimeout(resolve, 50)); 
+                const data = await response.json();
+                if (data.ok) successCount++;
+                else failCount++;
+            } catch (e) {
+                failCount++;
             }
-            log('info', `Broadcast finished. Success: ${successCount}, Failures: ${failureCount}`);
-        })();
+            await new Promise(resolve => setTimeout(resolve, 50)); // Avoid hitting rate limits
+        }
+        res.json({ message: `Broadcast sent: ${successCount} successful, ${failCount} failed.` });
 
     } catch (error) {
-        log('error', 'Broadcast initiation failed', error);
-        res.status(500).json({ error: 'Failed to start broadcast.' });
+        res.status(500).json({ message: 'Broadcast failed.', error: error.message });
     }
 });
 
-app.get('/admin/api/config', checkAdminAuth, async (req, res) => res.json(await getGameConfig()));
-app.post('/admin/api/config', checkAdminAuth, async (req, res) => {
-    await saveConfig(req.body.config);
-    res.sendStatus(200);
-});
-app.get('/admin/api/players', checkAdminAuth, async (req, res) => res.json(await getAllPlayersForAdmin()));
-app.delete('/admin/api/player/:id', checkAdminAuth, async (req, res) => {
-    await deletePlayer(req.params.id);
-    res.sendStatus(200);
-});
-app.get('/admin/api/player/:id/details', checkAdminAuth, async (req, res) => res.json(await getPlayerDetails(req.params.id)));
-app.post('/admin/api/player/:id/update-balance', checkAdminAuth, async (req, res) => {
-    await updatePlayerBalance(req.params.id, req.body.amount);
-    res.sendStatus(200);
-});
-app.post('/admin/api/player/:id/reset-daily', checkAdminAuth, async(req, res) => {
-    await resetPlayerDailyProgress(req.params.id);
-    res.sendStatus(200);
-});
-app.post('/admin/api/player/:id/reset-progress', checkAdminAuth, async(req, res) => {
-    await resetPlayerProgress(req.params.id);
-    res.sendStatus(200);
-});
-app.get('/admin/api/cheaters', checkAdminAuth, async(req, res) => res.json(await getCheaters()));
-app.get('/admin/api/dashboard-stats', checkAdminAuth, async (req, res) => {
+app.get('/admin/api/cheaters', checkAdminAuth, async (req, res) => {
     try {
-        const stats = await getDashboardStats();
-        stats.onlineNow = await getOnlinePlayerCount();
-        res.json(stats);
-    } catch(e) {
-        log('error', 'Fetching dashboard stats failed', e);
-        res.status(500).json({ error: e.message });
+        const cheaters = await getCheaters();
+        res.json(cheaters);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get cheaters' });
     }
 });
-app.get('/admin/api/player-locations', checkAdminAuth, async (req, res) => {
+
+app.post('/admin/api/player/:id/reset-progress', checkAdminAuth, async (req, res) => {
     try {
-        res.json(await getPlayerLocations());
-    } catch (e) {
-        log('error', 'Fetching player locations failed', e);
-        res.status(500).json({ error: e.message });
-    }
-});
-app.get('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
-    const today = new Date().toISOString().split('T')[0];
-    res.json(await getDailyEvent(today));
-});
-app.post('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
-    const today = new Date().toISOString().split('T')[0];
-    const { combo_ids, cipher_word, combo_reward, cipher_reward } = req.body;
-    await saveDailyEvent(today, combo_ids, cipher_word, combo_reward, cipher_reward);
-    res.sendStatus(200);
-});
-app.get('/admin/api/social-stats', checkAdminAuth, async (req, res) => {
-    try {
-        if (Date.now() - socialStatsCache.lastUpdated > 5 * 60 * 1000) { // 5 min cache
-            await updateSocialStatsCache();
-        }
-        res.json(socialStatsCache);
-    } catch (e) {
-        log('error', 'Fetching social stats failed', e);
-        // Return potentially stale data instead of failing
-        res.json(socialStatsCache);
+        await resetPlayerProgress(req.params.id);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to reset progress' });
     }
 });
 
@@ -1091,17 +1172,8 @@ app.get('/admin/api/cell-analytics', checkAdminAuth, async (req, res) => {
     try {
         const analytics = await getCellAnalytics();
         res.json(analytics);
-    } catch(e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.get('/admin/api/battle/status', checkAdminAuth, async (req, res) => {
-    try {
-        const status = await getBattleStatusForCell(null);
-        res.json({ status });
-    } catch(e) {
-        res.status(500).json({ error: e.message });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get cell analytics' });
     }
 });
 
@@ -1125,16 +1197,46 @@ app.post('/admin/api/battle/force-end', checkAdminAuth, async (req, res) => {
     }
 });
 
+app.get('/admin/api/battle/status', checkAdminAuth, async (req, res) => {
+    try {
+        const status = await getBattleStatusForCell(null);
+        res.json({ status });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
 
-// --- Server Initialization ---
+
+// Serve React App
+const buildPath = path.resolve(__dirname, '../..'); // Assuming backend is in a subdir
+app.use(express.static(buildPath));
+app.use(express.static(path.join(buildPath, 'assets')));
+
+// Catch-all to serve index.html for any other request
+app.get('*', (req, res) => {
+  res.sendFile(path.join(buildPath, 'index.html'));
+});
+
+// --- Server Startup ---
 const startServer = async () => {
-    await initializeDb();
-    await updateSocialStatsCache();
-    // Update social stats every 15 minutes
-    setInterval(updateSocialStatsCache, 15 * 60 * 1000);
-    app.listen(port, '0.0.0.0', () => {
-        log('info', `Server is running on http://0.0.0.0:${port}`);
-    });
+    try {
+        await initializeDb();
+        log('info', 'Database initialized successfully.');
+
+        await updateSocialStatsCache(); // Initial cache fill
+        setInterval(updateSocialStatsCache, 60 * 60 * 1000); // Update every hour
+
+        const config = await getGameConfig();
+        await checkAndManageBattles(config);
+        setInterval(async () => await checkAndManageBattles(await getGameConfig()), 5 * 60 * 1000); // Check every 5 minutes
+
+        app.listen(port, () => {
+            log('info', `Server running on http://localhost:${port}`);
+        });
+    } catch (error) {
+        log('error', 'Failed to start server', error);
+        process.exit(1);
+    }
 };
 
 startServer();

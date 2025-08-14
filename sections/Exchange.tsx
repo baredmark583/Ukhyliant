@@ -1,3 +1,5 @@
+
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import CircularProgressBar from '../components/CircularProgressBar';
 import { PlayerState, League, User, GameConfig } from '../types';
@@ -22,13 +24,10 @@ interface ExchangeProps {
   isTurboActive: boolean;
   effectiveMaxEnergy: number;
   effectiveMaxSuspicion: number;
-  onEnergyClick: () => void;
-  onSuspicionClick: () => void;
 }
 
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
-  if (num >= 1_000_000_000_000) return `${(num / 1_000_000_000_000).toFixed(2)}T`;
   if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
   if (num >= 10000) return `${(num / 1000).toFixed(1)}K`;
@@ -43,14 +42,13 @@ interface ClickFx {
   xOffset: number;
 }
 
-const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion, onEnergyClick, onSuspicionClick }) => {
+const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion }) => {
   const t = useTranslation();
   const { balance, profitPerHour, energy, suspicion } = playerState;
   const [clicks, setClicks] = useState<ClickFx[]>([]);
   const [scale, setScale] = useState(1);
   const { switchLanguage } = useAuth();
   
-  const [morseError, setMorseError] = useState(false);
   const [morseMode, setMorseMode] = useState(false);
   const [morseSequence, setMorseSequence] = useState('');
   const [decodedWord, setDecodedWord] = useState('');
@@ -103,8 +101,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
   const handlePressEnd = async () => {
     const now = Date.now();
-    // Increased debounce to prevent accidental double-taps, especially on sensitive screens.
-    if (now - lastTapTime.current < 100) {
+    if (now - lastTapTime.current < 30) {
         if(pressTimer.current) pressTimer.current = null;
         return;
     }
@@ -118,12 +115,10 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
     if (morseMode && !claimedCipher && dailyCipherWord) {
       if (morseCharTimeout.current) clearTimeout(morseCharTimeout.current);
 
-      // Increased duration threshold to make distinguishing dots and dashes easier.
-      const morseChar = pressDuration < 350 ? '.' : '-';
+      const morseChar = pressDuration < 200 ? '.' : '-';
       const newSequence = morseSequence + morseChar;
       setMorseSequence(newSequence);
 
-      // Increased timeout to give the user more time between characters.
       morseCharTimeout.current = window.setTimeout(async () => {
           const charToEvaluate = MORSE_CHAR_MAP[newSequence];
           const nextExpectedChar = dailyCipherWord[decodedWord.length];
@@ -139,13 +134,11 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                   }
               }
           } else {
-              // On error, shake the input but don't reset the whole word, just the current character sequence.
               window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-              setMorseError(true);
-              setTimeout(() => setMorseError(false), 500); // Reset shake after animation
+              setDecodedWord(''); // Reset the whole word on error
           }
           setMorseSequence(''); // Reset sequence input after evaluation
-      }, 1500);
+      }, 1200);
 
     } else {
       const tapValue = onTap();
@@ -177,12 +170,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
     <div className="flex flex-col h-full text-white p-2 sm:p-4 gap-2">
       {/* Top Section: Info Panel */}
       <div className="w-full flex items-center justify-around gap-2 p-2 mb-2 text-center flex-shrink-0">
-          <button onClick={onEnergyClick} className="p-0 border-none bg-transparent cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-[var(--accent-color)]">
-            <CircularProgressBar value={energy} max={effectiveMaxEnergy} iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={60} strokeWidth={6} />
-          </button>
-          <button onClick={onSuspicionClick} className="p-0 border-none bg-transparent cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-red-400">
-            <CircularProgressBar value={suspicion} max={effectiveMaxSuspicion} iconUrl={config.uiIcons.suspicion} color="#f87171" size={60} strokeWidth={6} />
-          </button>
+          <CircularProgressBar value={energy} max={effectiveMaxEnergy} iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={60} strokeWidth={6} />
+          <CircularProgressBar value={suspicion} max={effectiveMaxSuspicion} iconUrl={config.uiIcons.suspicion} color="#f87171" size={60} strokeWidth={6} />
           <button onClick={onOpenLeaderboard} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
               {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-8 h-8" />}
           </button>
@@ -272,7 +261,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                             </div>
                         ) : (
                             <div className="flex items-center justify-between w-full gap-2 h-10">
-                                <div className={`font-mono text-xl h-10 tracking-widest text-white bg-slate-900/50 shadow-inner rounded-lg flex items-center justify-center w-full transition-transform ${morseError ? 'animate-shake' : ''}`}>
+                                <div className="font-mono text-xl h-10 tracking-widest text-white bg-slate-900/50 shadow-inner rounded-lg flex items-center justify-center w-full">
                                     {decodedWord}<span className="text-gray-500">{morseSequence}</span>
                                 </div>
                                 <button onClick={handleCancelMorse} className="text-xs text-gray-400 hover:text-white flex-shrink-0">

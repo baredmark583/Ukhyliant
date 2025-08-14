@@ -53,6 +53,8 @@ window.LOCALES = {
         'translate': 'Translate',
         'translation_in_progress': 'Translating...',
         'translation_error': 'Translation Error',
+        'prev_page': 'Prev',
+        'next_page': 'Next',
 
         // Dashboard
         'total_players': 'Total Players',
@@ -112,6 +114,7 @@ window.LOCALES = {
 
         // Players Table
         'search_by_id_name': 'Search by ID or Name...',
+        'showing_page': 'Showing {start} to {end} of {total} players',
         'id': 'ID',
         'name': 'Name',
         'balance': 'Balance',
@@ -313,6 +316,8 @@ window.LOCALES = {
         'translate': 'Перевести',
         'translation_in_progress': 'Перевод...',
         'translation_error': 'Ошибка перевода',
+        'prev_page': 'Пред.',
+        'next_page': 'След.',
 
         // Dashboard
         'total_players': 'Всего игроков',
@@ -372,6 +377,7 @@ window.LOCALES = {
 
         // Players Table
         'search_by_id_name': 'Поиск по ID или имени...',
+        'showing_page': 'Показано с {start} по {end} из {total} игроков',
         'id': 'ID',
         'name': 'Имя',
         'balance': 'Баланс',

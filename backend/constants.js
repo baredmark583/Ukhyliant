@@ -1,4 +1,3 @@
-
 // This file makes the backend self-contained by providing initial data.
 // It prevents the server from trying to import files from the frontend.
 
@@ -64,10 +63,9 @@ export const INITIAL_SPECIAL_TASKS = [
 export const INITIAL_BOOSTS = [
     { id: 'boost_full_energy', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, iconUrl: 'https://api.iconify.design/twemoji/high-voltage.svg', costCoins: 2000, suspicionModifier: 1 },
     { id: 'boost_turbo_mode', name: { en: 'Turbo Mode', ua: 'Турбо-режим', ru: 'Турбо-режим' }, description: { en: 'x5 coins per tap for 20 seconds!', ua: 'x5 монет за тап протягом 20 секунд!', ru: 'x5 монет за тап в течение 20 секунд!' }, iconUrl: 'https://api.iconify.design/twemoji/fire.svg', costCoins: 2000, suspicionModifier: 2 },
-    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+50% to coins per tap (compounding).', ua: '+50% до монет за тап (складний відсоток).', ru: '+50% к монетам за тап (сложный процент).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
-    { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: 'x2 to your max energy capacity.', ua: 'x2 до максимального запасу енергії.', ru: 'x2 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
+    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+10% per tap (compounding).', ua: '+10% за тап (складний відсоток).', ru: '+10% за тап (сложный процент).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
+    { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: '+500 to your max energy capacity.', ua: '+500 до максимального запасу енергії.', ru: '+500 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
     { id: 'boost_suspicion_limit', name: { en: 'Suspicion Limit', ua: 'Ліміт Підозри', ru: 'Лимит Подозрения' }, description: { en: '+10 to max suspicion capacity.', ua: '+10 до макс. запасу підозри.', ru: '+10 к макс. запасу подозрения.' }, iconUrl: 'https://api.iconify.design/ph/shield-warning-fill.svg?color=white', costCoins: 1000, suspicionModifier: 0 },
-    { id: 'boost_reset_limits', name: { en: 'Reset Limits', ua: 'Скинути ліміти', ru: 'Сбросить лимиты' }, description: { en: 'Resets the daily purchase limits for all other boosts.', ua: 'Скидає денні ліміти на покупки для всіх інших бустів.', ru: 'Сбрасывает дневные лимиты на покупки для всех остальных бустов.' }, iconUrl: 'https://api.iconify.design/ph/timer-bold.svg?color=white', costStars: 5, suspicionModifier: 0 },
 ];
 
 export const INITIAL_BLACK_MARKET_CARDS = [
@@ -85,10 +83,9 @@ export const INITIAL_COIN_SKINS = [
 
 
 // --- GAME MECHANICS ---
-export const REFERRAL_BONUS = 50000;
+export const REFERRAL_BONUS = 5000;
 export const REFERRAL_PROFIT_SHARE = 0.10; // 10%
 export const INITIAL_MAX_ENERGY = 1000;
-export const MAX_ENERGY_CAP = 1_000_000_000_000;
 export const LOOTBOX_COST_COINS = 50000;
 export const LOOTBOX_COST_STARS = 5;
 export const CELL_CREATION_COST = 100000;
@@ -97,14 +94,6 @@ export const INFORMANT_RECRUIT_COST = 1000000;
 export const CELL_BATTLE_TICKET_COST = 1000000;
 export const BATTLE_DURATION_SECONDS = 24 * 60 * 60; // 24 hours
 export const BATTLE_START_DAY = 1; // 1 = Monday, 0 = Sunday
-
-export const BOOST_PURCHASE_LIMITS = {
-  'boost_tap_guru': 10,
-  'boost_energy_limit': 10,
-  'boost_suspicion_limit': 10,
-  'boost_full_energy': 3,
-  'boost_reset_limits': 3,
-};
 
 export const CELL_ECONOMY_DEFAULTS = {
     informantProfitBonus: 0.01, // 1%
