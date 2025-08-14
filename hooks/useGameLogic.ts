@@ -1,5 +1,4 @@
 
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import {
@@ -110,8 +109,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [user?.language]);
 
     const callApi = useCallback(async (endpoint: string, method: 'GET' | 'POST' = 'GET', body?: object) => {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
         try {
-            const response = await fetch(`/api/${endpoint}`, {
+            const response = await fetch(`${baseUrl}/api/${endpoint}`, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 ...(body && { body: JSON.stringify(body) })
