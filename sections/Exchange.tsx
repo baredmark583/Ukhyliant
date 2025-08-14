@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import CircularProgressBar from '../components/CircularProgressBar';
 import { PlayerState, League, User, GameConfig } from '../types';
 import { DEFAULT_COIN_SKIN_ID } from '../constants';
 import { useTranslation, useAuth } from '../hooks/useGameLogic';
 import { formatNumber } from '../utils';
+import ProgressBar from '../components/ProgressBar';
+import SuspicionMeter from '../components/SuspicionMeter';
 
 const MORSE_CODE_MAP: { [key: string]: string } = {
     'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--', 'Z': '--..',
@@ -160,18 +161,23 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   return (
     <div className="flex flex-col h-full text-white p-2 sm:p-4 gap-2">
       {/* Top Section: Info Panel */}
-      <div className="w-full flex items-center justify-around gap-2 p-2 mb-2 text-center flex-shrink-0">
-          <CircularProgressBar value={energy} max={effectiveMaxEnergy} iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={60} strokeWidth={6} />
-          <CircularProgressBar value={suspicion} max={effectiveMaxSuspicion} iconUrl={config.uiIcons.suspicion} color="#f87171" size={60} strokeWidth={6} />
-          <button onClick={onOpenLeaderboard} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
-              {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-8 h-8" />}
-          </button>
-          <button onClick={handleSwitchLanguage} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
-              <img src="https://api.iconify.design/ph/globe-bold.svg?color=white" alt="Language" className="w-8 h-8"/>
-              <span className="text-xs font-bold text-white leading-tight">{user.language.toUpperCase()}</span>
-          </button>
-      </div>
-
+        <div className="w-full flex flex-col gap-3 mb-2 flex-shrink-0">
+            <div className="flex items-center justify-between gap-2">
+                <button onClick={onOpenLeaderboard} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-lg h-12 flex items-center justify-center p-2 text-center flex-grow">
+                    {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-8 h-8 mr-2" />}
+                    <div className="text-left">
+                      <p className="text-xs text-slate-400 -mb-1">{t('your_league')}</p>
+                      <span className="text-sm font-bold">{currentLeague?.name[user.language]}</span>
+                    </div>
+                </button>
+                <button onClick={handleSwitchLanguage} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-lg w-12 h-12 flex-shrink-0 flex flex-col items-center justify-center p-1 text-center">
+                    <img src="https://api.iconify.design/ph/globe-bold.svg?color=white" alt="Language" className="w-7 h-7"/>
+                    <span className="text-xs font-bold text-white leading-tight">{user.language.toUpperCase()}</span>
+                </button>
+            </div>
+            <ProgressBar value={energy} max={effectiveMaxEnergy} label={t('energy')} iconUrl={config.uiIcons.energy} />
+            <SuspicionMeter value={suspicion} max={effectiveMaxSuspicion} iconUrl={config.uiIcons.suspicion} />
+        </div>
 
       {/* Main Content Area: Coin Card */}
       <div className="flex-grow w-full flex items-center justify-center relative min-h-0">

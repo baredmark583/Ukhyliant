@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, createContext, useContext, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, createContext, useContext, useCallback, useMemo, useRef } from 'react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
 import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
@@ -516,8 +515,8 @@ export const useGame = () => {
     const { playerState, setPlayerState, config, setConfig, purchaseResult, setPurchaseResult } = useGameContext();
     const [isTurboActive, setIsTurboActive] = useState(false);
     const [systemMessage, setSystemMessage] = useState<string>('');
-    const prevPenaltyLogLength = React.useRef<number | undefined>(undefined);
-    const tapsSinceLastSave = React.useRef(0);
+    const prevPenaltyLogLength = useRef<number | undefined>(undefined);
+    const tapsSinceLastSave = useRef(0);
     const [tonConnectUI] = useTonConnectUI();
 
 
