@@ -21,7 +21,12 @@ const formatNumber = (num: number): string => {
 
 const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang, uiIcons }) => {
   const t = useTranslation();
-  const canAfford = balance >= upgrade.price;
+  
+  // Calculate the current price based on the upgrade's level.
+  // This ensures the UI always shows the correct price for the next purchase.
+  const currentPrice = Math.floor(upgrade.price * Math.pow(1.15, upgrade.level));
+
+  const canAfford = balance >= currentPrice;
   const suspicionMod = upgrade.suspicionModifier;
   
   const suspicionColor = suspicionMod > 0 ? 'text-red-400' : suspicionMod < 0 ? 'text-[var(--accent-color)]' : 'text-gray-500';
@@ -60,7 +65,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
         </div>
         <div className="flex items-center justify-center space-x-1.5 w-full bg-slate-900/70 rounded-lg py-1.5 mt-2 shadow-inner">
           <img src={uiIcons?.coin || ''} alt="coin" className="w-4 h-4"/>
-          <span className="text-white font-bold text-responsive-base">{formatNumber(upgrade.price)}</span>
+          <span className="text-white font-bold text-responsive-base">{formatNumber(currentPrice)}</span>
         </div>
       </div>
     </button>

@@ -269,6 +269,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const saveTimeout = useRef<number | null>(null);
     const energyRegenInterval = useRef<number | null>(null);
     const turboTimeout = useRef<number | null>(null);
+    
+    // Create a ref to hold the latest playerState for use in intervals
+    const playerStateRef = useRef(playerState);
+    useEffect(() => {
+        playerStateRef.current = playerState;
+    }, [playerState]);
+
 
     const [tonConnectUI] = useTonConnectUI();
     const wallet = useTonWallet();
@@ -561,6 +568,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, [playerState?.energy, effectiveMaxEnergy]);
     
+    // Periodic sync with server to fetch updates (like admin bonuses)
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const syncInterval = setInterval(() => {
+            // Use the ref to get the latest player state without causing the effect to re-run
+            if (playerStateRef.current) {
+                // Sending state with 0 taps acts as a sync request.
+                // The backend will apply server-side changes (e.g., admin bonus)
+                // and return the updated state.
+                saveState(playerStateRef.current, 0);
+            }
+        }, 15000); // Sync every 15 seconds
+
+        return () => clearInterval(syncInterval);
+    }, [user, saveState]);
+
     // Wallet connection synchronization
     useEffect(() => {
         if (!user || !playerState) return;

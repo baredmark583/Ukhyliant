@@ -40,6 +40,7 @@ export enum UpgradeCategory {
   Legal = "Legal",
   Lifestyle = "Lifestyle",
   Special = "Special",
+  BlackMarket = "Black Market",
 }
 
 export interface Upgrade {
@@ -58,12 +59,14 @@ export type BoxType = 'coin' | 'star';
 export interface BlackMarketCard {
     id: string;
     name: LocalizedString;
-    price?: number; // Price is not directly used for purchase but for level calculation
+    price: number; // Price is not directly used for purchase but for level calculation
     profitPerHour: number;
+    category: UpgradeCategory;
     iconUrl: string;
+    suspicionModifier: number;
+    // BlackMarketCard specific properties
     boxType: BoxType;
     chance: number; // Rarity/drop chance
-    suspicionModifier: number;
 }
 
 export interface CoinSkin {
