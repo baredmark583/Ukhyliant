@@ -680,6 +680,19 @@ const gameActions = {
         await savePlayer(userId, player);
         return { player };
     },
+    'acknowledge-penalty': async (body, player) => {
+        const { userId } = body;
+        if (player.penaltyLog && player.penaltyLog.length > 0) {
+            // Find the last penalty entry that has a message and remove the message property.
+            // This acknowledges the penalty without deleting the record of the event itself.
+            const lastUnacknowledged = [...player.penaltyLog].reverse().find(p => p.message);
+            if (lastUnacknowledged) {
+                delete lastUnacknowledged.message;
+            }
+        }
+        await savePlayer(userId, player);
+        return { player };
+    },
 };
 
 app.post('/api/action/:action', async (req, res) => {

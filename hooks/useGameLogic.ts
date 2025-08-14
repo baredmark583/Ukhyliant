@@ -1,696 +1,373 @@
-import React, { useState, useEffect, createContext, useContext, useCallback, useMemo, useRef } from 'react';
-import { 
-    PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, 
-    LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, 
-    Cell, BattleStatus, BattleLeaderboardEntry, Friend, Informant 
-} from '../types';
-import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
+
+
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
-import { Address } from '@ton/ton';
+import {
+    User, PlayerState, GameConfig, Language, DailyTask, SpecialTask, Boost,
+    Upgrade, League, Friend
+} from '../types';
+import { TRANSLATIONS, INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS } from '../constants';
 
-
-declare global {
-  interface Window {
-    Telegram: {
-      WebApp: any;
-    };
-  }
-}
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-const API = {
-  login: async (tgUser: any, startParam: string | null): Promise<{ user: User, player: PlayerState, config: GameConfig } | null> => {
-    if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
-    const response = await fetch(`${API_BASE_URL}/api/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tgUser, startParam }),
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Login failed');
-    }
-    return response.json();
-  },
-  
-  connectWallet: async (userId: string, walletData: any | null): Promise<{ player?: PlayerState, message?: string, error?: string}> => {
-    if (!API_BASE_URL) return { error: "API not configured" };
-    const response = await fetch(`${API_BASE_URL}/api/user/connect-wallet`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, walletData }),
-    });
-    return response.json();
-  },
-
-  getFriends: async (userId: string): Promise<Friend[] | null> => {
-    if (!API_BASE_URL) return null;
-    const response = await fetch(`${API_BASE_URL}/api/user/${userId}/friends`);
-    if (!response.ok) return null;
-    return response.json();
-  },
-
-  savePlayerState: async (userId: string, state: PlayerState, taps: number): Promise<PlayerState | null> => {
-     if (!API_BASE_URL) return null;
-     const response = await fetch(`${API_BASE_URL}/api/player/${userId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state, taps })
-     });
-     if (response.ok && response.headers.get('Content-Type')?.includes('application/json')) {
-         const serverState = await response.json();
-         // If server sent back a penalty message, handle it immediately
-        if (serverState.penaltyLog && state.penaltyLog && serverState.penaltyLog.length > state.penaltyLog.length) {
-            const newPenalty = serverState.penaltyLog[serverState.penaltyLog.length - 1];
-            // This is a bit of a hack: we'll use a custom event or a setter in context
-            // For now, let's just return it and handle in the calling function.
-            (serverState as any).newPenaltyMessage = newPenalty.message;
-        }
-
-         return serverState;
-     }
-     return null;
-  },
-
-  updateUserLanguage: async (userId: string, lang: Language): Promise<void> => {
-      if (!API_BASE_URL) return;
-      await fetch(`${API_BASE_URL}/api/user/${userId}/language`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ language: lang }),
-      });
-  },
-  
-  buyUpgrade: async (userId: string, upgradeId: string): Promise<{player?: PlayerState, error?: string}> => {
-    const res = await fetch(`${API_BASE_URL}/api/action/buy-upgrade`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, upgradeId })
-    });
-    return res.json();
-  },
-  
-  buyBoost: async (userId: string, boostId: string): Promise<{player?: PlayerState, error?: string}> => {
-    return fetch(`${API_BASE_URL}/api/action/buy-boost`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, boostId })
-    }).then(res => res.json());
-  },
-
-  claimDailyTask: async (userId: string, taskId: string, code?: string): Promise<{player?: PlayerState, error?: string}> => {
-    return fetch(`${API_BASE_URL}/api/action/claim-task`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, taskId, code })
-    }).then(res => res.json());
-  },
-
-  createStarInvoice: async (userId: string, payloadType: 'task' | 'lootbox', itemId: string): Promise<{ok: boolean, invoiceLink?: string, error?: string}> => {
-    return fetch(`${API_BASE_URL}/api/create-star-invoice`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, payloadType, itemId }),
-    }).then(res => res.json());
-  },
-
-  syncAfterPayment: async (userId: string): Promise<{player: PlayerState, wonItem: any} | null> => {
-      const res = await fetch(`${API_BASE_URL}/api/sync-after-payment`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId })
-      });
-      if(!res.ok) return null;
-      return res.json();
-  },
-  
-  completeSpecialTask: async (userId: string, taskId: string, code?: string): Promise<{player?: PlayerState, error?: string}> => {
-      return fetch(`${API_BASE_URL}/api/action/complete-task`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, taskId, code })
-      }).then(res => res.json());
-  },
-  
-  claimDailyCombo: async (userId: string): Promise<{player?: PlayerState, error?: string, reward?: number}> => {
-      return fetch(`${API_BASE_URL}/api/action/claim-combo`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId })
-      }).then(res => res.json());
-  },
-  claimDailyCipher: async (userId: string, cipher: string): Promise<{player?: PlayerState, error?: string, reward?: number}> => {
-      return fetch(`${API_BASE_URL}/api/action/claim-cipher`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, cipher })
-      }).then(res => res.json());
-  },
-  openCoinLootbox: async (userId: string, boxType: 'coin'): Promise<{player?: PlayerState, error?: string, wonItem?: any}> => {
-      return fetch(`${API_BASE_URL}/api/action/open-lootbox`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, boxType })
-      }).then(res => res.json());
-  },
-  setSkin: async (userId: string, skinId: string): Promise<{player: PlayerState}> => {
-       return fetch(`${API_BASE_URL}/api/action/set-skin`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, skinId })
-      }).then(res => res.json());
-  },
-  getLeaderboard: async (): Promise<{ topPlayers: LeaderboardPlayer[], totalPlayers: number } | null> => {
-      const res = await fetch(`${API_BASE_URL}/api/leaderboard`);
-      if(!res.ok) return null;
-      return res.json();
-  },
-  getMyCell: async (userId: string): Promise<{cell?: Cell, error?: string}> => {
-      const res = await fetch(`${API_BASE_URL}/api/cell/my-cell?userId=${userId}`);
-      return res.json();
-  },
-  createCell: async (userId: string, name: string): Promise<{cell?: Cell, player?: PlayerState, error?: string}> => {
-       return fetch(`${API_BASE_URL}/api/cell/create`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, name })
-      }).then(res => res.json());
-  },
-  joinCell: async (userId: string, inviteCode: string): Promise<{cell?: Cell, player?: PlayerState, error?: string}> => {
-      return fetch(`${API_BASE_URL}/api/cell/join`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, inviteCode })
-      }).then(res => res.json());
-  },
-  leaveCell: async (userId: string): Promise<{player: PlayerState, error?: string}> => {
-      return fetch(`${API_BASE_URL}/api/cell/leave`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId })
-      }).then(res => res.json());
-  },
-  recruitInformant: async (userId: string): Promise<{informant?: Informant, player?: PlayerState, error?: string}> => {
-       return fetch(`${API_BASE_URL}/api/informant/recruit`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId })
-      }).then(res => res.json());
-  },
-  buyCellTicket: async (userId: string): Promise<{cell?: Cell, error?: string}> => {
-       return fetch(`${API_BASE_URL}/api/cell/buy-ticket`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId })
-      }).then(res => res.json());
-  },
-  getBattleStatus: async (userId: string): Promise<{status?: BattleStatus, error?: string}> => {
-      const res = await fetch(`${API_BASE_URL}/api/battle/status?userId=${userId}`);
-      return res.json();
-  },
-  joinBattle: async (userId: string): Promise<{status?: BattleStatus, cell?: Cell, error?: string}> => {
-       return fetch(`${API_BASE_URL}/api/battle/join`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId })
-      }).then(res => res.json());
-  },
-  getBattleLeaderboard: async (): Promise<{leaderboard?: BattleLeaderboardEntry[], error?: string}> => {
-      const res = await fetch(`${API_BASE_URL}/api/battle/leaderboard`);
-      return res.json();
-  }
-};
-
-
-interface AuthContextType {
+// --- Interfaces for Context ---
+interface IAuthContext {
     user: User | null;
     isInitializing: boolean;
     isGlitching: boolean;
     setIsGlitching: React.Dispatch<React.SetStateAction<boolean>>;
     switchLanguage: (lang: Language) => void;
-    login: () => Promise<void>;
 }
 
-interface GameContextType {
+interface IGameContext {
     playerState: PlayerState | null;
     config: GameConfig | null;
-    handleTap: () => number;
-    buyUpgrade: (upgradeId: string) => Promise<{ player?: PlayerState; error?: string; } | null>;
-    allUpgrades: (Upgrade & {level: number})[];
     currentLeague: League | null;
-    claimTaskReward: (task: DailyTask, code?: string) => Promise<{player?: PlayerState; error?: string;}>;
-    buyBoost: (boost: Boost) => Promise<{ player?: PlayerState; error?: string; }>;
-    purchaseSpecialTask: (task: SpecialTask) => Promise<void>;
-    completeSpecialTask: (task: SpecialTask, code?: string) => Promise<{ player?: PlayerState; error?: string; }>;
-    claimDailyCombo: () => Promise<{ player?: PlayerState; error?: string; reward?: number; }>;
-    claimDailyCipher: (cipher: string) => Promise<{ player?: PlayerState; error?: string; reward?: number; }>;
-    getLeaderboard: () => Promise<{ topPlayers: LeaderboardPlayer[]; totalPlayers: number; } | null>;
+    allUpgrades: (Upgrade & { level: number })[];
+    handleTap: () => number;
+    buyUpgrade: (upgradeId: string) => Promise<any>;
+    buyBoost: (boost: Boost) => Promise<any>;
+    claimTaskReward: (task: DailyTask, code?: string) => Promise<any>;
+    purchaseSpecialTask: (task: SpecialTask) => Promise<any>;
+    completeSpecialTask: (task: SpecialTask, code?: string) => Promise<any>;
+    claimDailyCombo: () => Promise<any>;
+    claimDailyCipher: (cipher: string) => Promise<any>;
+    getLeaderboard: () => Promise<any>;
     getFriends: () => Promise<void>;
     friends: Friend[] | null;
-    openCoinLootbox: (boxType: 'coin') => Promise<{ player?: PlayerState; error?: string; wonItem?: any; }>;
-    purchaseLootboxWithStars: (boxType: 'star') => Promise<{ player?: PlayerState; error?: string; }>;
-    setSkin: (skinId: string) => Promise<void>;
-    connectWallet: () => Promise<void>;
+    setSkin: (skinId: string) => Promise<any>;
+    openCoinLootbox: (boxType: 'coin') => Promise<any>;
+    purchaseLootboxWithStars: (boxType: 'star') => Promise<any>;
+    connectWallet: () => void;
     isTurboActive: boolean;
     effectiveMaxEnergy: number;
     effectiveMaxSuspicion: number;
     systemMessage: string;
-    setSystemMessage: React.Dispatch<React.SetStateAction<string>>;
-    purchaseResult: {type: 'lootbox' | 'task', item: any} | null;
-    setPurchaseResult: React.Dispatch<React.SetStateAction<{type: 'lootbox' | 'task', item: any} | null>>;
-    getMyCell: () => Promise<{ cell?: Cell; error?: string; }>;
-    createCell: (name: string) => Promise<{ cell?: Cell; player?: PlayerState; error?: string; }>;
-    joinCell: (inviteCode: string) => Promise<{ cell?: Cell; player?: PlayerState; error?: string; }>;
-    leaveCell: () => Promise<{ player?: PlayerState; error?: string; }>;
-    recruitInformant: () => Promise<{ informant?: Informant; player?: PlayerState; error?: string; }>;
-    buyCellTicket: () => Promise<{ cell?: Cell; error?: string; }>;
-    getBattleStatus: () => Promise<{ status?: BattleStatus; error?: string; }>;
-    joinBattle: () => Promise<{ status?: BattleStatus; cell?: Cell; error?: string; }>;
-    getBattleLeaderboard: () => Promise<{ leaderboard?: BattleLeaderboardEntry[]; error?: string; }>;
+    setSystemMessage: (message: string) => void;
+    purchaseResult: { type: 'lootbox' | 'task', item: any } | null;
+    setPurchaseResult: React.Dispatch<React.SetStateAction<{ type: 'lootbox' | 'task', item: any } | null>>;
     walletConnectionMessage: string;
     setWalletConnectionMessage: React.Dispatch<React.SetStateAction<string>>;
+    getMyCell: () => Promise<any>;
+    createCell: (name: string) => Promise<any>;
+    joinCell: (inviteCode: string) => Promise<any>;
+    leaveCell: () => Promise<any>;
+    recruitInformant: () => Promise<any>;
+    buyCellTicket: () => Promise<any>;
+    getBattleStatus: () => Promise<any>;
+    joinBattle: () => Promise<any>;
+    getBattleLeaderboard: () => Promise<any>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const GameContext = createContext<GameContextType | undefined>(undefined);
+interface ITranslationContext {
+    t: (key: keyof typeof TRANSLATIONS['en'], params?: Record<string, string | number>) => string;
+}
 
+// --- Context Creation ---
+const AuthContext = createContext<IAuthContext | null>(null);
+const GameContext = createContext<IGameContext | null>(null);
+const TranslationContext = createContext<ITranslationContext | null>(null);
 
+// --- Provider Component ---
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // Auth State
     const [user, setUser] = useState<User | null>(null);
-    const [isInitializing, setIsInitializing] = useState(true);
-    const [isGlitching, setIsGlitching] = useState(false);
-
-    // Game State
     const [playerState, setPlayerState] = useState<PlayerState | null>(null);
     const [config, setConfig] = useState<GameConfig | null>(null);
-    const [tapsSinceSave, setTapsSinceSave] = useState(0);
-    const [isTurboActive, setIsTurboActive] = useState(false);
-    const [systemMessage, setSystemMessage] = useState('');
-    const [purchaseResult, setPurchaseResult] = useState<{type: 'lootbox' | 'task', item: any} | null>(null);
+    const [isInitializing, setIsInitializing] = useState(true);
+    const [isGlitching, setIsGlitching] = useState(false);
     const [friends, setFriends] = useState<Friend[] | null>(null);
-    const [walletConnectionMessage, setWalletConnectionMessage] = useState('');
-
-    const saveTimeout = useRef<number | null>(null);
-    const energyRegenInterval = useRef<number | null>(null);
-    const turboTimeout = useRef<number | null>(null);
     
-    // Create a ref to hold the latest playerState for use in intervals
-    const playerStateRef = useRef(playerState);
-    useEffect(() => {
-        playerStateRef.current = playerState;
-    }, [playerState]);
-
+    // Game states
+    const [systemMessage, _setSystemMessage] = useState('');
+    const [purchaseResult, setPurchaseResult] = useState<{ type: 'lootbox' | 'task', item: any } | null>(null);
+    const [walletConnectionMessage, setWalletConnectionMessage] = useState('');
+    const [isTurboActive, setIsTurboActive] = useState(false);
+    const tapsToSave = useRef(0);
+    const saveTimeout = useRef<number | null>(null);
 
     const [tonConnectUI] = useTonConnectUI();
     const wallet = useTonWallet();
 
-    const saveState = useCallback(async (currentState: PlayerState, currentTaps: number) => {
-        if (!user?.id || !currentState) return;
-        const updatedServerState = await API.savePlayerState(user.id, currentState, currentTaps);
-        if (updatedServerState) {
-            setPlayerState(updatedServerState);
-            // Immediately show penalty modal if the server response includes a new penalty message
-            if ((updatedServerState as any).newPenaltyMessage) {
-                setSystemMessage((updatedServerState as any).newPenaltyMessage);
+    const switchLanguage = useCallback(async (lang: Language) => {
+        if (user && user.language !== lang) {
+            setUser(prev => prev ? { ...prev, language: lang } : null);
+            await fetch('/api/user/' + user.id + '/language', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ language: lang }),
+            });
+            if (lang !== 'ua') {
+                setIsGlitching(true);
             }
         }
     }, [user]);
 
-    const debouncedSave = useCallback((state: PlayerState, taps: number) => {
-        if (saveTimeout.current) clearTimeout(saveTimeout.current);
-        saveTimeout.current = window.setTimeout(() => {
-            saveState(state, taps);
-            setTapsSinceSave(0);
-        }, SAVE_DEBOUNCE_MS);
-    }, [saveState]);
+    const t = useCallback((key: keyof typeof TRANSLATIONS['en'], params: Record<string, string | number> = {}) => {
+        const lang = user?.language || 'en';
+        let text = TRANSLATIONS[lang]?.[key] || TRANSLATIONS['en']?.[key] || `[${key}]`;
+        for (const p in params) {
+            text = text.replace(new RegExp(`\\{${p}\\}`, 'g'), String(params[p]));
+        }
+        return text;
+    }, [user?.language]);
 
-    const coinsPerTap = useMemo(() => {
-        if (!playerState) return 1;
-        const skin = config?.coinSkins.find(s => s.id === playerState.currentSkinId);
-        const skinBoost = skin ? (1 + skin.profitBoostPercent / 100) : 1;
-        const tapGuruMultiplier = Math.pow(1.5, playerState.tapGuruLevel || 0);
-        const turboMultiplier = isTurboActive ? 5 : 1;
-        return playerState.coinsPerTap * skinBoost * tapGuruMultiplier * turboMultiplier;
-    }, [playerState, config, isTurboActive]);
-
-    const effectiveMaxEnergy = useMemo(() => INITIAL_MAX_ENERGY + ((playerState?.energyLimitLevel || 0) * 500), [playerState]);
-    const effectiveMaxSuspicion = useMemo(() => 100 + ((playerState?.suspicionLimitLevel || 0) * 10), [playerState]);
-
-    const handleTap = useCallback(() => {
-        if (!playerState || playerState.energy < 1) return 0;
-        
-        const tapValue = coinsPerTap;
-        if (playerState.energy < tapValue) return 0;
-
-        window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
-
-        const newState: PlayerState = {
-            ...playerState,
-            balance: playerState.balance + tapValue,
-            energy: playerState.energy - tapValue,
-            dailyTaps: (playerState.dailyTaps || 0) + 1,
-        };
-        
-        setPlayerState(newState);
-        setTapsSinceSave(prev => {
-            const newTaps = prev + 1;
-            debouncedSave(newState, newTaps);
-            return newTaps;
-        });
-        
-        return tapValue;
-    }, [playerState, coinsPerTap, debouncedSave]);
-
-    const login = useCallback(async () => {
+    const callApi = useCallback(async (endpoint: string, method: 'GET' | 'POST' = 'GET', body?: object) => {
         try {
-            setIsInitializing(true);
-            const tg = window.Telegram?.WebApp;
-            if (!tg?.initDataUnsafe?.user) {
-                console.error("Not in Telegram environment.");
-                setIsInitializing(false);
-                return;
+            const response = await fetch(`/api/${endpoint}`, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                ...(body && { body: JSON.stringify(body) })
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Request failed with status ${response.status}`);
             }
-            
-            tg.ready();
-            tg.expand();
-            
-            const startParam = tg.initDataUnsafe.start_param || null;
-            const data = await API.login(tg.initDataUnsafe.user, startParam);
-            
-            if (data) {
+            return await response.json();
+        } catch (error: any) {
+            console.error(`API call to ${endpoint} failed:`, error);
+            return { error: error.message };
+        }
+    }, []);
+
+    const callGameAction = useCallback(async (action: string, body: object) => {
+        const result = await callApi(`action/${action}`, 'POST', { userId: user?.id, ...body });
+        if (result.player) {
+            setPlayerState(result.player);
+        }
+        return result;
+    }, [user?.id, callApi]);
+    
+    // *** THE FIX IS HERE ***
+    const acknowledgePenalty = useCallback(async () => {
+        if (!user) return;
+        await callGameAction('acknowledge-penalty', {});
+    }, [user, callGameAction]);
+
+    const setSystemMessage = useCallback(async (message: string) => {
+        _setSystemMessage(message);
+        if (message === '') {
+            // When the modal is closed and the message is cleared,
+            // we call the backend to acknowledge the penalty.
+            await acknowledgePenalty();
+        }
+    }, [acknowledgePenalty]);
+    
+    // Check for penalty messages when player state updates
+    useEffect(() => {
+        if (playerState?.penaltyLog && playerState.penaltyLog.length > 0) {
+            const lastPenalty = playerState.penaltyLog[playerState.penaltyLog.length - 1];
+            if (lastPenalty.message) {
+                _setSystemMessage(lastPenalty.message);
+            }
+        }
+    }, [playerState]);
+
+    const saveState = useCallback(() => {
+        if (!user || !playerState || tapsToSave.current === 0) return;
+        
+        const currentTaps = tapsToSave.current;
+        const newBalance = (playerState.balance || 0) + currentTaps;
+        const newState = { ...playerState, balance: newBalance };
+        tapsToSave.current = 0;
+        
+        callApi(`player/${user.id}`, 'POST', { state: newState, taps: currentTaps })
+            .then(res => {
+                if(res.player) setPlayerState(res.player); // Sync with server state if provided
+            });
+
+    }, [user, playerState, callApi]);
+
+    useEffect(() => {
+        const tg = window.Telegram?.WebApp;
+        if (!tg) {
+            setIsInitializing(false);
+            return;
+        }
+        tg.ready();
+        
+        const initData = tg.initDataUnsafe;
+        const tgUser = initData.user;
+        const startParam = initData.start_param;
+
+        if (!tgUser) {
+             setIsInitializing(false);
+             return;
+        }
+
+        callApi('login', 'POST', { tgUser, startParam }).then(data => {
+            if (data && data.user && data.player && data.config) {
                 setUser(data.user);
                 setPlayerState(data.player);
                 setConfig(data.config);
-
-                if (data.player.penaltyLog && data.player.penaltyLog.length > 0) {
-                    const lastPenalty = data.player.penaltyLog[data.player.penaltyLog.length-1];
-                    setSystemMessage(lastPenalty.message || "A penalty was applied.");
-                }
             }
-        } catch (error) {
-            console.error('Login failed:', error);
-        } finally {
-            setIsInitializing(false);
-        }
-    }, []);
+        }).finally(() => setIsInitializing(false));
+    }, [callApi]);
 
-    const switchLanguage = useCallback(async (lang: Language) => {
-        if (!user) return;
-        const oldLang = user.language;
-        setUser(u => u ? { ...u, language: lang } : null);
-        await API.updateUserLanguage(user.id, lang);
-        
-        if (lang === 'ru' && oldLang !== 'ru') {
-            setIsGlitching(true);
-        }
-    }, [user]);
-
-    const processActionResponse = useCallback(<T extends { player?: PlayerState; error?: string; }>(result: T): T => {
-        if (result.player) {
-            setPlayerState(result.player);
-            // Check for an immediate penalty after the action
-            if (result.player.penaltyLog && playerState?.penaltyLog && result.player.penaltyLog.length > playerState.penaltyLog.length) {
-                const newPenalty = result.player.penaltyLog[result.player.penaltyLog.length - 1];
-                setSystemMessage(newPenalty.message || "A penalty was applied.");
-            }
-        }
-        return result;
-    }, [playerState]);
-
-    const buyUpgrade = useCallback(async (upgradeId: string) => {
-        if (!user?.id) return null;
-        const result = await API.buyUpgrade(user.id, upgradeId);
-        return processActionResponse(result);
-    }, [user, processActionResponse]);
-
-    const buyBoost = useCallback(async (boost: Boost) => {
-        if (!user?.id) return { error: 'Not logged in' };
-        if (boost.id === 'boost_turbo_mode' && isTurboActive) return { error: 'Turbo already active' };
-
-        const result = await API.buyBoost(user.id, boost.id);
-        
-        const processedResult = processActionResponse(result);
-        if (processedResult.player) {
-             if (boost.id === 'boost_turbo_mode') {
-                setIsTurboActive(true);
-                if (turboTimeout.current) clearTimeout(turboTimeout.current);
-                turboTimeout.current = window.setTimeout(() => setIsTurboActive(false), 20000);
-            }
-        }
-        return processedResult;
-    }, [user, isTurboActive, processActionResponse]);
-
-    const claimTaskReward = useCallback(async (task: DailyTask, code?: string) => {
-        if (!user?.id) return { error: 'Not logged in' };
-        const result = await API.claimDailyTask(user.id, task.id, code);
-        return processActionResponse(result);
-    }, [user, processActionResponse]);
-
-    const handleStarPayment = useCallback(async (payloadType: 'task' | 'lootbox', itemId: string) => {
-        if (!user?.id) return;
-        const { ok, invoiceLink, error } = await API.createStarInvoice(user.id, payloadType, itemId);
-        if (ok && invoiceLink) {
-            window.Telegram.WebApp.openInvoice(invoiceLink, async (status) => {
-                if (status === 'paid') {
-                    const syncResult = await API.syncAfterPayment(user.id);
-                    if (syncResult) {
-                        setPlayerState(syncResult.player);
-                        if (syncResult.wonItem) {
-                            setPurchaseResult(syncResult.wonItem);
-                        }
-                    }
-                }
-            });
-        } else {
-            console.error(error);
-        }
-    }, [user]);
-
-    const purchaseSpecialTask = useCallback(async (task: SpecialTask) => {
-        if (!user?.id) return;
-        await handleStarPayment('task', task.id);
-    }, [user, handleStarPayment]);
-    
-    const purchaseLootboxWithStars = useCallback(async (boxType: 'star') => {
-        if (!user?.id) return { error: 'Not logged in' };
-        await handleStarPayment('lootbox', boxType);
-        return {};
-    }, [user, handleStarPayment]);
-
-    const completeSpecialTask = useCallback(async (task: SpecialTask, code?: string) => {
-        if (!user?.id) return { error: 'Not logged in' };
-        const result = await API.completeSpecialTask(user.id, task.id, code);
-        return processActionResponse(result);
-    }, [user, processActionResponse]);
-    
-    const claimDailyCombo = useCallback(async () => {
-        if (!user?.id) return { error: 'Not logged in' };
-        const result = await API.claimDailyCombo(user.id);
-        if (result.player) setPlayerState(result.player);
-        return result;
-    }, [user]);
-
-    const claimDailyCipher = useCallback(async (cipher: string) => {
-        if (!user?.id) return { error: 'Not logged in' };
-        const result = await API.claimDailyCipher(user.id, cipher);
-        if (result.player) setPlayerState(result.player);
-        return result;
-    }, [user]);
-    
-    const openCoinLootbox = useCallback(async (boxType: 'coin') => {
-        if (!user?.id) return { error: 'Not logged in' };
-        const result = await API.openCoinLootbox(user.id, boxType);
-        const processedResult = processActionResponse(result);
-        if (processedResult.wonItem) {
-            setPurchaseResult({ type: 'lootbox', item: processedResult.wonItem });
-        }
-        return processedResult;
-    }, [user, processActionResponse]);
-
-    const setSkin = useCallback(async (skinId: string) => {
-        if (!user?.id) return;
-        const result = await API.setSkin(user.id, skinId);
-        if (result.player) setPlayerState(result.player);
-    }, [user]);
-
-    const connectWallet = useCallback(async () => {
-        if (!user) return;
-        try {
-            const result = await API.connectWallet(user.id, wallet);
-            if (result.player) setPlayerState(result.player);
-            if (result.message) setWalletConnectionMessage(result.message);
-        } catch(e) { console.error(e) };
-    }, [wallet, user]);
-
-    const getFriends = useCallback(async () => {
-        if(!user) return;
-        const friendsList = await API.getFriends(user.id);
-        setFriends(friendsList);
-    }, [user]);
-
-    // --- Cell Functions ---
-    const getMyCell = useCallback(async () => {
-        if(!user) return { error: 'Not logged in' };
-        return await API.getMyCell(user.id);
-    }, [user]);
-
-    const createCell = useCallback(async (name: string) => {
-        if(!user) return { error: 'Not logged in' };
-        const result = await API.createCell(user.id, name);
-        if(result.player) setPlayerState(result.player);
-        return result;
-    }, [user]);
-
-    const joinCell = useCallback(async (inviteCode: string) => {
-        if(!user) return { error: 'Not logged in' };
-        const result = await API.joinCell(user.id, inviteCode);
-        if(result.player) setPlayerState(result.player);
-        return result;
-    }, [user]);
-
-    const leaveCell = useCallback(async () => {
-        if(!user) return { error: 'Not logged in' };
-        const result = await API.leaveCell(user.id);
-        if(result.player) setPlayerState(result.player);
-        return result;
-    }, [user]);
-    
-    const recruitInformant = useCallback(async () => {
-        if(!user) return { error: 'Not logged in' };
-        const result = await API.recruitInformant(user.id);
-        return processActionResponse(result);
-    }, [user, processActionResponse]);
-
-    const buyCellTicket = useCallback(async () => {
-        if(!user) return { error: 'Not logged in' };
-        return await API.buyCellTicket(user.id);
-    }, [user]);
-
-    // --- Battle Functions ---
-    const getBattleStatus = useCallback(async () => {
-        if(!user) return { error: 'Not logged in' };
-        return await API.getBattleStatus(user.id);
-    }, [user]);
-
-    const joinBattle = useCallback(async () => {
-        if(!user) return { error: 'Not logged in' };
-        return await API.joinBattle(user.id);
-    }, [user]);
-    
-    const getBattleLeaderboard = useCallback(async () => {
-       return await API.getBattleLeaderboard();
-    }, []);
-
-    // --- Effects ---
-    useEffect(() => { login() }, [login]);
-
+    // Energy regeneration loop
     useEffect(() => {
-        if (!playerState || !effectiveMaxEnergy) return;
-
-        if (energyRegenInterval.current) clearInterval(energyRegenInterval.current);
-        
-        energyRegenInterval.current = window.setInterval(() => {
+        const interval = setInterval(() => {
             setPlayerState(prev => {
                 if (!prev) return null;
-                const newEnergy = Math.min(effectiveMaxEnergy, prev.energy + ENERGY_REGEN_RATE);
-                if (newEnergy === prev.energy) return prev;
-                return { ...prev, energy: newEnergy };
+                const maxEnergy = INITIAL_MAX_ENERGY + (prev.energyLimitLevel || 0) * 500;
+                if (prev.energy >= maxEnergy) return prev;
+                return { ...prev, energy: Math.min(maxEnergy, prev.energy + ENERGY_REGEN_RATE) };
             });
         }, 1000);
+        return () => clearInterval(interval);
+    }, []);
 
-        return () => {
-            if (energyRegenInterval.current) clearInterval(energyRegenInterval.current);
-        };
-    }, [playerState?.energy, effectiveMaxEnergy]);
-    
-    // Periodic sync with server to fetch updates (like admin bonuses)
+    // State saving debounce loop
     useEffect(() => {
-        if (!user?.id) return;
-
-        const syncInterval = setInterval(() => {
-            // Use the ref to get the latest player state without causing the effect to re-run
-            if (playerStateRef.current) {
-                // Sending state with 0 taps acts as a sync request.
-                // The backend will apply server-side changes (e.g., admin bonus)
-                // and return the updated state.
-                saveState(playerStateRef.current, 0);
+        const interval = setInterval(() => {
+            if (tapsToSave.current > 0) {
+                 if (!saveTimeout.current) {
+                     saveTimeout.current = window.setTimeout(() => {
+                         saveState();
+                         saveTimeout.current = null;
+                     }, SAVE_DEBOUNCE_MS);
+                 }
             }
-        }, 15000); // Sync every 15 seconds
+        }, 200);
+        return () => clearInterval(interval);
+    }, [saveState]);
 
-        return () => clearInterval(syncInterval);
-    }, [user, saveState]);
-
-    // Wallet connection synchronization
-    useEffect(() => {
-        if (!user || !playerState) return;
-
-        const friendlyAddress = wallet ? Address.parse(wallet.account.address).toString({ bounceable: false }) : null;
-        const storedAddress = playerState.connectedWallet;
-
-        if (friendlyAddress !== storedAddress) {
-            API.connectWallet(user.id, wallet) // `wallet` is null on disconnect
-                .then(result => {
-                    if (result.player) setPlayerState(result.player);
-                    if (result.message) setWalletConnectionMessage(result.message);
-                    if (result.error) console.error("Wallet connection error:", result.error);
-                })
-                .catch(e => console.error("API call to connect wallet failed:", e));
-        }
-    }, [wallet, user, playerState?.connectedWallet]);
-
-
-    const allUpgrades = useMemo(() => {
-        if (!config || !playerState) return [];
-        const combinedUpgrades = [...(config.upgrades || []), ...(config.blackMarketCards || [])];
-        return combinedUpgrades.map(u => ({
-            ...u,
-            level: playerState.upgrades[u.id] || 0
-        }));
-    }, [config, playerState]);
-
-    const currentLeague = useMemo(() => {
-        if (!config?.leagues || !playerState) return null;
-        const sortedLeagues = [...config.leagues].sort((a,b) => b.minProfitPerHour - a.minProfitPerHour);
-        return sortedLeagues.find(l => playerState.profitPerHour >= l.minProfitPerHour) || sortedLeagues[sortedLeagues.length - 1] || null;
-    }, [config, playerState]);
-    
+    // --- Memoized Values for Context ---
     const authContextValue = useMemo(() => ({
-        user, isInitializing, isGlitching, setIsGlitching, switchLanguage, login
-    }), [user, isInitializing, isGlitching, login, switchLanguage]);
+        user, isInitializing, isGlitching, setIsGlitching, switchLanguage
+    }), [user, isInitializing, isGlitching, switchLanguage]);
 
-    const gameContextValue = useMemo(() => ({
-        playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, claimTaskReward, buyBoost,
-        purchaseSpecialTask, completeSpecialTask, claimDailyCombo, claimDailyCipher, getLeaderboard: API.getLeaderboard,
-        openCoinLootbox, purchaseLootboxWithStars, setSkin, connectWallet, isTurboActive,
-        effectiveMaxEnergy, effectiveMaxSuspicion, systemMessage, setSystemMessage, purchaseResult, setPurchaseResult,
-        getFriends, friends, getMyCell, createCell, joinCell, leaveCell, recruitInformant, buyCellTicket,
-        getBattleStatus, joinBattle, getBattleLeaderboard, walletConnectionMessage, setWalletConnectionMessage
-    }), [
-        playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, claimTaskReward, buyBoost,
-        purchaseSpecialTask, completeSpecialTask, claimDailyCombo, claimDailyCipher,
-        openCoinLootbox, purchaseLootboxWithStars, setSkin, connectWallet, isTurboActive,
-        effectiveMaxEnergy, effectiveMaxSuspicion, systemMessage, setSystemMessage, purchaseResult, setPurchaseResult,
-        getFriends, friends, getMyCell, createCell, joinCell, leaveCell, recruitInformant, buyCellTicket,
-        getBattleStatus, joinBattle, getBattleLeaderboard, walletConnectionMessage, setWalletConnectionMessage
-    ]);
+    const gameContextValue = useMemo(() => {
+        const allUpgrades = [
+            ...(config?.upgrades || []),
+            ...(config?.blackMarketCards || [])
+        ].map(u => ({
+            ...u,
+            level: playerState?.upgrades?.[u.id] || 0
+        }));
 
-    return React.createElement(
-        AuthContext.Provider,
-        { value: authContextValue },
-        React.createElement(
-            GameContext.Provider,
-            { value: gameContextValue },
-            children
+        const currentLeague = [...(config?.leagues || [])]
+            .sort((a, b) => b.minProfitPerHour - a.minProfitPerHour)
+            .find(l => (playerState?.profitPerHour || 0) >= l.minProfitPerHour) || null;
+
+        const handleTap = () => {
+            if (!playerState || playerState.energy < 1) return 0;
+
+            const skinBoost = (config?.coinSkins?.find(s => s.id === playerState.currentSkinId)?.profitBoostPercent || 0) / 100;
+            const guruBoost = Math.pow(1.5, playerState.tapGuruLevel || 0);
+            const turboMultiplier = isTurboActive ? 5 : 1;
+            
+            const tapValue = 1 * guruBoost * (1 + skinBoost) * turboMultiplier;
+
+            if (playerState.energy >= tapValue) {
+                tapsToSave.current += tapValue;
+                setPlayerState(p => p ? { ...p, energy: p.energy - tapValue, dailyTaps: (p.dailyTaps || 0) + 1 } : null);
+                window.Telegram?.WebApp.HapticFeedback.impactOccurred('light');
+                return tapValue;
+            }
+            return 0;
+        };
+        
+        const connectWallet = async () => {
+            if (!user || !wallet) return;
+            const result = await callApi('user/connect-wallet', 'POST', { userId: user.id, walletData: wallet });
+            if (result.player) {
+                setPlayerState(result.player);
+                setWalletConnectionMessage(t('wallet_connected'));
+            }
+        };
+
+        return {
+            playerState, config, allUpgrades, currentLeague, friends,
+            handleTap,
+            buyUpgrade: (upgradeId: string) => callGameAction('buy-upgrade', { upgradeId }),
+            buyBoost: (boost: Boost) => callGameAction('buy-boost', { boostId: boost.id }),
+            claimTaskReward: (task: DailyTask, code?: string) => callGameAction('claim-task', { taskId: task.id, code }),
+            purchaseSpecialTask: async (task: SpecialTask) => {
+                if (task.priceStars > 0) {
+                    const res = await callApi('create-star-invoice', 'POST', { userId: user?.id, payloadType: 'task', itemId: task.id });
+                    if (res?.invoiceLink) {
+                        window.Telegram?.WebApp.openInvoice(res.invoiceLink, async (status) => {
+                            if (status === 'paid') {
+                                window.Telegram?.WebApp.HapticFeedback.notificationOccurred('success');
+                                const syncResult = await callApi('sync-after-payment', 'POST', { userId: user?.id });
+                                if (syncResult.player) setPlayerState(syncResult.player);
+                                if (syncResult.wonItem) setPurchaseResult(syncResult.wonItem);
+                            } else if (status === 'failed' || status === 'cancelled') {
+                                window.Telegram?.WebApp.HapticFeedback.notificationOccurred('error');
+                            }
+                        });
+                    }
+                } else {
+                     return callGameAction('unlock-free-task', { taskId: task.id });
+                }
+            },
+            completeSpecialTask: (task: SpecialTask, code?: string) => callGameAction('complete-task', { taskId: task.id, code }),
+            claimDailyCombo: () => callGameAction('claim-combo', {}),
+            claimDailyCipher: (cipher: string) => callGameAction('claim-cipher', { cipher }),
+            getLeaderboard: () => callApi('leaderboard'),
+            getFriends: async () => {
+                const res = await callApi(`user/${user?.id}/friends`);
+                if(res && !res.error) setFriends(res);
+            },
+            openCoinLootbox: (boxType: 'coin') => callGameAction('open-lootbox', { boxType }),
+            purchaseLootboxWithStars: async (boxType: 'star') => {
+                 const res = await callApi('create-star-invoice', 'POST', { userId: user?.id, payloadType: 'lootbox', itemId: boxType });
+                 if (res?.invoiceLink) {
+                     window.Telegram?.WebApp.openInvoice(res.invoiceLink, async (status) => {
+                        if (status === 'paid') {
+                            window.Telegram?.WebApp.HapticFeedback.notificationOccurred('success');
+                            const syncResult = await callApi('sync-after-payment', 'POST', { userId: user?.id });
+                            if (syncResult.player) setPlayerState(syncResult.player);
+                            if (syncResult.wonItem) setPurchaseResult(syncResult.wonItem);
+                        } else if (status === 'failed' || status === 'cancelled') {
+                            window.Telegram?.WebApp.HapticFeedback.notificationOccurred('error');
+                        }
+                    });
+                 }
+                 return res;
+            },
+            setSkin: (skinId: string) => callGameAction('set-skin', { skinId }),
+            connectWallet,
+            isTurboActive,
+            effectiveMaxEnergy: INITIAL_MAX_ENERGY + (playerState?.energyLimitLevel || 0) * 500,
+            effectiveMaxSuspicion: 100 + (playerState?.suspicionLimitLevel || 0) * 10,
+            systemMessage, setSystemMessage,
+            purchaseResult, setPurchaseResult,
+            walletConnectionMessage, setWalletConnectionMessage,
+            getMyCell: () => callApi('cell/my-cell', 'GET', { userId: user?.id }),
+            createCell: (name: string) => callGameAction('cell/create', { name }),
+            joinCell: (inviteCode: string) => callGameAction('cell/join', { inviteCode }),
+            leaveCell: () => callGameAction('cell/leave', {}),
+            recruitInformant: () => callGameAction('informant/recruit', {}),
+            buyCellTicket: () => callGameAction('cell/buy-ticket', {}),
+            getBattleStatus: () => callApi('battle/status', 'GET', {userId: user?.id}),
+            joinBattle: () => callGameAction('battle/join', {}),
+            getBattleLeaderboard: () => callApi('battle/leaderboard'),
+        };
+    }, [playerState, config, user, isTurboActive, systemMessage, setSystemMessage, callGameAction, callApi, tonConnectUI, wallet, t, friends, purchaseResult, walletConnectionMessage]);
+
+    return React.createElement(AuthContext.Provider, { value: authContextValue },
+        React.createElement(GameContext.Provider, { value: gameContextValue },
+            React.createElement(TranslationContext.Provider, { value: { t } },
+                children
+            )
         )
     );
 };
 
+// --- Custom Hooks ---
 export const useAuth = () => {
     const context = useContext(AuthContext);
-    if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
+    if (!context) throw new Error('useAuth must be used within an AuthProvider');
     return context;
 };
 
 export const useGame = () => {
     const context = useContext(GameContext);
-    if (context === undefined) throw new Error('useGame must be used within an AuthProvider');
+    if (!context) throw new Error('useGame must be used within an AuthProvider');
     return context;
 };
 
 export const useTranslation = () => {
-    const { user } = useAuth();
-    const lang = user?.language || 'en';
-    return useCallback((key: keyof typeof TRANSLATIONS.en, params: Record<string, string | number> = {}) => {
-        let translation = TRANSLATIONS[lang]?.[key] || TRANSLATIONS.en[key] || `[${key}]`;
-        Object.entries(params).forEach(([paramKey, paramValue]) => {
-            translation = translation.replace(`{${paramKey}}`, String(paramValue));
-        });
-        return translation;
-    }, [lang]);
+    const context = useContext(TranslationContext);
+    if (!context) throw new Error('useTranslation must be used within an AuthProvider');
+    return context.t;
 };
