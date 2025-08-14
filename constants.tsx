@@ -1,6 +1,5 @@
 
 
-
 import React from 'react';
 import { League, Upgrade, UpgradeCategory, Boost, DailyTask, LocalizedString, SpecialTask, BlackMarketCard, CoinSkin } from './types';
 
@@ -84,6 +83,7 @@ type TranslationKey =
   | 'claim_reward' | 'completed' | 'airdrop_tasks' | 'airdrop_description' | 'unlock_for' | 'go_to_task' | 'claim'
   | 'edit_special_tasks' | 'task_type' | 'url' | 'price_stars' | 'add_new_special_task' | 'translate'
   | 'telegram_join' | 'social_follow' | 'video_watch' | 'referral_bonus' | 'your_referrals' | 'invite_friends'
+  | 'your_contacts_list' | 'no_contacts_invited'
   // Daily Events
   | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today' | 'combo_not_active'
   | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard' | 'your_league' | 'total_players'
@@ -196,6 +196,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     referral_bonus: 'Bonus per contact',
     your_referrals: 'Your contacts',
     invite_friends: 'Invite a Contact',
+    your_contacts_list: 'Your Contacts',
+    no_contacts_invited: 'You have not invited any contacts yet.',
     daily_combo: 'Daily Combo',
     daily_cipher: 'Daily Cipher',
     find_cards: 'Find and upgrade these cards!',
@@ -397,6 +399,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     referral_bonus: 'Бонус за контакт',
     your_referrals: 'Ваші контакти',
     invite_friends: 'Запросити контакт',
+    your_contacts_list: 'Ваші контакти',
+    no_contacts_invited: 'Ви ще не запросили жодного контакту.',
     daily_combo: 'Щоденне комбо',
     daily_cipher: 'Щоденний шифр',
     find_cards: 'Знайди та прокачай ці картки!',
@@ -598,6 +602,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     referral_bonus: 'Бонус за контакт',
     your_referrals: 'Ваши контакты',
     invite_friends: 'Пригласить контакт',
+    your_contacts_list: 'Ваши контакты',
+    no_contacts_invited: 'Вы еще не пригласили ни одного контакта.',
     daily_combo: 'Ежедневное комбо',
     daily_cipher: 'Ежедневный Шифр',
     find_cards: 'Найди и прокачай эти карты!',

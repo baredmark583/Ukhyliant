@@ -1,6 +1,5 @@
 
 
-
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -61,7 +60,8 @@ import {
     forceStartBattle,
     forceEndBattle,
     getCellAnalytics,
-    getAllUserIds
+    getAllUserIds,
+    getFriendsList
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
@@ -132,6 +132,23 @@ app.use(session({
     saveUninitialized: true,
     cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } // 30 days
 }));
+
+// Request Logger Middleware
+app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        const logData = {
+            method: req.method,
+            url: req.originalUrl,
+            status: res.statusCode,
+            duration: `${duration}ms`,
+            ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+        };
+        log('info', `${req.method} ${req.originalUrl} - ${res.statusCode} [${duration}ms]`);
+    });
+    next();
+});
 
 // --- Social Stats Cache ---
 const socialStatsCache = {
@@ -583,6 +600,18 @@ app.post('/api/user/:id/language', async (req, res) => {
     }
 });
 
+app.get('/api/user/:id/friends', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const config = await getGameConfig();
+        const friends = await getFriendsList(id, config);
+        res.json(friends);
+    } catch (error) {
+        log('error', `/api/user/${req.params.id}/friends failed`, error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 // --- Game Action Endpoints ---
 
 const gameActions = {
@@ -847,45 +876,30 @@ app.post('/api/informant/recruit', async (req, res) => {
         const config = await getGameConfig();
         
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: "You are a curator of an agent network in a grim dystopian world in the spirit of '1984'. Create a short, encrypted dossier for a new informant. Include a codename, a detail from the past, and a potential weakness.",
+            model: 'gemini-2.5-flash',
+            contents: "Generate a random informant profile for a spy game about draft dodgers. The specialization must be one of: finance, counter-intel, logistics. The tone should be slightly gritty and mysterious.",
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        name: {
-                            type: Type.STRING,
-                            description: "A codename for the informant."
-                        },
-                        dossier: {
-                            type: Type.STRING,
-                            description: "A short, bureaucratic dossier text including a detail from the past and a potential weakness."
-                        },
-                        specialization: {
-                            type: Type.STRING,
-                            enum: ['finance', 'counter-intel', 'logistics'],
-                            description: "The informant's area of specialization."
-                        }
+                        name: { type: Type.STRING, description: 'A plausible-sounding, slightly mysterious name for an informant or agent (e.g., "The Ferret", "Silas Kane").' },
+                        dossier: { type: Type.STRING, description: 'A short, cryptic, spy-thriller style dossier about the informant in 2-3 sentences. Vague details about past operations or skills.' },
+                        specialization: { type: Type.STRING, enum: ['finance', 'counter-intel', 'logistics'], description: 'The informant\'s area of expertise.' }
                     },
-                    required: ["name", "dossier", "specialization"]
+                    required: ['name', 'dossier', 'specialization']
                 }
             }
         });
-        
-        const jsonText = response.text.trim();
-        const informantData = JSON.parse(jsonText);
-        
+
+        const jsonStr = response.text.trim();
+        const informantData = JSON.parse(jsonStr);
+
         const result = await recruitInformantInDb(userId, informantData, config);
         res.json(result);
-
-    } catch(e) {
-        console.error("Informant recruitment error:", e);
-        if (e.message.includes('API key')) {
-            res.status(500).json({ error: "Gemini API key is invalid or missing. Please check your GEMINI_API_KEY environment variable." });
-        } else {
-            res.status(500).json({ error: "Failed to process recruitment request." });
-        }
+    } catch (e) {
+        log('error', 'Informant recruitment failed', e);
+        res.status(500).json({ error: 'Failed to generate informant profile.' });
     }
 });
 
@@ -896,8 +910,8 @@ app.get('/api/battle/status', async (req, res) => {
         const player = await getPlayer(userId);
         const status = await getBattleStatusForCell(player?.cellId);
         res.json({ status });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
+    } catch(e) {
+        res.status(400).json({ error: e.message });
     }
 });
 
@@ -905,8 +919,8 @@ app.post('/api/battle/join', async (req, res) => {
     try {
         const { userId } = req.body;
         const status = await joinActiveBattle(userId);
-        const config = await getGameConfig();
-        const cell = await getCellFromDb((await getPlayer(userId)).cellId, config);
+        const player = await getPlayer(userId);
+        const cell = await getCellFromDb(player.cellId, await getGameConfig());
         res.json({ status, cell });
     } catch (e) {
         res.status(400).json({ error: e.message });
@@ -918,322 +932,214 @@ app.get('/api/battle/leaderboard', async (req, res) => {
         const leaderboard = await getBattleLeaderboard();
         res.json({ leaderboard });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(400).json({ error: e.message });
     }
 });
 
-
-// --- Public API Routes ---
-app.get('/api/leaderboard', async (req, res) => {
+app.get('/api/leaderboard', async(req, res) => {
     try {
-        const [topPlayers, totalPlayers, config] = await Promise.all([
-            getLeaderboardData(),
-            getTotalPlayerCount(),
-            getGameConfig()
-        ]);
+        const topPlayers = await getLeaderboardData();
+        const totalPlayers = await getTotalPlayerCount();
+        const config = await getGameConfig();
         const sortedLeagues = [...(config.leagues || [])].sort((a,b) => b.minProfitPerHour - a.minProfitPerHour);
         
-        const playersWithLeagues = topPlayers.map(p => {
+        const leaderboard = topPlayers.map(p => {
             const league = sortedLeagues.find(l => p.profitPerHour >= l.minProfitPerHour) || sortedLeagues[sortedLeagues.length - 1];
             return {
-                id: p.id,
-                name: p.name,
-                profitPerHour: p.profitPerHour,
-                leagueName: league?.name,
-                leagueIconUrl: league?.iconUrl,
+                ...p,
+                leagueName: league?.name || { en: 'N/A', ua: 'N/A', ru: 'N/A' },
+                leagueIconUrl: league?.iconUrl || '',
             };
         });
 
-        res.json({ topPlayers: playersWithLeagues, totalPlayers });
+        res.json({ topPlayers: leaderboard, totalPlayers });
     } catch (error) {
         log('error', '/api/leaderboard failed', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
 
-// --- Admin Panel API (protected by middleware) ---
+// --- ADMIN ROUTES ---
 app.post('/admin/login', (req, res) => {
     const { password } = req.body;
     if (password === process.env.ADMIN_PASSWORD) {
         req.session.isAdmin = true;
+        log('info', '[ADMIN] Admin login successful.');
         res.redirect('/admin/');
     } else {
+        log('warn', '[ADMIN] Admin login failed: incorrect password.');
         res.status(401).send('Incorrect password');
     }
 });
 
 app.get('/admin/logout', (req, res) => {
-    req.session.destroy(() => {
+    req.session.destroy(err => {
+        if (err) {
+            log('error', '[ADMIN] Error during admin logout', err);
+            return res.status(500).send('Could not log out.');
+        }
         res.redirect('/admin/login.html');
     });
 });
 
-app.post('/admin/api/translate-text', checkAdminAuth, async (req, res) => {
-    if (!ai) {
-        return res.status(503).json({ error: 'Gemini API not configured' });
-    }
+// --- ADMIN API ---
+const adminRouter = express.Router();
+adminRouter.use(checkAdminAuth); // Protect all admin API routes
+
+adminRouter.get('/config', async (req, res) => {
+    res.json(await getGameConfig());
+});
+adminRouter.post('/config', async (req, res) => {
+    log('info', '[ADMIN] Saving game config.');
+    await saveConfig(req.body.config);
+    res.json({ ok: true });
+});
+
+adminRouter.get('/players', async (req, res) => {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const searchTerm = req.query.search || null;
+    res.json(await getAllPlayersForAdmin(page, limit, searchTerm));
+});
+
+adminRouter.delete('/player/:id', async (req, res) => {
+    log('info', `[ADMIN] Deleting player ${req.params.id}`);
+    await deletePlayer(req.params.id);
+    res.json({ ok: true });
+});
+
+adminRouter.get('/player/:id/details', async(req, res) => res.json(await getPlayerDetails(req.params.id)));
+adminRouter.post('/player/:id/update-balance', async(req, res) => {
+    log('info', `[ADMIN] Updating balance for ${req.params.id} by ${req.body.amount}`);
+    await updatePlayerBalance(req.params.id, req.body.amount);
+    res.json({ ok: true });
+});
+adminRouter.post('/player/:id/reset-daily', async(req, res) => {
+    log('info', `[ADMIN] Resetting daily progress for ${req.params.id}`);
+    await resetPlayerDailyProgress(req.params.id);
+    res.json({ ok: true });
+});
+adminRouter.post('/player/:id/reset-progress', async(req, res) => {
+    log('info', `[ADMIN] Resetting ALL progress for ${req.params.id}`);
+    await resetPlayerProgress(req.params.id);
+    res.json({ ok: true });
+});
+
+adminRouter.get('/cheaters', async (req, res) => res.json(await getCheaters()));
+adminRouter.get('/dashboard-stats', async (req, res) => {
+    const stats = await getDashboardStats();
+    stats.onlineNow = await getOnlinePlayerCount();
+    res.json(stats);
+});
+adminRouter.get('/player-locations', async (req, res) => res.json(await getPlayerLocations()));
+adminRouter.get('/social-stats', (req, res) => res.json(socialStatsCache));
+adminRouter.get('/daily-events', async (req, res) => {
+    const today = new Date().toISOString().split('T')[0];
+    res.json(await getDailyEvent(today));
+});
+adminRouter.post('/daily-events', async (req, res) => {
+    const today = new Date().toISOString().split('T')[0];
+    const { combo_ids, cipher_word, combo_reward, cipher_reward } = req.body;
+    log('info', `[ADMIN] Saving daily event for ${today}`);
+    await saveDailyEvent(today, combo_ids, cipher_word, combo_reward, cipher_reward);
+    res.json({ ok: true });
+});
+
+adminRouter.post('/translate-text', async (req, res) => {
+    if (!ai) return res.status(503).json({ error: "AI service is unavailable." });
     const { text, targetLangs } = req.body;
-    if (!text || !targetLangs || !Array.isArray(targetLangs)) {
-        return res.status(400).json({ error: 'Invalid request body' });
-    }
+    if (!text) return res.status(400).json({ error: 'Text is required.' });
+
     try {
-        const prompt = `Translate the following English text into a JSON object with keys for each target language (${targetLangs.join(', ')}). Text: "${text}"`;
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: targetLangs.reduce((acc, lang) => ({...acc, [lang]: { type: Type.STRING } }), {}),
-                }
-            }
-        });
-        
-        const jsonResponse = JSON.parse(response.text.trim());
-        res.json({ translations: jsonResponse });
-    } catch (error) {
-        log('error', 'Translation API error', error);
-        res.status(500).json({ error: 'Failed to translate text' });
+        const translations = {};
+        for (const lang of targetLangs) {
+            const prompt = `Translate the following text to ${lang === 'ua' ? 'Ukrainian' : 'Russian'}. Return ONLY the translated text, without any quotes or explanations. Text to translate: "${text}"`;
+            const result = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+            });
+            translations[lang] = result.text.trim();
+        }
+        res.json({ translations });
+    } catch (e) {
+        log('error', 'AI translation failed', e);
+        res.status(500).json({ error: "Translation failed" });
     }
 });
 
-app.get('/admin/api/config', checkAdminAuth, async (req, res) => {
-    try {
-        const config = await getGameConfig();
-        res.json(config);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to load config' });
-    }
-});
-
-app.post('/admin/api/config', checkAdminAuth, async (req, res) => {
-    try {
-        await saveConfig(req.body.config);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to save config' });
-    }
-});
-
-app.get('/admin/api/players', checkAdminAuth, async (req, res) => {
-    try {
-        const page = parseInt(req.query.page || '1', 10);
-        const limit = parseInt(req.query.limit || '50', 10);
-        const searchTerm = req.query.search || null;
-        const data = await getAllPlayersForAdmin(page, limit, searchTerm);
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch players' });
-    }
-});
-
-app.delete('/admin/api/player/:id', checkAdminAuth, async (req, res) => {
-    try {
-        await deletePlayer(req.params.id);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to delete player' });
-    }
-});
-
-app.get('/admin/api/player/:id/details', checkAdminAuth, async (req, res) => {
-    try {
-        const details = await getPlayerDetails(req.params.id);
-        res.json(details);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to get player details' });
-    }
-});
-
-app.post('/admin/api/player/:id/update-balance', checkAdminAuth, async (req, res) => {
-    try {
-        await updatePlayerBalance(req.params.id, req.body.amount);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to update balance' });
-    }
-});
-
-app.post('/admin/api/player/:id/reset-daily', checkAdminAuth, async (req, res) => {
-    try {
-        await resetPlayerDailyProgress(req.params.id);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to reset daily progress' });
-    }
-});
-
-app.get('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
-    try {
-        const today = new Date().toISOString().split('T')[0];
-        const event = await getDailyEvent(today);
-        res.json(event);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch daily event' });
-    }
-});
-
-app.post('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
-    try {
-        const today = new Date().toISOString().split('T')[0];
-        const { combo_ids, cipher_word, combo_reward, cipher_reward } = req.body;
-        await saveDailyEvent(today, combo_ids, cipher_word, combo_reward, cipher_reward);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to save daily event' });
-    }
-});
-
-app.get('/admin/api/dashboard-stats', checkAdminAuth, async (req, res) => {
-    try {
-        const [stats, onlineCount] = await Promise.all([
-            getDashboardStats(),
-            getOnlinePlayerCount()
-        ]);
-        res.json({ ...stats, onlineNow: onlineCount });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to get dashboard stats' });
-    }
-});
-
-app.get('/admin/api/social-stats', checkAdminAuth, (req, res) => {
-    res.json(socialStatsCache);
-});
-
-app.get('/admin/api/player-locations', checkAdminAuth, async (req, res) => {
-    try {
-        const locations = await getPlayerLocations();
-        res.json(locations);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to get player locations' });
-    }
-});
-
-app.post('/admin/api/broadcast-message', checkAdminAuth, async (req, res) => {
+adminRouter.post('/broadcast-message', async (req, res) => {
+    log('info', `[ADMIN] Starting broadcast`);
     const { text, imageUrl, buttonUrl, buttonText } = req.body;
+    const userIds = await getAllUserIds();
     const { BOT_TOKEN } = process.env;
 
-    if (!BOT_TOKEN) {
-        return res.status(500).json({ message: "Bot token not configured." });
-    }
-
-    try {
-        const userIds = await getAllUserIds();
-        let successCount = 0;
-        let failCount = 0;
-        
-        const reply_markup = buttonUrl && buttonText ? {
-            inline_keyboard: [[{ text: buttonText, url: buttonUrl }]]
-        } : undefined;
-
-        for (const userId of userIds) {
-            let response;
-            try {
-                if (imageUrl) {
-                    response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ chat_id: userId, photo: imageUrl, caption: text, reply_markup }),
-                    });
-                } else {
-                     response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ chat_id: userId, text, reply_markup }),
-                    });
+    let successCount = 0;
+    for (const userId of userIds) {
+        const payload = {
+            chat_id: userId,
+            ...(imageUrl ? { photo: imageUrl, caption: text } : { text: text }),
+            ...(buttonUrl && buttonText && {
+                reply_markup: {
+                    inline_keyboard: [[{ text: buttonText, url: buttonUrl }]]
                 }
-                const data = await response.json();
-                if (data.ok) successCount++;
-                else failCount++;
-            } catch (e) {
-                failCount++;
-            }
-            await new Promise(resolve => setTimeout(resolve, 50)); // Avoid hitting rate limits
+            })
+        };
+        const endpoint = imageUrl ? 'sendPhoto' : 'sendMessage';
+        
+        try {
+            const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (response.ok) successCount++;
+        } catch (e) {
+            log('error', `Broadcast failed for user ${userId}`, e.message);
         }
-        res.json({ message: `Broadcast sent: ${successCount} successful, ${failCount} failed.` });
-
-    } catch (error) {
-        res.status(500).json({ message: 'Broadcast failed.', error: error.message });
+        await new Promise(resolve => setTimeout(resolve, 50)); // Rate limit
     }
+    log('info', `[ADMIN] Broadcast finished. Sent to ${successCount}/${userIds.length} users.`);
+    res.json({ message: `Message sent to ${successCount} out of ${userIds.length} users.` });
 });
 
-app.get('/admin/api/cheaters', checkAdminAuth, async (req, res) => {
-    try {
-        const cheaters = await getCheaters();
-        res.json(cheaters);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to get cheaters' });
-    }
+adminRouter.get('/cell-analytics', async (req, res) => res.json(await getCellAnalytics()));
+adminRouter.get('/battle/status', async (req, res) => res.json({ status: await getBattleStatusForCell(null) }));
+adminRouter.post('/battle/force-start', async (req, res) => {
+    log('info', '[ADMIN] Forcing battle start.');
+    await forceStartBattle(await getGameConfig());
+    res.json({ ok: true });
+});
+adminRouter.post('/battle/force-end', async (req, res) => {
+    log('info', '[ADMIN] Forcing battle end.');
+    await forceEndBattle(await getGameConfig());
+    res.json({ ok: true });
 });
 
-app.post('/admin/api/player/:id/reset-progress', checkAdminAuth, async (req, res) => {
-    try {
-        await resetPlayerProgress(req.params.id);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to reset progress' });
-    }
-});
 
-app.get('/admin/api/cell-analytics', checkAdminAuth, async (req, res) => {
-    try {
-        const analytics = await getCellAnalytics();
-        res.json(analytics);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to get cell analytics' });
-    }
-});
+app.use('/admin/api', adminRouter);
 
-app.post('/admin/api/battle/force-start', checkAdminAuth, async (req, res) => {
-    try {
-        const config = await getGameConfig();
-        await forceStartBattle(config);
-        res.json({ ok: true });
-    } catch (e) {
-        res.status(400).json({ ok: false, error: e.message });
-    }
-});
 
-app.post('/admin/api/battle/force-end', checkAdminAuth, async (req, res) => {
-    try {
-        const config = await getGameConfig();
-        await forceEndBattle(config);
-        res.json({ ok: true });
-    } catch (e) {
-        res.status(400).json({ ok: false, error: e.message });
-    }
-});
-
-app.get('/admin/api/battle/status', checkAdminAuth, async (req, res) => {
-    try {
-        const status = await getBattleStatusForCell(null);
-        res.json({ status });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// --- Server Startup ---
-const startServer = async () => {
+// --- SERVER INITIALIZATION ---
+(async () => {
     try {
         await initializeDb();
         log('info', 'Database initialized successfully.');
 
-        await updateSocialStatsCache(); // Initial cache fill
-        setInterval(updateSocialStatsCache, 60 * 60 * 1000); // Update every hour
+        // Initial fetch and schedule periodic updates for social stats
+        await updateSocialStatsCache();
+        setInterval(updateSocialStatsCache, 60 * 60 * 1000); // every hour
 
-        const config = await getGameConfig();
-        await checkAndManageBattles(config);
-        setInterval(async () => await checkAndManageBattles(await getGameConfig()), 5 * 60 * 1000); // Check every 5 minutes
-
-        app.listen(port, () => {
-            log('info', `Server running on http://localhost:${port}`);
+        // Schedule periodic checks for cell battles
+        setInterval(async () => {
+            log('info', 'Checking battle status...');
+            await checkAndManageBattles(await getGameConfig());
+        }, 5 * 60 * 1000); // every 5 minutes
+        
+        app.listen(port, '0.0.0.0', () => {
+            log('info', `Server is running on http://0.0.0.0:${port}`);
         });
     } catch (error) {
-        log('error', 'Failed to start server', error);
+        log('error', 'Failed to initialize database or start server', error);
         process.exit(1);
     }
-};
-
-startServer();
+})();

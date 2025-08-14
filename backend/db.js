@@ -1,6 +1,5 @@
 
 
-
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -335,6 +334,39 @@ export const createUser = async (id, name, language, referrerId) => {
 export const updateUserLanguage = async (id, language) => {
     await executeQuery('UPDATE users SET language = $1 WHERE id = $2', [language, id]);
 }
+
+export const getFriendsList = async (userId, config) => {
+    const sortedLeagues = [...(config.leagues || [])].sort((a,b) => b.minProfitPerHour - a.minProfitPerHour);
+    
+    const res = await executeQuery(`
+        SELECT u.id, u.name, p.data as "playerData"
+        FROM users u
+        JOIN players p ON u.id = p.id
+        WHERE u.referrer_id = $1
+        ORDER BY (p.data->>'profitPerHour')::numeric DESC
+    `, [userId]);
+    
+    const friends = res.rows.map(row => {
+        const friendPlayer = row.playerData || {};
+        const profitPerHour = friendPlayer.profitPerHour || 0;
+        
+        const league = sortedLeagues.find(l => profitPerHour >= l.minProfitPerHour) || sortedLeagues[sortedLeagues.length - 1];
+
+        // Calculate the base profit of the friend (total profit - their own referral/cell profit)
+        const friendBaseProfit = profitPerHour - (friendPlayer.referralProfitPerHour || 0) - (friendPlayer.cellProfitBonus || 0);
+        const profitBonus = friendBaseProfit * REFERRAL_PROFIT_SHARE;
+
+        return {
+            id: row.id,
+            name: row.name,
+            leagueName: league?.name || { en: 'N/A', ua: 'N/A', ru: 'N/A' },
+            leagueIconUrl: league?.iconUrl || '',
+            profitBonus: profitBonus
+        };
+    });
+
+    return friends;
+};
 
 export const connectWalletInDb = async (userId, walletAddress) => {
     const res = await executeQuery(

@@ -19,6 +19,14 @@ export interface User {
   walletAddress?: string; // TON wallet address
 }
 
+export interface Friend {
+    id: string;
+    name: string;
+    leagueName: LocalizedString;
+    leagueIconUrl: string;
+    profitBonus: number;
+}
+
 export interface League {
   id:string;
   name: LocalizedString;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, createContext, useContext, useCallback, useMemo, useRef } from 'react';
-import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry } from '../types';
+import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry, Friend } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
 import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import { Address } from '@ton/ton';
@@ -37,6 +37,13 @@ const API = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, walletData }),
     });
+    return response.json();
+  },
+
+  getFriends: async (userId: string): Promise<Friend[] | null> => {
+    if (!API_BASE_URL) return null;
+    const response = await fetch(`${API_BASE_URL}/api/user/${userId}/friends`);
+    if (!response.ok) return null;
     return response.json();
   },
 
@@ -518,6 +525,7 @@ export const useGame = () => {
     const prevPenaltyLogLength = useRef<number | undefined>(undefined);
     const tapsSinceLastSave = useRef(0);
     const [tonConnectUI] = useTonConnectUI();
+    const [friends, setFriends] = useState<Friend[] | null>(null);
 
 
     // Persist state to backend with debounce
@@ -741,6 +749,12 @@ export const useGame = () => {
 
     const getLeaderboard = useCallback(() => API.getLeaderboard(), []);
     
+    const getFriends = useCallback(async () => {
+        if (!user) return;
+        const friendsList = await API.getFriends(user.id);
+        setFriends(friendsList);
+    }, [user]);
+    
     const openCoinLootbox = useCallback(async (boxType: 'coin') => {
         if (!user) return { error: 'User not found' };
         const result = await API.openLootbox(user.id, boxType);
@@ -839,6 +853,8 @@ export const useGame = () => {
         claimDailyCombo,
         claimDailyCipher,
         getLeaderboard,
+        getFriends,
+        friends,
         openCoinLootbox,
         purchaseLootboxWithStars,
         setSkin,

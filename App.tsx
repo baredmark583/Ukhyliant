@@ -6,7 +6,7 @@ import BoostScreen from './sections/Boost';
 import CellScreen from './sections/Cell';
 import AirdropScreen from './components/AirdropScreen';
 import { REFERRAL_BONUS, TELEGRAM_BOT_NAME, MINI_APP_NAME } from './constants';
-import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League, UiIcons, Cell } from './types';
+import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League, UiIcons, Cell, Friend } from './types';
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
 import TaskCard from './components/TaskCard';
@@ -87,16 +87,27 @@ interface ProfileScreenProps {
   onSetSkin: (skinId: string) => void;
   onOpenCoinLootbox: (boxType: 'coin') => void;
   onPurchaseStarLootbox: (boxType: 'star') => void;
+  friends: Friend[] | null;
+  getFriends: () => Promise<void>;
 }
 
 type ProfileTab = 'contacts' | 'boosts' | 'skins' | 'market' | 'cell';
 
-const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox } : ProfileScreenProps) => {
+const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox, friends, getFriends } : ProfileScreenProps) => {
     const t = useTranslation();
     const [activeTab, setActiveTab] = useState<ProfileTab>('contacts');
     
     const ContactsContent = () => {
         const [copied, setCopied] = useState(false);
+        const [loadingFriends, setLoadingFriends] = useState(true);
+
+        useEffect(() => {
+            if (activeTab === 'contacts') {
+                setLoadingFriends(true);
+                getFriends().finally(() => setLoadingFriends(false));
+            }
+        }, [activeTab, getFriends]);
+
         const handleCopyReferral = () => {
             const referralLink = `https://t.me/${TELEGRAM_BOT_NAME}/${MINI_APP_NAME}?startapp=${user.id}`;
             navigator.clipboard.writeText(referralLink);
@@ -104,28 +115,53 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
             setTimeout(() => setCopied(false), 2000);
         };
         return (
-            <div className="w-full max-w-md space-y-4 text-center">
-                <div className="card-glow p-4 rounded-xl">
-                    <p className="text-[var(--text-secondary)] text-lg">{t('your_referrals')}</p>
-                    <p className="text-5xl font-display my-1">{playerState.referrals}</p>
+            <div className="w-full max-w-md flex flex-col h-full">
+                <div className="flex-shrink-0 space-y-4 text-center">
+                    <div className="card-glow p-4 rounded-xl">
+                        <p className="text-[var(--text-secondary)] text-lg">{t('your_referrals')}</p>
+                        <p className="text-5xl font-display my-1">{playerState.referrals}</p>
+                    </div>
+                    <div className="card-glow p-4 rounded-xl">
+                        <p className="text-[var(--text-secondary)] text-lg">{t('profit_from_referrals')}</p>
+                        <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2 text-[var(--accent-color)]">
+                            <span>+{formatNumber(playerState.referralProfitPerHour)}/hr</span>
+                            <img src={config?.uiIcons?.energy || ''} alt="energy" className="w-6 h-6" />
+                        </p>
+                    </div>
+                    <button onClick={handleCopyReferral} className="w-full interactive-button text-white font-bold py-3 px-4 text-lg rounded-lg">
+                        {copied ? t('copied') : t('invite_friends')}
+                    </button>
                 </div>
-                <div className="card-glow p-4 rounded-xl">
-                    <p className="text-[var(--text-secondary)] text-lg">{t('referral_bonus')}</p>
-                    <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2">
-                        <span>+{REFERRAL_BONUS.toLocaleString()}</span>
-                        <img src={config?.uiIcons?.coin || ''} alt="coin" className="w-6 h-6" />
-                    </p>
+                
+                <div className="flex-grow min-h-0 mt-4">
+                     <div className="h-full bg-slate-900/50 shadow-inner rounded-xl p-3 flex flex-col">
+                        <h3 className="text-center font-bold mb-3 flex-shrink-0">{t('your_contacts_list')}</h3>
+                        <div className="flex-grow overflow-y-auto no-scrollbar pr-1">
+                            {loadingFriends ? (
+                                <div className="text-center text-slate-400">{t('loading')}</div>
+                            ) : friends && friends.length > 0 ? (
+                                <ul className="space-y-2">
+                                    {friends.map(friend => (
+                                        <li key={friend.id} className="bg-slate-800/70 p-2 rounded-lg flex items-center space-x-3">
+                                            <img src={friend.leagueIconUrl} alt="league" className="w-8 h-8 flex-shrink-0"/>
+                                            <div className="flex-grow min-w-0">
+                                                <p className="text-white font-semibold truncate">{friend.name}</p>
+                                            </div>
+                                            <div className="text-right flex-shrink-0">
+                                                 <p className="text-xs text-slate-400">Bonus</p>
+                                                <p className="text-sm text-[var(--accent-color)] font-mono font-bold">
+                                                    +{formatNumber(friend.profitBonus)}/hr
+                                                </p>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <div className="text-center text-slate-500 py-4">{t('no_contacts_invited')}</div>
+                            )}
+                        </div>
+                    </div>
                 </div>
-                 <div className="card-glow p-4 rounded-xl">
-                    <p className="text-[var(--text-secondary)] text-lg">{t('profit_from_referrals')}</p>
-                    <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2 text-[var(--accent-color)]">
-                        <span>+{formatNumber(playerState.referralProfitPerHour)}/hr</span>
-                        <img src={config?.uiIcons?.energy || ''} alt="energy" className="w-6 h-6" />
-                    </p>
-                </div>
-                <button onClick={handleCopyReferral} className="w-full interactive-button text-white font-bold py-3 px-4 text-lg rounded-lg">
-                    {copied ? t('copied') : t('invite_friends')}
-                </button>
             </div>
         );
     };
@@ -335,7 +371,7 @@ const MainApp: React.FC = () => {
   const { 
       playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, 
       claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask,
-      claimDailyCombo, claimDailyCipher, getLeaderboard, 
+      claimDailyCombo, claimDailyCipher, getLeaderboard, getFriends, friends,
       openCoinLootbox, purchaseLootboxWithStars, 
       setSkin,
       connectWallet,
@@ -558,6 +594,8 @@ const MainApp: React.FC = () => {
                     onSetSkin={handleSetSkin}
                     onOpenCoinLootbox={handleOpenCoinLootbox}
                     onPurchaseStarLootbox={handlePurchaseStarLootbox}
+                    friends={friends}
+                    getFriends={getFriends}
                 />;
       default:
         return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion}/>;
