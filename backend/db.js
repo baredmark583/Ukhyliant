@@ -1,5 +1,6 @@
 
 
+
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -62,29 +63,30 @@ const executeQuery = async (query, params) => {
 }
 
 const applySuspicion = (player, modifier, lang = 'en') => {
-    if (modifier === null || modifier === undefined || modifier === 0) return player;
+    const updatedPlayer = { ...player };
+    if (modifier === null || modifier === undefined || modifier === 0) return updatedPlayer;
     
-    let currentSuspicion = Number(player.suspicion || 0);
+    let currentSuspicion = Number(updatedPlayer.suspicion || 0);
     currentSuspicion += Number(modifier || 0);
 
-    const maxSuspicion = 100 + (player.suspicionLimitLevel || 0) * 10;
+    const maxSuspicion = 100 + (updatedPlayer.suspicionLimitLevel || 0) * 10;
 
     if (currentSuspicion >= maxSuspicion) {
-        player.balance = Number(player.balance || 0) * 0.75;
+        updatedPlayer.balance = Number(updatedPlayer.balance || 0) * 0.75;
         currentSuspicion = maxSuspicion / 2;
         
         const messages = PENALTY_MESSAGES[lang] || PENALTY_MESSAGES.en;
         const message = messages[Math.floor(Math.random() * messages.length)];
         
-        player.penaltyLog = [...(player.penaltyLog || []), { 
+        updatedPlayer.penaltyLog = [...(updatedPlayer.penaltyLog || []), { 
             type: 'confiscation_25_percent', 
             timestamp: new Date().toISOString(),
             message: message
         }];
     }
     
-    player.suspicion = Math.max(0, Math.min(maxSuspicion, currentSuspicion));
-    return player;
+    updatedPlayer.suspicion = Math.max(0, Math.min(maxSuspicion, currentSuspicion));
+    return updatedPlayer;
 };
 
 export const initializeDb = async () => {
@@ -390,7 +392,7 @@ export const connectWalletInDb = async (userId, newWalletAddress) => {
             if (!wasConnected && newWalletAddress) {
                 player.balance = (Number(player.balance) || 0) + 1000000;
                 player.profitPerHour = (Number(player.profitPerHour) || 0) + 1000;
-                message = "Wallet connected! You've received +1,000,000 coins and +1,000/hr profit!";
+                message = "Wallet connected! You've received a bonus!";
             } else if (newWalletAddress) {
                 message = "Wallet reconnected.";
             } else {
@@ -944,7 +946,6 @@ export const recruitInformantInDb = async (userId, informantData, config) => {
         const cost = config.informantRecruitCost || INFORMANT_RECRUIT_COST; 
         if (Number(player.balance || 0) < cost) throw new Error("Not enough coins to recruit an informant.");
         player.balance = Number(player.balance || 0) - cost;
-        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         
         const { name, dossier, specialization } = informantData;
         const informantRes = await client.query('INSERT INTO informants (cell_id, name, dossier, specialization) VALUES ($1, $2, $3, $4) RETURNING *', [player.cellId, name, dossier, specialization]);
@@ -955,6 +956,10 @@ export const recruitInformantInDb = async (userId, informantData, config) => {
             memberPlayer = await recalculateCellBonusForPlayer(memberPlayer, client, config);
             await client.query('UPDATE players SET data = $1 WHERE id = $2', [memberPlayer, memberRow.id]);
         }
+        
+        const user = await getUser(userId);
+        player = applySuspicion(player, 0, user.language); // Just to pass it through the penalty check logic if needed in future
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         
         await client.query('COMMIT');
         return { player, informant: informantRes.rows[0] };

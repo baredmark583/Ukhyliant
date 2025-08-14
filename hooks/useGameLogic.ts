@@ -59,7 +59,16 @@ const API = {
         body: JSON.stringify({ state, taps })
      });
      if (response.ok && response.headers.get('Content-Type')?.includes('application/json')) {
-         return response.json();
+         const serverState = await response.json();
+         // If server sent back a penalty message, handle it immediately
+        if (serverState.penaltyLog && state.penaltyLog && serverState.penaltyLog.length > state.penaltyLog.length) {
+            const newPenalty = serverState.penaltyLog[serverState.penaltyLog.length - 1];
+            // This is a bit of a hack: we'll use a custom event or a setter in context
+            // For now, let's just return it and handle in the calling function.
+            (serverState as any).newPenaltyMessage = newPenalty.message;
+        }
+
+         return serverState;
      }
      return null;
   },
@@ -74,10 +83,11 @@ const API = {
   },
   
   buyUpgrade: async (userId: string, upgradeId: string): Promise<{player?: PlayerState, error?: string}> => {
-    return fetch(`${API_BASE_URL}/api/action/buy-upgrade`, {
+    const res = await fetch(`${API_BASE_URL}/api/action/buy-upgrade`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, upgradeId })
-    }).then(res => res.json());
+    });
+    return res.json();
   },
   
   buyBoost: async (userId: string, boostId: string): Promise<{player?: PlayerState, error?: string}> => {
@@ -285,6 +295,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const updatedServerState = await API.savePlayerState(user.id, currentState, currentTaps);
         if (updatedServerState) {
             setPlayerState(updatedServerState);
+            // Immediately show penalty modal if the server response includes a new penalty message
+            if ((updatedServerState as any).newPenaltyMessage) {
+                setSystemMessage((updatedServerState as any).newPenaltyMessage);
+            }
         }
     }, [user]);
 
@@ -377,37 +391,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [user]);
 
+    const processActionResponse = useCallback(<T extends { player?: PlayerState; error?: string; }>(result: T): T => {
+        if (result.player) {
+            setPlayerState(result.player);
+            // Check for an immediate penalty after the action
+            if (result.player.penaltyLog && playerState?.penaltyLog && result.player.penaltyLog.length > playerState.penaltyLog.length) {
+                const newPenalty = result.player.penaltyLog[result.player.penaltyLog.length - 1];
+                setSystemMessage(newPenalty.message || "A penalty was applied.");
+            }
+        }
+        return result;
+    }, [playerState]);
+
     const buyUpgrade = useCallback(async (upgradeId: string) => {
         if (!user?.id) return null;
         const result = await API.buyUpgrade(user.id, upgradeId);
-        if (result.player) {
-            setPlayerState(result.player);
-        }
-        return result;
-    }, [user]);
+        return processActionResponse(result);
+    }, [user, processActionResponse]);
 
     const buyBoost = useCallback(async (boost: Boost) => {
         if (!user?.id) return { error: 'Not logged in' };
         if (boost.id === 'boost_turbo_mode' && isTurboActive) return { error: 'Turbo already active' };
 
         const result = await API.buyBoost(user.id, boost.id);
-        if (result.player) {
-            setPlayerState(result.player);
-            if (boost.id === 'boost_turbo_mode') {
+        
+        const processedResult = processActionResponse(result);
+        if (processedResult.player) {
+             if (boost.id === 'boost_turbo_mode') {
                 setIsTurboActive(true);
                 if (turboTimeout.current) clearTimeout(turboTimeout.current);
                 turboTimeout.current = window.setTimeout(() => setIsTurboActive(false), 20000);
             }
         }
-        return result;
-    }, [user, isTurboActive]);
+        return processedResult;
+    }, [user, isTurboActive, processActionResponse]);
 
     const claimTaskReward = useCallback(async (task: DailyTask, code?: string) => {
         if (!user?.id) return { error: 'Not logged in' };
         const result = await API.claimDailyTask(user.id, task.id, code);
-        if (result.player) setPlayerState(result.player);
-        return result;
-    }, [user]);
+        return processActionResponse(result);
+    }, [user, processActionResponse]);
 
     const handleStarPayment = useCallback(async (payloadType: 'task' | 'lootbox', itemId: string) => {
         if (!user?.id) return;
@@ -443,9 +466,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const completeSpecialTask = useCallback(async (task: SpecialTask, code?: string) => {
         if (!user?.id) return { error: 'Not logged in' };
         const result = await API.completeSpecialTask(user.id, task.id, code);
-        if (result.player) setPlayerState(result.player);
-        return result;
-    }, [user]);
+        return processActionResponse(result);
+    }, [user, processActionResponse]);
     
     const claimDailyCombo = useCallback(async () => {
         if (!user?.id) return { error: 'Not logged in' };
@@ -464,12 +486,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const openCoinLootbox = useCallback(async (boxType: 'coin') => {
         if (!user?.id) return { error: 'Not logged in' };
         const result = await API.openCoinLootbox(user.id, boxType);
-        if (result.player) setPlayerState(result.player);
-        if (result.wonItem) {
-            setPurchaseResult({ type: 'lootbox', item: result.wonItem });
+        const processedResult = processActionResponse(result);
+        if (processedResult.wonItem) {
+            setPurchaseResult({ type: 'lootbox', item: processedResult.wonItem });
         }
-        return result;
-    }, [user]);
+        return processedResult;
+    }, [user, processActionResponse]);
 
     const setSkin = useCallback(async (skinId: string) => {
         if (!user?.id) return;
@@ -522,9 +544,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const recruitInformant = useCallback(async () => {
         if(!user) return { error: 'Not logged in' };
         const result = await API.recruitInformant(user.id);
-        if(result.player) setPlayerState(result.player);
-        return result;
-    }, [user]);
+        return processActionResponse(result);
+    }, [user, processActionResponse]);
 
     const buyCellTicket = useCallback(async () => {
         if(!user) return { error: 'Not logged in' };
@@ -636,7 +657,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         openCoinLootbox, purchaseLootboxWithStars, setSkin, connectWallet, isTurboActive,
         effectiveMaxEnergy, effectiveMaxSuspicion, systemMessage, setSystemMessage, purchaseResult, setPurchaseResult,
         getFriends, friends, getMyCell, createCell, joinCell, leaveCell, recruitInformant, buyCellTicket,
-        getBattleStatus, joinBattle, getBattleLeaderboard, walletConnectionMessage
+        getBattleStatus, joinBattle, getBattleLeaderboard, walletConnectionMessage, setWalletConnectionMessage
     ]);
 
     return React.createElement(
