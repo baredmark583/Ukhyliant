@@ -3,8 +3,7 @@ import { PlayerState, League, User, GameConfig } from '../types';
 import { DEFAULT_COIN_SKIN_ID } from '../constants';
 import { useTranslation, useAuth } from '../hooks/useGameLogic';
 import { formatNumber } from '../utils';
-import ProgressBar from '../components/ProgressBar';
-import SuspicionMeter from '../components/SuspicionMeter';
+import CircularProgressBar from '../components/CircularProgressBar';
 
 const MORSE_CODE_MAP: { [key: string]: string } = {
     'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--', 'Z': '--..',
@@ -157,12 +156,25 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
       switchLanguage(languages[nextIndex]);
   };
 
+  const suspicionPercentage = effectiveMaxSuspicion > 0 ? (suspicion / effectiveMaxSuspicion) * 100 : 0;
+  const suspicionColor = suspicionPercentage > 75 ? '#ef4444' : suspicionPercentage > 40 ? '#eab308' : '#22c55e';
+
 
   return (
     <div className="flex flex-col h-full text-white p-2 sm:p-4 gap-2">
       {/* Top Section: Info Panel */}
-        <div className="w-full flex flex-col gap-3 mb-2 flex-shrink-0">
-            <div className="flex items-center justify-between gap-2">
+        <div className="w-full flex items-center justify-between gap-1 mb-2 flex-shrink-0">
+             <div className="flex flex-col items-center flex-shrink-0 text-center">
+                <CircularProgressBar 
+                    value={energy} 
+                    max={effectiveMaxEnergy} 
+                    iconUrl={config?.uiIcons?.energy} 
+                    color={"#34d399"}
+                />
+                <span className="text-xs text-[var(--text-secondary)] mt-1">{t('energy')}</span>
+            </div>
+
+            <div className="flex-grow flex items-center justify-center gap-2 px-1">
                 <button onClick={onOpenLeaderboard} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-lg h-12 flex items-center justify-center p-2 text-center flex-grow">
                     {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-8 h-8 mr-2" />}
                     <div className="text-left">
@@ -175,8 +187,16 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                     <span className="text-xs font-bold text-white leading-tight">{user.language.toUpperCase()}</span>
                 </button>
             </div>
-            <ProgressBar value={energy} max={effectiveMaxEnergy} label={t('energy')} iconUrl={config?.uiIcons?.energy} />
-            <SuspicionMeter value={suspicion} max={effectiveMaxSuspicion} iconUrl={config?.uiIcons?.suspicion} />
+            
+            <div className="flex flex-col items-center flex-shrink-0 text-center">
+                <CircularProgressBar 
+                    value={suspicion} 
+                    max={effectiveMaxSuspicion}
+                    iconUrl={config?.uiIcons?.suspicion} 
+                    color={suspicionColor}
+                />
+                 <span className="text-xs text-[var(--text-secondary)] mt-1">{t('suspicion')}</span>
+            </div>
         </div>
 
       {/* Main Content Area: Coin Card */}
