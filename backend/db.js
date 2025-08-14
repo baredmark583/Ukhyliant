@@ -478,15 +478,28 @@ export const completeAndRewardSpecialTask = async (userId, taskId, code) => {
         const task = config.specialTasks.find(t => t.id === taskId);
         if (!task) throw new Error('Task not found');
         
-        // This check is now only for free tasks, star-paid tasks are pre-unlocked
-        if (task.priceStars > 0 && !player.purchasedSpecialTaskIds?.includes(taskId)) {
-            throw new Error('Task not purchased');
+        // If already completed, do nothing.
+        if (player.completedSpecialTaskIds?.includes(taskId)) {
+             await client.query('ROLLBACK'); // No changes needed, so rollback is safe
+             return player;
         }
-
-        if (player.completedSpecialTaskIds?.includes(taskId)) return player;
         
+        // For code tasks, the code must be correct before proceeding.
         if (task.type === 'video_code' && task.secretCode && task.secretCode.toLowerCase() !== code?.toLowerCase()) {
             throw new Error("Incorrect secret code.");
+        }
+
+        const isPurchased = player.purchasedSpecialTaskIds?.includes(taskId);
+
+        // If the task isn't purchased, check if we can auto-purchase it (if free) or fail (if paid).
+        if (!isPurchased) {
+            if (task.priceStars > 0) {
+                // It's a paid task that hasn't been purchased. This is an error.
+                throw new Error('Task not purchased');
+            } else {
+                // It's a free task (like a code-based one). Auto-"purchase" it for the user now.
+                player.purchasedSpecialTaskIds = [...(player.purchasedSpecialTaskIds || []), taskId];
+            }
         }
         
         const user = await getUser(userId);

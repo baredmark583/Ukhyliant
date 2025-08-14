@@ -509,12 +509,26 @@ const gameActions = {
         return { player: updatedPlayer };
     },
     
-    'claim-task': async (body, player, config) => { // Handles ONLY daily tasks
+    'claim-task': async (body, player, config) => { // Now handles both daily and special tasks
         const { userId, taskId, code } = body;
-        const result = await claimDailyTaskReward(userId, taskId, code);
-        const task = config.tasks.find(t => t.id === taskId);
-        if (!task) throw new Error('Task not found');
-        return { player: result, reward: task.reward };
+        
+        // First, check if it's a daily task
+        const dailyTask = config.tasks.find(t => t.id === taskId);
+        if (dailyTask) {
+            const result = await claimDailyTaskReward(userId, taskId, code);
+            return { player: result, reward: dailyTask.reward };
+        }
+
+        // If not a daily task, check if it's a special task and route to the correct logic
+        const specialTask = config.specialTasks.find(t => t.id === taskId);
+        if (specialTask) {
+            log('info', `Rerouting claim-task for special task ${taskId} to special task completion logic.`);
+            const result = await completeAndRewardSpecialTask(userId, taskId, code);
+            return { player: result, reward: specialTask.reward };
+        }
+
+        // If neither, then the task doesn't exist.
+        throw new Error('Task not found in config');
     },
     
     'claim-combo': async (body) => {
