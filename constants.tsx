@@ -43,14 +43,14 @@ export const INITIAL_SPECIAL_TASKS: SpecialTask[] = [
 export const INITIAL_BOOSTS: Boost[] = [
     { id: 'boost_full_energy', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, iconUrl: 'https://api.iconify.design/twemoji/high-voltage.svg', costCoins: 2000, suspicionModifier: 1 },
     { id: 'boost_turbo_mode', name: { en: 'Turbo Mode', ua: 'Турбо-режим', ru: 'Турбо-режим' }, description: { en: 'x5 coins per tap for 20 seconds!', ua: 'x5 монет за тап протягом 20 секунд!', ru: 'x5 монет за тап в течение 20 секунд!' }, iconUrl: 'https://api.iconify.design/twemoji/fire.svg', costCoins: 2000, suspicionModifier: 2 },
-    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+50% per tap (compounding).', ua: '+50% за тап (складний відсоток).', ru: '+50% за тап (сложный процент).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
-    { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: '+500 to your max energy capacity.', ua: '+500 до максимального запасу енергії.', ru: '+500 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
+    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+50% to coins per tap (compounding).', ua: '+50% до монет за тап (складний відсоток).', ru: '+50% к монетам за тап (сложный процент).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
+    { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: 'x2 to your max energy capacity.', ua: 'x2 до максимального запасу енергії.', ru: 'x2 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
     { id: 'boost_suspicion_limit', name: { en: 'Suspicion Limit', ua: 'Ліміт Підозри', ru: 'Лимит Подозрения' }, description: { en: '+10 to max suspicion capacity.', ua: '+10 до макс. запасу підозри.', ru: '+10 к макс. запасу подозрения.' }, iconUrl: 'https://api.iconify.design/ph/shield-warning-fill.svg?color=white', costCoins: 1000, suspicionModifier: 0 },
 ];
 
 export const INITIAL_BLACK_MARKET_CARDS: BlackMarketCard[] = [
-    { id: 'bm_card1', name: {en: 'Shadow Courier', ua: 'Тіньовий кур\'єр', ru: 'Теневой курьер'}, profitPerHour: 5000, iconUrl: 'https://api.iconify.design/twemoji/motor-scooter.svg', boxType: 'coin', chance: 50, price: 50000, suspicionModifier: 8, category: UpgradeCategory.BlackMarket },
-    { id: 'bm_card2', name: {en: 'Offshore Account', ua: 'Офшорний рахунок', ru: 'Офшорный счёт'}, profitPerHour: 25000, iconUrl: 'https://api.iconify.design/twemoji/bank.svg', boxType: 'star', chance: 20, price: 250000, suspicionModifier: 20, category: UpgradeCategory.BlackMarket },
+    { id: 'bm_card1', name: {en: 'Shadow Courier', ua: 'Тіньовий кур\'єр', ru: 'Теневой курьер'}, profitPerHour: 5000, iconUrl: 'https://api.iconify.design/twemoji/motor-scooter.svg', boxType: 'coin', chance: 50, price: 50000, suspicionModifier: 8 },
+    { id: 'bm_card2', name: {en: 'Offshore Account', ua: 'Офшорний рахунок', ru: 'Офшорный счёт'}, profitPerHour: 25000, iconUrl: 'https://api.iconify.design/twemoji/bank.svg', boxType: 'star', chance: 20, price: 250000, suspicionModifier: 20 },
 ];
 
 export const DEFAULT_COIN_SKIN_ID = 'default_coin';
@@ -66,8 +66,15 @@ export const INITIAL_COIN_SKINS: CoinSkin[] = [
 export const INITIAL_MAX_ENERGY = 1000;
 export const ENERGY_REGEN_RATE = 2; // per second
 export const SAVE_DEBOUNCE_MS = 1000;
-export const REFERRAL_BONUS = 5000; // Coins for each referral
+export const REFERRAL_BONUS = 50000; // Coins for each referral
 export const REFERRAL_PROFIT_SHARE = 0.10; // 10%
+
+export const BOOST_PURCHASE_LIMITS: Record<string, number> = {
+  'boost_tap_guru': 10,
+  'boost_energy_limit': 10,
+  'boost_suspicion_limit': 10,
+  'boost_full_energy': 3,
+};
 
 
 // --- TRANSLATIONS ---
@@ -83,14 +90,14 @@ type TranslationKey =
   | 'claim_reward' | 'completed' | 'airdrop_tasks' | 'airdrop_description' | 'unlock_for' | 'go_to_task' | 'claim'
   | 'edit_special_tasks' | 'task_type' | 'url' | 'price_stars' | 'add_new_special_task' | 'translate'
   | 'telegram_join' | 'social_follow' | 'video_watch' | 'referral_bonus' | 'your_referrals' | 'invite_friends'
-  | 'your_contacts_list' | 'no_contacts_invited' | 'bonus'
   // Daily Events
   | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today' | 'combo_not_active'
   | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard' | 'your_league' | 'total_players'
   // Notifications
-  | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked' | 'wallet_bonus_notification'
+  | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked'
   // Boosts
   | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased' | 'suspicion_limit'
+  | 'limit_today' | 'limit_reached'
   // Market & Skins
   | 'market' | 'skins' | 'black_market' | 'black_market_desc' | 'open_for' | 'open'
   | 'lootbox_coin' | 'lootbox_star' | 'profit_from_referrals'
@@ -109,10 +116,6 @@ type TranslationKey =
   | 'cell_battle' | 'battle_inactive' | 'battle_time_left' | 'join_battle' | 'view_leaderboard'
   | 'battle_your_score' | 'battle_leaderboard_title' | 'rank' | 'score'
   | 'battle_boosts' | 'battle_boosts_desc' | 'activate'
-  // Wallet & Airdrop
-  | 'connect_wallet_title' | 'connect_wallet_desc' | 'wallet_connected' | 'your_wallet_address' | 'disconnect_wallet'
-  // Tooltips
-  | 'energy_tooltip_desc' | 'suspicion_tooltip_desc'
   // Admin Panel
   | 'nav_cells' | 'nav_cell_analytics' | 'nav_cell_config'
   | 'kpi_total_cells' | 'kpi_battle_participants' | 'kpi_total_bank' | 'kpi_tickets_spent'
@@ -124,6 +127,8 @@ type TranslationKey =
   | 'schedule_frequency' | 'freq_weekly' | 'freq_biweekly' | 'freq_monthly'
   | 'schedule_day' | 'day_sun' | 'day_mon' | 'day_tue' | 'day_wed' | 'day_thu' | 'day_fri' | 'day_sat'
   | 'schedule_time_utc' | 'schedule_duration_hours'
+  // Tooltips
+  | 'tooltip_energy' | 'tooltip_suspicion'
   // Generic
   | 'loading' | 'cancel'
   | 'why_not_state_language';
@@ -198,9 +203,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     referral_bonus: 'Bonus per contact',
     your_referrals: 'Your contacts',
     invite_friends: 'Invite a Contact',
-    your_contacts_list: 'Your Contacts',
-    no_contacts_invited: 'You have not invited any contacts yet.',
-    bonus: 'Bonus',
     daily_combo: 'Daily Combo',
     daily_cipher: 'Daily Cipher',
     find_cards: 'Find and upgrade these cards!',
@@ -218,13 +220,14 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     combo_collected: 'Combo collected!',
     cipher_solved: 'Cipher solved!',
     task_unlocked: 'Task Unlocked',
-    wallet_bonus_notification: "Wallet connected! You've received a bonus!",
     guru_tapper: 'Guru Tapper',
     energy_limit: 'Energy Limit',
     turbo_mode: 'Turbo Mode',
     full_energy: 'Full Energy',
     suspicion_limit: 'Suspicion Limit',
     boost_purchased: 'Boost purchased!',
+    limit_today: 'Limit today:',
+    limit_reached: 'Limit reached',
     market: 'Market',
     skins: 'Skins',
     black_market: 'Black Market',
@@ -283,13 +286,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     battle_boosts: 'Battle Boosts',
     battle_boosts_desc: 'Coming soon! Use cell funds to get an edge.',
     activate: 'Activate',
-    connect_wallet_title: 'Connect Your TON Wallet',
-    connect_wallet_desc: 'Connect your wallet to participate in the future airdrop and receive your tokens.',
-    wallet_connected: 'Wallet Connected',
-    your_wallet_address: 'Your Wallet Address',
-    disconnect_wallet: 'Disconnect',
-    energy_tooltip_desc: 'This is your tapping capacity. Each tap depletes stamina by the number of coins you earn. It replenishes over time.',
-    suspicion_tooltip_desc: 'Certain actions increase suspicion. If the meter fills up, Big Brother will punish you by confiscating a portion of your coins.',
     loading: 'Loading...',
     cancel: 'Cancel',
     nav_cells: 'Cells',
@@ -335,6 +331,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     day_sat: 'Saturday',
     schedule_time_utc: 'Start Time (UTC)',
     schedule_duration_hours: 'Duration (Hours)',
+    tooltip_energy: 'This is your tappable coin pool. Each tap spends coins from here.',
+    tooltip_suspicion: 'This grows with illegal activities. If it fills up, your assets will be confiscated!',
     why_not_state_language: 'Is there a reason you are not using the state language? The system is watching.'
   },
   ua: {
@@ -405,9 +403,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     referral_bonus: 'Бонус за контакт',
     your_referrals: 'Ваші контакти',
     invite_friends: 'Запросити контакт',
-    your_contacts_list: 'Ваші контакти',
-    no_contacts_invited: 'Ви ще не запросили жодного контакту.',
-    bonus: 'Бонус',
     daily_combo: 'Щоденне комбо',
     daily_cipher: 'Щоденний шифр',
     find_cards: 'Знайди та прокачай ці картки!',
@@ -425,13 +420,14 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     combo_collected: 'Комбо зібрано!',
     cipher_solved: 'Шифр розгадано!',
     task_unlocked: 'Завдання розблоковано',
-    wallet_bonus_notification: 'Гаманець підключено! Ви отримали бонус!',
     guru_tapper: 'Гуру Тапів',
     energy_limit: 'Ліміт Енергії',
     turbo_mode: 'Турбо-режим',
     full_energy: 'Повна Енергія',
     suspicion_limit: 'Ліміт Підозри',
     boost_purchased: 'Буст придбано!',
+    limit_today: 'Ліміт сьогодні:',
+    limit_reached: 'Ліміт вичерпано',
     market: 'Ринок',
     skins: 'Скіни',
     black_market: 'Чорний ринок',
@@ -490,13 +486,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     battle_boosts: 'Бойові бусти',
     battle_boosts_desc: 'Незабаром! Використовуйте кошти осередку для переваги.',
     activate: 'Активувати',
-    connect_wallet_title: 'Підключіть свій TON Гаманець',
-    connect_wallet_desc: 'Підключіть свій гаманець, щоб взяти участь у майбутньому аірдропі та отримати свої токени.',
-    wallet_connected: 'Гаманець Підключено',
-    your_wallet_address: 'Адреса вашого гаманця',
-    disconnect_wallet: 'Відключити',
-    energy_tooltip_desc: 'Це ваша ємність для тапів. Кожен тап виснажує витривалість на кількість зароблених монет. Вона відновлюється з часом.',
-    suspicion_tooltip_desc: 'Певні дії підвищують підозру. Якщо шкала заповниться, Великий Брат покарає вас, конфіскувавши частину ваших монет.',
     loading: 'Завантаження...',
     cancel: 'Скасувати',
     nav_cells: 'Осередки',
@@ -542,6 +531,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     day_sat: 'Субота',
     schedule_time_utc: 'Час початку (UTC)',
     schedule_duration_hours: 'Тривалість (години)',
+    tooltip_energy: 'Це ваш запас монет для тапів. Кожен тап витрачає монети звідси.',
+    tooltip_suspicion: 'Рівень підозри зростає від незаконних дій. Якщо він заповниться, ваші активи конфіскують!',
     why_not_state_language: 'Чому не державною? Система все бачить.'
   },
   ru: {
@@ -612,9 +603,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     referral_bonus: 'Бонус за контакт',
     your_referrals: 'Ваши контакты',
     invite_friends: 'Пригласить контакт',
-    your_contacts_list: 'Ваши контакты',
-    no_contacts_invited: 'Вы еще не пригласили ни одного контакта.',
-    bonus: 'Бонус',
     daily_combo: 'Ежедневное комбо',
     daily_cipher: 'Ежедневный Шифр',
     find_cards: 'Найди и прокачай эти карты!',
@@ -632,13 +620,14 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     combo_collected: 'Комбо собрано!',
     cipher_solved: 'Шифр разгадан!',
     task_unlocked: 'Задание разблокировано',
-    wallet_bonus_notification: 'Кошелек подключен! Вы получили бонус!',
     guru_tapper: 'Гуру Тапов',
     energy_limit: 'Лимит Энергии',
     turbo_mode: 'Турбо-режим',
     full_energy: 'Полная Энергия',
     suspicion_limit: 'Лимит Подозрения',
     boost_purchased: 'Буст приобретён!',
+    limit_today: 'Лимит сегодня:',
+    limit_reached: 'Лимит исчерпан',
     market: 'Рынок',
     skins: 'Скины',
     black_market: 'Черный рынок',
@@ -697,13 +686,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     battle_boosts: 'Боевые бусты',
     battle_boosts_desc: 'Скоро! Используйте средства ячейки для получения преимущества.',
     activate: 'Активировать',
-    connect_wallet_title: 'Подключите свой TON Кошелек',
-    connect_wallet_desc: 'Подключите свой кошелек, чтобы участвовать в будущем аирдропе и получить свои токены.',
-    wallet_connected: 'Кошелек Подключен',
-    your_wallet_address: 'Адрес вашего кошелька',
-    disconnect_wallet: 'Отключить',
-    energy_tooltip_desc: 'Это ваша ёмкость для тапов. Каждый тап истощает выносливость на количество заработанных монет. Она восстанавливается со временем.',
-    suspicion_tooltip_desc: 'Определенные действия повышают подозрение. Если шкала заполнится, Большой Брат накажет вас, конфисковав часть ваших монет.',
     loading: 'Загрузка...',
     cancel: 'Отмена',
     nav_cells: 'Ячейки',
@@ -749,6 +731,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     day_sat: 'Суббота',
     schedule_time_utc: 'Время начала (UTC)',
     schedule_duration_hours: 'Длительность (часы)',
+    tooltip_energy: 'Это ваш запас монет для тапов. Каждый тап тратит монеты отсюда.',
+    tooltip_suspicion: 'Уровень подозрения растет от незаконных действий. Если он заполнится, ваши активы конфискуют!',
     why_not_state_language: 'Почему не на государственном языке? Система всё видит.'
   },
 };

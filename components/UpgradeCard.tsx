@@ -12,6 +12,7 @@ interface UpgradeCardProps {
 
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
+  if (num >= 1_000_000_000_000) return `${(num / 1_000_000_000_000).toFixed(2)}T`;
   if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
   if (num >= 10000) return `${(num / 1000).toFixed(1)}K`;
@@ -21,12 +22,7 @@ const formatNumber = (num: number): string => {
 
 const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang, uiIcons }) => {
   const t = useTranslation();
-  
-  // Calculate the current price based on the upgrade's level.
-  // This ensures the UI always shows the correct price for the next purchase.
-  const currentPrice = Math.floor(upgrade.price * Math.pow(1.15, upgrade.level));
-
-  const canAfford = balance >= currentPrice;
+  const canAfford = balance >= upgrade.price;
   const suspicionMod = upgrade.suspicionModifier;
   
   const suspicionColor = suspicionMod > 0 ? 'text-red-400' : suspicionMod < 0 ? 'text-[var(--accent-color)]' : 'text-gray-500';
@@ -53,19 +49,19 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
       <div className="w-full text-responsive-xs space-y-2">
         <div className="flex items-center justify-center space-x-3">
           <span className="text-[var(--accent-color)] font-semibold flex items-center">
-              <img src={uiIcons?.energy || ''} alt="" className="w-3 h-3 mr-1"/>
+              <img src={uiIcons.energy} alt="" className="w-3 h-3 mr-1"/>
               +{formatNumber(upgrade.profitPerHour)}
           </span>
            {suspicionMod !== 0 && (
                  <span className={`${suspicionColor} font-semibold flex items-center`}>
-                    <img src={uiIcons?.suspicion || ''} alt="" className="w-3 h-3 mr-1"/>
+                    <img src={uiIcons.suspicion} alt="" className="w-3 h-3 mr-1"/>
                     {suspicionSign}{suspicionMod}
                 </span>
             )}
         </div>
         <div className="flex items-center justify-center space-x-1.5 w-full bg-slate-900/70 rounded-lg py-1.5 mt-2 shadow-inner">
-          <img src={uiIcons?.coin || ''} alt="coin" className="w-4 h-4"/>
-          <span className="text-white font-bold text-responsive-base">{formatNumber(currentPrice)}</span>
+          <img src={uiIcons.coin} alt="coin" className="w-4 h-4"/>
+          <span className="text-white font-bold text-responsive-base">{formatNumber(upgrade.price)}</span>
         </div>
       </div>
     </button>

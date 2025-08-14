@@ -1,12 +1,11 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import CircularProgressBar from '../components/CircularProgressBar';
 import { PlayerState, League, User, GameConfig } from '../types';
 import { DEFAULT_COIN_SKIN_ID } from '../constants';
 import { useTranslation, useAuth } from '../hooks/useGameLogic';
-import { formatNumber } from '../utils';
-import CircularProgressBar from '../components/CircularProgressBar';
 
 const MORSE_CODE_MAP: { [key: string]: string } = {
-    'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--.', 'Z': '--..',
+    'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--', 'Z': '--..',
     '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.', '0': '-----'
 };
 
@@ -23,7 +22,18 @@ interface ExchangeProps {
   isTurboActive: boolean;
   effectiveMaxEnergy: number;
   effectiveMaxSuspicion: number;
+  onEnergyClick: () => void;
+  onSuspicionClick: () => void;
 }
+
+const formatNumber = (num: number): string => {
+  if (num === null || num === undefined) return '0';
+  if (num >= 1_000_000_000_000) return `${(num / 1_000_000_000_000).toFixed(2)}T`;
+  if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
+  if (num >= 10000) return `${(num / 1000).toFixed(1)}K`;
+  return num.toLocaleString('en-US');
+};
 
 interface ClickFx {
   id: number;
@@ -33,26 +43,14 @@ interface ClickFx {
   xOffset: number;
 }
 
-const TooltipModal: React.FC<{ titleKey: string, descKey: string, onClose: () => void }> = ({ titleKey, descKey, onClose }) => {
-    const t = useTranslation();
-    return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" onClick={e => e.stopPropagation()}>
-                <h2 className="text-xl font-bold text-white mb-4">{t(titleKey as any)}</h2>
-                <p className="text-white text-center mb-6">{t(descKey as any)}</p>
-                <button onClick={onClose} className="w-full interactive-button rounded-lg font-bold py-3 mt-2 text-lg">{t('close')}</button>
-            </div>
-        </div>
-    );
-};
-
-const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion }) => {
+const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion, onEnergyClick, onSuspicionClick }) => {
   const t = useTranslation();
   const { balance, profitPerHour, energy, suspicion } = playerState;
   const [clicks, setClicks] = useState<ClickFx[]>([]);
   const [scale, setScale] = useState(1);
   const { switchLanguage } = useAuth();
   
+  const [morseError, setMorseError] = useState(false);
   const [morseMode, setMorseMode] = useState(false);
   const [morseSequence, setMorseSequence] = useState('');
   const [decodedWord, setDecodedWord] = useState('');
@@ -60,8 +58,6 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const morseCharTimeout = useRef<number | null>(null);
   const lastClickPos = useRef({ x: 0, y: 0 });
   const lastTapTime = useRef(0);
-
-  const [tooltip, setTooltip] = useState<{ titleKey: string, descKey: string } | null>(null);
 
   const dailyCipherWord = (config.dailyEvent?.cipherWord || '').toUpperCase();
   const claimedCipher = playerState.claimedCipherToday;
@@ -107,7 +103,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
   const handlePressEnd = async () => {
     const now = Date.now();
-    if (now - lastTapTime.current < 30) {
+    // Increased debounce to prevent accidental double-taps, especially on sensitive screens.
+    if (now - lastTapTime.current < 100) {
         if(pressTimer.current) pressTimer.current = null;
         return;
     }
@@ -121,10 +118,12 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
     if (morseMode && !claimedCipher && dailyCipherWord) {
       if (morseCharTimeout.current) clearTimeout(morseCharTimeout.current);
 
-      const morseChar = pressDuration < 200 ? '.' : '-';
+      // Increased duration threshold to make distinguishing dots and dashes easier.
+      const morseChar = pressDuration < 350 ? '.' : '-';
       const newSequence = morseSequence + morseChar;
       setMorseSequence(newSequence);
 
+      // Increased timeout to give the user more time between characters.
       morseCharTimeout.current = window.setTimeout(async () => {
           const charToEvaluate = MORSE_CHAR_MAP[newSequence];
           const nextExpectedChar = dailyCipherWord[decodedWord.length];
@@ -140,11 +139,13 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                   }
               }
           } else {
+              // On error, shake the input but don't reset the whole word, just the current character sequence.
               window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-              setDecodedWord(''); // Reset the whole word on error
+              setMorseError(true);
+              setTimeout(() => setMorseError(false), 500); // Reset shake after animation
           }
           setMorseSequence(''); // Reset sequence input after evaluation
-      }, 1200);
+      }, 1500);
 
     } else {
       const tapValue = onTap();
@@ -171,49 +172,26 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
       switchLanguage(languages[nextIndex]);
   };
 
-  const suspicionPercentage = effectiveMaxSuspicion > 0 ? (suspicion / effectiveMaxSuspicion) * 100 : 0;
-  const suspicionColor = suspicionPercentage > 75 ? '#ef4444' : suspicionPercentage > 40 ? '#eab308' : '#22c55e';
-
 
   return (
     <div className="flex flex-col h-full text-white p-2 sm:p-4 gap-2">
-      {tooltip && <TooltipModal titleKey={tooltip.titleKey} descKey={tooltip.descKey} onClose={() => setTooltip(null)} />}
       {/* Top Section: Info Panel */}
-        <div className="w-full flex items-center justify-between gap-1 mb-2 flex-shrink-0">
-             <div className="flex flex-col items-center flex-shrink-0 text-center cursor-pointer" onClick={() => setTooltip({ titleKey: 'energy', descKey: 'energy_tooltip_desc' })}>
-                <CircularProgressBar 
-                    value={energy} 
-                    max={effectiveMaxEnergy} 
-                    iconUrl={config?.uiIcons?.energy} 
-                    color={"#34d399"}
-                />
-                <span className="text-xs text-[var(--text-secondary)] mt-1">{t('energy')}</span>
-            </div>
+      <div className="w-full flex items-center justify-around gap-2 p-2 mb-2 text-center flex-shrink-0">
+          <button onClick={onEnergyClick} className="p-0 border-none bg-transparent cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-[var(--accent-color)]">
+            <CircularProgressBar value={energy} max={effectiveMaxEnergy} iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={60} strokeWidth={6} />
+          </button>
+          <button onClick={onSuspicionClick} className="p-0 border-none bg-transparent cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-red-400">
+            <CircularProgressBar value={suspicion} max={effectiveMaxSuspicion} iconUrl={config.uiIcons.suspicion} color="#f87171" size={60} strokeWidth={6} />
+          </button>
+          <button onClick={onOpenLeaderboard} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
+              {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-8 h-8" />}
+          </button>
+          <button onClick={handleSwitchLanguage} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
+              <img src="https://api.iconify.design/ph/globe-bold.svg?color=white" alt="Language" className="w-8 h-8"/>
+              <span className="text-xs font-bold text-white leading-tight">{user.language.toUpperCase()}</span>
+          </button>
+      </div>
 
-            <div className="flex-grow flex items-center justify-center gap-2 px-1">
-                <button onClick={onOpenLeaderboard} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-lg h-12 flex items-center justify-center p-2 text-center flex-grow">
-                    {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-8 h-8 mr-2" />}
-                    <div className="text-left">
-                      <p className="text-xs text-slate-400 -mb-1">{t('your_league')}</p>
-                      <span className="text-sm font-bold">{currentLeague?.name[user.language]}</span>
-                    </div>
-                </button>
-                <button onClick={handleSwitchLanguage} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-lg w-12 h-12 flex-shrink-0 flex flex-col items-center justify-center p-1 text-center">
-                    <img src="https://api.iconify.design/ph/globe-bold.svg?color=white" alt="Language" className="w-7 h-7"/>
-                    <span className="text-xs font-bold text-white leading-tight">{user.language.toUpperCase()}</span>
-                </button>
-            </div>
-            
-            <div className="flex flex-col items-center flex-shrink-0 text-center cursor-pointer" onClick={() => setTooltip({ titleKey: 'suspicion', descKey: 'suspicion_tooltip_desc' })}>
-                <CircularProgressBar 
-                    value={suspicion} 
-                    max={effectiveMaxSuspicion}
-                    iconUrl={config?.uiIcons?.suspicion} 
-                    color={suspicionColor}
-                />
-                 <span className="text-xs text-[var(--text-secondary)] mt-1">{t('suspicion')}</span>
-            </div>
-        </div>
 
       {/* Main Content Area: Coin Card */}
       <div className="flex-grow w-full flex items-center justify-center relative min-h-0">
@@ -264,11 +242,11 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             {/* Balance and Profit */}
             <div className="flex flex-col items-center flex-shrink-0 my-1">
                 <div className="flex items-center space-x-2">
-                    <img src={config?.uiIcons?.coin || ''} alt="coin" className="w-[5vh] h-[5vh] max-w-[32px] max-h-[32px]"/>
+                    <img src={config.uiIcons.coin} alt="coin" className="w-[5vh] h-[5vh] max-w-[32px] max-h-[32px]"/>
                     <h1 className="text-responsive-2xl font-display text-slate-100" style={{textShadow: 'none'}}>{formatNumber(balance)}</h1>
                 </div>
                 <div className="text-responsive-sm text-[var(--accent-color)] flex items-center gap-1 font-bold">
-                    <img src={config?.uiIcons?.energy || ''} alt="" className="w-3 h-3"/>
+                    <img src={config.uiIcons.energy} alt="" className="w-3 h-3"/>
                     <span>+{formatNumber(profitPerHour)}/hr</span>
                 </div>
             </div>
@@ -294,7 +272,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                             </div>
                         ) : (
                             <div className="flex items-center justify-between w-full gap-2 h-10">
-                                <div className="font-mono text-xl h-10 tracking-widest text-white bg-slate-900/50 shadow-inner rounded-lg flex items-center justify-center w-full">
+                                <div className={`font-mono text-xl h-10 tracking-widest text-white bg-slate-900/50 shadow-inner rounded-lg flex items-center justify-center w-full transition-transform ${morseError ? 'animate-shake' : ''}`}>
                                     {decodedWord}<span className="text-gray-500">{morseSequence}</span>
                                 </div>
                                 <button onClick={handleCancelMorse} className="text-xs text-gray-400 hover:text-white flex-shrink-0">

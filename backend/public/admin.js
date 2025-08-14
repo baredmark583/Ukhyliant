@@ -1,20 +1,14 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
-    let allPlayers = []; // Now holds only the current page of players
+    let allPlayers = [];
     let dashboardStats = {};
     let playerLocations = [];
     let dailyEvent = { combo_ids: [], cipher_word: '', combo_reward: 5000000, cipher_reward: 1000000 };
     let activeTab = 'dashboard';
     let currentLang = localStorage.getItem('adminLang') || 'ru';
     let charts = {}; // To hold chart instances
-    let pagination = {
-        currentPage: 1,
-        totalPages: 1,
-        limit: 50,
-        totalPlayers: 0,
-        searchTerm: ''
-    };
 
     // --- CONFIG META (for dynamic table rendering) ---
     const configMeta = {
@@ -36,12 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalsContainer = document.getElementById('modals-container');
     
     // --- TRANSLATION FUNCTION ---
-    const t = (key, params = {}) => {
-        let text = window.LOCALES?.[currentLang]?.[key] || window.LOCALES?.['en']?.[key] || `[${key}]`;
-        for (const p in params) {
-            text = text.replace(new RegExp(`\\{${p}\\}`, 'g'), params[p]);
-        }
-        return text;
+    const t = (key) => {
+        return window.LOCALES?.[currentLang]?.[key] || window.LOCALES?.['en']?.[key] || `[${key}]`;
     }
 
     // --- UTILS ---
@@ -188,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             saveMainButton.disabled = false;
             saveMainButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M14 4l0 4l-6 0l0 -4" /></svg> ${t('save_all_changes')}`;
-            localConfig = await fetchData('config');
+            localConfig = await fetchData('config') || {};
         }
     };
     
@@ -457,24 +447,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderPlayers = async () => {
         showLoading();
-        const { currentPage, limit, searchTerm } = pagination;
-        const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
-        const data = await fetchData(`players?page=${currentPage}&limit=${limit}${searchParam}`);
-        
-        if (!data) { 
-            tabContainer.innerHTML = `<p>${t('no_data')}</p>`; 
-            return; 
-        }
+        allPlayers = await fetchData('players');
+        if (!allPlayers) { tabContainer.innerHTML = `<p>${t('no_data')}</p>`; return; }
 
-        allPlayers = data.players;
-        pagination.totalPlayers = data.total;
-        pagination.totalPages = Math.ceil(data.total / pagination.limit);
-
-        const paginationHtml = generatePaginationHtml();
         const tableHtml = `
             <div class="card">
                 <div class="card-header">
-                    <input type="text" id="player-search" class="form-control w-auto" placeholder="${t('search_by_id_name')}" value="${escapeHtml(pagination.searchTerm)}">
+                    <input type="text" id="player-search" class="form-control w-auto" placeholder="${t('search_by_id_name')}">
                 </div>
                 <div class="table-responsive">
                     <table class="table table-vcenter card-table">
@@ -494,66 +473,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         </tbody>
                     </table>
                 </div>
-                 <div class="card-footer d-flex align-items-center justify-content-between">
-                    <p class="m-0 text-secondary">
-                        ${t('showing_page', { 
-                            start: (pagination.currentPage - 1) * pagination.limit + 1, 
-                            end: Math.min(pagination.currentPage * pagination.limit, pagination.totalPlayers), 
-                            total: pagination.totalPlayers 
-                        })}
-                    </p>
-                    ${paginationHtml}
-                </div>
             </div>
         `;
         tabContainer.innerHTML = tableHtml;
-    };
-    
-    const generatePaginationHtml = () => {
-        const { currentPage, totalPages } = pagination;
-        if (totalPages <= 1) return '';
-
-        let pages = [];
-        const maxPagesToShow = 5;
-        const half = Math.floor(maxPagesToShow / 2);
-
-        let start = Math.max(1, currentPage - half);
-        let end = Math.min(totalPages, currentPage + half);
-
-        if (start === 1) {
-            end = Math.min(totalPages, maxPagesToShow);
-        }
-        if (end === totalPages) {
-            start = Math.max(1, totalPages - maxPagesToShow + 1);
-        }
-
-        const pageItems = [];
-        for (let i = start; i <= end; i++) {
-            pageItems.push(`<li class="page-item ${i === currentPage ? 'active' : ''}"><a href="#" class="page-link" data-page="${i}">${i}</a></li>`);
-        }
-
-        if (start > 1) {
-            pageItems.unshift('<li class="page-item disabled"><span class="page-link">...</span></li>');
-            pageItems.unshift(`<li class="page-item"><a href="#" class="page-link" data-page="1">1</a></li>`);
-        }
-        if (end < totalPages) {
-            pageItems.push('<li class="page-item disabled"><span class="page-link">...</span></li>');
-            pageItems.push(`<li class="page-item"><a href="#" class="page-link" data-page="${totalPages}">${totalPages}</a></li>`);
-        }
-        
-        const prevDisabled = currentPage === 1 ? 'disabled' : '';
-        const nextDisabled = currentPage === totalPages ? 'disabled' : '';
-        
-        return `
-            <ul class="pagination m-0 ms-auto">
-                <li class="page-item ${prevDisabled}">
-                    <a class="page-link" href="#" data-page="${currentPage - 1}">${t('prev_page')}</a>
-                </li>
-                ${pageItems.join('')}
-                <li class="page-item ${nextDisabled}">
-                    <a class="page-link" href="#" data-page="${currentPage + 1}">${t('next_page')}</a>
-                </li>
-            </ul>`;
     };
 
     const generatePlayerRows = (players) => {
@@ -1237,95 +1159,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     // --- EVENT LISTENERS ---
-    let searchDebounceTimer;
-    document.body.addEventListener('input', (e) => {
-        const target = e.target;
-        if (!target) return;
-
-        // --- Live search for players ---
-        if (target.id === 'player-search') {
-            clearTimeout(searchDebounceTimer);
-            searchDebounceTimer = setTimeout(() => {
-                pagination.searchTerm = target.value.trim();
-                pagination.currentPage = 1;
-                renderPlayers();
-            }, 300);
-            return;
-        }
-
-        // --- Live updates for Daily Events ---
-        if (target.classList.contains('combo-card-select')) {
-            const selects = document.querySelectorAll('.combo-card-select');
-            dailyEvent.combo_ids = Array.from(selects).map(s => s.value).filter(Boolean);
-            return;
-        }
-        if (target.id === 'cipher-word-input') {
-            dailyEvent.cipher_word = target.value;
-            return;
-        }
-        if (target.id === 'combo-reward-input') {
-            dailyEvent.combo_reward = Number(target.value) || 0;
-            return;
-        }
-        if (target.id === 'cipher-reward-input') {
-            dailyEvent.cipher_reward = Number(target.value) || 0;
-            return;
-        }
-
-        // --- Live updates for generic config fields ---
-        const key = target.dataset.key;
-        if (key && localConfig.hasOwnProperty(key)) {
-             localConfig[key] = target.value;
-             if (target.type === 'number') {
-                localConfig[key] = Number(target.value) || 0;
-             }
-        }
-        
-        // --- Live updates for UI Icons ---
-        const groupKey = target.dataset.group;
-        if (groupKey) {
-            localConfig.uiIcons[groupKey][key] = target.value;
-            const img = target.nextElementSibling.querySelector('img');
-            if (img) img.src = target.value;
-        } else if (key && localConfig.uiIcons && localConfig.uiIcons.hasOwnProperty(key)) {
-            localConfig.uiIcons[key] = target.value;
-            const img = target.nextElementSibling.querySelector('img');
-            if (img) img.src = target.value;
-        }
-        
-        // --- Live updates for special config sections (Cell config, etc)
-        const configKey = target.dataset.configKey;
-        const subKey = target.dataset.subKey;
-        if (configKey) {
-            if (subKey) {
-                 if (!localConfig[configKey]) localConfig[configKey] = {};
-                 let value = target.value;
-                 if (target.type === 'number' || target.tagName === 'SELECT') {
-                    value = Number(target.value)
-                 }
-                 localConfig[configKey][subKey] = value;
-            } else {
-                 if(target.type === 'number'){
-                    localConfig[configKey] = parseFloat(target.value) / 100;
-                 }
-            }
-        }
-    });
-
     document.body.addEventListener('click', async (e) => {
         const target = e.target.closest('[data-action]');
-        const pageLink = e.target.closest('.page-link[data-page]');
-
-        if (pageLink) {
-            e.preventDefault();
-            const newPage = parseInt(pageLink.dataset.page, 10);
-            if (!isNaN(newPage) && newPage !== pagination.currentPage) {
-                pagination.currentPage = newPage;
-                renderPlayers();
-            }
-            return;
-        }
-
         if (!target) return;
 
         const { action, key, index, id, col, social } = target.dataset;
@@ -1422,6 +1257,79 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    document.body.addEventListener('input', (e) => {
+        const target = e.target;
+        if (!target) return;
+
+        // --- Live search for players ---
+        if (target.id === 'player-search') {
+            const searchTerm = target.value.toLowerCase();
+            const filteredPlayers = allPlayers.filter(p => 
+                p.id.toLowerCase().includes(searchTerm) || p.name.toLowerCase().includes(searchTerm)
+            );
+            document.getElementById('players-table-body').innerHTML = generatePlayerRows(filteredPlayers);
+            return;
+        }
+
+        // --- Live updates for Daily Events ---
+        if (target.classList.contains('combo-card-select')) {
+            const selects = document.querySelectorAll('.combo-card-select');
+            dailyEvent.combo_ids = Array.from(selects).map(s => s.value).filter(Boolean);
+            return;
+        }
+        if (target.id === 'cipher-word-input') {
+            dailyEvent.cipher_word = target.value;
+            return;
+        }
+        if (target.id === 'combo-reward-input') {
+            dailyEvent.combo_reward = Number(target.value) || 0;
+            return;
+        }
+        if (target.id === 'cipher-reward-input') {
+            dailyEvent.cipher_reward = Number(target.value) || 0;
+            return;
+        }
+
+        // --- Live updates for generic config fields ---
+        const key = target.dataset.key;
+        if (key && localConfig.hasOwnProperty(key)) {
+             localConfig[key] = target.value;
+             if (target.type === 'number') {
+                localConfig[key] = Number(target.value) || 0;
+             }
+        }
+        
+        // --- Live updates for UI Icons ---
+        const groupKey = target.dataset.group;
+        if (groupKey) {
+            localConfig.uiIcons[groupKey][key] = target.value;
+            const img = target.nextElementSibling.querySelector('img');
+            if (img) img.src = target.value;
+        } else if (key && localConfig.uiIcons && localConfig.uiIcons.hasOwnProperty(key)) {
+            localConfig.uiIcons[key] = target.value;
+            const img = target.nextElementSibling.querySelector('img');
+            if (img) img.src = target.value;
+        }
+        
+        // --- Live updates for special config sections (Cell config, etc)
+        const configKey = target.dataset.configKey;
+        const subKey = target.dataset.subKey;
+        if (configKey) {
+            if (subKey) {
+                 if (!localConfig[configKey]) localConfig[configKey] = {};
+                 let value = target.value;
+                 if (target.type === 'number' || target.tagName === 'SELECT') {
+                    value = Number(target.value)
+                 }
+                 localConfig[configKey][subKey] = value;
+            } else {
+                 if(target.type === 'number'){
+                    localConfig[configKey] = parseFloat(target.value) / 100;
+                 }
+            }
+        }
+    });
+
     saveMainButton.onclick = saveAllChanges;
 
     const init = async () => {
@@ -1440,7 +1348,7 @@ document.addEventListener('DOMContentLoaded', () => {
              applyTranslationsToDOM();
         }));
 
-        localConfig = await fetchData('config');
+        localConfig = await fetchData('config') || {};
 
         // Check hash on load
         const hash = window.location.hash.substring(1);

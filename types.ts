@@ -1,5 +1,4 @@
 
-
 export type Language = 'en' | 'ua' | 'ru';
 
 export interface LocalizedString {
@@ -16,15 +15,6 @@ export interface User {
   language: Language;
   role: UserRole;
   referrerId?: string;
-  walletAddress?: string; // TON wallet address
-}
-
-export interface Friend {
-    id: string;
-    name: string;
-    leagueName: LocalizedString;
-    leagueIconUrl: string;
-    profitBonus: number;
 }
 
 export interface League {
@@ -40,7 +30,6 @@ export enum UpgradeCategory {
   Legal = "Legal",
   Lifestyle = "Lifestyle",
   Special = "Special",
-  BlackMarket = "Black Market",
 }
 
 export interface Upgrade {
@@ -59,14 +48,12 @@ export type BoxType = 'coin' | 'star';
 export interface BlackMarketCard {
     id: string;
     name: LocalizedString;
-    price: number; // Price is not directly used for purchase but for level calculation
+    price?: number; // Price is not directly used for purchase but for level calculation
     profitPerHour: number;
-    category: UpgradeCategory;
     iconUrl: string;
-    suspicionModifier: number;
-    // BlackMarketCard specific properties
     boxType: BoxType;
     chance: number; // Rarity/drop chance
+    suspicionModifier: number;
 }
 
 export interface CoinSkin {
@@ -145,7 +132,6 @@ export interface UiIcons {
     skins: string;
     market: string;
     cell: string;
-    airdrop: string;
   };
   energy: string;
   coin: string;
@@ -214,7 +200,7 @@ export interface PlayerState {
   suspicion: number;
   cellId: number | null;
   penaltyLog?: { type: string; timestamp: string; message?: string }[];
-  connectedWallet?: string;
+  dailyBoostPurchases?: Record<string, number>;
 }
 
 export interface CellMember {

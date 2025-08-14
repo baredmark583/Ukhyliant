@@ -1,6 +1,3 @@
-
-
-
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -18,6 +15,7 @@ import {
     INFORMANT_RECRUIT_COST,
     REFERRAL_PROFIT_SHARE,
     INITIAL_MAX_ENERGY,
+    MAX_ENERGY_CAP,
     LOOTBOX_COST_COINS,
     LOOTBOX_COST_STARS,
     CELL_BATTLE_TICKET_COST,
@@ -25,6 +23,7 @@ import {
     BATTLE_REWARDS_DEFAULT,
     CELL_ECONOMY_DEFAULTS,
     PENALTY_MESSAGES,
+    BOOST_PURCHASE_LIMITS,
 } from './constants.js';
 
 const { Pool } = pg;
@@ -63,30 +62,29 @@ const executeQuery = async (query, params) => {
 }
 
 const applySuspicion = (player, modifier, lang = 'en') => {
-    const updatedPlayer = { ...player };
-    if (modifier === null || modifier === undefined || modifier === 0) return updatedPlayer;
+    if (modifier === null || modifier === undefined || modifier === 0) return player;
     
-    let currentSuspicion = Number(updatedPlayer.suspicion || 0);
+    let currentSuspicion = Number(player.suspicion || 0);
     currentSuspicion += Number(modifier || 0);
 
-    const maxSuspicion = 100 + (updatedPlayer.suspicionLimitLevel || 0) * 10;
+    const maxSuspicion = 100 + (player.suspicionLimitLevel || 0) * 10;
 
     if (currentSuspicion >= maxSuspicion) {
-        updatedPlayer.balance = Number(updatedPlayer.balance || 0) * 0.75;
+        player.balance = Number(player.balance || 0) * 0.75;
         currentSuspicion = maxSuspicion / 2;
         
         const messages = PENALTY_MESSAGES[lang] || PENALTY_MESSAGES.en;
         const message = messages[Math.floor(Math.random() * messages.length)];
         
-        updatedPlayer.penaltyLog = [...(updatedPlayer.penaltyLog || []), { 
+        player.penaltyLog = [...(player.penaltyLog || []), { 
             type: 'confiscation_25_percent', 
             timestamp: new Date().toISOString(),
             message: message
         }];
     }
     
-    updatedPlayer.suspicion = Math.max(0, Math.min(maxSuspicion, currentSuspicion));
-    return updatedPlayer;
+    player.suspicion = Math.max(0, Math.min(maxSuspicion, currentSuspicion));
+    return player;
 };
 
 export const initializeDb = async () => {
@@ -154,14 +152,6 @@ export const initializeDb = async () => {
         );
     `);
     console.log("Database tables checked/created successfully.");
-    
-    // Safely add wallet_address column to users table if it doesn't exist
-    try {
-        await executeQuery(`ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_address VARCHAR(255) UNIQUE;`);
-        console.log("'wallet_address' column checked/added to 'users' table.");
-    } catch(e) {
-        console.error("Could not add 'wallet_address' column.", e.message);
-    }
 
     // Safely add columns to daily_events table if they don't exist
     try {
@@ -285,11 +275,6 @@ export const initializeDb = async () => {
         // Special object properties
         if (!config.socials) { config.socials = initialSocials; needsUpdate = true; }
         if (!config.uiIcons) { config.uiIcons = INITIAL_UI_ICONS; needsUpdate = true; }
-        if (config.uiIcons && !config.uiIcons.profile_tabs.airdrop) {
-            config.uiIcons.profile_tabs.airdrop = "https://api.iconify.design/ph/parachute-bold.svg?color=white";
-            needsUpdate = true;
-        }
-
 
         if (needsUpdate) {
             await saveConfig(config);
@@ -316,18 +301,8 @@ export const savePlayer = async (id, playerData) => {
     await executeQuery('INSERT INTO players (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = $2', [id, playerData]);
 }
 export const getUser = async (id) => {
-    const res = await executeQuery('SELECT id, name, language, referrer_id, wallet_address FROM users WHERE id = $1', [id]);
-    const user = res.rows[0];
-    if (user) {
-        return {
-            id: user.id,
-            name: user.name,
-            language: user.language,
-            referrerId: user.referrer_id,
-            walletAddress: user.wallet_address,
-        };
-    }
-    return null;
+    const res = await executeQuery('SELECT * FROM users WHERE id = $1', [id]);
+    return res.rows[0] || null;
 }
 export const createUser = async (id, name, language, referrerId) => {
     const res = await executeQuery('INSERT INTO users (id, name, language, referrer_id) VALUES ($1, $2, $3, $4) RETURNING *', [id, name, language, referrerId]);
@@ -336,87 +311,6 @@ export const createUser = async (id, name, language, referrerId) => {
 export const updateUserLanguage = async (id, language) => {
     await executeQuery('UPDATE users SET language = $1 WHERE id = $2', [language, id]);
 }
-
-export const getFriendsList = async (userId, config) => {
-    const sortedLeagues = [...(config.leagues || [])].sort((a,b) => b.minProfitPerHour - a.minProfitPerHour);
-    
-    const res = await executeQuery(`
-        SELECT u.id, u.name, p.data as "playerData"
-        FROM users u
-        JOIN players p ON u.id = p.id
-        WHERE u.referrer_id = $1
-        ORDER BY (p.data->>'profitPerHour')::numeric DESC
-    `, [userId]);
-    
-    const friends = res.rows.map(row => {
-        const friendPlayer = row.playerData || {};
-        const profitPerHour = friendPlayer.profitPerHour || 0;
-        
-        const league = sortedLeagues.find(l => profitPerHour >= l.minProfitPerHour) || sortedLeagues[sortedLeagues.length - 1];
-
-        // Calculate the base profit of the friend (total profit - their own referral/cell profit)
-        const friendBaseProfit = profitPerHour - (friendPlayer.referralProfitPerHour || 0) - (friendPlayer.cellProfitBonus || 0);
-        const profitBonus = friendBaseProfit * REFERRAL_PROFIT_SHARE;
-
-        return {
-            id: row.id,
-            name: row.name,
-            leagueName: league?.name || { en: 'N/A', ua: 'N/A', ru: 'N/A' },
-            leagueIconUrl: league?.iconUrl || '',
-            profitBonus: profitBonus
-        };
-    });
-
-    return friends;
-};
-
-export const connectWalletInDb = async (userId, newWalletAddress) => {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-
-        const userRes = await client.query('SELECT wallet_address FROM users WHERE id = $1 FOR UPDATE', [userId]);
-        if (userRes.rows.length === 0) throw new Error('User not found');
-        const currentUserAddress = userRes.rows[0].wallet_address;
-
-        let player = (await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId])).rows[0].data;
-        if (!player) throw new Error('Player not found');
-
-        let message = '';
-        const wasConnected = !!currentUserAddress;
-
-        if (currentUserAddress !== newWalletAddress) {
-            await client.query('UPDATE users SET wallet_address = $1 WHERE id = $2', [newWalletAddress, userId]);
-            player.connectedWallet = newWalletAddress;
-
-            if (!wasConnected && newWalletAddress) {
-                player.balance = (Number(player.balance) || 0) + 1000000;
-                player.profitPerHour = (Number(player.profitPerHour) || 0) + 1000;
-                message = "Wallet connected! You've received a bonus!";
-            } else if (newWalletAddress) {
-                message = "Wallet reconnected.";
-            } else {
-                message = "Wallet disconnected.";
-            }
-        } else {
-            player.connectedWallet = newWalletAddress;
-            message = newWalletAddress ? "Wallet already connected." : "Wallet already disconnected.";
-        }
-
-        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
-        await client.query('COMMIT');
-
-        return { player, message };
-
-    } catch (error) {
-        await client.query('ROLLBACK');
-        console.error(`Transaction failed for connectWalletInDb for user ${userId}:`, error);
-        throw error;
-    } finally {
-        client.release();
-    }
-};
-
 export const updateUserAccessInfo = async (id, { country }) => {
     await executeQuery(
         'UPDATE users SET country = COALESCE($1, country), last_seen = NOW() WHERE id = $2', 
@@ -946,6 +840,7 @@ export const recruitInformantInDb = async (userId, informantData, config) => {
         const cost = config.informantRecruitCost || INFORMANT_RECRUIT_COST; 
         if (Number(player.balance || 0) < cost) throw new Error("Not enough coins to recruit an informant.");
         player.balance = Number(player.balance || 0) - cost;
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         
         const { name, dossier, specialization } = informantData;
         const informantRes = await client.query('INSERT INTO informants (cell_id, name, dossier, specialization) VALUES ($1, $2, $3, $4) RETURNING *', [player.cellId, name, dossier, specialization]);
@@ -956,10 +851,6 @@ export const recruitInformantInDb = async (userId, informantData, config) => {
             memberPlayer = await recalculateCellBonusForPlayer(memberPlayer, client, config);
             await client.query('UPDATE players SET data = $1 WHERE id = $2', [memberPlayer, memberRow.id]);
         }
-        
-        const user = await getUser(userId);
-        player = applySuspicion(player, 0, user.language); // Just to pass it through the penalty check logic if needed in future
-        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         
         await client.query('COMMIT');
         return { player, informant: informantRes.rows[0] };
@@ -1175,48 +1066,25 @@ export const processSuccessfulPayment = async (payload) => {
 };
 
 // --- Admin Panel Functions ---
-export const getAllPlayersForAdmin = async (page = 1, limit = 50, searchTerm = null) => {
-    const offset = (page - 1) * limit;
-    
-    let whereClause = '';
-    const queryParams = [];
-
-    if (searchTerm) {
-        whereClause = `WHERE u.id ILIKE $1 OR u.name ILIKE $1`;
-        queryParams.push(`%${searchTerm}%`);
-    }
-
-    const countQuery = `SELECT COUNT(*) FROM users u ${whereClause}`;
-    const countRes = await executeQuery(countQuery, searchTerm ? [queryParams[0]] : []);
-    const totalPlayers = parseInt(countRes.rows[0].count, 10);
-
-    const playersQuery = `
-        SELECT u.id, u.name, u.language, p.data
-        FROM users u
-        LEFT JOIN players p ON u.id = p.id
-        ${whereClause}
-        ORDER BY (COALESCE(p.data->>'balance', '0'))::numeric DESC, u.id
-        LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
-    `;
-    queryParams.push(limit, offset);
-
-    const playersRes = await executeQuery(playersQuery, queryParams);
-    
-    const players = playersRes.rows.map(row => {
-        const playerData = row.data || {};
+export const getAllPlayersForAdmin = async () => {
+    const usersRes = await executeQuery('SELECT id, name, language FROM users');
+    const playersRes = await executeQuery('SELECT id, data FROM players');
+    const playersMap = new Map(playersRes.rows.map(p => [p.id, p.data]));
+    const allPlayers = usersRes.rows.map(user => {
+        const playerData = playersMap.get(user.id) || {};
         const effectiveBalance = (Number(playerData.balance) || 0) + (Number(playerData.adminBonus) || 0);
         return {
-            id: row.id,
-            name: row.name || 'N/A',
-            language: row.language || 'en',
+            id: user.id,
+            name: user.name || 'N/A',
+            language: user.language || 'en',
             balance: effectiveBalance,
             referrals: playerData.referrals ?? 0,
             profitPerHour: playerData.profitPerHour ?? 0,
             purchasedSpecialTaskIds: playerData.purchasedSpecialTaskIds || []
         };
     });
-
-    return { players, total: totalPlayers };
+    allPlayers.sort((a, b) => (b.balance || 0) - (a.balance || 0));
+    return allPlayers;
 };
 export const getDashboardStats = async () => {
     const totalPlayersRes = await executeQuery('SELECT COUNT(*) FROM users');
@@ -1319,6 +1187,7 @@ export const resetPlayerDailyProgress = async (userId) => {
     player.claimedComboToday = false;
     player.claimedCipherToday = false;
     player.dailyUpgrades = [];
+    player.dailyBoostPurchases = {};
     player.lastDailyReset = Date.now();
     await savePlayer(userId, player);
     return player;
@@ -1434,6 +1303,13 @@ export const buyBoostInDb = async (userId, boostId, config) => {
         const boost = config.boosts.find(b => b.id === boostId);
         if (!boost) throw new Error('Boost not found');
 
+        const limit = BOOST_PURCHASE_LIMITS[boostId];
+        const purchasesToday = player.dailyBoostPurchases?.[boostId] || 0;
+
+        if (limit !== undefined && purchasesToday >= limit) {
+            throw new Error('Daily purchase limit reached.');
+        }
+
         let cost = boost.costCoins;
         if (boost.id === 'boost_tap_guru') {
             cost = Math.floor(boost.costCoins * Math.pow(1.5, player.tapGuruLevel || 0));
@@ -1446,10 +1322,15 @@ export const buyBoostInDb = async (userId, boostId, config) => {
         if (player.balance < cost) throw new Error('Not enough coins');
         player.balance -= cost;
 
+        if (limit !== undefined) {
+            if (!player.dailyBoostPurchases) player.dailyBoostPurchases = {};
+            player.dailyBoostPurchases[boostId] = purchasesToday + 1;
+        }
+
         switch(boost.id) {
             case 'boost_full_energy':
-                const maxEnergy = INITIAL_MAX_ENERGY + (player.energyLimitLevel || 0) * 500;
-                player.energy = maxEnergy;
+                const maxEnergy = INITIAL_MAX_ENERGY * Math.pow(2, player.energyLimitLevel || 0);
+                player.energy = Math.min(maxEnergy, MAX_ENERGY_CAP);
                 break;
             case 'boost_tap_guru':
                 player.tapGuruLevel = (player.tapGuruLevel || 0) + 1;

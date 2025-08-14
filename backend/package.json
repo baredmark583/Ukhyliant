@@ -1,3 +1,4 @@
+
 {
   "name": "ukhyliant-backend",
   "version": "1.0.0",
@@ -13,16 +14,12 @@
   "license": "ISC",
   "dependencies": {
     "@google/genai": "^0.15.0",
-    "@ton/crypto": "^3.2.0",
-    "@ton/ton": "^13.11.2",
-    "bignumber.js": "^9.1.2",
-    "connect-pg-simple": "^9.0.1",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "express-session": "^1.18.0",
-    "geoip-lite": "^1.4.10",
     "pg": "^8.12.0",
-    "tweetnacl": "^1.0.3"
+    "connect-pg-simple": "^9.0.1",
+    "geoip-lite": "^1.4.10"
   }
 }

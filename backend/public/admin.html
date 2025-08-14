@@ -37,7 +37,6 @@
         background-size: 30px 30px;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
-        overflow: hidden;
       }
       .font-display {
         font-family: 'Russo One', sans-serif;
@@ -167,6 +166,7 @@
       }
       .page-body {
         height: 100%;
+        overflow-y: auto;
       }
       #tab-content-container {
         height: 100%;
@@ -228,51 +228,51 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link tab-button" href="#cheaters" data-tab="cheaters" data-title-key="nav_cheaters">
-                             <span class="nav-link-icon d-md-none d-lg-inline-block">
-                               <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-shield-x" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3" /><path d="M10 10l4 4m0 -4l-4 4" /></svg>
-                            </span>
-                            <span class="nav-link-title" data-translate="nav_cheaters">Cheaters</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link tab-button" href="#players" data-tab="players" data-title-key="nav_players">
-                             <span class="nav-link-icon d-md-none d-lg-inline-block">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-users" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /><path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /><path d="M21 21v-2a4 4 0 0 0 -3 -3.85" /></svg>
                             </span>
                             <span class="nav-link-title" data-translate="nav_players">Players</span>
                         </a>
                     </li>
-                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#navbar-events" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="false" >
-                           <span class="nav-link-icon d-md-none d-lg-inline-block">
-                               <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-event" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M16 3l0 4" /><path d="M8 3l0 4" /><path d="M4 11l16 0" /><path d="M8 15h2v2h-2z" /></svg>
-                           </span>
-                           <span class="nav-link-title" data-translate="nav_game_events">Game Events</span>
+                     <li class="nav-item">
+                        <a class="nav-link tab-button" href="#cheaters" data-tab="cheaters" data-title-key="nav_cheaters">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                               <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user-cancel" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4c.348 0 .686 .045 1.008 .128" /><path d="M19 19m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /><path d="M17 21l4 -4" /></svg>
+                            </span>
+                            <span class="nav-link-title" data-translate="nav_cheaters">Cheaters</span>
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#navbar-events" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="false">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-event" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M16 3l0 4" /><path d="M8 3l0 4" /><path d="M4 11l16 0" /><path d="M8 15h2v2h-2z" /></svg>
+                            </span>
+                            <span class="nav-link-title" data-translate="nav_game_events">Game Events</span>
                         </a>
                         <div class="dropdown-menu">
-                             <a class="dropdown-item tab-button" href="#dailyEvents" data-tab="dailyEvents" data-title-key="nav_daily_events" data-translate="nav_daily_events">Daily Events</a>
-                             <a class="dropdown-item tab-button" href="#specialTasks" data-tab="specialTasks" data-title-key="nav_special_tasks" data-translate="nav_special_tasks">Special Tasks</a>
+                            <a class="dropdown-item tab-button" href="#dailyEvents" data-tab="dailyEvents" data-title-key="nav_daily_events" data-translate="nav_daily_events">Daily Events</a>
+                            <a class="dropdown-item tab-button" href="#specialTasks" data-tab="specialTasks" data-title-key="nav_special_tasks" data-translate="nav_special_tasks">Special Tasks</a>
+                        </div>
+                    </li>
+                     <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#navbar-cells" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="false">
+                             <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-users-group" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 13a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M8 21v-1a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v1" /><path d="M15 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M17 10h2a2 2 0 0 1 2 2v1" /><path d="M5 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M3 13v-1a2 2 0 0 1 2 -2h2" /></svg>
+                            </span>
+                            <span class="nav-link-title" data-translate="nav_cells">Cells</span>
+                        </a>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item tab-button" href="#cellAnalytics" data-tab="cellAnalytics" data-title-key="nav_cell_analytics" data-translate="nav_cell_analytics">Analytics</a>
+                            <a class="dropdown-item tab-button" href="#cellConfiguration" data-tab="cellConfiguration" data-title-key="nav_cell_config" data-translate="nav_cell_config">Configuration</a>
                         </div>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#navbar-cells" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="false" >
-                           <span class="nav-link-icon d-md-none d-lg-inline-block">
-                               <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-users-group" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 13a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M8 21v-1a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v1" /><path d="M15 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M17 10h2a2 2 0 0 1 2 2v1" /><path d="M5 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M3 13v-1a2 2 0 0 1 2 -2h2" /></svg>
-                           </span>
-                           <span class="nav-link-title" data-translate="nav_cells">Cells</span>
-                        </a>
-                        <div class="dropdown-menu">
-                             <a class="dropdown-item tab-button" href="#cellAnalytics" data-tab="cellAnalytics" data-title-key="nav_cell_analytics" data-translate="nav_cell_analytics">Analytics</a>
-                             <a class="dropdown-item tab-button" href="#cellConfiguration" data-tab="cellConfiguration" data-title-key="nav_cell_config" data-translate="nav_cell_config">Configuration</a>
-                        </div>
-                    </li>
-                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#navbar-config" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="false" >
-                           <span class="nav-link-icon d-md-none d-lg-inline-block">
+                        <a class="nav-link dropdown-toggle" href="#navbar-config" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="false">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-settings" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /></svg>
-                           </span>
-                           <span class="nav-link-title" data-translate="nav_configuration">Configuration</span>
+                            </span>
+                            <span class="nav-link-title" data-translate="nav_configuration">Configuration</span>
                         </a>
                         <div class="dropdown-menu">
                             <a class="dropdown-item tab-button" href="#leagues" data-tab="leagues" data-title-key="nav_leagues" data-translate="nav_leagues">Leagues</a>
@@ -289,27 +289,30 @@
             </div>
         </div>
     </aside>
-    <!-- Header -->
-    <header class="navbar navbar-expand-md d-none d-lg-flex d-print-none" >
+    <!-- Navbar -->
+    <header class="navbar navbar-expand-md d-none d-lg-flex d-print-none">
         <div class="container-xl">
             <div class="navbar-nav flex-row order-md-last">
-                <div class="nav-item dropdown">
-                    <a href="#" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" aria-label="Open user menu">
-                        <span id="lang-switcher-flag" class="flag flag-country-us"></span>
+                 <div class="d-flex align-items-center me-3">
+                     <button id="save-main-button" class="btn btn-success d-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M14 4l0 4l-6 0l0 -4" /></svg>
+                        <span data-translate="save_all_changes">Save All Changes</span>
+                    </button>
+                 </div>
+                 <div class="nav-item dropdown">
+                    <a href="#" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" aria-label="Open language switcher">
+                      <span class="avatar avatar-sm"><span id="lang-switcher-flag" class="flag flag-country-ru"></span></span>
                     </a>
-                    <div id="lang-menu" class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-                        <a href="#" class="dropdown-item lang-select-btn" data-lang="en"><span class="flag flag-country-us me-2"></span> English</a>
-                        <a href="#" class="dropdown-item lang-select-btn" data-lang="ru"><span class="flag flag-country-ru me-2"></span> Русский</a>
+                    <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+                      <a href="#" class="dropdown-item lang-select-btn" data-lang="en"><span class="flag flag-country-us me-2"></span> English</a>
+                      <a href="#" class="dropdown-item lang-select-btn" data-lang="ru"><span class="flag flag-country-ru me-2"></span> Русский</a>
                     </div>
-                </div>
+                  </div>
                 <div class="nav-item">
-                    <a href="/admin/logout" class="nav-link" >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-logout" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /><path d="M9 12h12l-3 -3" /><path d="M18 15l3 -3" /></svg>
-                        <span data-translate="logout">Logout</span>
+                    <a href="/admin/logout" class="nav-link" title="Logout" data-bs-toggle="tooltip" data-bs-placement="bottom">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /><path d="M9 12h12l-3 -3" /><path d="M18 15l3 -3" /></svg>
                     </a>
                 </div>
-            </div>
-            <div class="collapse navbar-collapse" id="navbar-menu">
             </div>
         </div>
     </header>
@@ -319,34 +322,27 @@
             <div class="container-xl">
                 <div class="row g-2 align-items-center">
                     <div class="col">
-                        <h2 class="page-title" id="tab-title">Dashboard</h2>
-                    </div>
-                    <div class="col-auto ms-auto d-print-none">
-                         <button id="save-main-button" class="btn btn-success d-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M14 4l0 4l-6 0l0 -4" /></svg>
-                            <span data-translate="save_all_changes">Save All Changes</span>
-                        </button>
+                        <h2 class="page-title font-display" id="tab-title">
+                            Dashboard
+                        </h2>
                     </div>
                 </div>
             </div>
         </div>
         <!-- Page body -->
-        <div class="page-body">
-            <div class="container-xl" id="tab-content-container">
-                <div class="d-flex justify-content-center align-items-center" style="min-height: 50vh;">
-                    <div class="spinner-border" role="status"></div>
-                </div>
-            </div>
+        <div class="page-body" id="tab-content-container">
+            <!-- Content will be loaded here -->
         </div>
+        <div id="modals-container"></div>
     </div>
 </div>
-<div id="modals-container"></div>
-<!-- Libs -->
-<script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/js/tabler.min.js"></script>
+<!-- Libs JS -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/js/jsvectormap.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/maps/world.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- App -->
+<!-- Tabler Core -->
+<script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/js/tabler.min.js"></script>
+<!-- Custom JS -->
 <script src="/admin/locales.js"></script>
 <script src="/admin/admin.js"></script>
 </body>

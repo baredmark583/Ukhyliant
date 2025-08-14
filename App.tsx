@@ -4,14 +4,22 @@ import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
 import CellScreen from './sections/Cell';
-import AirdropScreen from './components/AirdropScreen';
 import { REFERRAL_BONUS, TELEGRAM_BOT_NAME, MINI_APP_NAME } from './constants';
-import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League, UiIcons, Cell, Friend } from './types';
+import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League, UiIcons, Cell } from './types';
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
-import TaskCard from './components/TaskCard';
-import { formatNumber } from './utils';
 
+type Screen = 'exchange' | 'mine' | 'missions' | 'airdrop' | 'profile';
+type ProfileTab = 'contacts' | 'boosts' | 'skins' | 'market' | 'cell';
+
+const formatNumber = (num: number): string => {
+  if (num === null || num === undefined) return '0';
+  if (num >= 1_000_000_000_000) return `${(num / 1_000_000_000_000).toFixed(2)}T`;
+  if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
+  if (num >= 10000) return `${(num / 1000).toFixed(1)}K`;
+  return num.toLocaleString('en-US');
+};
 
 const GlitchEffect = () => {
     const t = useTranslation();
@@ -87,27 +95,14 @@ interface ProfileScreenProps {
   onSetSkin: (skinId: string) => void;
   onOpenCoinLootbox: (boxType: 'coin') => void;
   onPurchaseStarLootbox: (boxType: 'star') => void;
-  friends: Friend[] | null;
-  getFriends: () => Promise<void>;
 }
 
-type ProfileTab = 'contacts' | 'boosts' | 'skins' | 'market' | 'cell';
-
-const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox, friends, getFriends } : ProfileScreenProps) => {
+const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox } : ProfileScreenProps) => {
     const t = useTranslation();
     const [activeTab, setActiveTab] = useState<ProfileTab>('contacts');
     
     const ContactsContent = () => {
         const [copied, setCopied] = useState(false);
-        const [loadingFriends, setLoadingFriends] = useState(true);
-
-        useEffect(() => {
-            if (activeTab === 'contacts') {
-                setLoadingFriends(true);
-                getFriends().finally(() => setLoadingFriends(false));
-            }
-        }, [activeTab, getFriends]);
-
         const handleCopyReferral = () => {
             const referralLink = `https://t.me/${TELEGRAM_BOT_NAME}/${MINI_APP_NAME}?startapp=${user.id}`;
             navigator.clipboard.writeText(referralLink);
@@ -115,53 +110,28 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
             setTimeout(() => setCopied(false), 2000);
         };
         return (
-            <div className="w-full max-w-md flex flex-col h-full">
-                <div className="flex-shrink-0 space-y-4 text-center">
-                    <div className="card-glow p-4 rounded-xl">
-                        <p className="text-[var(--text-secondary)] text-lg">{t('your_referrals')}</p>
-                        <p className="text-5xl font-display my-1">{playerState.referrals}</p>
-                    </div>
-                    <div className="card-glow p-4 rounded-xl">
-                        <p className="text-[var(--text-secondary)] text-lg">{t('profit_from_referrals')}</p>
-                        <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2 text-[var(--accent-color)]">
-                            <span>+{formatNumber(playerState.referralProfitPerHour)}/hr</span>
-                            <img src={config?.uiIcons?.energy || ''} alt="energy" className="w-6 h-6" />
-                        </p>
-                    </div>
-                    <button onClick={handleCopyReferral} className="w-full interactive-button text-white font-bold py-3 px-4 text-lg rounded-lg">
-                        {copied ? t('copied') : t('invite_friends')}
-                    </button>
+            <div className="w-full max-w-md space-y-4 text-center">
+                <div className="card-glow p-4 rounded-xl">
+                    <p className="text-[var(--text-secondary)] text-lg">{t('your_referrals')}</p>
+                    <p className="text-5xl font-display my-1">{playerState.referrals}</p>
                 </div>
-                
-                <div className="flex-grow min-h-0 mt-4">
-                     <div className="h-full bg-slate-900/50 shadow-inner rounded-xl p-3 flex flex-col">
-                        <h3 className="text-center font-bold mb-3 flex-shrink-0">{t('your_contacts_list')}</h3>
-                        <div className="flex-grow overflow-y-auto no-scrollbar pr-1">
-                            {loadingFriends ? (
-                                <div className="text-center text-slate-400">{t('loading')}</div>
-                            ) : friends && friends.length > 0 ? (
-                                <ul className="space-y-2">
-                                    {friends.map(friend => (
-                                        <li key={friend.id} className="bg-slate-800/70 p-2 rounded-lg flex items-center space-x-3">
-                                            <img src={friend.leagueIconUrl} alt="league" className="w-8 h-8 flex-shrink-0"/>
-                                            <div className="flex-grow min-w-0">
-                                                <p className="text-white font-semibold truncate">{friend.name}</p>
-                                            </div>
-                                            <div className="text-right flex-shrink-0">
-                                                 <p className="text-xs text-slate-400">{t('bonus')}</p>
-                                                <p className="text-sm text-[var(--accent-color)] font-mono font-bold">
-                                                    +{formatNumber(friend.profitBonus)}/hr
-                                                </p>
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <div className="text-center text-slate-500 py-4">{t('no_contacts_invited')}</div>
-                            )}
-                        </div>
-                    </div>
+                <div className="card-glow p-4 rounded-xl">
+                    <p className="text-[var(--text-secondary)] text-lg">{t('referral_bonus')}</p>
+                    <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2">
+                        <span>+{REFERRAL_BONUS.toLocaleString()}</span>
+                        <img src={config.uiIcons.coin} alt="coin" className="w-6 h-6" />
+                    </p>
                 </div>
+                 <div className="card-glow p-4 rounded-xl">
+                    <p className="text-[var(--text-secondary)] text-lg">{t('profit_from_referrals')}</p>
+                    <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2 text-[var(--accent-color)]">
+                        <span>+{formatNumber(playerState.referralProfitPerHour)}/hr</span>
+                        <img src={config.uiIcons.energy} alt="energy" className="w-6 h-6" />
+                    </p>
+                </div>
+                <button onClick={handleCopyReferral} className="w-full interactive-button text-white font-bold py-3 px-4 text-lg rounded-lg">
+                    {copied ? t('copied') : t('invite_friends')}
+                </button>
             </div>
         );
     };
@@ -201,23 +171,23 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
             <p className="text-center text-[var(--text-secondary)] max-w-xs mx-auto mb-6">{t('black_market_desc')}</p>
              <div className="grid grid-cols-2 gap-4">
                 <div className="card-glow rounded-2xl p-4 text-center">
+                    <h3 className="font-bold text-base mb-2">{t('lootbox_coin')}</h3>
                     <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
-                        <img src={config?.uiIcons?.marketCoinBox || ''} alt={t('lootbox_coin')} className="w-full h-full object-contain" />
+                        <img src={config.uiIcons.marketCoinBox} alt={t('lootbox_coin')} className="w-full h-full object-contain" />
                     </div>
-                    <h2 className="text-base font-display mb-2">{t('lootbox_coin')}</h2>
                     <button onClick={() => onOpenCoinLootbox('coin')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
-                        <span>{t('open_for')} {formatNumber(config.lootboxCostCoins || 0)}</span>
-                        <img src={config?.uiIcons?.coin || ''} alt="coin" className="w-5 h-5" />
+                        <span>{formatNumber(config.lootboxCostCoins || 0)}</span>
+                        <img src={config.uiIcons.coin} alt="coin" className="w-5 h-5" />
                     </button>
                 </div>
                 <div className="card-glow rounded-2xl p-4 text-center">
+                    <h3 className="font-bold text-base mb-2">{t('lootbox_star')}</h3>
                      <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
-                        <img src={config?.uiIcons?.marketStarBox || ''} alt={t('lootbox_star')} className="w-full h-full object-contain" />
+                        <img src={config.uiIcons.marketStarBox} alt={t('lootbox_star')} className="w-full h-full object-contain" />
                     </div>
-                    <h2 className="text-base font-display mb-2">{t('lootbox_star')}</h2>
                     <button onClick={() => onPurchaseStarLootbox('star')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
-                        <span>{t('open_for')} {(config.lootboxCostStars || 0)}</span>
-                        <img src={config?.uiIcons?.star || ''} alt="star" className="w-5 h-5" />
+                        <span>{(config.lootboxCostStars || 0)}</span>
+                        <img src={config.uiIcons.star} alt="star" className="w-5 h-5" />
                     </button>
                 </div>
             </div>
@@ -229,11 +199,11 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
             <div className="w-full max-w-md sticky top-0 bg-[var(--bg-color)] pt-4 px-4 z-10">
                 <h1 className="text-3xl font-display text-center mb-4">{t('profile')}</h1>
                 <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex flex-nowrap justify-around items-center gap-1 border border-slate-700">
-                    <ProfileTabButton label={t('sub_contacts')} iconUrl={config?.uiIcons?.profile_tabs?.contacts || ''} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
-                    <ProfileTabButton label={t('sub_boosts')} iconUrl={config?.uiIcons?.profile_tabs?.boosts || ''} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
-                    <ProfileTabButton label={t('sub_disguise')} iconUrl={config?.uiIcons?.profile_tabs?.skins || ''} isActive={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
-                    <ProfileTabButton label={t('sub_market')} iconUrl={config?.uiIcons?.profile_tabs?.market || ''} isActive={activeTab === 'market'} onClick={() => setActiveTab('market')} />
-                    <ProfileTabButton label={t('sub_cell')} iconUrl={config?.uiIcons?.profile_tabs?.cell || ''} isActive={activeTab === 'cell'} onClick={() => setActiveTab('cell')} />
+                    <ProfileTabButton label={t('sub_contacts')} iconUrl={config.uiIcons.profile_tabs.contacts} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
+                    <ProfileTabButton label={t('sub_boosts')} iconUrl={config.uiIcons.profile_tabs.boosts} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
+                    <ProfileTabButton label={t('sub_disguise')} iconUrl={config.uiIcons.profile_tabs.skins} isActive={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
+                    <ProfileTabButton label={t('sub_market')} iconUrl={config.uiIcons.profile_tabs.market} isActive={activeTab === 'market'} onClick={() => setActiveTab('market')} />
+                    <ProfileTabButton label={t('sub_cell')} iconUrl={config.uiIcons.profile_tabs.cell} isActive={activeTab === 'cell'} onClick={() => setActiveTab('cell')} />
                 </div>
             </div>
             
@@ -243,6 +213,95 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                 {activeTab === 'skins' && <SkinsContent />}
                 {activeTab === 'market' && <MarketContent />}
                 {activeTab === 'cell' && <CellScreen />}
+            </div>
+        </div>
+    );
+};
+
+const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedTasks, uiIcons }: { 
+    task: DailyTask | SpecialTask, 
+    playerState: PlayerState, 
+    onClaim: (task: DailyTask | SpecialTask) => void, 
+    onPurchase?: (task: SpecialTask) => void,
+    lang: Language, 
+    startedTasks: Set<string>, 
+    uiIcons: UiIcons 
+}) => {
+    const t = useTranslation();
+    const isDaily = !('isOneTime' in task);
+    const isCompleted = isDaily 
+        ? playerState.completedDailyTaskIds.includes(task.id) 
+        : playerState.completedSpecialTaskIds.includes(task.id);
+    
+    const isPurchased = isDaily ? true : playerState.purchasedSpecialTaskIds.includes(task.id);
+    const isStarted = startedTasks.has(task.id);
+
+    let progressDisplay: string | null = null;
+    let claimIsDisabled = false;
+
+    if (isDaily && task.type === 'taps') {
+        const required = task.requiredTaps || 0;
+        const progress = Math.min(playerState.dailyTaps, required);
+        if (!isCompleted) {
+            progressDisplay = `${progress}/${required}`;
+        }
+        if (progress < required) {
+            claimIsDisabled = true;
+        }
+    }
+    
+    const getButton = () => {
+        if (isCompleted) {
+            return <button disabled className="bg-slate-900 shadow-inner rounded-lg font-bold py-2 px-4 text-sm w-full text-center text-[var(--text-secondary)]">{t('completed')}</button>;
+        }
+
+        if (!isDaily && (task as SpecialTask).priceStars > 0 && !isPurchased && onPurchase) {
+            return (
+                <button onClick={() => onPurchase(task as SpecialTask)} className="interactive-button rounded-lg font-bold py-2 px-3 text-sm flex items-center justify-center space-x-1.5 w-full">
+                    <span>{t('unlock_for')} {(task as SpecialTask).priceStars}</span>
+                    <img src={uiIcons.star} alt="star" className="w-4 h-4"/>
+                </button>
+            );
+        }
+
+        let buttonText = t('go_to_task');
+        if (task.type === 'taps') {
+            buttonText = t('claim');
+        } else if (isStarted) {
+            buttonText = task.type === 'video_code' ? t('enter_secret_code') : t('claim_reward');
+        }
+
+        return (
+            <button onClick={() => onClaim(task)} disabled={claimIsDisabled} className="interactive-button rounded-lg font-bold py-2 px-4 text-sm w-full text-center disabled:opacity-50 disabled:cursor-not-allowed">
+                {progressDisplay || buttonText}
+            </button>
+        );
+    };
+    
+    const rewardIconUrl = task.reward?.type === 'profit' ? uiIcons.energy : uiIcons.coin;
+    
+    return (
+         <div className={`card-glow bg-slate-800/50 rounded-2xl p-3 flex flex-col justify-between min-h-48 space-y-4 transition-opacity ${isCompleted ? 'opacity-60' : ''}`}>
+            <div className="flex-grow min-w-0">
+                <div className="flex items-start space-x-3 mb-2">
+                    {task.imageUrl && (
+                        <div className="bg-slate-900/50 shadow-inner rounded-lg p-1 w-14 h-14 flex-shrink-0">
+                            <img src={task.imageUrl} alt={task.name?.[lang]} className="w-full h-full object-contain" />
+                        </div>
+                    )}
+                    <div className="flex-grow min-w-0">
+                        <p className="text-white text-left font-semibold" title={task.name?.[lang]}>{task.name?.[lang]}</p>
+                    </div>
+                </div>
+                {'description' in task && <p className="text-[var(--text-secondary)] text-xs text-left" title={(task as SpecialTask).description?.[lang]}>{(task as SpecialTask).description?.[lang]}</p>}
+                <div className="text-yellow-400 text-sm text-left mt-2 flex items-center space-x-1 font-bold">
+                    <img src={rewardIconUrl} alt="reward" className="w-4 h-4" />
+                    <span>+{formatNumber(task.reward.amount)}</span>
+                    {task.reward.type === 'profit' && <span className="text-[var(--text-secondary)] font-normal ml-1">/hr</span>}
+                </div>
+            </div>
+            <div className="w-full">
+                {getButton()}
             </div>
         </div>
     );
@@ -268,6 +327,41 @@ const MissionsScreen: React.FC<{
                                 task={task}
                                 playerState={playerState}
                                 onClaim={onClaim}
+                                lang={lang}
+                                startedTasks={startedTasks}
+                                uiIcons={uiIcons}
+                            />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AirdropScreen: React.FC<{
+    specialTasks: SpecialTask[];
+    playerState: PlayerState;
+    onClaim: (task: DailyTask | SpecialTask) => void;
+    onPurchase: (task: SpecialTask) => void;
+    lang: Language;
+    startedTasks: Set<string>;
+    uiIcons: UiIcons;
+}> = ({ specialTasks, playerState, onClaim, onPurchase, lang, startedTasks, uiIcons }) => {
+    const t = useTranslation();
+    return (
+        <div className="flex flex-col h-full text-white pt-4 px-4">
+            <h1 className="text-3xl font-display text-center mb-2 flex-shrink-0">{t('airdrop_tasks')}</h1>
+            <p className="text-center text-[var(--text-secondary)] mb-6 flex-shrink-0">{t('airdrop_description')}</p>
+            <div className="flex-grow overflow-x-auto no-scrollbar -mx-4 px-4">
+                <div className="inline-flex space-x-3 pb-4">
+                    {specialTasks.map(task => (
+                       <div key={task.id} className="w-60 flex-shrink-0">
+                            <TaskCard
+                                task={task}
+                                playerState={playerState}
+                                onClaim={onClaim}
+                                onPurchase={onPurchase}
                                 lang={lang}
                                 startedTasks={startedTasks}
                                 uiIcons={uiIcons}
@@ -364,21 +458,17 @@ const PurchaseResultModal: React.FC<{
     );
 };
 
-type Screen = 'exchange' | 'mine' | 'missions' | 'airdrop' | 'profile';
-
 const MainApp: React.FC = () => {
   const { user, isGlitching, setIsGlitching } = useAuth();
   const { 
       playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, 
       claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask,
-      claimDailyCombo, claimDailyCipher, getLeaderboard, getFriends, friends,
+      claimDailyCombo, claimDailyCipher, getLeaderboard, 
       openCoinLootbox, purchaseLootboxWithStars, 
       setSkin,
-      connectWallet,
       isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion,
       systemMessage, setSystemMessage,
-      purchaseResult, setPurchaseResult,
-      walletConnectionMessage, setWalletConnectionMessage
+      purchaseResult, setPurchaseResult
   } = useGame();
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -418,29 +508,22 @@ const MainApp: React.FC = () => {
   }, [isGlitching, setIsGlitching]);
   
 
-  const showNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => {
-        setNotification(prev => (prev?.message === message ? null : prev));
-    }, 3000);
-  }, []);
-  
-  useEffect(() => {
-      if (walletConnectionMessage) {
-          showNotification(walletConnectionMessage, 'success');
-          setWalletConnectionMessage(''); // Clear after showing
-      }
-  }, [walletConnectionMessage, setWalletConnectionMessage, showNotification]);
-
   if (!isAppReady || !user || !playerState || !config) {
     return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
   }
   
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => {
+        setNotification(prev => (prev?.message === message ? null : prev));
+    }, 3000);
+  };
+  
   const handleBuyUpgrade = async (upgradeId: string) => {
     const result = await buyUpgrade(upgradeId);
-    if(result && result.player) {
+    if(result) {
         const upgrade = allUpgrades.find(u => u.id === upgradeId);
-        showNotification(`${upgrade?.name?.[user.language]} Lvl ${result.player.upgrades[upgradeId]}`);
+        showNotification(`${upgrade?.name?.[user.language]} Lvl ${result.upgrades[upgradeId]}`);
     }
   };
   
@@ -448,6 +531,9 @@ const MainApp: React.FC = () => {
     const result = await buyBoost(boost);
     if (result.player) {
         showNotification(t('boost_purchased'), 'success');
+        if (boost.id === 'boost_turbo_mode') {
+            setActiveScreen('exchange');
+        }
     } else if (result.error) {
         showNotification(result.error, 'error');
     }
@@ -457,8 +543,8 @@ const MainApp: React.FC = () => {
       if (result.player) {
           window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
           const rewardText = task.reward?.type === 'profit'
-              ? `+${formatNumber(task.reward.amount)}/hr <img src="${config?.uiIcons?.energy || ''}" class="w-4 h-4 inline-block -mt-1"/>`
-              : `+${formatNumber(task.reward.amount)} <img src="${config?.uiIcons?.coin || ''}" class="w-4 h-4 inline-block -mt-1"/>`;
+              ? `+${formatNumber(task.reward.amount)}/hr <img src="${config.uiIcons.energy}" class="w-4 h-4 inline-block -mt-1"/>`
+              : `+${formatNumber(task.reward.amount)} <img src="${config.uiIcons.coin}" class="w-4 h-4 inline-block -mt-1"/>`;
           showNotification(`${task.name?.[user.language]} ${t('task_completed')} <span class="whitespace-nowrap">${rewardText}</span>`, 'success');
           
           setStartedTasks(prev => {
@@ -549,6 +635,9 @@ const MainApp: React.FC = () => {
       showNotification(t('selected'), 'success');
   };
 
+  const handleEnergyClick = () => showNotification(t('tooltip_energy'), 'success');
+  const handleSuspicionClick = () => showNotification(t('tooltip_suspicion'), 'success');
+
   const PenaltyModal: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
       const t = useTranslation();
       return (
@@ -570,7 +659,7 @@ const MainApp: React.FC = () => {
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} />;
       case 'mine':
         return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} />;
       case 'missions':
@@ -584,13 +673,13 @@ const MainApp: React.FC = () => {
                 />;
        case 'airdrop':
         return <AirdropScreen
+                    specialTasks={config.specialTasks}
                     playerState={playerState}
                     onClaim={handleClaimTask}
                     onPurchase={purchaseSpecialTask}
                     lang={user.language}
                     startedTasks={startedTasks}
                     uiIcons={config.uiIcons}
-                    connectWallet={connectWallet}
                 />;
       case 'profile':
         return <ProfileScreen
@@ -601,11 +690,9 @@ const MainApp: React.FC = () => {
                     onSetSkin={handleSetSkin}
                     onOpenCoinLootbox={handleOpenCoinLootbox}
                     onPurchaseStarLootbox={handlePurchaseStarLootbox}
-                    friends={friends}
-                    getFriends={getFriends}
                 />;
       default:
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion}/>;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick}/>;
     }
   };
 
@@ -645,11 +732,11 @@ const MainApp: React.FC = () => {
 
       <nav className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-t border-slate-700">
         <div className="grid grid-cols-5 justify-around items-start max-w-xl mx-auto">
-          <NavItem screen="exchange" label={t('exchange')} iconUrl={config?.uiIcons?.nav?.exchange || ''} active={activeScreen === 'exchange'} />
-          <NavItem screen="mine" label={t('mine')} iconUrl={config?.uiIcons?.nav?.mine || ''} active={activeScreen === 'mine'} />
-          <NavItem screen="missions" label={t('missions')} iconUrl={config?.uiIcons?.nav?.missions || ''} active={activeScreen === 'missions'} />
-          <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config?.uiIcons?.nav?.airdrop || ''} active={activeScreen === 'airdrop'} />
-          <NavItem screen="profile" label={t('profile')} iconUrl={config?.uiIcons?.nav?.profile || ''} active={activeScreen === 'profile'} />
+          <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} />
+          <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} />
+          <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} />
+          <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} />
+          <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} />
         </div>
       </nav>
        <style>{`
