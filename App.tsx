@@ -113,14 +113,14 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                     <p className="text-[var(--text-secondary)] text-lg">{t('referral_bonus')}</p>
                     <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2">
                         <span>+{REFERRAL_BONUS.toLocaleString()}</span>
-                        <img src={config.uiIcons.coin} alt="coin" className="w-6 h-6" />
+                        <img src={config?.uiIcons?.coin || ''} alt="coin" className="w-6 h-6" />
                     </p>
                 </div>
                  <div className="card-glow p-4 rounded-xl">
                     <p className="text-[var(--text-secondary)] text-lg">{t('profit_from_referrals')}</p>
                     <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2 text-[var(--accent-color)]">
                         <span>+{formatNumber(playerState.referralProfitPerHour)}/hr</span>
-                        <img src={config.uiIcons.energy} alt="energy" className="w-6 h-6" />
+                        <img src={config?.uiIcons?.energy || ''} alt="energy" className="w-6 h-6" />
                     </p>
                 </div>
                 <button onClick={handleCopyReferral} className="w-full interactive-button text-white font-bold py-3 px-4 text-lg rounded-lg">
@@ -166,22 +166,22 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
              <div className="grid grid-cols-2 gap-4">
                 <div className="card-glow rounded-2xl p-4 text-center">
                     <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
-                        <img src={config.uiIcons.marketCoinBox} alt={t('lootbox_coin')} className="w-full h-full object-contain" />
+                        <img src={config?.uiIcons?.marketCoinBox || ''} alt={t('lootbox_coin')} className="w-full h-full object-contain" />
                     </div>
                     <h2 className="text-base font-display mb-2">{t('lootbox_coin')}</h2>
                     <button onClick={() => onOpenCoinLootbox('coin')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
                         <span>{t('open_for')} {formatNumber(config.lootboxCostCoins || 0)}</span>
-                        <img src={config.uiIcons.coin} alt="coin" className="w-5 h-5" />
+                        <img src={config?.uiIcons?.coin || ''} alt="coin" className="w-5 h-5" />
                     </button>
                 </div>
                 <div className="card-glow rounded-2xl p-4 text-center">
                      <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
-                        <img src={config.uiIcons.marketStarBox} alt={t('lootbox_star')} className="w-full h-full object-contain" />
+                        <img src={config?.uiIcons?.marketStarBox || ''} alt={t('lootbox_star')} className="w-full h-full object-contain" />
                     </div>
                     <h2 className="text-base font-display mb-2">{t('lootbox_star')}</h2>
                     <button onClick={() => onPurchaseStarLootbox('star')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
                         <span>{t('open_for')} {(config.lootboxCostStars || 0)}</span>
-                        <img src={config.uiIcons.star} alt="star" className="w-5 h-5" />
+                        <img src={config?.uiIcons?.star || ''} alt="star" className="w-5 h-5" />
                     </button>
                 </div>
             </div>
@@ -193,11 +193,11 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
             <div className="w-full max-w-md sticky top-0 bg-[var(--bg-color)] pt-4 px-4 z-10">
                 <h1 className="text-3xl font-display text-center mb-4">{t('profile')}</h1>
                 <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex flex-nowrap justify-around items-center gap-1 border border-slate-700">
-                    <ProfileTabButton label={t('sub_contacts')} iconUrl={config.uiIcons.profile_tabs.contacts} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
-                    <ProfileTabButton label={t('sub_boosts')} iconUrl={config.uiIcons.profile_tabs.boosts} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
-                    <ProfileTabButton label={t('sub_disguise')} iconUrl={config.uiIcons.profile_tabs.skins} isActive={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
-                    <ProfileTabButton label={t('sub_market')} iconUrl={config.uiIcons.profile_tabs.market} isActive={activeTab === 'market'} onClick={() => setActiveTab('market')} />
-                    <ProfileTabButton label={t('sub_cell')} iconUrl={config.uiIcons.profile_tabs.cell} isActive={activeTab === 'cell'} onClick={() => setActiveTab('cell')} />
+                    <ProfileTabButton label={t('sub_contacts')} iconUrl={config?.uiIcons?.profile_tabs?.contacts || ''} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
+                    <ProfileTabButton label={t('sub_boosts')} iconUrl={config?.uiIcons?.profile_tabs?.boosts || ''} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
+                    <ProfileTabButton label={t('sub_disguise')} iconUrl={config?.uiIcons?.profile_tabs?.skins || ''} isActive={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
+                    <ProfileTabButton label={t('sub_market')} iconUrl={config?.uiIcons?.profile_tabs?.market || ''} isActive={activeTab === 'market'} onClick={() => setActiveTab('market')} />
+                    <ProfileTabButton label={t('sub_cell')} iconUrl={config?.uiIcons?.profile_tabs?.cell || ''} isActive={activeTab === 'cell'} onClick={() => setActiveTab('cell')} />
                 </div>
             </div>
             
@@ -414,8 +414,8 @@ const MainApp: React.FC = () => {
       if (result.player) {
           window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
           const rewardText = task.reward?.type === 'profit'
-              ? `+${formatNumber(task.reward.amount)}/hr <img src="${config.uiIcons.energy}" class="w-4 h-4 inline-block -mt-1"/>`
-              : `+${formatNumber(task.reward.amount)} <img src="${config.uiIcons.coin}" class="w-4 h-4 inline-block -mt-1"/>`;
+              ? `+${formatNumber(task.reward.amount)}/hr <img src="${config?.uiIcons?.energy || ''}" class="w-4 h-4 inline-block -mt-1"/>`
+              : `+${formatNumber(task.reward.amount)} <img src="${config?.uiIcons?.coin || ''}" class="w-4 h-4 inline-block -mt-1"/>`;
           showNotification(`${task.name?.[user.language]} ${t('task_completed')} <span class="whitespace-nowrap">${rewardText}</span>`, 'success');
           
           setStartedTasks(prev => {
@@ -600,11 +600,11 @@ const MainApp: React.FC = () => {
 
       <nav className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-t border-slate-700">
         <div className="grid grid-cols-5 justify-around items-start max-w-xl mx-auto">
-          <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} />
-          <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} />
-          <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} />
-          <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} />
-          <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} />
+          <NavItem screen="exchange" label={t('exchange')} iconUrl={config?.uiIcons?.nav?.exchange || ''} active={activeScreen === 'exchange'} />
+          <NavItem screen="mine" label={t('mine')} iconUrl={config?.uiIcons?.nav?.mine || ''} active={activeScreen === 'mine'} />
+          <NavItem screen="missions" label={t('missions')} iconUrl={config?.uiIcons?.nav?.missions || ''} active={activeScreen === 'missions'} />
+          <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config?.uiIcons?.nav?.airdrop || ''} active={activeScreen === 'airdrop'} />
+          <NavItem screen="profile" label={t('profile')} iconUrl={config?.uiIcons?.nav?.profile || ''} active={activeScreen === 'profile'} />
         </div>
       </nav>
        <style>{`

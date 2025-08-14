@@ -175,8 +175,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                     <span className="text-xs font-bold text-white leading-tight">{user.language.toUpperCase()}</span>
                 </button>
             </div>
-            <ProgressBar value={energy} max={effectiveMaxEnergy} label={t('energy')} iconUrl={config.uiIcons.energy} />
-            <SuspicionMeter value={suspicion} max={effectiveMaxSuspicion} iconUrl={config.uiIcons.suspicion} />
+            <ProgressBar value={energy} max={effectiveMaxEnergy} label={t('energy')} iconUrl={config?.uiIcons?.energy} />
+            <SuspicionMeter value={suspicion} max={effectiveMaxSuspicion} iconUrl={config?.uiIcons?.suspicion} />
         </div>
 
       {/* Main Content Area: Coin Card */}
@@ -228,11 +228,11 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             {/* Balance and Profit */}
             <div className="flex flex-col items-center flex-shrink-0 my-1">
                 <div className="flex items-center space-x-2">
-                    <img src={config.uiIcons.coin} alt="coin" className="w-[5vh] h-[5vh] max-w-[32px] max-h-[32px]"/>
+                    <img src={config?.uiIcons?.coin || ''} alt="coin" className="w-[5vh] h-[5vh] max-w-[32px] max-h-[32px]"/>
                     <h1 className="text-responsive-2xl font-display text-slate-100" style={{textShadow: 'none'}}>{formatNumber(balance)}</h1>
                 </div>
                 <div className="text-responsive-sm text-[var(--accent-color)] flex items-center gap-1 font-bold">
-                    <img src={config.uiIcons.energy} alt="" className="w-3 h-3"/>
+                    <img src={config?.uiIcons?.energy || ''} alt="" className="w-3 h-3"/>
                     <span>+{formatNumber(profitPerHour)}/hr</span>
                 </div>
             </div>

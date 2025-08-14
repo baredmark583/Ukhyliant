@@ -46,7 +46,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, playerState, onClaim, onPurch
             return (
                 <button onClick={() => onPurchase(task as SpecialTask)} className="interactive-button rounded-lg font-bold py-2 px-3 text-sm flex items-center justify-center space-x-1.5 w-full">
                     <span>{t('unlock_for')} {(task as SpecialTask).priceStars}</span>
-                    <img src={uiIcons.star} alt="star" className="w-4 h-4"/>
+                    <img src={uiIcons?.star || ''} alt="star" className="w-4 h-4"/>
                 </button>
             );
         }
@@ -65,7 +65,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, playerState, onClaim, onPurch
         );
     };
     
-    const rewardIconUrl = task.reward?.type === 'profit' ? uiIcons.energy : uiIcons.coin;
+    const rewardIconUrl = task.reward?.type === 'profit' ? uiIcons?.energy : uiIcons?.coin;
     
     return (
          <div className={`card-glow bg-slate-800/50 rounded-2xl p-3 flex flex-col justify-between min-h-48 space-y-4 transition-opacity ${isCompleted ? 'opacity-60' : ''}`}>
@@ -82,7 +82,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, playerState, onClaim, onPurch
                 </div>
                 {'description' in task && <p className="text-[var(--text-secondary)] text-xs text-left" title={(task as SpecialTask).description?.[lang]}>{(task as SpecialTask).description?.[lang]}</p>}
                 <div className="text-yellow-400 text-sm text-left mt-2 flex items-center space-x-1 font-bold">
-                    <img src={rewardIconUrl} alt="reward" className="w-4 h-4" />
+                    <img src={rewardIconUrl || ''} alt="reward" className="w-4 h-4" />
                     <span>+{formatNumber(task.reward.amount)}</span>
                     {task.reward.type === 'profit' && <span className="text-[var(--text-secondary)] font-normal ml-1">/hr</span>}
                 </div>
