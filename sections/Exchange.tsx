@@ -6,7 +6,7 @@ import { formatNumber } from '../utils';
 import CircularProgressBar from '../components/CircularProgressBar';
 
 const MORSE_CODE_MAP: { [key: string]: string } = {
-    'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--', 'Z': '--..',
+    'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--.', 'Z': '--..',
     '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.', '0': '-----'
 };
 
@@ -33,6 +33,19 @@ interface ClickFx {
   xOffset: number;
 }
 
+const TooltipModal: React.FC<{ titleKey: string, descKey: string, onClose: () => void }> = ({ titleKey, descKey, onClose }) => {
+    const t = useTranslation();
+    return (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" onClick={e => e.stopPropagation()}>
+                <h2 className="text-xl font-bold text-white mb-4">{t(titleKey as any)}</h2>
+                <p className="text-white text-center mb-6">{t(descKey as any)}</p>
+                <button onClick={onClose} className="w-full interactive-button rounded-lg font-bold py-3 mt-2 text-lg">{t('close')}</button>
+            </div>
+        </div>
+    );
+};
+
 const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion }) => {
   const t = useTranslation();
   const { balance, profitPerHour, energy, suspicion } = playerState;
@@ -47,6 +60,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const morseCharTimeout = useRef<number | null>(null);
   const lastClickPos = useRef({ x: 0, y: 0 });
   const lastTapTime = useRef(0);
+
+  const [tooltip, setTooltip] = useState<{ titleKey: string, descKey: string } | null>(null);
 
   const dailyCipherWord = (config.dailyEvent?.cipherWord || '').toUpperCase();
   const claimedCipher = playerState.claimedCipherToday;
@@ -162,9 +177,10 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
   return (
     <div className="flex flex-col h-full text-white p-2 sm:p-4 gap-2">
+      {tooltip && <TooltipModal titleKey={tooltip.titleKey} descKey={tooltip.descKey} onClose={() => setTooltip(null)} />}
       {/* Top Section: Info Panel */}
         <div className="w-full flex items-center justify-between gap-1 mb-2 flex-shrink-0">
-             <div className="flex flex-col items-center flex-shrink-0 text-center">
+             <div className="flex flex-col items-center flex-shrink-0 text-center cursor-pointer" onClick={() => setTooltip({ titleKey: 'energy', descKey: 'energy_tooltip_desc' })}>
                 <CircularProgressBar 
                     value={energy} 
                     max={effectiveMaxEnergy} 
@@ -188,7 +204,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                 </button>
             </div>
             
-            <div className="flex flex-col items-center flex-shrink-0 text-center">
+            <div className="flex flex-col items-center flex-shrink-0 text-center cursor-pointer" onClick={() => setTooltip({ titleKey: 'suspicion', descKey: 'suspicion_tooltip_desc' })}>
                 <CircularProgressBar 
                     value={suspicion} 
                     max={effectiveMaxSuspicion}

@@ -583,7 +583,7 @@ export const useGame = () => {
     const effectiveCoinsPerTap = useMemo(() => {
         if (!playerState) return 1;
         // Compounding formula for Guru Tapper
-        return (playerState.coinsPerTap || 1) * Math.pow(1.10, playerState.tapGuruLevel || 0);
+        return (playerState.coinsPerTap || 1) * Math.pow(1.5, playerState.tapGuruLevel || 0);
     }, [playerState?.coinsPerTap, playerState?.tapGuruLevel]);
 
     // Game loop for energy regen and passive income
@@ -656,16 +656,21 @@ export const useGame = () => {
     }, [playerState?.profitPerHour, config?.leagues]);
 
     const handleTap = useCallback(() => {
-        if (!playerState || playerState.energy < 1) return 0;
+        if (!playerState || playerState.energy <= 0) return 0;
+        
         const tapValue = effectiveCoinsPerTap * (isTurboActive ? 5 : 1);
+        const valueToProcess = Math.min(tapValue, playerState.energy);
+        
+        if (valueToProcess <= 0) return 0;
+
         tapsSinceLastSave.current += 1;
         setPlayerState(p => p ? {
             ...p,
-            balance: p.balance + tapValue,
-            energy: Math.max(0, p.energy - 1),
+            balance: p.balance + valueToProcess,
+            energy: p.energy - valueToProcess,
             dailyTaps: p.dailyTaps + 1,
         } : null);
-        return tapValue;
+        return valueToProcess;
     }, [playerState, setPlayerState, effectiveCoinsPerTap, isTurboActive]);
 
 

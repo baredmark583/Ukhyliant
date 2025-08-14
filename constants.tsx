@@ -43,7 +43,7 @@ export const INITIAL_SPECIAL_TASKS: SpecialTask[] = [
 export const INITIAL_BOOSTS: Boost[] = [
     { id: 'boost_full_energy', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, iconUrl: 'https://api.iconify.design/twemoji/high-voltage.svg', costCoins: 2000, suspicionModifier: 1 },
     { id: 'boost_turbo_mode', name: { en: 'Turbo Mode', ua: 'Турбо-режим', ru: 'Турбо-режим' }, description: { en: 'x5 coins per tap for 20 seconds!', ua: 'x5 монет за тап протягом 20 секунд!', ru: 'x5 монет за тап в течение 20 секунд!' }, iconUrl: 'https://api.iconify.design/twemoji/fire.svg', costCoins: 2000, suspicionModifier: 2 },
-    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+10% per tap (compounding).', ua: '+10% за тап (складний відсоток).', ru: '+10% за тап (сложный процент).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
+    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+50% per tap (compounding).', ua: '+50% за тап (складний відсоток).', ru: '+50% за тап (сложный процент).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
     { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: '+500 to your max energy capacity.', ua: '+500 до максимального запасу енергії.', ru: '+500 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
     { id: 'boost_suspicion_limit', name: { en: 'Suspicion Limit', ua: 'Ліміт Підозри', ru: 'Лимит Подозрения' }, description: { en: '+10 to max suspicion capacity.', ua: '+10 до макс. запасу підозри.', ru: '+10 к макс. запасу подозрения.' }, iconUrl: 'https://api.iconify.design/ph/shield-warning-fill.svg?color=white', costCoins: 1000, suspicionModifier: 0 },
 ];
@@ -111,6 +111,8 @@ type TranslationKey =
   | 'battle_boosts' | 'battle_boosts_desc' | 'activate'
   // Wallet & Airdrop
   | 'connect_wallet_title' | 'connect_wallet_desc' | 'wallet_connected' | 'your_wallet_address' | 'disconnect_wallet'
+  // Tooltips
+  | 'energy_tooltip_desc' | 'suspicion_tooltip_desc'
   // Admin Panel
   | 'nav_cells' | 'nav_cell_analytics' | 'nav_cell_config'
   | 'kpi_total_cells' | 'kpi_battle_participants' | 'kpi_total_bank' | 'kpi_tickets_spent'
@@ -284,6 +286,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     wallet_connected: 'Wallet Connected',
     your_wallet_address: 'Your Wallet Address',
     disconnect_wallet: 'Disconnect',
+    energy_tooltip_desc: 'This is your tapping capacity. Each tap depletes stamina by the number of coins you earn. It replenishes over time.',
+    suspicion_tooltip_desc: 'Certain actions increase suspicion. If the meter fills up, Big Brother will punish you by confiscating a portion of your coins.',
     loading: 'Loading...',
     cancel: 'Cancel',
     nav_cells: 'Cells',
@@ -487,6 +491,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     wallet_connected: 'Гаманець Підключено',
     your_wallet_address: 'Адреса вашого гаманця',
     disconnect_wallet: 'Відключити',
+    energy_tooltip_desc: 'Це ваша ємність для тапів. Кожен тап виснажує витривалість на кількість зароблених монет. Вона відновлюється з часом.',
+    suspicion_tooltip_desc: 'Певні дії підвищують підозру. Якщо шкала заповниться, Великий Брат покарає вас, конфіскувавши частину ваших монет.',
     loading: 'Завантаження...',
     cancel: 'Скасувати',
     nav_cells: 'Осередки',
@@ -690,6 +696,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     wallet_connected: 'Кошелек Подключен',
     your_wallet_address: 'Адрес вашего кошелька',
     disconnect_wallet: 'Отключить',
+    energy_tooltip_desc: 'Это ваша ёмкость для тапов. Каждый тап истощает выносливость на количество заработанных монет. Она восстанавливается со временем.',
+    suspicion_tooltip_desc: 'Определенные действия повышают подозрение. Если шкала заполнится, Большой Брат накажет вас, конфисковав часть ваших монет.',
     loading: 'Загрузка...',
     cancel: 'Отмена',
     nav_cells: 'Ячейки',
