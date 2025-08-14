@@ -28,6 +28,9 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
   const suspicionColor = suspicionMod > 0 ? 'text-red-400' : suspicionMod < 0 ? 'text-[var(--accent-color)]' : 'text-gray-500';
   const suspicionSign = suspicionMod > 0 ? '+' : '';
 
+  // Calculate the profit for the NEXT level purchase based on the current level.
+  const profitForNextLevel = Math.floor(upgrade.profitPerHour * Math.pow(1.07, upgrade.level));
+
   return (
     <button
       onClick={() => onBuy(upgrade.id)}
@@ -50,7 +53,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
         <div className="flex items-center justify-center space-x-3">
           <span className="text-[var(--accent-color)] font-semibold flex items-center">
               <img src={uiIcons.energy} alt="" className="w-3 h-3 mr-1"/>
-              +{formatNumber(upgrade.profitPerHour)}
+              +{formatNumber(profitForNextLevel)}
           </span>
            {suspicionMod !== 0 && (
                  <span className={`${suspicionColor} font-semibold flex items-center`}>

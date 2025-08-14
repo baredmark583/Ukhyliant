@@ -934,7 +934,7 @@ export const openLootboxInDb = async (userId, boxType, config) => {
             const cardId = wonItem.id;
             const currentLevel = player.upgrades[cardId] || 0;
             player.upgrades[cardId] = currentLevel + 1;
-            const profitGained = wonItem.profitPerHour;
+            const profitGained = Math.floor(wonItem.profitPerHour * Math.pow(1.07, currentLevel));
             player.profitPerHour = (player.profitPerHour || 0) + profitGained;
             
             const userRes = await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId]);
@@ -1004,7 +1004,8 @@ const grantStarLootboxItem = async (userId, config) => {
             const cardId = wonItem.id;
             const currentLevel = player.upgrades[cardId] || 0;
             player.upgrades[cardId] = currentLevel + 1;
-            player.profitPerHour = (player.profitPerHour || 0) + wonItem.profitPerHour;
+            const profitGained = Math.floor(wonItem.profitPerHour * Math.pow(1.07, currentLevel));
+            player.profitPerHour = (player.profitPerHour || 0) + profitGained;
             
             const userRes = await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId]);
             const referrerId = userRes.rows[0]?.referrer_id;
@@ -1268,7 +1269,10 @@ export const buyUpgradeInDb = async (userId, upgradeId, config) => {
 
         player.balance -= price;
         player.upgrades[upgradeId] = currentLevel + 1;
-        player.profitPerHour = (player.profitPerHour || 0) + upgrade.profitPerHour;
+        
+        const profitGained = Math.floor(upgrade.profitPerHour * Math.pow(1.07, currentLevel));
+        player.profitPerHour = (player.profitPerHour || 0) + profitGained;
+        
         player.dailyUpgrades = [...new Set([...(player.dailyUpgrades || []), upgradeId])];
 
         const user = await getUser(userId);
