@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react@19.1.1';
+import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
@@ -14,6 +14,8 @@ type ProfileTab = 'contacts' | 'boosts' | 'skins' | 'market' | 'cell';
 
 // Add html2canvas to the global scope for TypeScript
 declare const html2canvas: any;
+
+const isExternal = (url: string | undefined) => url && url.startsWith('http');
 
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
@@ -227,7 +229,7 @@ const makeShardsFromImage = (imgCanvas: HTMLCanvasElement, impactX: number, impa
           const centroid = poly.reduce((acc,p)=>({x:acc.x+p.x,y:acc.y+p.y}),{x:0,y:0}); centroid.x /= poly.length; centroid.y /= poly.length;
           const dirX = (centroid.x - impactX); const dirY = (centroid.y - impactY); const dist = Math.sqrt(dirX*dirX + dirY*dirY) + 0.01;
           const nx = dirX / dist, ny = dirY / dist;
-          shards.push({el: sCanvas, cx: centroid.x, cy: centroid.y, nx, ny, w:pw, h:ph});
+          shards.push({el: sCanvas, cx: centroid.x, cy: centroid.y, nx, ny, w:pw, h:ph, minX, minY});
         });
       }
     }
@@ -273,9 +275,18 @@ const FinalShatterEffect: React.FC<{ onComplete: () => void }> = ({ onComplete }
                 const dt = Math.min(40, now - last) / 1000; last = now;
                 let anyVisible = false;
                 for (let s of shards) {
-                    s.vx += s.ax * dt * 60; s.vy += s.ay * dt * 60; s.cx += s.vx * dt * 60; s.cy += s.vy * dt * 60; s.angle += s.rot * dt * 60; s.opacity -= 0.003 * (0.5 + Math.random());
-                    s.el.style.transform = `translate(${s.cx - s.w/2}px, ${s.cy - s.h/2}px) rotate(${s.angle}rad)`;
+                    s.vx += s.ax * dt * 60;
+                    s.vy += s.ay * dt * 60;
+                    s.cx += s.vx * dt * 60;
+                    s.cy += s.vy * dt * 60;
+                    s.angle += s.rot * dt * 60;
+                    s.opacity -= 0.003 * (0.5 + Math.random());
+                    
+                    const dx = s.cx - s.minX - s.w / 2;
+                    const dy = s.cy - s.minY - s.h / 2;
+                    s.el.style.transform = `translate(${dx}px, ${dy}px) rotate(${s.angle}rad)`;
                     s.el.style.opacity = String(Math.max(0, s.opacity));
+
                     if (s.opacity > 0.02) anyVisible = true;
                 }
                 if (anyVisible) {
@@ -330,8 +341,10 @@ const FinalShatterEffect: React.FC<{ onComplete: () => void }> = ({ onComplete }
             if (animationFrameId.current) {
                 cancelAnimationFrame(animationFrameId.current);
             }
-            content.style.visibility = 'visible';
-            content.classList.remove('pulse');
+            if(content) {
+                content.style.visibility = 'visible';
+                content.classList.remove('pulse');
+            }
         };
     }, [onComplete]);
 
@@ -384,6 +397,7 @@ const LoadingScreen: React.FC<{imageUrl?: string}> = ({ imageUrl }) => (
                 src={imageUrl} 
                 alt="Loading..." 
                 className="absolute top-0 left-0 w-full h-full object-cover"
+                {...(isExternal(imageUrl) && { crossOrigin: 'anonymous' })}
             />
         ) : (
             <div className="w-full h-full flex flex-col justify-center items-center p-4">
@@ -410,7 +424,7 @@ const ProfileTabButton = ({ label, iconUrl, isActive, onClick }: { label: string
             isActive ? 'bg-slate-900 shadow-inner' : 'hover:bg-slate-700/50'
         }`}
     >
-        <img src={iconUrl} alt={label} className={`w-7/12 h-7/12 object-contain transition-all duration-200 ${isActive ? 'active-icon' : 'text-slate-400'}`} />
+        <img src={iconUrl} alt={label} className={`w-7/12 h-7/12 object-contain transition-all duration-200 ${isActive ? 'active-icon' : 'text-slate-400'}`} {...(isExternal(iconUrl) && { crossOrigin: 'anonymous' })} />
         <span className={`text-responsive-xxs font-bold transition-opacity duration-200 mt-1 ${isActive ? 'text-[var(--accent-color)] opacity-100' : 'opacity-0'}`}>{label}</span>
     </button>
 );
@@ -447,7 +461,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                     <div className="flex items-center justify-center">
                         <p className="text-5xl font-display my-1">{playerState.referrals}</p>
                         <button onClick={(e) => { e.stopPropagation(); onOpenGlitchCodesModal(); }} className="ml-4 p-2 rounded-full hover:bg-slate-700/50">
-                            <img src={config.uiIcons.secretCodeEntry} alt="Secret Codes" className="w-6 h-6"/>
+                            <img src={config.uiIcons.secretCodeEntry} alt="Secret Codes" className="w-6 h-6" {...(isExternal(config.uiIcons.secretCodeEntry) && { crossOrigin: 'anonymous' })}/>
                         </button>
                     </div>
                 </div>
@@ -455,14 +469,14 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                     <p className="text-[var(--text-secondary)] text-lg">{t('referral_bonus')}</p>
                     <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2">
                         <span>+{REFERRAL_BONUS.toLocaleString()}</span>
-                        <img src={config.uiIcons.coin} alt="coin" className="w-6 h-6" />
+                        <img src={config.uiIcons.coin} alt="coin" className="w-6 h-6" {...(isExternal(config.uiIcons.coin) && { crossOrigin: 'anonymous' })} />
                     </p>
                 </div>
                  <div className="card-glow p-4 rounded-xl">
                     <p className="text-[var(--text-secondary)] text-lg">{t('profit_from_referrals')}</p>
                     <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2 text-[var(--accent-color)]">
                         <span>+{formatNumber(playerState.referralProfitPerHour)}/hr</span>
-                        <img src={config.uiIcons.energy} alt="energy" className="w-6 h-6" />
+                        <img src={config.uiIcons.energy} alt="energy" className="w-6 h-6" {...(isExternal(config.uiIcons.energy) && { crossOrigin: 'anonymous' })} />
                     </p>
                 </div>
                 <button onClick={handleCopyReferral} className="w-full interactive-button text-white font-bold py-3 px-4 text-lg rounded-lg">
@@ -483,7 +497,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                         return (
                             <div key={skin.id} className={`card-glow rounded-xl p-3 flex flex-col items-center text-center transition-all ${isSelected ? 'border-2 border-[var(--accent-color)]' : ''}`}>
                                 <div className="w-16 h-16 mb-2 flex items-center justify-center">
-                                    <img src={skin.iconUrl} alt={skin.name[user.language]} className="w-full h-full object-contain" />
+                                    <img src={skin.iconUrl} alt={skin.name[user.language]} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
                                 </div>
                                 <p className="text-xs font-bold leading-tight">{skin.name[user.language]}</p>
                                 <p className="text-xs text-[var(--accent-color)] mt-1">+{skin.profitBoostPercent}%</p>
@@ -509,21 +523,21 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                 <div className="card-glow rounded-2xl p-4 text-center">
                     <h3 className="font-bold text-base mb-2">{t('lootbox_coin')}</h3>
                     <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
-                        <img src={config.uiIcons.marketCoinBox} alt={t('lootbox_coin')} className="w-full h-full object-contain" />
+                        <img src={config.uiIcons.marketCoinBox} alt={t('lootbox_coin')} className="w-full h-full object-contain" {...(isExternal(config.uiIcons.marketCoinBox) && { crossOrigin: 'anonymous' })} />
                     </div>
                     <button onClick={() => onOpenCoinLootbox('coin')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
                         <span>{formatNumber(config.lootboxCostCoins || 0)}</span>
-                        <img src={config.uiIcons.coin} alt="coin" className="w-5 h-5" />
+                        <img src={config.uiIcons.coin} alt="coin" className="w-5 h-5" {...(isExternal(config.uiIcons.coin) && { crossOrigin: 'anonymous' })} />
                     </button>
                 </div>
                 <div className="card-glow rounded-2xl p-4 text-center">
                     <h3 className="font-bold text-base mb-2">{t('lootbox_star')}</h3>
                      <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center">
-                        <img src={config.uiIcons.marketStarBox} alt={t('lootbox_star')} className="w-full h-full object-contain" />
+                        <img src={config.uiIcons.marketStarBox} alt={t('lootbox_star')} className="w-full h-full object-contain" {...(isExternal(config.uiIcons.marketStarBox) && { crossOrigin: 'anonymous' })} />
                     </div>
                     <button onClick={() => onPurchaseStarLootbox('star')} className="w-full interactive-button rounded-lg font-bold py-2 px-3 text-base flex items-center justify-center space-x-2">
                         <span>{(config.lootboxCostStars || 0)}</span>
-                        <img src={config.uiIcons.star} alt="star" className="w-5 h-5" />
+                        <img src={config.uiIcons.star} alt="star" className="w-5 h-5" {...(isExternal(config.uiIcons.star) && { crossOrigin: 'anonymous' })} />
                     </button>
                 </div>
             </div>
@@ -607,7 +621,7 @@ const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedTasks, 
             return (
                 <button onClick={() => onPurchase(task as SpecialTask)} className="interactive-button rounded-lg font-bold py-2 px-3 text-sm flex items-center justify-center space-x-1.5 w-full">
                     <span>{t('unlock_for')} {(task as SpecialTask).priceStars}</span>
-                    <img src={uiIcons.star} alt="star" className="w-4 h-4"/>
+                    <img src={uiIcons.star} alt="star" className="w-4 h-4" {...(isExternal(uiIcons.star) && { crossOrigin: 'anonymous' })}/>
                 </button>
             );
         }
@@ -634,7 +648,7 @@ const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedTasks, 
                 <div className="flex items-start space-x-3 mb-2">
                     {task.imageUrl && (
                         <div className="bg-slate-900/50 shadow-inner rounded-lg p-1 w-14 h-14 flex-shrink-0">
-                            <img src={task.imageUrl} alt={task.name?.[lang]} className="w-full h-full object-contain" />
+                            <img src={task.imageUrl} alt={task.name?.[lang]} className="w-full h-full object-contain" {...(isExternal(task.imageUrl) && { crossOrigin: 'anonymous' })} />
                         </div>
                     )}
                     <div className="flex-grow min-w-0">
@@ -643,7 +657,7 @@ const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedTasks, 
                 </div>
                 {'description' in task && <p className="text-[var(--text-secondary)] text-xs text-left" title={(task as SpecialTask).description?.[lang]}>{(task as SpecialTask).description?.[lang]}</p>}
                 <div className="text-yellow-400 text-sm text-left mt-2 flex items-center space-x-1 font-bold">
-                    <img src={rewardIconUrl} alt="reward" className="w-4 h-4" />
+                    <img src={rewardIconUrl} alt="reward" className="w-4 h-4" {...(isExternal(rewardIconUrl) && { crossOrigin: 'anonymous' })} />
                     <span>+{formatNumber(task.reward.amount)}</span>
                     {task.reward.type === 'profit' && <span className="text-[var(--text-secondary)] font-normal ml-1">/hr</span>}
                 </div>
@@ -762,7 +776,7 @@ const LeaderboardScreen: React.FC<{
                             {data?.topPlayers.map((player, index) => (
                                 <div key={player.id} className="bg-slate-900/30 rounded-lg p-2 flex items-center space-x-3 text-sm">
                                     <span className="font-bold w-6 text-center">{index + 1}</span>
-                                    <img src={player.leagueIconUrl} alt="league" className="w-8 h-8"/>
+                                    <img src={player.leagueIconUrl} alt="league" className="w-8 h-8" {...(isExternal(player.leagueIconUrl) && { crossOrigin: 'anonymous' })}/>
                                     <span className="flex-grow font-semibold text-white truncate">{player.name}</span>
                                     <span className="text-[var(--accent-color)] font-mono">+{formatNumber(player.profitPerHour)}</span>
                                 </div>
@@ -786,13 +800,14 @@ const PurchaseResultModal: React.FC<{
     
     const isLootboxItem = result.type === 'lootbox';
     const title = isLootboxItem ? t('won_item') : t('task_unlocked');
+    const iconUrl = item.iconUrl || item.imageUrl;
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
             <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" onClick={e => e.stopPropagation()}>
                 <h2 className="text-xl font-bold text-white mb-4">{title}!</h2>
                 <div className="w-32 h-32 mb-4 bg-slate-900/50 shadow-inner rounded-2xl p-2 flex items-center justify-center">
-                    <img src={item.iconUrl || item.imageUrl} alt={item.name[lang]} className="w-full h-full object-contain" />
+                    <img src={iconUrl} alt={item.name[lang]} className="w-full h-full object-contain" {...(isExternal(iconUrl) && { crossOrigin: 'anonymous' })} />
                 </div>
                 <p className="text-lg font-bold text-white mb-2">{item.name[lang]}</p>
                 {isLootboxItem && 'profitBoostPercent' in item && item.profitBoostPercent > 0 && <p className="text-[var(--accent-color)]">+{item.profitBoostPercent}% {t('profit_boost')}</p>}
@@ -1272,6 +1287,7 @@ const MainApp: React.FC = () => {
                 src={iconUrl} 
                 alt={label} 
                 className={`w-7 h-7 transition-all duration-200 ${active ? 'active-icon' : ''}`} 
+                {...(isExternal(iconUrl) && { crossOrigin: 'anonymous' })}
             />
         </div>
         <span className={`transition-opacity duration-200 font-bold ${active ? 'opacity-100' : 'opacity-0'}`}>{label}</span>

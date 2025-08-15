@@ -1,4 +1,4 @@
-import React from 'https://esm.sh/react@19.1.1';
+import React from 'https://esm.sh/react';
 import { useTranslation } from '../hooks/useGameLogic';
 
 interface CircularProgressBarProps {
@@ -17,6 +17,8 @@ const formatNumber = (num: number): string => {
   if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
   return Math.floor(num).toString();
 };
+
+const isExternal = (url: string | undefined) => url && url.startsWith('http');
 
 const CircularProgressBar: React.FC<CircularProgressBarProps> = ({ value, max, size = 60, strokeWidth = 8, iconUrl, color }) => {
   const radius = (size - strokeWidth) / 2;
@@ -46,7 +48,7 @@ const CircularProgressBar: React.FC<CircularProgressBarProps> = ({ value, max, s
         />
       </svg>
       <div className="flex flex-col items-center justify-center z-10 p-1 space-y-0.5">
-        <img src={iconUrl} alt="icon" className="w-[45%] h-[45%]" />
+        <img src={iconUrl} alt="icon" className="w-[45%] h-[45%]" {...(isExternal(iconUrl) && { crossOrigin: 'anonymous' })} />
         <div className="flex flex-col items-center justify-center leading-tight">
           <span className="font-mono text-[9px] font-bold text-[var(--text-primary)]">{formatNumber(value)}</span>
           <span className="font-mono text-[8px] text-[var(--text-secondary)] -mt-0.5">/ {formatNumber(max)}</span>

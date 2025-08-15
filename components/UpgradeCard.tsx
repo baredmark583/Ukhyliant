@@ -1,4 +1,4 @@
-import React from 'https://esm.sh/react@19.1.1';
+import React from 'https://esm.sh/react';
 import { Upgrade, Language, UiIcons } from '../types';
 import { useTranslation } from '../hooks/useGameLogic';
 
@@ -19,6 +19,7 @@ const formatNumber = (num: number): string => {
   return num.toLocaleString('en-US');
 };
 
+const isExternal = (url: string | undefined) => url && url.startsWith('http');
 
 const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang, uiIcons }) => {
   const t = useTranslation();
@@ -42,7 +43,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
       {/* Top section: Icon, Name, Level */}
       <div className="flex flex-col items-center">
         <div className="bg-slate-900/70 rounded-full p-1 w-12 h-12 flex-shrink-0 mb-2 shadow-inner">
-          <img src={upgrade.iconUrl} alt={upgrade.name?.[lang]} className="w-full h-full object-contain" />
+          <img src={upgrade.iconUrl} alt={upgrade.name?.[lang]} className="w-full h-full object-contain" {...(isExternal(upgrade.iconUrl) && { crossOrigin: 'anonymous' })} />
         </div>
         <p className="text-white font-semibold leading-tight mb-1 h-8 flex items-center justify-center text-responsive-sm">{upgrade.name?.[lang]}</p>
         <span className="text-[var(--text-secondary)] text-responsive-xs">{t('lvl')} {upgrade.level}</span>
@@ -52,18 +53,18 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
       <div className="w-full text-responsive-xs space-y-2">
         <div className="flex items-center justify-center space-x-3">
           <span className="text-[var(--accent-color)] font-semibold flex items-center">
-              <img src={uiIcons.energy} alt="" className="w-3 h-3 mr-1"/>
+              <img src={uiIcons.energy} alt="" className="w-3 h-3 mr-1" {...(isExternal(uiIcons.energy) && { crossOrigin: 'anonymous' })}/>
               +{formatNumber(profitForNextLevel)}
           </span>
            {suspicionMod !== 0 && (
                  <span className={`${suspicionColor} font-semibold flex items-center`}>
-                    <img src={uiIcons.suspicion} alt="" className="w-3 h-3 mr-1"/>
+                    <img src={uiIcons.suspicion} alt="" className="w-3 h-3 mr-1" {...(isExternal(uiIcons.suspicion) && { crossOrigin: 'anonymous' })}/>
                     {suspicionSign}{suspicionMod}
                 </span>
             )}
         </div>
         <div className="flex items-center justify-center space-x-1.5 w-full bg-slate-900/70 rounded-lg py-1.5 mt-2 shadow-inner">
-          <img src={uiIcons.coin} alt="coin" className="w-4 h-4"/>
+          <img src={uiIcons.coin} alt="coin" className="w-4 h-4" {...(isExternal(uiIcons.coin) && { crossOrigin: 'anonymous' })}/>
           <span className="text-white font-bold text-responsive-base">{formatNumber(upgrade.price)}</span>
         </div>
       </div>

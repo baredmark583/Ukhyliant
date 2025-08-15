@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'https://esm.sh/react@19.1.1';
+import React, { useState, useCallback, useRef, useEffect } from 'https://esm.sh/react';
 import CircularProgressBar from '../components/CircularProgressBar';
 import { PlayerState, League, User, GameConfig } from '../types';
 import { DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -45,6 +45,8 @@ interface ClickFx {
   value: number;
   xOffset: number;
 }
+
+const isExternal = (url: string | undefined) => url && url.startsWith('http');
 
 const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion, onEnergyClick, onSuspicionClick, isMuted, toggleMute, handleMetaTap }) => {
   const t = useTranslation();
@@ -187,14 +189,14 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             <CircularProgressBar value={suspicion} max={effectiveMaxSuspicion} iconUrl={config.uiIcons.suspicion} color="#f87171" size={60} strokeWidth={6} />
           </button>
           <button onClick={onOpenLeaderboard} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
-              {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-8 h-8" />}
+              {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-8 h-8" {...(isExternal(currentLeague.iconUrl) && { crossOrigin: 'anonymous' })} />}
           </button>
           <button onClick={handleSwitchLanguage} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
-              <img src="https://api.iconify.design/ph/globe-bold.svg?color=white" alt="Language" className="w-8 h-8"/>
+              <img src="https://api.iconify.design/ph/globe-bold.svg?color=white" alt="Language" className="w-8 h-8" crossOrigin="anonymous"/>
               <span className="text-xs font-bold text-white leading-tight">{user.language.toUpperCase()}</span>
           </button>
            <button onClick={toggleMute} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex items-center justify-center">
-              <img src={isMuted ? config.uiIcons.soundOff : config.uiIcons.soundOn} alt="Mute/Unmute" className="w-8 h-8"/>
+              <img src={isMuted ? config.uiIcons.soundOff : config.uiIcons.soundOn} alt="Mute/Unmute" className="w-8 h-8" {...(isExternal(isMuted ? config.uiIcons.soundOff : config.uiIcons.soundOn) && { crossOrigin: 'anonymous' })}/>
           </button>
       </div>
 
@@ -221,6 +223,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                         alt="coin"
                         className={`w-full h-full rounded-full transition-all duration-300 ${isTurboActive ? 'animate-pulse' : ''}`}
                         style={isTurboActive ? { filter: 'drop-shadow(0 0 20px #f59e0b)' } : {}}
+                        {...(isExternal(coinSkinUrl) && { crossOrigin: 'anonymous' })}
                     />
                 </div>
 
@@ -266,13 +269,13 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             {/* Balance and Profit Info */}
             <div className="text-center w-full mt-2 flex-shrink-0">
                 <div className="flex items-center justify-center space-x-2 cursor-pointer" onClick={() => handleMetaTap('balance-display')}>
-                    <img src={config.uiIcons.coin} alt="coin" className="w-8 h-8 sm:w-10 sm:h-10" />
+                    <img src={config.uiIcons.coin} alt="coin" className="w-8 h-8 sm:w-10 sm:h-10" {...(isExternal(config.uiIcons.coin) && { crossOrigin: 'anonymous' })} />
                     <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tighter">
                         {formatNumber(balance)}
                     </h1>
                 </div>
                 <div className="mt-1 flex justify-center items-center space-x-2 text-[var(--accent-color)] font-semibold">
-                    <img src={config.uiIcons.energy} alt="Profit" className="w-4 h-4" />
+                    <img src={config.uiIcons.energy} alt="Profit" className="w-4 h-4" {...(isExternal(config.uiIcons.energy) && { crossOrigin: 'anonymous' })} />
                     <span className="text-base">+{formatNumber(profitPerHour)}</span>
                     <span className="text-sm text-[var(--text-secondary)]">/hr</span>
                 </div>

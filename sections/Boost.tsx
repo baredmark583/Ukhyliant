@@ -1,4 +1,4 @@
-import React from 'https://esm.sh/react@19.1.1';
+import React from 'https://esm.sh/react';
 import { Boost, Language, PlayerState, UiIcons } from '../types';
 import { useTranslation } from '../hooks/useGameLogic';
 import { BOOST_PURCHASE_LIMITS } from '../constants';
@@ -19,6 +19,8 @@ const formatNumber = (num: number): string => {
   if (num >= 10000) return `${(num / 1000).toFixed(1)}K`;
   return num.toLocaleString('en-US');
 };
+
+const isExternal = (url: string | undefined) => url && url.startsWith('http');
 
 const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, lang, uiIcons }) => {
   const t = useTranslation();
@@ -57,7 +59,7 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
             <div key={boost.id} className="card-glow bg-slate-800/50 rounded-2xl p-3 flex flex-col items-center text-center justify-between">
                 <div className="flex-grow">
                     <div className="w-16 h-16 mx-auto flex-shrink-0 flex items-center justify-center bg-slate-900/50 shadow-inner rounded-full p-2 mb-2">
-                        <img src={boost.iconUrl} alt={boost.name?.[lang]} className="w-12 h-12 object-contain" />
+                        <img src={boost.iconUrl} alt={boost.name?.[lang]} className="w-12 h-12 object-contain" {...(isExternal(boost.iconUrl) && { crossOrigin: 'anonymous' })} />
                     </div>
                     <h2 className="text-sm font-bold leading-tight">{boost.name?.[lang]}</h2>
                     <p className="text-xs text-[var(--text-secondary)] mt-1 h-10">{boost.description?.[lang]}</p>
@@ -73,7 +75,7 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
                     disabled={!canAfford || isLimitReached}
                     className="w-full mt-3 interactive-button rounded-xl px-2 py-2 font-bold text-sm flex items-center justify-center space-x-2 flex-shrink-0 disabled:opacity-50"
                 >
-                    <img src={uiIcons.coin} alt="coin" className="w-5 h-5"/>
+                    <img src={uiIcons.coin} alt="coin" className="w-5 h-5" {...(isExternal(uiIcons.coin) && { crossOrigin: 'anonymous' })}/>
                     <div className="flex flex-col items-start leading-tight">
                         <span className="text-xs">{formatNumber(cost)}</span>
                         {isMultiLevel && <span className="text-xs text-white/70">{t('lvl')} {level}</span>}
