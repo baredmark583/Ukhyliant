@@ -279,6 +279,7 @@ const FinalShatterEffect: React.FC<{ onComplete: () => void }> = ({ onComplete }
               const dt = Math.min(40, now - last)/1000; last = now; let anyVisible = false;
               for (let s of shards){
                 s.vx += s.ax * dt * 60; s.vy += s.ay * dt * 60; s.cx += s.vx * dt * 60; s.cy += s.vy * dt * 60; s.angle += s.rot * dt * 60; s.opacity -= 0.003 * (0.5 + Math.random());
+                // This is the exact transform logic from the user's working example.
                 s.el.style.transform = `translate(${(s.cx - (s.el.width/2)) - parseFloat(s.el.style.left || '0')}px, ${(s.cy - (s.el.height/2)) - parseFloat(s.el.style.top || '0')}px) rotate(${s.angle}rad) translate(-${s.el.width/2}px,-${s.el.height/2}px)`;
                 s.el.style.opacity = String(Math.max(0, s.opacity)); if (s.opacity > 0.02) anyVisible = true;
               }
