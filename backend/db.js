@@ -264,7 +264,31 @@ export const initializeDb = async () => {
         migrateArrayConfig('blackMarketCards', INITIAL_BLACK_MARKET_CARDS);
         migrateArrayConfig('coinSkins', INITIAL_COIN_SKINS);
         migrateArrayConfig('leagues', INITIAL_LEAGUES);
-        migrateArrayConfig('glitchEvents', INITIAL_GLITCH_EVENTS);
+
+        // Special migration for glitchEvents to add triggers
+        if (!config.glitchEvents) {
+            config.glitchEvents = INITIAL_GLITCH_EVENTS;
+            needsUpdate = true;
+        } else {
+            let migrated = false;
+            (config.glitchEvents || []).forEach(event => {
+                if (!event.trigger) {
+                    migrated = true;
+                    const initialEvent = INITIAL_GLITCH_EVENTS.find(e => e.id === event.id);
+                    if (initialEvent) {
+                        event.trigger = initialEvent.trigger;
+                    } else {
+                        // Assign a harmless default trigger if it's a custom event from the past
+                        event.trigger = { type: 'meta_tap', params: { targetId: `disabled_${event.id}`, taps: 9999 } };
+                    }
+                }
+            });
+            if (migrated) {
+                 console.log("Migrated glitchEvents to include new trigger structure.");
+                 needsUpdate = true;
+            }
+             migrateArrayConfig('glitchEvents', INITIAL_GLITCH_EVENTS);
+        }
 
         // Migrate all non-array (single value) properties
         const checkSingleProp = (key, initialValue) => {

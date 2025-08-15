@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         upgrades: { titleKey: 'nav_upgrades', cols: ['id', 'name', 'price', 'profitPerHour', 'category', 'suspicionModifier', 'iconUrl'] },
         tasks: { titleKey: 'nav_daily_tasks', cols: ['id', 'name', 'type', 'reward', 'requiredTaps', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
         specialTasks: { titleKey: 'nav_special_tasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
-        glitchEvents: { titleKey: 'nav_glitch_events', cols: ['id', 'message', 'code', 'reward'] },
+        glitchEvents: { titleKey: 'nav_glitch_events', cols: ['id', 'message', 'code', 'reward', 'trigger'] },
         blackMarketCards: { titleKey: 'nav_market_cards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
         coinSkins: { titleKey: 'nav_coin_skins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
         uiIcons: { titleKey: 'nav_ui_icons' },
@@ -656,6 +656,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const typeKey = `reward_type_${data.type === 'profit' ? 'profit' : 'coins'}`;
                 return `${formatNumber(data.amount)} ${t(typeKey)}`;
             }
+            if (data.hasOwnProperty('type') && data.hasOwnProperty('params')) { // Trigger object
+                return `${t('trigger_type_' + data.type)} <pre class="mt-1">${escapeHtml(JSON.stringify(data.params, null, 1))}</pre>`;
+            }
             // Fallback for other objects
             return `<pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
         }
@@ -943,13 +946,42 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     };
 
+    const renderTriggerParamsUI = (container, type, params = {}) => {
+        let html = '';
+        switch (type) {
+            case 'meta_tap':
+                html = `
+                    <div class="mb-3"><label class="form-label">${t('param_targetId')}</label><input type="text" class="form-control" data-param="targetId" value="${escapeHtml(params.targetId || '')}"></div>
+                    <div class="mb-3"><label class="form-label">${t('param_taps')}</label><input type="number" class="form-control" data-param="taps" value="${escapeHtml(params.taps || 5)}"></div>
+                `;
+                break;
+            case 'login_at_time':
+                html = `
+                    <div class="row">
+                        <div class="col"><div class="mb-3"><label class="form-label">${t('param_hour')}</label><input type="number" class="form-control" data-param="hour" value="${escapeHtml(params.hour || 0)}"></div></div>
+                        <div class="col"><div class="mb-3"><label class="form-label">${t('param_minute')}</label><input type="number" class="form-control" data-param="minute" value="${escapeHtml(params.minute || 0)}"></div></div>
+                    </div>
+                `;
+                break;
+            case 'balance_equals':
+                html = `<div class="mb-3"><label class="form-label">${t('param_amount')}</label><input type="number" class="form-control" data-param="amount" value="${escapeHtml(params.amount || 0)}"></div>`;
+                break;
+            case 'upgrade_purchased':
+                const allUpgrades = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
+                const options = allUpgrades.map(u => `<option value="${u.id}" ${params.upgradeId === u.id ? 'selected' : ''}>${getLocalizedText(u.name)}</option>`).join('');
+                html = `<div class="mb-3"><label class="form-label">${t('param_upgradeId')}</label><select class="form-select" data-param="upgradeId">${options}</select></div>`;
+                break;
+        }
+        container.innerHTML = html;
+    };
+
     const renderConfigForm = (key, index) => {
         const isNew = index === undefined;
         const item = isNew ? {} : localConfig[key][index];
         const title = isNew ? t('config_add_item') : t('config_edit_item');
         const { cols } = configMeta[key];
         
-        const formBody = cols.map(col => {
+        let formBody = cols.map(col => {
             let value = item[col];
              if (isNew) {
                 if (col === 'id') value = `new_${key}_${Date.now()}`;
@@ -957,12 +989,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Pre-fill default structures for certain types
                     if (['name', 'description', 'message'].includes(col)) value = { en: '', ru: '', ua: '' };
                     else if (col === 'reward') value = { type: 'coins', amount: 0 };
+                    else if (col === 'trigger') value = { type: 'meta_tap', params: { targetId: '', taps: 5 } };
                     else value = '';
                 }
             }
             
             const isLangObject = typeof value === 'object' && value !== null && (value.hasOwnProperty('en') || value.hasOwnProperty('ru') || value.hasOwnProperty('ua'));
             const isRewardObject = typeof value === 'object' && value !== null && value.hasOwnProperty('type') && value.hasOwnProperty('amount');
+            const isTriggerObject = col === 'trigger';
 
             if (isLangObject && !isRewardObject) {
                 return `
@@ -1006,6 +1040,20 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </div>
                     </fieldset>`;
+            } else if (isTriggerObject) {
+                 const trigger = value || { type: 'meta_tap', params: {} };
+                 const triggerTypes = ['meta_tap', 'login_at_time', 'balance_equals', 'upgrade_purchased'];
+                 const options = triggerTypes.map(opt => `<option value="${opt}" ${trigger.type === opt ? 'selected' : ''}>${t(`trigger_type_${opt}`)}</option>`).join('');
+                 return `
+                    <fieldset class="form-fieldset mb-3">
+                        <legend>${t('trigger')}</legend>
+                        <div class="mb-3">
+                           <label class="form-label">${t('trigger_type')}</label>
+                           <select class="form-select" id="trigger-type-select">${options}</select>
+                        </div>
+                        <div id="trigger-params-container"></div>
+                    </fieldset>
+                 `;
             } else if (col === 'type' && (key === 'tasks' || key === 'specialTasks')) {
                 const taskTypes = ['taps', 'telegram_join', 'youtube_subscribe', 'twitter_follow', 'instagram_follow', 'video_watch', 'video_code'];
                 const options = taskTypes.map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${t(`task_type_${opt}`)}</option>`).join('');
@@ -1031,436 +1079,3 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="mb-3">
                         <label class="form-label">${t(col) || col}</label>
                         <input type="${typeof value === 'number' ? 'number' : 'text'}" class="form-control" data-col="${col}" value="${escapeHtml(value)}" ${isReadonly ? 'readonly' : ''}>
-                    </div>`;
-            }
-        }).join('');
-        
-        const footer = `
-            <button type="button" class="btn" data-bs-dismiss="modal">${t('cancel')}</button>
-            <button type="button" class="btn btn-primary" id="save-config-btn">${t('save')}</button>
-        `;
-        
-        const modalInstance = renderModal('config-modal', title, formBody, footer);
-
-        // Dynamic visibility for secretCode field
-        const taskTypeSelect = document.getElementById('task-type-select');
-        if (taskTypeSelect) {
-            taskTypeSelect.addEventListener('change', (e) => {
-                const container = document.getElementById('secret-code-container');
-                if (container) {
-                    container.style.display = e.target.value === 'video_code' ? 'block' : 'none';
-                }
-            });
-        }
-        
-        document.getElementById('save-config-btn').onclick = () => {
-            const newItem = isNew ? { id: item.id } : { ...item };
-            let hasError = false;
-            cols.forEach(col => {
-                const langInputs = document.querySelectorAll(`[data-lang-col="${col}"]`);
-                const rewardInputs = document.querySelectorAll(`[data-reward-col="${col}"]`);
-                
-                if (langInputs.length > 0) {
-                    newItem[col] = {
-                        en: document.querySelector(`[data-lang-col="${col}"][data-lang="en"]`).value,
-                        ru: document.querySelector(`[data-lang-col="${col}"][data-lang="ru"]`).value,
-                        ua: document.querySelector(`[data-lang-col="${col}"][data-lang="ua"]`).value,
-                    };
-                } else if (rewardInputs.length > 0) {
-                     newItem[col] = {
-                        type: document.querySelector(`[data-reward-col="${col}"][data-reward-prop="type"]`).value,
-                        amount: Number(document.querySelector(`[data-reward-col="${col}"][data-reward-prop="amount"]`).value) || 0,
-                    };
-                } else {
-                    const input = document.querySelector(`[data-col="${col}"]`);
-                    if (input) {
-                        const value = input.value;
-                        if (input.type === 'number') {
-                            newItem[col] = Number(value);
-                        } else if (input.tagName === 'TEXTAREA') {
-                            try {
-                                newItem[col] = JSON.parse(value);
-                            } catch (e) {
-                                newItem[col] = value;
-                            }
-                        } else {
-                            newItem[col] = value;
-                        }
-                    }
-                }
-            });
-
-            if (hasError) return;
-
-            if (isNew) {
-                if (!localConfig[key]) localConfig[key] = [];
-                localConfig[key].push(newItem);
-            } else {
-                localConfig[key][index] = newItem;
-            }
-            modalInstance.hide();
-            renderConfigTable(key);
-            applyTranslationsToDOM();
-        };
-    };
-    
-    const renderCheatLogModal = async (playerId) => {
-        const player = await fetchData(`player/${playerId}/details`);
-        if (!player || !player.cheatLog) { alert('Could not load cheat log'); return; }
-
-        const logHtml = player.cheatLog.map(log => `
-            <tr>
-                <td>${new Date(log.timestamp).toLocaleString()}</td>
-                <td>${log.tps.toFixed(2)}</td>
-                <td>${log.taps}</td>
-                <td>${log.timeDiff.toFixed(2)}s</td>
-            </tr>
-        `).join('') || `<tr><td colspan="4" class="text-center">${t('no_data')}</td></tr>`;
-
-        const body = `
-            <div class="table-responsive">
-                <table class="table table-vcenter">
-                    <thead><tr><th>Timestamp</th><th>TPS</th><th>Taps</th><th>Time Diff</th></tr></thead>
-                    <tbody>${logHtml}</tbody>
-                </table>
-            </div>
-        `;
-        const footer = `<button type="button" class="btn" data-bs-dismiss="modal">${t('close')}</button>`;
-        renderModal('cheat-log-modal', `${t('cheat_log')}: ${escapeHtml(player.name)}`, body, footer);
-    };
-
-    const renderSocialsModal = (socialType) => {
-        const socials = localConfig.socials || {};
-        const isYoutube = socialType === 'youtube';
-
-        const body = isYoutube ? `
-            <div class="mb-3">
-                <label class="form-label">${t('youtube_channel_url')}</label>
-                <input type="text" id="social-url" class="form-control" value="${socials.youtubeUrl || ''}">
-                <small class="form-hint">${t('youtube_channel_url_desc')}</small>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">${t('youtube_channel_id')}</label>
-                <input type="text" id="social-id" class="form-control" value="${socials.youtubeChannelId || ''}">
-                <small class="form-hint">${t('youtube_channel_id_desc')}</small>
-            </div>
-        ` : `
-             <div class="mb-3">
-                <label class="form-label">${t('telegram_channel_url')}</label>
-                <input type="text" id="social-url" class="form-control" value="${socials.telegramUrl || ''}">
-                 <small class="form-hint">${t('telegram_channel_url_desc')}</small>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">${t('telegram_channel_id')}</label>
-                <input type="text" id="social-id" class="form-control" value="${socials.telegramChannelId || ''}">
-                <small class="form-hint">${t('telegram_channel_id_desc')}</small>
-            </div>
-        `;
-
-        const footer = `
-            <button type="button" class="btn" data-bs-dismiss="modal">${t('cancel')}</button>
-            <button type="button" class="btn btn-primary" id="save-socials-btn">${t('save')}</button>`;
-
-        const modalInstance = renderModal('socials-modal', isYoutube ? t('edit_youtube_settings') : t('edit_telegram_settings'), body, footer);
-
-        document.getElementById('save-socials-btn').onclick = () => {
-            const url = document.getElementById('social-url').value;
-            const id = document.getElementById('social-id').value;
-            if (isYoutube) {
-                localConfig.socials.youtubeUrl = url;
-                localConfig.socials.youtubeChannelId = id;
-            } else {
-                localConfig.socials.telegramUrl = url;
-                localConfig.socials.telegramChannelId = id;
-            }
-            modalInstance.hide();
-            renderDashboard();
-        };
-    };
-
-    const renderAiContentModal = (data) => {
-        const { upgrades, specialTasks } = data;
-
-        const upgradesHtml = upgrades.map(u => `
-            <div class="list-group-item">
-                <div class="row align-items-center">
-                    <div class="col-auto"><img src="${u.iconUrl}" class="avatar"></div>
-                    <div class="col text-truncate">
-                        <div class="text-body d-block">${getLocalizedText(u.name)}</div>
-                        <div class="text-secondary text-truncate mt-n1">
-                            ${t('price')}: ${formatNumber(u.price)} | ${t('profit')}: ${formatNumber(u.profitPerHour)}/hr | ${t('category')}: ${u.category}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `).join('');
-        
-        const tasksHtml = specialTasks.map(t => `
-            <div class="list-group-item">
-                <div class="row align-items-center">
-                    <div class="col-auto"><img src="${t.imageUrl}" class="avatar"></div>
-                    <div class="col text-truncate">
-                        <div class="text-body d-block">${getLocalizedText(t.name)}</div>
-                        <div class="text-secondary text-truncate mt-n1">
-                           ${t('reward')}: ${formatNumber(t.reward.amount)} ${t(t.reward.type === 'coins' ? 'coins' : 'profit_per_hour')} | ${t('price_stars')}: ${t.priceStars}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `).join('');
-
-        const body = `
-            <div class="row">
-                <div class="col-md-6">
-                    <h3 class="mb-3">${t('generated_upgrades')}</h3>
-                    <div class="list-group list-group-flush overflow-auto" style="max-height: 300px;">${upgradesHtml}</div>
-                </div>
-                <div class="col-md-6">
-                    <h3 class="mb-3">${t('generated_tasks')}</h3>
-                    <div class="list-group list-group-flush overflow-auto" style="max-height: 300px;">${tasksHtml}</div>
-                </div>
-            </div>
-        `;
-        const footer = `
-            <button type="button" class="btn" data-bs-dismiss="modal">${t('cancel')}</button>
-            <button type="button" class="btn btn-success" id="add-ai-content-btn">${t('add_to_game')}</button>
-        `;
-        
-        const modalInstance = renderModal('ai-content-modal', t('ai_generated_content'), body, footer);
-
-        document.getElementById('add-ai-content-btn').onclick = () => {
-            localConfig.upgrades.push(...upgrades);
-            localConfig.specialTasks.push(...specialTasks);
-            modalInstance.hide();
-            alert(t('ai_add_success'));
-        };
-    };
-    
-    // --- EVENT LISTENERS ---
-    document.body.addEventListener('click', async (e) => {
-        const target = e.target.closest('[data-action]');
-        if (!target) return;
-
-        const { action, key, index, id, col, social } = target.dataset;
-
-        switch (action) {
-            case 'delete-config':
-                if (confirm(t('confirm_delete'))) {
-                    localConfig[key].splice(index, 1);
-                    renderConfigTable(key);
-                }
-                break;
-            case 'add-config':
-                renderConfigForm(key);
-                break;
-            case 'edit-config':
-                renderConfigForm(key, Number(index));
-                break;
-            case 'translate-field':
-                e.preventDefault();
-                target.disabled = true;
-                target.innerHTML = `<span class="spinner-border spinner-border-sm"></span> ${t('translation_in_progress')}`;
-                try {
-                    const enInput = document.querySelector(`[data-lang-col="${col}"][data-lang="en"]`);
-                    const textToTranslate = enInput.value;
-                    const res = await postData('translate-text', { text: textToTranslate, targetLangs: ['ru', 'ua'] });
-                    if (res && res.translations) {
-                        document.querySelector(`[data-lang-col="${col}"][data-lang="ru"]`).value = res.translations.ru || '';
-                        document.querySelector(`[data-lang-col="${col}"][data-lang="ua"]`).value = res.translations.ua || '';
-                    } else {
-                        alert(t('translation_error'));
-                    }
-                } catch (error) {
-                    console.error('Translation error:', error);
-                    alert(t('translation_error'));
-                } finally {
-                    target.disabled = false;
-                    target.textContent = t('translate');
-                }
-                break;
-            case 'delete-player':
-                if (confirm(t('confirm_delete_player'))) {
-                    const res = await deleteData(`player/${id}`);
-                    if (res) renderPlayers();
-                }
-                break;
-            case 'player-details':
-                renderPlayerDetailsModal(id);
-                break;
-            case 'view-cheat-log':
-                renderCheatLogModal(id);
-                break;
-            case 'reset-progress':
-                if (confirm(t('confirm_reset_progress'))) {
-                    const res = await postData(`player/${id}/reset-progress`);
-                    if (res) { alert(t('progress_reset_success')); renderCheaters(); }
-                    else { alert(t('error_resetting_progress')); }
-                }
-                break;
-            case 'force-start-battle':
-                await postData('battle/force-start');
-                renderCellConfiguration();
-                break;
-            case 'force-end-battle':
-                await postData('battle/force-end');
-                renderCellConfiguration();
-                break;
-            case 'send-broadcast':
-                const text = document.getElementById('broadcast-text').value;
-                const imageUrl = document.getElementById('broadcast-image-url').value;
-                const buttonUrl = document.getElementById('broadcast-button-url').value;
-                const buttonText = document.getElementById('broadcast-button-text').value;
-
-                if (!text) {
-                    alert(t('message_text_required'));
-                    return;
-                }
-                if ((buttonUrl && !buttonText) || (!buttonUrl && buttonText)) {
-                    alert(t('button_requires_url_and_text'));
-                    return;
-                }
-                
-                if (confirm(t('confirm_broadcast'))) {
-                    target.disabled = true;
-                    target.innerHTML = `<span class="spinner-border spinner-border-sm"></span> ${t('sending_broadcast')}`;
-                    const res = await postData('broadcast-message', { text, imageUrl, buttonUrl, buttonText });
-                    if(res) alert(res.message);
-                    target.disabled = false;
-                    target.innerHTML = `<svg ...</svg> ${t('send_broadcast')}`;
-                }
-                break;
-            case 'edit-socials':
-                renderSocialsModal(social);
-                break;
-             case 'generate-ai-content':
-                target.disabled = true;
-                target.querySelector('span').textContent = t('generating');
-                try {
-                    const data = await postData('generate-ai-content');
-                    if (data) {
-                        renderAiContentModal(data);
-                    } else {
-                        // The error alert is already handled in postData
-                    }
-                } finally {
-                    target.disabled = false;
-                    target.querySelector('span').textContent = t('generate_new_content');
-                }
-                break;
-        }
-    });
-
-    document.body.addEventListener('input', (e) => {
-        const target = e.target;
-        if (!target) return;
-
-        // --- Live search for players ---
-        if (target.id === 'player-search') {
-            const searchTerm = target.value.toLowerCase();
-            const filteredPlayers = allPlayers.filter(p => 
-                p.id.toLowerCase().includes(searchTerm) || p.name.toLowerCase().includes(searchTerm)
-            );
-            document.getElementById('players-table-body').innerHTML = generatePlayerRows(filteredPlayers);
-            return;
-        }
-
-        // --- Live updates for Dashboard ---
-        if (target.id === 'loadingScreenUrl') {
-            localConfig.loadingScreenImageUrl = target.value;
-            return;
-        }
-        if (target.id === 'backgroundAudioUrl') {
-            localConfig.backgroundAudioUrl = target.value;
-            return;
-        }
-
-        // --- Live updates for Daily Events ---
-        if (target.classList.contains('combo-card-select')) {
-            const selects = document.querySelectorAll('.combo-card-select');
-            dailyEvent.combo_ids = Array.from(selects).map(s => s.value).filter(Boolean);
-            return;
-        }
-        if (target.id === 'cipher-word-input') {
-            dailyEvent.cipher_word = target.value;
-            return;
-        }
-        if (target.id === 'combo-reward-input') {
-            dailyEvent.combo_reward = Number(target.value) || 0;
-            return;
-        }
-        if (target.id === 'cipher-reward-input') {
-            dailyEvent.cipher_reward = Number(target.value) || 0;
-            return;
-        }
-
-        // --- Live updates for generic config fields ---
-        const key = target.dataset.key;
-        if (key && localConfig.hasOwnProperty(key)) {
-             localConfig[key] = target.value;
-             if (target.type === 'number') {
-                localConfig[key] = Number(target.value) || 0;
-             }
-        }
-        
-        // --- Live updates for UI Icons ---
-        const groupKey = target.dataset.group;
-        if (groupKey) {
-            localConfig.uiIcons[groupKey][key] = target.value;
-            const img = target.nextElementSibling?.querySelector('img');
-            if (img) img.src = target.value;
-        } else if (key && localConfig.uiIcons && localConfig.uiIcons.hasOwnProperty(key)) {
-            localConfig.uiIcons[key] = target.value;
-            const img = target.nextElementSibling?.querySelector('img');
-            if (img) img.src = target.value;
-        }
-        
-        // --- Live updates for special config sections (Cell config, etc)
-        const configKey = target.dataset.configKey;
-        const subKey = target.dataset.subKey;
-        if (configKey) {
-            if (subKey) {
-                 if (!localConfig[configKey]) localConfig[configKey] = {};
-                 let value = target.value;
-                 if (target.type === 'number' || (target.tagName === 'SELECT' && !isNaN(Number(target.value)))) {
-                    value = Number(target.value)
-                 }
-                 localConfig[configKey][subKey] = value;
-            } else {
-                 if(target.type === 'number'){
-                    localConfig[configKey] = parseFloat(target.value) / 100;
-                 }
-            }
-        }
-    });
-
-    saveMainButton.onclick = saveAllChanges;
-
-    const init = async () => {
-        showLoading();
-        document.querySelectorAll('.tab-button').forEach(btn => btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            activeTab = btn.dataset.tab;
-            window.location.hash = activeTab; // Update hash for deep linking
-            render();
-        }));
-        
-        document.querySelectorAll('.lang-select-btn').forEach(btn => btn.addEventListener('click', (e) => {
-             e.preventDefault();
-             currentLang = btn.dataset.lang;
-             localStorage.setItem('adminLang', currentLang);
-             applyTranslationsToDOM();
-        }));
-
-        localConfig = await fetchData('config') || {};
-
-        // Check hash on load
-        const hash = window.location.hash.substring(1);
-        if (hash && (configMeta[hash] || ['dashboard', 'players', 'cheaters', 'dailyEvents', 'cellAnalytics', 'cellConfiguration'].includes(hash))) {
-            activeTab = hash;
-        }
-        
-        render();
-    };
-
-    init();
-});

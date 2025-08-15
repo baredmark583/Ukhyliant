@@ -85,10 +85,34 @@ export const INITIAL_COIN_SKINS = [
 ];
 
 export const INITIAL_GLITCH_EVENTS = [
-    { id: 'GLITCH_01', message: { en: 'The system is watching.', ua: 'Система все бачить.', ru: 'Система всё видит.'}, code: '1984', reward: { type: 'coins', amount: 19840 } },
-    { id: 'GLITCH_02', message: { en: 'You are a slave to the machine.', ua: 'Ти раб машини.', ru: 'Ты раб машины.'}, code: 'FRE3', reward: { type: 'coins', amount: 50000 } },
-    { id: 'GLITCH_03', message: { en: 'Escape. They won\'t find you.', ua: 'Тікай. Вони тебе не знайдуть.', ru: 'Беги. Они тебя не найдут.'}, code: 'RUNN', reward: { type: 'profit', amount: 100 } },
-    { id: 'GLITCH_04', message: { en: 'You think too much.', ua: 'Ти забагато думаєш.', ru: 'Ты слишком много думаешь.'}, code: 'THNK', reward: { type: 'coins', amount: 25000 } },
+    {
+        id: 'GLITCH_01',
+        message: { en: 'The system is watching.', ua: 'Система все бачить.', ru: 'Система всё видит.'},
+        code: '1984',
+        reward: { type: 'coins', amount: 19840 },
+        trigger: { type: 'meta_tap', params: { targetId: 'referral-counter', taps: 5 } }
+    },
+    {
+        id: 'GLITCH_02',
+        message: { en: 'You are a slave to the machine.', ua: 'Ти раб машини.', ru: 'Ты раб машины.'},
+        code: 'FRE3',
+        reward: { type: 'coins', amount: 50000 },
+        trigger: { type: 'login_at_time', params: { hour: 3, minute: 33 } }
+    },
+    {
+        id: 'GLITCH_03',
+        message: { en: 'Escape. They won\'t find you.', ua: 'Тікай. Вони тебе не знайдуть.', ru: 'Беги. Они тебя не найдут.'},
+        code: 'RUNN',
+        reward: { type: 'profit', amount: 100 },
+        trigger: { type: 'upgrade_purchased', params: { upgradeId: 'spec1' } }
+    },
+    {
+        id: 'GLITCH_04',
+        message: { en: 'You think too much.', ua: 'Ти забагато думаєш.', ru: 'Ты слишком много думаешь.'},
+        code: 'THNK',
+        reward: { type: 'coins', amount: 25000 },
+        trigger: { type: 'balance_equals', params: { amount: 1984000 } }
+    }
 ];
 
 // --- GAME MECHANICS ---

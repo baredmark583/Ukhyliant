@@ -119,11 +119,38 @@ export interface DailyEvent {
     cipherReward: number;
 }
 
+// --- GLITCH EVENT TRIGGERS ---
+export interface MetaTapTriggerParams {
+  targetId: string;
+  taps: number;
+}
+
+export interface LoginTimeTriggerParams {
+  hour: number; // 0-23
+  minute: number; // 0-59
+}
+
+export interface BalanceEqualsTriggerParams {
+  amount: number;
+}
+
+export interface UpgradePurchasedTriggerParams {
+  upgradeId: string;
+}
+
+export type GlitchTrigger =
+  | { type: 'meta_tap'; params: MetaTapTriggerParams }
+  | { type: 'login_at_time'; params: LoginTimeTriggerParams }
+  | { type: 'balance_equals'; params: BalanceEqualsTriggerParams }
+  | { type: 'upgrade_purchased'; params: UpgradePurchasedTriggerParams };
+
+
 export interface GlitchEvent {
     id: string;
     message: LocalizedString;
     code: string;
     reward: Reward;
+    trigger: GlitchTrigger;
 }
 
 export interface UiIcons {

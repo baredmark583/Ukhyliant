@@ -104,7 +104,7 @@ interface ProfileScreenProps {
   onSetSkin: (skinId: string) => void;
   onOpenCoinLootbox: (boxType: 'coin') => void;
   onPurchaseStarLootbox: (boxType: 'star') => void;
-  handleMetaTap: (targetId: string, eventId: string) => void;
+  handleMetaTap: (targetId: string) => void;
   onOpenGlitchCodesModal: () => void;
 }
 
@@ -122,7 +122,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
         };
         return (
             <div className="w-full max-w-md space-y-4 text-center">
-                <div className="card-glow p-4 rounded-xl cursor-pointer" onClick={() => handleMetaTap('referral-counter', 'GLITCH_01')}>
+                <div className="card-glow p-4 rounded-xl cursor-pointer" onClick={() => handleMetaTap('referral-counter')}>
                     <p className="text-[var(--text-secondary)] text-lg">{t('your_referrals')}</p>
                     <div className="flex items-center justify-center">
                         <p className="text-5xl font-display my-1">{playerState.referrals}</p>
@@ -579,6 +579,7 @@ const MainApp: React.FC = () => {
   const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
 
   // Glitch event states
+  const prevPlayerState = useRef<PlayerState | null>(null);
   const [metaTaps, setMetaTaps] = useState<Record<string, number>>({});
   const [activeGlitchEvent, setActiveGlitchEvent] = useState<GlitchEvent | null>(null);
   const [isGlitchCodesModalOpen, setIsGlitchCodesModalOpen] = useState(false);
@@ -649,7 +650,67 @@ const MainApp: React.FC = () => {
         setNotification(prev => (prev?.message === message ? null : prev));
     }, 3000);
   };
-  
+
+  const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
+    if (!playerState || (playerState.claimedGlitchCodes || []).includes(event.code)) {
+        return;
+    }
+    setActiveGlitchEvent(event);
+    setPlayerState(p => {
+        if (!p) return null;
+        const discovered = new Set(p.discoveredGlitchCodes || []);
+        discovered.add(event.code);
+        return { ...p, discoveredGlitchCodes: Array.from(discovered) };
+    });
+  }, [playerState, setPlayerState]);
+
+  // --- GLITCH TRIGGER CHECKS ---
+    useEffect(() => {
+        if (!config?.glitchEvents) return;
+
+        // Login Time Trigger
+        const now = new Date();
+        const loginTrigger = config.glitchEvents.find(e =>
+            e.trigger.type === 'login_at_time' &&
+            e.trigger.params.hour === now.getHours() &&
+            e.trigger.params.minute === now.getMinutes()
+        );
+        if (loginTrigger) {
+            triggerGlitchEvent(loginTrigger);
+        }
+    }, [config?.glitchEvents, triggerGlitchEvent]);
+
+  useEffect(() => {
+        if (prevPlayerState.current && playerState && config?.glitchEvents) {
+            // Balance Equals Trigger
+            const balanceTrigger = config.glitchEvents.find(e =>
+                e.trigger.type === 'balance_equals' &&
+                playerState.balance >= e.trigger.params.amount &&
+                (prevPlayerState.current?.balance || 0) < e.trigger.params.amount
+            );
+            if (balanceTrigger) {
+                triggerGlitchEvent(balanceTrigger);
+            }
+
+            // Upgrade Purchased Trigger
+            const oldUpgrades = prevPlayerState.current.upgrades || {};
+            const newUpgrades = playerState.upgrades || {};
+            const purchasedUpgradeId = Object.keys(newUpgrades).find(id => newUpgrades[id] > (oldUpgrades[id] || 0));
+
+            if (purchasedUpgradeId) {
+                const upgradeTrigger = config.glitchEvents.find(e =>
+                    e.trigger.type === 'upgrade_purchased' &&
+                    e.trigger.params.upgradeId === purchasedUpgradeId
+                );
+                if (upgradeTrigger) {
+                    triggerGlitchEvent(upgradeTrigger);
+                }
+            }
+        }
+        prevPlayerState.current = playerState;
+    }, [playerState, config?.glitchEvents, triggerGlitchEvent]);
+
+
   const handleBuyUpgrade = async (upgradeId: string) => {
     const result = await buyUpgrade(upgradeId);
     if(result) {
@@ -783,23 +844,19 @@ const MainApp: React.FC = () => {
   const handleEnergyClick = () => showNotification(t('tooltip_energy'), 'success');
   const handleSuspicionClick = () => showNotification(t('tooltip_suspicion'), 'success');
 
-  const handleMetaTap = (targetId: string, eventId: string) => {
+  const handleMetaTap = (targetId: string) => {
         const newCount = (metaTaps[targetId] || 0) + 1;
         setMetaTaps(prev => ({ ...prev, [targetId]: newCount }));
         
-        // This can be expanded with a more dynamic trigger system
-        if (targetId === 'referral-counter' && newCount >= 5) {
-            const event = (config?.glitchEvents || []).find(e => e.id === eventId);
-            if (event && !activeGlitchEvent) {
-                setActiveGlitchEvent(event);
-                setPlayerState(p => {
-                    if (!p) return null;
-                    const discovered = new Set(p.discoveredGlitchCodes || []);
-                    discovered.add(event.code);
-                    return { ...p, discoveredGlitchCodes: Array.from(discovered) };
-                });
-                setMetaTaps(prev => ({ ...prev, [targetId]: 0 }));
-            }
+        const event = (config?.glitchEvents || []).find(e => 
+            e.trigger.type === 'meta_tap' &&
+            e.trigger.params.targetId === targetId &&
+            newCount >= e.trigger.params.taps
+        );
+
+        if (event && !activeGlitchEvent) {
+            triggerGlitchEvent(event);
+            setMetaTaps(prev => ({ ...prev, [targetId]: 0 }));
         }
     };
 
