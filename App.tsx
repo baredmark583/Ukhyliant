@@ -213,7 +213,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
     return (
         <div className="flex flex-col h-full text-white items-center">
             <div className="w-full max-w-md sticky top-0 bg-[var(--bg-color)] pt-4 px-4 z-10">
-                <h1 className="text-3xl font-display text-center mb-4">{t('profile')}</h1>
+                <h1 className="text-3xl font-display text-center mb-4 cursor-pointer" onClick={() => handleMetaTap('profile-title')}>{t('profile')}</h1>
                 <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex flex-nowrap justify-around items-center gap-1 border border-slate-700">
                     <ProfileTabButton label={t('sub_contacts')} iconUrl={config.uiIcons.profile_tabs.contacts} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
                     <ProfileTabButton label={t('sub_boosts')} iconUrl={config.uiIcons.profile_tabs.boosts} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
@@ -590,7 +590,20 @@ const MainApp: React.FC = () => {
   });
   const [hasPlayed, setHasPlayed] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
-
+  
+  const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
+    if (!playerState || (playerState.claimedGlitchCodes || []).includes(event.code)) {
+        return;
+    }
+    setActiveGlitchEvent(event);
+    setPlayerState(p => {
+        if (!p) return null;
+        const discovered = new Set(p.discoveredGlitchCodes || []);
+        discovered.add(event.code);
+        return { ...p, discoveredGlitchCodes: Array.from(discovered) };
+    });
+  }, [playerState, setPlayerState]);
+  
   useEffect(() => {
         const tg = window.Telegram?.WebApp;
         if (!tg) return;
@@ -630,20 +643,12 @@ const MainApp: React.FC = () => {
       return tapValue;
   }, [handleTap, hasPlayed, config?.backgroundAudioUrl]);
 
-  const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
-    if (!playerState || (playerState.claimedGlitchCodes || []).includes(event.code)) {
-        return;
-    }
-    setActiveGlitchEvent(event);
-    setPlayerState(p => {
-        if (!p) return null;
-        const discovered = new Set(p.discoveredGlitchCodes || []);
-        discovered.add(event.code);
-        return { ...p, discoveredGlitchCodes: Array.from(discovered) };
-    });
-  }, [playerState, setPlayerState]);
+  const handleMetaTap = useCallback((targetId: string) => {
+      setMetaTaps(prev => ({ ...prev, [targetId]: (prev[targetId] || 0) + 1 }));
+  }, []);
 
   // --- GLITCH TRIGGER CHECKS (with safety checks) ---
+  // On Load trigger
   useEffect(() => {
       if (!config?.glitchEvents) return;
       const now = new Date();
@@ -656,6 +661,7 @@ const MainApp: React.FC = () => {
       });
   }, [config?.glitchEvents, triggerGlitchEvent]);
 
+  // Player state change triggers
   useEffect(() => {
       if (prevPlayerState.current && playerState && config?.glitchEvents) {
           config.glitchEvents.forEach(e => {
@@ -677,6 +683,28 @@ const MainApp: React.FC = () => {
       }
       prevPlayerState.current = playerState;
   }, [playerState, config?.glitchEvents, triggerGlitchEvent]);
+
+  // Meta-tap trigger
+  useEffect(() => {
+    if (!config?.glitchEvents || activeGlitchEvent) return;
+
+    for (const targetId in metaTaps) {
+        const tapCount = metaTaps[targetId];
+        if (tapCount > 0) {
+            const event = config.glitchEvents.find(e => 
+                e.trigger?.type === 'meta_tap' &&
+                e.trigger?.params?.targetId === targetId &&
+                tapCount >= (e.trigger.params.taps || 999)
+            );
+
+            if (event) {
+                triggerGlitchEvent(event);
+                setMetaTaps(prev => ({ ...prev, [targetId]: 0 }));
+                break; // Trigger only one event per check
+            }
+        }
+    }
+  }, [metaTaps, config?.glitchEvents, activeGlitchEvent, triggerGlitchEvent]);
 
   useEffect(() => {
     if (isGlitching) {
@@ -831,22 +859,6 @@ const MainApp: React.FC = () => {
   const handleEnergyClick = () => showNotification(t('tooltip_energy'), 'success');
   const handleSuspicionClick = () => showNotification(t('tooltip_suspicion'), 'success');
 
-  const handleMetaTap = (targetId: string) => {
-        const newCount = (metaTaps[targetId] || 0) + 1;
-        setMetaTaps(prev => ({ ...prev, [targetId]: newCount }));
-        
-        const event = (config?.glitchEvents || []).find(e => 
-            e.trigger?.type === 'meta_tap' &&
-            e.trigger?.params?.targetId === targetId &&
-            newCount >= (e.trigger.params.taps || 999)
-        );
-
-        if (event && !activeGlitchEvent) {
-            triggerGlitchEvent(event);
-            setMetaTaps(prev => ({ ...prev, [targetId]: 0 }));
-        }
-    };
-
   const PenaltyModal: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
       const t = useTranslation();
       return (
@@ -868,9 +880,9 @@ const MainApp: React.FC = () => {
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTapWithAudio} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} isMuted={isMuted} toggleMute={toggleMute} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTapWithAudio} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} isMuted={isMuted} toggleMute={toggleMute} handleMetaTap={handleMetaTap} />;
       case 'mine':
-        return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} />;
+        return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} handleMetaTap={handleMetaTap} />;
       case 'missions':
         return <MissionsScreen
                     tasks={config.tasks}
@@ -903,7 +915,7 @@ const MainApp: React.FC = () => {
                     onOpenGlitchCodesModal={() => setIsGlitchCodesModalOpen(true)}
                 />;
       default:
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTapWithAudio} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} isMuted={isMuted} toggleMute={toggleMute} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTapWithAudio} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} isMuted={isMuted} toggleMute={toggleMute} handleMetaTap={handleMetaTap} />;
     }
   };
 

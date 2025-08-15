@@ -26,6 +26,7 @@ interface ExchangeProps {
   onSuspicionClick: () => void;
   isMuted: boolean;
   toggleMute: () => void;
+  handleMetaTap: (targetId: string) => void;
 }
 
 const formatNumber = (num: number): string => {
@@ -45,7 +46,7 @@ interface ClickFx {
   xOffset: number;
 }
 
-const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion, onEnergyClick, onSuspicionClick, isMuted, toggleMute }) => {
+const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion, onEnergyClick, onSuspicionClick, isMuted, toggleMute, handleMetaTap }) => {
   const t = useTranslation();
   const { balance, profitPerHour, energy, suspicion } = playerState;
   const [clicks, setClicks] = useState<ClickFx[]>([]);
@@ -264,7 +265,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
             {/* Balance and Profit Info */}
             <div className="text-center w-full mt-2 flex-shrink-0">
-                <div className="flex items-center justify-center space-x-2">
+                <div className="flex items-center justify-center space-x-2 cursor-pointer" onClick={() => handleMetaTap('balance-display')}>
                     <img src={config.uiIcons.coin} alt="coin" className="w-8 h-8 sm:w-10 sm:h-10" />
                     <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tighter">
                         {formatNumber(balance)}

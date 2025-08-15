@@ -179,6 +179,10 @@ window.LOCALES = {
         'param_minute': 'Minute (0-59)',
         'param_amount': 'Balance Amount',
         'param_upgradeId': 'Upgrade ID',
+        'target_name_referral_counter': 'Referral Counter (Profile)',
+        'target_name_balance_display': 'Balance Display (Main Screen)',
+        'target_name_mine_title': 'Mine Screen Title',
+        'target_name_profile_title': 'Profile Screen Title',
         
         // Cell Management
         'cellConfiguration': 'Cell Configuration',
@@ -468,6 +472,10 @@ window.LOCALES = {
         'param_minute': 'Минута (0-59)',
         'param_amount': 'Сумма баланса',
         'param_upgradeId': 'ID улучшения',
+        'target_name_referral_counter': 'Счетчик рефералов (Профиль)',
+        'target_name_balance_display': 'Счетчик баланса (Главный экран)',
+        'target_name_mine_title': 'Заголовок экрана "Майнинг"',
+        'target_name_profile_title': 'Заголовок экрана "Профиль"',
 
         // Cell Management
         'cellConfiguration': 'Конфигурация Ячеек',

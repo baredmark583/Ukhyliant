@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -24,6 +23,13 @@ document.addEventListener('DOMContentLoaded', () => {
         cellSettings: { titleKey: 'nav_cell_settings', fields: ['cellCreationCost', 'cellMaxMembers', 'informantRecruitCost', 'lootboxCostCoins', 'lootboxCostStars', 'cellBattleTicketCost'] },
     };
     
+    const META_TAP_TARGETS = [
+        { id: 'referral-counter', nameKey: 'target_name_referral_counter' },
+        { id: 'balance-display', nameKey: 'target_name_balance_display' },
+        { id: 'mine-title', nameKey: 'target_name_mine_title' },
+        { id: 'profile-title', nameKey: 'target_name_profile_title' }
+    ];
+
     // --- DOM ELEMENTS ---
     const tabContainer = document.getElementById('tab-content-container');
     const tabTitle = document.getElementById('tab-title');
@@ -658,7 +664,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return `${formatNumber(data.amount)} ${t(typeKey)}`;
             }
             if (data.hasOwnProperty('type') && data.hasOwnProperty('params')) { // Trigger object
-                return `${t('trigger_type_' + data.type)} <pre class="mt-1">${escapeHtml(JSON.stringify(data.params, null, 1))}</pre>`;
+                const typeText = t(`trigger_type_${data.type}`) || data.type;
+                const paramsText = Object.entries(data.params).map(([key, value]) => {
+                    const keyText = t(`param_${key}`) || key;
+                    return `<div><small>${keyText}: <strong>${escapeHtml(value)}</strong></small></div>`;
+                }).join('');
+                return `<strong>${typeText}</strong>${paramsText}`;
             }
             // Fallback for other objects
             return `<pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
@@ -951,8 +962,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = '';
         switch (type) {
             case 'meta_tap':
+                const options = META_TAP_TARGETS.map(t => `<option value="${t.id}" ${params.targetId === t.id ? 'selected' : ''}>${t(t.nameKey)}</option>`).join('');
                 html = `
-                    <div class="mb-3"><label class="form-label">${t('param_targetId')}</label><input type="text" class="form-control" data-param="targetId" value="${escapeHtml(params.targetId || '')}"></div>
+                    <div class="mb-3">
+                        <label class="form-label">${t('param_targetId')}</label>
+                        <select class="form-select" data-param="targetId">${options}</select>
+                    </div>
                     <div class="mb-3"><label class="form-label">${t('param_taps')}</label><input type="number" class="form-control" data-param="taps" value="${escapeHtml(params.taps || 5)}"></div>
                 `;
                 break;
@@ -969,8 +984,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'upgrade_purchased':
                 const allUpgrades = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
-                const options = allUpgrades.map(u => `<option value="${u.id}" ${params.upgradeId === u.id ? 'selected' : ''}>${getLocalizedText(u.name)}</option>`).join('');
-                html = `<div class="mb-3"><label class="form-label">${t('param_upgradeId')}</label><select class="form-select" data-param="upgradeId">${options}</select></div>`;
+                const upgradeOptions = allUpgrades.map(u => `<option value="${u.id}" ${params.upgradeId === u.id ? 'selected' : ''}>${getLocalizedText(u.name)}</option>`).join('');
+                html = `<div class="mb-3"><label class="form-label">${t('param_upgradeId')}</label><select class="form-select" data-param="upgradeId">${upgradeOptions}</select></div>`;
                 break;
         }
         container.innerHTML = html;

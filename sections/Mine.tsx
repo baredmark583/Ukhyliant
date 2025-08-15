@@ -12,6 +12,7 @@ interface MineProps {
   config: GameConfig;
   onClaimCombo: () => void;
   uiIcons: UiIcons;
+  handleMetaTap: (targetId: string) => void;
 }
 
 const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'onClaimCombo' | 'upgrades' | 'lang'>> =
@@ -75,7 +76,7 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
 };
 
 
-const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang, playerState, config, onClaimCombo, uiIcons }) => {
+const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang, playerState, config, onClaimCombo, uiIcons, handleMetaTap }) => {
   const t = useTranslation();
   const categories = Object.values(UpgradeCategory);
   const firstCategoryWithUpgrades = categories.find(c => upgrades.some(u => u.category === c)) || categories[0];
@@ -87,7 +88,7 @@ const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang
   
   return (
     <div className="flex flex-col h-full text-white pt-4 px-4">
-      <h1 className="text-3xl font-display text-center mb-4 flex-shrink-0">{t('mine_upgrades')}</h1>
+      <h1 className="text-3xl font-display text-center mb-4 flex-shrink-0 cursor-pointer" onClick={() => handleMetaTap('mine-title')}>{t('mine_upgrades')}</h1>
       
       <DailyComboSection
           playerState={playerState}
