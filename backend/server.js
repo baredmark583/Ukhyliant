@@ -1199,25 +1199,6 @@ app.get('/admin/api/battle/status', checkAdminAuth, async(req, res) => {
 });
 
 
-// --- Serve Frontend ---
-// This should come after all API routes.
-// We serve from the project's root directory.
-const frontendPath = process.cwd();
-app.use(express.static(frontendPath));
-
-// For any route not matched by API or static files, serve the index.html.
-// This is important for client-side routing in React.
-app.get('*', (req, res) => {
-    // Check if the request looks like a file path
-    if (path.extname(req.path).length > 0) {
-        // It's likely a request for a file that doesn't exist, so 404
-        res.status(404).send('Not found');
-    } else {
-        // It's a route, so serve the main HTML file
-        res.sendFile(path.join(frontendPath, 'index.html'));
-    }
-});
-
 // --- Server Initialization ---
 initializeDb().then(() => {
     app.listen(port, () => {

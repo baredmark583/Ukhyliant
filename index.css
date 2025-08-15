@@ -261,8 +261,13 @@ body {
     opacity: 0;
     transition: opacity 1.5s linear;
 }
-.app-shattering #main-content-wrapper {
-    visibility: hidden;
+
+.pulse {
+  animation: pulse 300ms ease-out 1;
+}
+@keyframes pulse {
+  from { transform:scale(1) }
+  to { transform:scale(1.02) }
 }
 
 /* --- FINAL VIDEO PLAYER --- */

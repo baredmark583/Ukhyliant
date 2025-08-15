@@ -45,6 +45,195 @@ const GlitchEffect: React.FC<{ message?: string, code?: string, onClose?: () => 
     );
 };
 
+// --- Sound and Visual Effects Helpers (place outside the component) ---
+let audioCtx: AudioContext | null = null;
+const getAudioContext = () => {
+    if (typeof window !== 'undefined' && !audioCtx) {
+        audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return audioCtx;
+};
+const playImpact = () => {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type='sawtooth'; o.frequency.value = 110; g.gain.value = 1;
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
+    o.stop(ctx.currentTime + 0.13);
+};
+const playShatter = () => {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const len = 1 * ctx.sampleRate; const buf = ctx.createBuffer(1, len, ctx.sampleRate); const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-4 * i / len);
+    const source = ctx.createBufferSource(); source.buffer = buf;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
+    source.connect(hp); hp.connect(ctx.destination); source.playbackRate.value = 1.6; source.start();
+};
+const flashAt = (x: number, y: number) => {
+    const stage = document.getElementById('shatter-stage');
+    if (!stage) return;
+    const g = document.createElement('div');
+    g.style.cssText = `position:absolute;left:${x - 300}px;top:${y - 300}px;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle at center, rgba(255,255,255,0.95), rgba(255,255,255,0.0) 40%);z-index:2005;pointer-events:none;opacity:0.9;`;
+    stage.appendChild(g);
+    setTimeout(() => { g.style.transition = 'opacity 600ms'; g.style.opacity = '0'; setTimeout(() => g.remove(), 700); }, 80);
+};
+const _drawCracksAnimated = (crackCtx: CanvasRenderingContext2D, crackCanvas: HTMLCanvasElement, cx: number, cy: number, duration = 900) => {
+    const t0 = performance.now();
+    crackCtx.clearRect(0,0,crackCanvas.width, crackCanvas.height);
+    const primaryCount = 12 + Math.floor(Math.random()*12);
+    const branchProbability = 0.55;
+    const paths: any[] = [];
+    for(let i=0;i<primaryCount;i++){
+      const baseAngle = i * (Math.PI*2/primaryCount) + (Math.random()-0.5)*0.3;
+      const baseLen = 120 + Math.random()*520;
+      const segments = 8 + Math.floor(Math.random()*8);
+      const points: {x: number, y: number}[] = [];
+      for(let s=0;s<=segments;s++){
+        const t = s/segments;
+        const r = baseLen * (0.12 + 0.88 * t);
+        const jitter = (1 - t) * 28;
+        const angle = baseAngle + (Math.random()-0.5) * 0.18;
+        const px = cx + Math.cos(angle) * r + (Math.random()-0.5)*jitter;
+        const py = cy + Math.sin(angle) * r + (Math.random()-0.5)*jitter;
+        points.push({x:px,y:py});
+      }
+      paths.push({points, width: 1.6 + Math.random()*2.2, depth:0});
+    }
+    const microCount = 18 + Math.floor(Math.random()*12);
+    const concentricRings: number[] = [];
+    for(let i=0;i<microCount;i++){
+      const ang = Math.random()*Math.PI*2;
+      const p = {x: cx + Math.cos(ang)* (10 + Math.random()*30), y: cy + Math.sin(ang)*(10 + Math.random()*30)};
+      paths.push({points: [ {x:cx,y:cy}, p ], width: 0.8 + Math.random()*0.8, depth:0});
+    }
+    for(let r=1;r<=3;r++) concentricRings.push(12 * r + Math.random()*18);
+
+    function generateBranches(){
+      const newPaths: any[] = [];
+      for(const p of paths){
+        for(let i=1;i<p.points.length-1;i++){
+          if(Math.random() < branchProbability * (1 - i/p.points.length)){
+            const origin = p.points[i];
+            const angle = Math.atan2(origin.y - cy, origin.x - cx) + (Math.random()-0.5)*1.6;
+            const len = (30 + Math.random()*220) * (0.65 + (p.depth*0.15));
+            const segs = 3 + Math.floor(Math.random()*6);
+            const branchPts: {x: number, y: number}[] = [];
+            for(let s=0;s<=segs;s++){
+              const t = s/segs;
+              const rlen = len * (0.12 + 0.88*t);
+              const j = (1 - t) * 18;
+              const bx = origin.x + Math.cos(angle) * rlen + (Math.random()-0.5)*j;
+              const by = origin.y + Math.sin(angle) * rlen + (Math.random()-0.5)*j;
+              branchPts.push({x:bx,y:by});
+            }
+            newPaths.push({points: [origin, ...branchPts], width: Math.max(0.5, p.width*0.65), depth: p.depth+1});
+          }
+        }
+      }
+      for(const np of newPaths) paths.push(np);
+    }
+    generateBranches(); generateBranches();
+
+    const animData = paths.map((p,i)=>({p, start: 0 + Math.random()*120, dur: 300 + Math.random()*400}));
+    function drawPathPartial(points: {x:number,y:number}[], prog: number, width: number){
+      if(points.length<2) return;
+      crackCtx.save();
+      crackCtx.lineCap = 'round';
+      crackCtx.beginPath();
+      crackCtx.moveTo(points[0].x, points[0].y);
+      const total = (points.length-1);
+      const maxIndex = Math.floor(prog * total);
+      for(let i=1;i<=maxIndex;i++) crackCtx.lineTo(points[i].x, points[i].y);
+      if(maxIndex < total){
+        const t = prog*total - maxIndex;
+        const A = points[maxIndex]; const B = points[maxIndex+1];
+        crackCtx.lineTo(A.x + (B.x - A.x)*t, A.y + (B.y - A.y)*t);
+      }
+      crackCtx.lineWidth = width * 1.1;
+      crackCtx.strokeStyle = 'rgba(10,12,18,0.95)';
+      crackCtx.shadowColor = 'rgba(0,0,0,0.25)'; crackCtx.shadowBlur = 2;
+      crackCtx.stroke();
+      crackCtx.beginPath(); crackCtx.moveTo(points[0].x, points[0].y);
+      for(let i=1;i<=maxIndex;i++) crackCtx.lineTo(points[i].x, points[i].y);
+      if(maxIndex < total){ const t = prog*total - maxIndex; const A = points[maxIndex]; const B = points[maxIndex+1]; crackCtx.lineTo(A.x + (B.x-A.x)*t, A.y + (B.y-A.y)*t); }
+      crackCtx.lineWidth = Math.max(0.4, width*0.45);
+      crackCtx.strokeStyle = 'rgba(255,255,255,0.55)';
+      crackCtx.globalCompositeOperation = 'lighter';
+      crackCtx.stroke(); crackCtx.globalCompositeOperation = 'source-over';
+      crackCtx.restore();
+    }
+    function drawConcentric(prog: number){
+      for(const rad of concentricRings){
+        const localRadius = rad * (0.9 + Math.random()*0.5);
+        const steps = 36;
+        crackCtx.save(); crackCtx.beginPath();
+        for(let i=0;i<=steps;i++){
+          const t = i/steps; const ang = t * Math.PI*2;
+          const rj = localRadius + (Math.random()-0.5) * 6;
+          const px = cx + Math.cos(ang) * rj * (0.3 + prog);
+          const py = cy + Math.sin(ang) * rj * (0.3 + prog);
+          if(i===0) crackCtx.moveTo(px,py); else crackCtx.lineTo(px,py);
+        }
+        crackCtx.lineWidth = 0.6; crackCtx.strokeStyle = 'rgba(18,20,28,0.7)'; crackCtx.stroke();
+        crackCtx.restore();
+      }
+    }
+    function frame(now: number){
+      const globalP = Math.min(1, (now - t0) / (duration + 200));
+      crackCtx.clearRect(0,0,crackCanvas.width, crackCanvas.height);
+      drawConcentric(globalP);
+      for(const ad of animData){
+        const localT = Math.max(0, Math.min(1, (now - t0 - ad.start) / ad.dur));
+        drawPathPartial(ad.p.points, localT, ad.p.width);
+      }
+      if(globalP > 0.35){
+        for(let i=0;i<10;i++){
+          const ang = Math.random()*Math.PI*2; const r = Math.random()*45;
+          crackCtx.fillStyle = 'rgba(8,10,12,' + (0.4*Math.random()) + ')';
+          crackCtx.beginPath(); crackCtx.arc(cx + Math.cos(ang)*r, cy + Math.sin(ang)*r, 0.6 + Math.random()*1.8, 0, Math.PI*2); crackCtx.fill();
+        }
+      }
+      if(globalP < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+};
+const makeShardsFromImage = (imgCanvas: HTMLCanvasElement, impactX: number, impactY: number, cols=22, rows=14): any[] => {
+    const w = imgCanvas.width, h = imgCanvas.height;
+    const cellW = Math.ceil(w/cols), cellH = Math.ceil(h/rows);
+    const shards: any[] = [];
+    for (let r=0;r<rows;r++){
+      for (let c=0;c<cols;c++){
+        const x0 = c*cellW, y0 = r*cellH;
+        const x1 = Math.min(w,(c+1)*cellW), y1 = Math.min(h,(r+1)*cellH);
+        const jitter = 8;
+        const p1 = {x: x0 + (Math.random()-0.5)*jitter, y: y0 + (Math.random()-0.5)*jitter};
+        const p2 = {x: x1 + (Math.random()-0.5)*jitter, y: y0 + (Math.random()-0.5)*jitter};
+        const p3 = {x: x1 + (Math.random()-0.5)*jitter, y: y1 + (Math.random()-0.5)*jitter};
+        const p4 = {x: x0 + (Math.random()-0.5)*jitter, y: y1 + (Math.random()-0.5)*jitter};
+        const triA = [p1,p2,p3]; const triB = [p1,p3,p4];
+        [triA,triB].forEach(poly => {
+          const minX = Math.floor(Math.min(...poly.map(p=>p.x))); const minY = Math.floor(Math.min(...poly.map(p=>p.y)));
+          const maxX = Math.ceil(Math.max(...poly.map(p=>p.x))); const maxY = Math.ceil(Math.max(...poly.map(p=>p.y)));
+          const pw = Math.max(2, maxX - minX); const ph = Math.max(2, maxY - minY);
+          const sCanvas = document.createElement('canvas'); sCanvas.width = pw; sCanvas.height = ph;
+          sCanvas.style.position = 'absolute'; sCanvas.style.left = (minX) + 'px'; sCanvas.style.top = (minY) + 'px';
+          const sCtx = sCanvas.getContext('2d');
+          if(!sCtx) return;
+          sCtx.save(); sCtx.beginPath();
+          poly.forEach((pt,i)=>{ const tx = pt.x - minX; const ty = pt.y - minY; if(i===0) sCtx.moveTo(tx,ty); else sCtx.lineTo(tx,ty); });
+          sCtx.closePath(); sCtx.clip(); sCtx.drawImage(imgCanvas, -minX, -minY); sCtx.restore();
+          const centroid = poly.reduce((acc,p)=>({x:acc.x+p.x,y:acc.y+p.y}),{x:0,y:0}); centroid.x /= poly.length; centroid.y /= poly.length;
+          const dirX = (centroid.x - impactX); const dirY = (centroid.y - impactY); const dist = Math.sqrt(dirX*dirX + dirY*dirY) + 0.01;
+          const nx = dirX / dist, ny = dirY / dist;
+          shards.push({el: sCanvas, cx: centroid.x, cy: centroid.y, nx, ny, w:pw, h:ph});
+        });
+      }
+    }
+    return shards;
+};
+
 const FinalShatterEffect: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
     const crackCanvasRef = useRef<HTMLCanvasElement>(null);
     const shardsContainerRef = useRef<HTMLDivElement>(null);
@@ -70,57 +259,14 @@ const FinalShatterEffect: React.FC<{ onComplete: () => void }> = ({ onComplete }
         window.addEventListener('resize', fit);
 
         const wait = (ms: number) => new Promise(res => setTimeout(res, ms));
-
-        // --- Crack Generation Logic (from user's example) ---
-        const drawCracksAnimated = (cx: number, cy: number, duration = 900) => {
-           // ... (This function is very large, so it's defined below to avoid cluttering useEffect)
-           _drawCracksAnimated(crackCtx, crackCanvas, cx, cy, duration);
-        };
         
-        const makeShardsFromImage = (imgCanvas: HTMLCanvasElement, impactX: number, impactY: number, cols = 22, rows = 14) => {
-            const w = imgCanvas.width, h = imgCanvas.height;
-            const cellW = Math.ceil(w / cols), cellH = Math.ceil(h / rows);
-            const shards: any[] = [];
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    const x0 = c * cellW, y0 = r * cellH;
-                    const x1 = Math.min(w, (c + 1) * cellW), y1 = Math.min(h, (r + 1) * cellH);
-                    const jitter = 8;
-                    const p1 = { x: x0 + (Math.random() - 0.5) * jitter, y: y0 + (Math.random() - 0.5) * jitter };
-                    const p2 = { x: x1 + (Math.random() - 0.5) * jitter, y: y0 + (Math.random() - 0.5) * jitter };
-                    const p3 = { x: x1 + (Math.random() - 0.5) * jitter, y: y1 + (Math.random() - 0.5) * jitter };
-                    const p4 = { x: x0 + (Math.random() - 0.5) * jitter, y: y1 + (Math.random() - 0.5) * jitter };
-                    const triA = [p1, p2, p3]; const triB = [p1, p3, p4];
-                    [triA, triB].forEach(poly => {
-                        const minX = Math.floor(Math.min(...poly.map(p => p.x)));
-                        const minY = Math.floor(Math.min(...poly.map(p => p.y)));
-                        const maxX = Math.ceil(Math.max(...poly.map(p => p.x)));
-                        const maxY = Math.ceil(Math.max(...poly.map(p => p.y)));
-                        const pw = Math.max(2, maxX - minX); const ph = Math.max(2, maxY - minY);
-                        const sCanvas = document.createElement('canvas'); sCanvas.width = pw; sCanvas.height = ph;
-                        sCanvas.style.position = 'absolute'; sCanvas.style.left = (minX) + 'px'; sCanvas.style.top = (minY) + 'px';
-                        const sCtx = sCanvas.getContext('2d');
-                        if (!sCtx) return;
-                        sCtx.save(); sCtx.beginPath();
-                        poly.forEach((pt, i) => { const tx = pt.x - minX; const ty = pt.y - minY; if (i === 0) sCtx.moveTo(tx, ty); else sCtx.lineTo(tx, ty); });
-                        sCtx.closePath(); sCtx.clip(); sCtx.drawImage(imgCanvas, -minX, -minY); sCtx.restore();
-                        const centroid = poly.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 }); centroid.x /= poly.length; centroid.y /= poly.length;
-                        const dirX = (centroid.x - impactX); const dirY = (centroid.y - impactY); const dist = Math.sqrt(dirX * dirX + dirY * dirY) + 0.01;
-                        const nx = dirX / dist, ny = dirY / dist;
-                        shards.push({ el: sCanvas, cx: centroid.x, cy: centroid.y, nx, ny, w: pw, h: ph });
-                    });
-                }
-            }
-            return shards;
-        };
-
         const animateShards = (shards: any[]) => {
             shards.forEach(s => {
                 shardsContainer.appendChild(s.el);
                 const impulse = 3 + Math.random() * 5;
                 s.vx = s.nx * (impulse * (0.6 + Math.random() * 1.4)) + (Math.random() - 0.5) * 2;
                 s.vy = s.ny * (impulse * (0.6 + Math.random() * 1.4)) + (Math.random() - 0.5) * 2 - (0.5 + Math.random() * 1.5);
-                s.ax = 0; s.ay = 0.12; s.rot = (Math.random() - 0.5) * 0.6; s.angle = (Math.random() - 0.5) * 0.2; s.opacity = 1; s.scale = 1;
+                s.ax = 0; s.ay = 0.12; s.rot = (Math.random() - 0.5) * 0.6; s.angle = (Math.random() - 0.5) * 0.2; s.opacity = 1;
             });
             let last = performance.now();
             const frame = (now: number) => {
@@ -128,7 +274,7 @@ const FinalShatterEffect: React.FC<{ onComplete: () => void }> = ({ onComplete }
                 let anyVisible = false;
                 for (let s of shards) {
                     s.vx += s.ax * dt * 60; s.vy += s.ay * dt * 60; s.cx += s.vx * dt * 60; s.cy += s.vy * dt * 60; s.angle += s.rot * dt * 60; s.opacity -= 0.003 * (0.5 + Math.random());
-                    s.el.style.transform = `translate(${s.cx - (s.el.width / 2)}px, ${s.cy - (s.el.height / 2)}px) rotate(${s.angle}rad)`;
+                    s.el.style.transform = `translate(${s.cx - s.w/2}px, ${s.cy - s.h/2}px) rotate(${s.angle}rad)`;
                     s.el.style.opacity = String(Math.max(0, s.opacity));
                     if (s.opacity > 0.02) anyVisible = true;
                 }
@@ -137,7 +283,7 @@ const FinalShatterEffect: React.FC<{ onComplete: () => void }> = ({ onComplete }
                 } else {
                     setTimeout(() => {
                         fade.style.opacity = '1';
-                        setTimeout(() => onComplete(), 1500); // Fade completes, then call onComplete
+                        setTimeout(() => onComplete(), 1500);
                     }, 300);
                 }
             };
@@ -145,20 +291,34 @@ const FinalShatterEffect: React.FC<{ onComplete: () => void }> = ({ onComplete }
         };
 
         const startShatter = async () => {
+            const ctx = getAudioContext();
+            if (ctx && ctx.state === 'suspended') await ctx.resume();
+
             const impactX = window.innerWidth / 2;
             const impactY = window.innerHeight / 2;
+            
+            content.classList.add('pulse');
+            setTimeout(() => content.classList.remove('pulse'), 250);
 
-            drawCracksAnimated(impactX, impactY, 1000);
+            playImpact();
+            _drawCracksAnimated(crackCtx, crackCanvas, impactX, impactY, 1000);
+            
             await wait(900);
 
             try {
                 const canvasSnapshot = await html2canvas(content, { backgroundColor: null, scale: Math.min(2, window.devicePixelRatio), useCORS: true });
+                
+                flashAt(impactX, impactY);
+                playShatter();
+                
                 const shards = makeShardsFromImage(canvasSnapshot, impactX, impactY, 20, 12);
+                
+                content.style.visibility = 'hidden';
                 crackCtx.clearRect(0, 0, crackCanvas.width, crackCanvas.height);
+                
                 animateShards(shards);
             } catch (error) {
                 console.error("html2canvas failed, falling back to simple animation", error);
-                // Fallback if canvas fails
                 setTimeout(onComplete, 1000);
             }
         };
@@ -170,6 +330,8 @@ const FinalShatterEffect: React.FC<{ onComplete: () => void }> = ({ onComplete }
             if (animationFrameId.current) {
                 cancelAnimationFrame(animationFrameId.current);
             }
+            content.style.visibility = 'visible';
+            content.classList.remove('pulse');
         };
     }, [onComplete]);
 
@@ -180,56 +342,6 @@ const FinalShatterEffect: React.FC<{ onComplete: () => void }> = ({ onComplete }
             <div ref={fadeRef} id="fade"></div>
         </div>
     );
-};
-
-// Extracted from useEffect for clarity
-const _drawCracksAnimated = (crackCtx: CanvasRenderingContext2D, crackCanvas: HTMLCanvasElement, cx: number, cy: number, duration = 900) => {
-    const t0 = performance.now();
-    crackCtx.clearRect(0,0,crackCanvas.width, crackCanvas.height);
-    const primaryCount = 12 + Math.floor(Math.random()*12);
-    const paths: any[] = [];
-    for(let i=0;i<primaryCount;i++){
-        const baseAngle = i * (Math.PI*2/primaryCount) + (Math.random()-0.5)*0.3;
-        const baseLen = 120 + Math.random()*520;
-        const segments = 8 + Math.floor(Math.random()*8);
-        const points = [];
-        for(let s=0;s<=segments;s++){
-            const t = s/segments; const r = baseLen * (0.12 + 0.88 * t); const jitter = (1 - t) * 28;
-            const angle = baseAngle + (Math.random()-0.5) * 0.18;
-            points.push({x: cx + Math.cos(angle) * r + (Math.random()-0.5)*jitter, y: cy + Math.sin(angle) * r + (Math.random()-0.5)*jitter});
-        }
-        paths.push({points, width: 1.6 + Math.random()*2.2, depth:0});
-    }
-    const animData = paths.map((p,i)=>({p, start: 0 + Math.random()*120, dur: 300 + Math.random()*400}));
-    function drawPathPartial(points: {x:number, y:number}[], prog: number, width: number){
-        if(points.length<2) return;
-        crackCtx.save(); crackCtx.lineCap = 'round';
-        crackCtx.beginPath(); crackCtx.moveTo(points[0].x, points[0].y);
-        const total = (points.length-1); const maxIndex = Math.floor(prog * total);
-        for(let i=1;i<=maxIndex;i++) crackCtx.lineTo(points[i].x, points[i].y);
-        if(maxIndex < total){
-            const t = prog*total - maxIndex; const A = points[maxIndex]; const B = points[maxIndex+1];
-            crackCtx.lineTo(A.x + (B.x - A.x)*t, A.y + (B.y - A.y)*t);
-        }
-        crackCtx.lineWidth = width * 1.1; crackCtx.strokeStyle = 'rgba(10,12,18,0.95)';
-        crackCtx.shadowColor = 'rgba(0,0,0,0.25)'; crackCtx.shadowBlur = 2; crackCtx.stroke();
-        crackCtx.beginPath(); crackCtx.moveTo(points[0].x, points[0].y);
-        for(let i=1;i<=maxIndex;i++) crackCtx.lineTo(points[i].x, points[i].y);
-        if(maxIndex < total){ const t = prog*total - maxIndex; const A = points[maxIndex]; const B = points[maxIndex+1]; crackCtx.lineTo(A.x + (B.x-A.x)*t, A.y + (B.y-A.y)*t); }
-        crackCtx.lineWidth = Math.max(0.4, width*0.45); crackCtx.strokeStyle = 'rgba(255,255,255,0.55)';
-        crackCtx.globalCompositeOperation = 'lighter'; crackCtx.stroke(); crackCtx.globalCompositeOperation = 'source-over';
-        crackCtx.restore();
-    }
-    function frame(now: number){
-      const globalP = Math.min(1, (now - t0) / (duration + 200));
-      crackCtx.clearRect(0,0,crackCanvas.width, crackCanvas.height);
-      for(const ad of animData){
-        const localT = Math.max(0, Math.min(1, (now - t0 - ad.start) / ad.dur));
-        drawPathPartial(ad.p.points, localT, ad.p.width);
-      }
-      if(globalP < 1) requestAnimationFrame(frame);
-    }
-    requestAnimationFrame(frame);
 };
 
 
@@ -1188,7 +1300,7 @@ const MainApp: React.FC = () => {
       {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
       <NotificationToast notification={notification} />
       
-      <div id="main-content-wrapper" className={`flex-grow min-h-0 flex flex-col ${isFinalScene ? 'app-shattering' : ''}`}>
+      <div id="main-content-wrapper" className={`flex-grow min-h-0 flex flex-col`}>
         <main className="flex-grow min-h-0 overflow-y-auto">
             {renderScreen()}
         </main>
