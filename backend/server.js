@@ -1143,4 +1143,90 @@ app.post('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
     await saveDailyEvent(today, combo_ids, cipher_word, combo_reward, cipher_reward);
     res.sendStatus(200);
 });
-app.get('/admin/api/social-stats', checkAdmin
+app.get('/admin/api/social-stats', checkAdminAuth, async (req, res) => {
+    try {
+        const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+        if (Date.now() - socialStatsCache.lastUpdated > CACHE_DURATION) {
+            await updateSocialStatsCache();
+        }
+        res.json(socialStatsCache);
+    } catch (error) {
+        log('error', 'Fetching social stats failed', error);
+        res.status(500).json({ error: 'Failed to fetch social stats' });
+    }
+});
+
+app.get('/admin/api/cell-analytics', checkAdminAuth, async (req, res) => {
+    try {
+        const analytics = await getCellAnalytics();
+        res.json(analytics);
+    } catch(e) {
+        log('error', 'Failed to get cell analytics', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/admin/api/battle/force-start', checkAdminAuth, async (req, res) => {
+    try {
+        const config = await getGameConfig();
+        await forceStartBattle(config);
+        res.json({ ok: true, message: 'Battle started successfully.'});
+    } catch(e) {
+        log('error', 'Failed to force start battle', e);
+        res.status(400).json({ ok: false, error: e.message });
+    }
+});
+
+app.post('/admin/api/battle/force-end', checkAdminAuth, async (req, res) => {
+    try {
+        const config = await getGameConfig();
+        await forceEndBattle(config);
+        res.json({ ok: true, message: 'Battle ended successfully.'});
+    } catch(e) {
+        log('error', 'Failed to force end battle', e);
+        res.status(400).json({ ok: false, error: e.message });
+    }
+});
+
+app.get('/admin/api/battle/status', checkAdminAuth, async(req, res) => {
+    try {
+        const status = await getBattleStatusForCell(null); // Get global status
+        res.json({ status });
+    } catch(e) {
+        log('error', 'Failed to get global battle status', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+
+// --- Serve Frontend ---
+// This should come after all API routes.
+// We serve from the project's root directory, one level up from `/backend`.
+const frontendPath = path.join(__dirname, '..');
+app.use(express.static(frontendPath));
+
+// For any route not matched by API or static files, serve the index.html.
+// This is important for client-side routing in React.
+app.get('*', (req, res) => {
+    // Check if the request looks like a file path
+    if (path.extname(req.path).length > 0) {
+        // It's likely a request for a file that doesn't exist, so 404
+        res.status(404).send('Not found');
+    } else {
+        // It's a route, so serve the main HTML file
+        res.sendFile(path.join(frontendPath, 'index.html'));
+    }
+});
+
+// --- Server Initialization ---
+initializeDb().then(() => {
+    app.listen(port, () => {
+        log('info', `Server is running on http://localhost:${port}`);
+    });
+    // Initial cache update, then update every 15 minutes
+    updateSocialStatsCache();
+    setInterval(updateSocialStatsCache, 15 * 60 * 1000);
+}).catch(error => {
+    log('error', 'Failed to initialize database', error);
+    process.exit(1);
+});

@@ -117,7 +117,7 @@ type TranslationKey =
   // Cell Battles
   | 'cell_battle' | 'battle_inactive' | 'battle_time_left' | 'join_battle' | 'view_leaderboard'
   | 'battle_your_score' | 'battle_leaderboard_title' | 'rank' | 'score'
-  | 'battle_boosts' | 'battle_boosts_desc' | 'activate'
+  | 'battle_boosts' | 'battle_boosts_desc' | 'battle_boost_activate'
   // Admin Panel
   | 'nav_cells' | 'nav_cell_analytics' | 'nav_cell_config'
   | 'kpi_total_cells' | 'kpi_battle_participants' | 'kpi_total_bank' | 'kpi_tickets_spent'
@@ -293,7 +293,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     score: 'Score',
     battle_boosts: 'Battle Boosts',
     battle_boosts_desc: 'Coming soon! Use cell funds to get an edge.',
-    activate: 'Activate',
+    battle_boost_activate: 'Activate',
     loading: 'Loading...',
     cancel: 'Cancel',
     nav_cells: 'Cells',
@@ -499,7 +499,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     score: 'Рахунок',
     battle_boosts: 'Бойові бусти',
     battle_boosts_desc: 'Незабаром! Використовуйте кошти осередку для переваги.',
-    activate: 'Активувати',
+    battle_boost_activate: 'Активувати',
     loading: 'Завантаження...',
     cancel: 'Скасувати',
     nav_cells: 'Осередки',
@@ -705,7 +705,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     score: 'Счёт',
     battle_boosts: 'Боевые бусты',
     battle_boosts_desc: 'Скоро! Используйте средства ячейки для получения преимущества.',
-    activate: 'Активировать',
+    battle_boost_activate: 'Активировать',
     loading: 'Загрузка...',
     cancel: 'Отмена',
     nav_cells: 'Ячейки',
