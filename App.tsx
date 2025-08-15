@@ -639,18 +639,6 @@ const MainApp: React.FC = () => {
     }
   }, [isGlitching, setIsGlitching]);
   
-
-  if (!isAppReady || !user || !playerState || !config) {
-    return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
-  }
-  
-  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => {
-        setNotification(prev => (prev?.message === message ? null : prev));
-    }, 3000);
-  };
-
   const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
     if (!playerState || (playerState.claimedGlitchCodes || []).includes(event.code)) {
         return;
@@ -710,6 +698,17 @@ const MainApp: React.FC = () => {
         prevPlayerState.current = playerState;
     }, [playerState, config?.glitchEvents, triggerGlitchEvent]);
 
+
+  if (!isAppReady || !user || !playerState || !config) {
+    return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
+  }
+  
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => {
+        setNotification(prev => (prev?.message === message ? null : prev));
+    }, 3000);
+  };
 
   const handleBuyUpgrade = async (upgradeId: string) => {
     const result = await buyUpgrade(upgradeId);
