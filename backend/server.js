@@ -916,6 +916,100 @@ app.post('/admin/api/translate-text', checkAdminAuth, async (req, res) => {
     }
 });
 
+app.post('/admin/api/generate-ai-content', checkAdminAuth, async (req, res) => {
+    if (!ai) {
+        return res.status(503).json({ error: "AI service is not available. Check GEMINI_API_KEY." });
+    }
+
+    try {
+        const localizedStringSchema = {
+            type: Type.OBJECT,
+            properties: {
+                en: { type: Type.STRING },
+                ua: { type: Type.STRING },
+                ru: { type: Type.STRING }
+            },
+            required: ["en", "ua", "ru"]
+        };
+
+        const rewardSchema = {
+            type: Type.OBJECT,
+            properties: {
+                type: { type: Type.STRING, enum: ['coins', 'profit'] },
+                amount: { type: Type.INTEGER }
+            },
+            required: ["type", "amount"]
+        };
+
+        const upgradeSchema = {
+            type: Type.OBJECT,
+            properties: {
+                id: { type: Type.STRING, description: "Unique ID, e.g., 'ai_upg_1'" },
+                name: localizedStringSchema,
+                price: { type: Type.INTEGER },
+                profitPerHour: { type: Type.INTEGER },
+                category: { type: Type.STRING, enum: ["Documents", "Legal", "Lifestyle", "Special"] },
+                iconUrl: { type: Type.STRING, description: "A valid URL from api.iconify.design" },
+                suspicionModifier: { type: Type.INTEGER }
+            },
+            required: ["id", "name", "price", "profitPerHour", "category", "iconUrl", "suspicionModifier"]
+        };
+
+        const specialTaskSchema = {
+            type: Type.OBJECT,
+            properties: {
+                id: { type: Type.STRING, description: "Unique ID, e.g., 'ai_tsk_1'" },
+                name: localizedStringSchema,
+                description: localizedStringSchema,
+                type: { type: Type.STRING, enum: ['telegram_join', 'youtube_subscribe', 'video_watch'] },
+                url: { type: Type.STRING, description: "A relevant URL for the task." },
+                reward: rewardSchema,
+                priceStars: { type: Type.INTEGER },
+                isOneTime: { type: Type.BOOLEAN, description: "Should always be true" },
+                imageUrl: { type: Type.STRING, description: "A valid URL from api.iconify.design" },
+                suspicionModifier: { type: Type.INTEGER }
+            },
+             required: ["id", "name", "description", "type", "url", "reward", "priceStars", "isOneTime", "imageUrl", "suspicionModifier"]
+        };
+
+        const responseSchema = {
+            type: Type.OBJECT,
+            properties: {
+                upgrades: { type: Type.ARRAY, items: upgradeSchema },
+                specialTasks: { type: Type.ARRAY, items: specialTaskSchema }
+            },
+            required: ["upgrades", "specialTasks"]
+        };
+
+        const prompt = `You are a game designer for a satirical clicker game called 'Ukhyliant Clicker'. The game is set in a dystopian society, heavily inspired by Orwell's '1984', but with a modern Ukrainian context of war and mobilization. The player is a 'draft dodger' (ухилянт) trying to survive and profit. Your task is to generate new in-game content that is dark, humorous, and satirical.
+
+Generate exactly 5 new 'Upgrade' cards and 5 new 'Airdrop' (SpecialTask) tasks.
+- The content should reflect the absurd and grim reality of dodging the draft, dealing with bureaucracy, finding loopholes, and navigating a surveillance state.
+- Balance the game by making prices and profits reasonable but escalating.
+- For 'iconUrl' and 'imageUrl', provide a valid URL from api.iconify.design that thematically fits the item.
+- For 'id', create a short, unique string like 'ai_upg_x' or 'ai_tsk_x'.
+- Provide all localizable strings ('name', 'description') in English (en), Ukrainian (ua), and Russian (ru).
+- 'isOneTime' for tasks must always be true.`;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: responseSchema
+            }
+        });
+        
+        const jsonText = response.text.trim();
+        const generatedContent = JSON.parse(jsonText);
+        res.json(generatedContent);
+
+    } catch (e) {
+        log('error', "AI content generation failed", e);
+        res.status(500).json({ error: "Failed to generate content with AI. " + e.message });
+    }
+});
+
 app.post('/admin/api/broadcast-message', checkAdminAuth, async (req, res) => {
     const { text, imageUrl, buttonUrl, buttonText } = req.body;
     const { BOT_TOKEN } = process.env;

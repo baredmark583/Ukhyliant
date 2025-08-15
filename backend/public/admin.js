@@ -319,6 +319,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
+        
+        const aiCardHtml = `
+            <div class="card">
+                <div class="card-header"><h3 class="card-title" data-translate="ai_content_generation">AI Content Generation</h3></div>
+                <div class="card-body">
+                    <p class="text-secondary" data-translate="ai_generate_desc">Use AI to generate new thematic upgrades and tasks based on the game's context.</p>
+                    <button class="btn btn-primary w-100" data-action="generate-ai-content">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-sparkles" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2z" /><path d="M8 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2z" /><path d="M12 12a5 5 0 0 1 5 5a5 5 0 0 1 5 -5a5 5 0 0 1 -5 -5a5 5 0 0 1 -5 5z" /></svg>
+                        <span data-translate="generate_new_content">Generate New Content</span>
+                    </button>
+                </div>
+            </div>
+        `;
 
         tabContainer.innerHTML = `
             <div id="dashboard-layout">
@@ -364,6 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <input type="text" class="form-control" id="backgroundAudioUrl" value="${escapeHtml(localConfig.backgroundAudioUrl || '')}">
                             </div>
                         </div>
+                        ${aiCardHtml}
                     </div>
                     <div class="col-lg-8">
                         <div class="card card-grow">
@@ -1162,6 +1176,64 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDashboard();
         };
     };
+
+    const renderAiContentModal = (data) => {
+        const { upgrades, specialTasks } = data;
+
+        const upgradesHtml = upgrades.map(u => `
+            <div class="list-group-item">
+                <div class="row align-items-center">
+                    <div class="col-auto"><img src="${u.iconUrl}" class="avatar"></div>
+                    <div class="col text-truncate">
+                        <div class="text-body d-block">${getLocalizedText(u.name)}</div>
+                        <div class="text-secondary text-truncate mt-n1">
+                            ${t('price')}: ${formatNumber(u.price)} | ${t('profit')}: ${formatNumber(u.profitPerHour)}/hr | ${t('category')}: ${u.category}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+        const tasksHtml = specialTasks.map(t => `
+            <div class="list-group-item">
+                <div class="row align-items-center">
+                    <div class="col-auto"><img src="${t.imageUrl}" class="avatar"></div>
+                    <div class="col text-truncate">
+                        <div class="text-body d-block">${getLocalizedText(t.name)}</div>
+                        <div class="text-secondary text-truncate mt-n1">
+                           ${t('reward')}: ${formatNumber(t.reward.amount)} ${t(t.reward.type === 'coins' ? 'coins' : 'profit_per_hour')} | ${t('price_stars')}: ${t.priceStars}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        const body = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h3 class="mb-3">${t('generated_upgrades')}</h3>
+                    <div class="list-group list-group-flush overflow-auto" style="max-height: 300px;">${upgradesHtml}</div>
+                </div>
+                <div class="col-md-6">
+                    <h3 class="mb-3">${t('generated_tasks')}</h3>
+                    <div class="list-group list-group-flush overflow-auto" style="max-height: 300px;">${tasksHtml}</div>
+                </div>
+            </div>
+        `;
+        const footer = `
+            <button type="button" class="btn" data-bs-dismiss="modal">${t('cancel')}</button>
+            <button type="button" class="btn btn-success" id="add-ai-content-btn">${t('add_to_game')}</button>
+        `;
+        
+        const modalInstance = renderModal('ai-content-modal', t('ai_generated_content'), body, footer);
+
+        document.getElementById('add-ai-content-btn').onclick = () => {
+            localConfig.upgrades.push(...upgrades);
+            localConfig.specialTasks.push(...specialTasks);
+            modalInstance.hide();
+            alert(t('ai_add_success'));
+        };
+    };
     
     // --- EVENT LISTENERS ---
     document.body.addEventListener('click', async (e) => {
@@ -1258,6 +1330,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'edit-socials':
                 renderSocialsModal(social);
+                break;
+             case 'generate-ai-content':
+                target.disabled = true;
+                target.querySelector('span').textContent = t('generating');
+                try {
+                    const data = await postData('generate-ai-content');
+                    if (data) {
+                        renderAiContentModal(data);
+                    } else {
+                        // The error alert is already handled in postData
+                    }
+                } finally {
+                    target.disabled = false;
+                    target.querySelector('span').textContent = t('generate_new_content');
+                }
                 break;
         }
     });

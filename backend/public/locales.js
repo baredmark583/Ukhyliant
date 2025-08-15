@@ -79,6 +79,15 @@ window.LOCALES = {
         'button_text_optional': 'Button Text (optional)',
         'send_broadcast': 'Send Broadcast',
         'sending_broadcast': 'Sending...',
+        'ai_content_generation': 'AI Content Generation',
+        'ai_generate_desc': 'Use AI to generate new thematic upgrades and tasks based on the game\'s context.',
+        'generate_new_content': 'Generate New Content',
+        'generating': 'Generating...',
+        'ai_generated_content': 'AI Generated Content',
+        'generated_upgrades': 'Generated Upgrades',
+        'generated_tasks': 'Generated Airdrop Tasks',
+        'add_to_game': 'Add to Game',
+        'ai_add_success': 'Content added to configuration. Click \'Save All Changes\' to make it permanent.',
 
         // Cheaters Tab
         'cheater_list': 'Flagged Cheaters List',
@@ -342,6 +351,15 @@ window.LOCALES = {
         'button_text_optional': 'Текст кнопки (необязательно)',
         'send_broadcast': 'Отправить рассылку',
         'sending_broadcast': 'Отправка...',
+        'ai_content_generation': 'Генерация контента (ИИ)',
+        'ai_generate_desc': 'Используйте ИИ для создания новых тематических улучшений и заданий.',
+        'generate_new_content': 'Сгенерировать контент',
+        'generating': 'Генерация...',
+        'ai_generated_content': 'Сгенерированный контент',
+        'generated_upgrades': 'Сгенерированные Улучшения',
+        'generated_tasks': 'Сгенерированные Задания Airdrop',
+        'add_to_game': 'Добавить в игру',
+        'ai_add_success': 'Контент добавлен в конфигурацию. Нажмите "Сохранить все изменения", чтобы применить.',
 
         // Cheaters Tab
         'cheater_list': 'Список помеченных читеров',
