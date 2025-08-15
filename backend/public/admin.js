@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         upgrades: { titleKey: 'nav_upgrades', cols: ['id', 'name', 'price', 'profitPerHour', 'category', 'suspicionModifier', 'iconUrl'] },
         tasks: { titleKey: 'nav_daily_tasks', cols: ['id', 'name', 'type', 'reward', 'requiredTaps', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
         specialTasks: { titleKey: 'nav_special_tasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
-        glitchEvents: { titleKey: 'nav_glitch_events', cols: ['id', 'message', 'code', 'reward', 'trigger'] },
+        glitchEvents: { titleKey: 'nav_glitch_events', cols: ['id', 'message', 'code', 'reward', 'trigger', 'isFinal'] },
         blackMarketCards: { titleKey: 'nav_market_cards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
         coinSkins: { titleKey: 'nav_coin_skins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
         uiIcons: { titleKey: 'nav_ui_icons' },
@@ -385,6 +385,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <input type="text" class="form-control" id="backgroundAudioUrl" value="${escapeHtml(localConfig.backgroundAudioUrl || '')}">
                             </div>
                         </div>
+                         <div class="card">
+                            <div class="card-body">
+                                <h3 class="card-title" data-translate="final_video_url">URL финального видео</h3>
+                                <input type="text" class="form-control" id="finalVideoUrl" value="${escapeHtml(localConfig.finalVideoUrl || '')}">
+                            </div>
+                        </div>
                         ${aiCardHtml}
                     </div>
                     <div class="col-lg-8">
@@ -621,7 +627,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const headers = cols.map(col => `<th>${t(col) || col}</th>`).join('') + `<th>${t('actions')}</th>`;
         const rows = data.map((item, index) => {
-            const cells = cols.map(col => `<td>${renderTableCell(item[col])}</td>`).join('');
+            const cells = cols.map(col => {
+                 let value = item[col];
+                 if (key === 'glitchEvents' && col === 'isFinal') {
+                    value = !!value; // Coerce undefined to false for proper rendering
+                }
+                return `<td>${renderTableCell(value)}</td>`
+            }).join('');
             return `
                 <tr>
                     ${cells}
@@ -652,6 +664,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderTableCell = (data) => {
+        if (typeof data === 'boolean') {
+            return data ? `<span class="badge bg-green-lt">${t('yes')}</span>` : `<span class="badge bg-red-lt">${t('no')}</span>`;
+        }
         if (typeof data === 'string' && (data.startsWith('http') || data.startsWith('/assets'))) {
             return `<img src="${escapeHtml(data)}" alt="icon" style="width: 32px; height: 32px; object-fit: contain; background: #fff; padding: 2px;">`;
         }
@@ -960,32 +975,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderTriggerParamsUI = (container, type, params = {}) => {
         let html = '';
+        const localT = t; // Shadowing `t` in map function below was causing issues.
         switch (type) {
             case 'meta_tap':
-                const options = META_TAP_TARGETS.map(target => `<option value="${target.id}" ${params.targetId === target.id ? 'selected' : ''}>${t(target.nameKey)}</option>`).join('');
+                const options = META_TAP_TARGETS.map(target => `<option value="${target.id}" ${params.targetId === target.id ? 'selected' : ''}>${localT(target.nameKey)}</option>`).join('');
                 html = `
                     <div class="mb-3">
-                        <label class="form-label">${t('param_targetId')}</label>
+                        <label class="form-label">${localT('param_targetId')}</label>
                         <select class="form-select" data-param="targetId">${options}</select>
                     </div>
-                    <div class="mb-3"><label class="form-label">${t('param_taps')}</label><input type="number" class="form-control" data-param="taps" value="${escapeHtml(params.taps || 5)}"></div>
+                    <div class="mb-3"><label class="form-label">${localT('param_taps')}</label><input type="number" class="form-control" data-param="taps" value="${escapeHtml(params.taps || 5)}"></div>
                 `;
                 break;
             case 'login_at_time':
                 html = `
                     <div class="row">
-                        <div class="col"><div class="mb-3"><label class="form-label">${t('param_hour')}</label><input type="number" class="form-control" data-param="hour" value="${escapeHtml(params.hour || 0)}"></div></div>
-                        <div class="col"><div class="mb-3"><label class="form-label">${t('param_minute')}</label><input type="number" class="form-control" data-param="minute" value="${escapeHtml(params.minute || 0)}"></div></div>
+                        <div class="col"><div class="mb-3"><label class="form-label">${localT('param_hour')}</label><input type="number" class="form-control" data-param="hour" value="${escapeHtml(params.hour || 0)}"></div></div>
+                        <div class="col"><div class="mb-3"><label class="form-label">${localT('param_minute')}</label><input type="number" class="form-control" data-param="minute" value="${escapeHtml(params.minute || 0)}"></div></div>
                     </div>
                 `;
                 break;
             case 'balance_equals':
-                html = `<div class="mb-3"><label class="form-label">${t('param_amount')}</label><input type="number" class="form-control" data-param="amount" value="${escapeHtml(params.amount || 0)}"></div>`;
+                html = `<div class="mb-3"><label class="form-label">${localT('param_amount')}</label><input type="number" class="form-control" data-param="amount" value="${escapeHtml(params.amount || 0)}"></div>`;
                 break;
             case 'upgrade_purchased':
                 const allUpgrades = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
                 const upgradeOptions = allUpgrades.map(u => `<option value="${u.id}" ${params.upgradeId === u.id ? 'selected' : ''}>${getLocalizedText(u.name)}</option>`).join('');
-                html = `<div class="mb-3"><label class="form-label">${t('param_upgradeId')}</label><select class="form-select" data-param="upgradeId">${upgradeOptions}</select></div>`;
+                html = `<div class="mb-3"><label class="form-label">${localT('param_upgradeId')}</label><select class="form-select" data-param="upgradeId">${upgradeOptions}</select></div>`;
                 break;
         }
         container.innerHTML = html;
@@ -1083,6 +1099,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             <label class="form-label">${t(col) || col}</label>
                             <input type="text" class="form-control" data-col="${col}" value="${escapeHtml(value || '')}">
                         </div>`;
+            } else if (col === 'isFinal') {
+                // This column is handled separately below, so we skip it here.
+                return '';
             } else if (typeof value === 'object' && value !== null) {
                 return `
                     <div class="mb-3">
@@ -1099,6 +1118,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }).join('');
         
+        if (key === 'glitchEvents') {
+            const isFinal = item.isFinal || false;
+            formBody += `
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="isFinal-checkbox" ${isFinal ? 'checked' : ''}>
+                    <label class="form-check-label" for="isFinal-checkbox">${t('is_final_event')}</label>
+                </div>
+            `;
+        }
+
         const footer = `<button type="button" class="btn me-auto" data-bs-dismiss="modal">${t('cancel')}</button>
                         <button type="button" class="btn btn-primary" data-action="save-config-item" data-key="${key}" data-index="${isNew ? '' : index}">${t('save')}</button>`;
         
@@ -1172,14 +1201,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!newItem[col]) newItem[col] = {};
                     newItem[col][prop] = isNaN(input.value) ? input.value : Number(input.value);
                 });
-                // Handle trigger
+                // Handle trigger and isFinal
                 if (key === 'glitchEvents') {
                     const triggerType = document.getElementById('trigger-type-select').value;
                     const params = {};
                     document.querySelectorAll('#trigger-params-container [data-param]').forEach(input => {
-                         params[input.dataset.param] = isNaN(input.value) ? input.value : Number(input.value);
+                         params[input.dataset.param] = isNaN(input.value) || input.value === '' ? input.value : Number(input.value);
                     });
                     newItem.trigger = { type: triggerType, params };
+                    newItem.isFinal = document.getElementById('isFinal-checkbox')?.checked || false;
                 }
 
                 if (index) { // Edit existing
@@ -1311,6 +1341,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Dashboard single value inputs
         if (target.id === 'loadingScreenUrl') localConfig.loadingScreenImageUrl = target.value;
         if (target.id === 'backgroundAudioUrl') localConfig.backgroundAudioUrl = target.value;
+        if (target.id === 'finalVideoUrl') localConfig.finalVideoUrl = target.value;
         
         // Daily events
         if (target.classList.contains('combo-card-select')) {
