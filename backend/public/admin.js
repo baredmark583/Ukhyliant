@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         upgrades: { titleKey: 'nav_upgrades', cols: ['id', 'name', 'price', 'profitPerHour', 'category', 'suspicionModifier', 'iconUrl'] },
         tasks: { titleKey: 'nav_daily_tasks', cols: ['id', 'name', 'type', 'reward', 'requiredTaps', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
         specialTasks: { titleKey: 'nav_special_tasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
+        glitchEvents: { titleKey: 'nav_glitch_events', cols: ['id', 'message', 'code', 'reward'] },
         blackMarketCards: { titleKey: 'nav_market_cards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
         coinSkins: { titleKey: 'nav_coin_skins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
         uiIcons: { titleKey: 'nav_ui_icons' },
@@ -954,7 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (col === 'id') value = `new_${key}_${Date.now()}`;
                 else if (typeof value === 'undefined') {
                     // Pre-fill default structures for certain types
-                    if (['name', 'description'].includes(col)) value = { en: '', ru: '', ua: '' };
+                    if (['name', 'description', 'message'].includes(col)) value = { en: '', ru: '', ua: '' };
                     else if (col === 'reward') value = { type: 'coins', amount: 0 };
                     else value = '';
                 }
