@@ -591,7 +591,6 @@ const MainApp: React.FC = () => {
   const [hasPlayed, setHasPlayed] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Moved hook calls before early return to comply with Rules of Hooks
   const toggleMute = useCallback(() => {
     setIsMuted(prev => {
         const newMutedState = !prev;
