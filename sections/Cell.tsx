@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'https://esm.sh/react@19.1.1';
 import { Cell as CellType, Informant, BattleStatus, BattleLeaderboardEntry } from '../types';
 import { useTranslation, useGame, useAuth } from '../hooks/useGameLogic';
 

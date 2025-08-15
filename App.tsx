@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react@19.1.1';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
@@ -591,6 +591,25 @@ const MainApp: React.FC = () => {
   const [hasPlayed, setHasPlayed] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  useEffect(() => {
+        const tg = window.Telegram?.WebApp;
+        if (!tg) return;
+
+        const handleViewportChange = () => {
+            setIsFullScreen(tg.isExpanded);
+        };
+
+        tg.onEvent('viewportChanged', handleViewportChange);
+        return () => {
+            tg.offEvent('viewportChanged', handleViewportChange);
+        };
+    }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsAppReady(true), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+  
   const toggleMute = useCallback(() => {
     setIsMuted(prev => {
         const newMutedState = !prev;
@@ -658,25 +677,6 @@ const MainApp: React.FC = () => {
       }
       prevPlayerState.current = playerState;
   }, [playerState, config?.glitchEvents, triggerGlitchEvent]);
-
-    useEffect(() => {
-        const tg = window.Telegram?.WebApp;
-        if (!tg) return;
-
-        const handleViewportChange = () => {
-            setIsFullScreen(tg.isExpanded);
-        };
-
-        tg.onEvent('viewportChanged', handleViewportChange);
-        return () => {
-            tg.offEvent('viewportChanged', handleViewportChange);
-        };
-    }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsAppReady(true), 1500);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     if (isGlitching) {

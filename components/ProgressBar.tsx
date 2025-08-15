@@ -1,4 +1,4 @@
-import React from 'react';
+import React from 'https://esm.sh/react@19.1.1';
 
 interface ProgressBarProps {
   value: number;

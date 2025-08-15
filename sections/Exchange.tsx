@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'https://esm.sh/react@19.1.1';
 import CircularProgressBar from '../components/CircularProgressBar';
 import { PlayerState, League, User, GameConfig } from '../types';
 import { DEFAULT_COIN_SKIN_ID } from '../constants';

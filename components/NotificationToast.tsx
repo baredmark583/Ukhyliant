@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'https://esm.sh/react@19.1.1';
 
 interface NotificationToastProps {
   notification: {
