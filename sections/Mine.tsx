@@ -121,11 +121,11 @@ const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang
             </div>
         </nav>
 
-        {/* Horizontal Card Scroll Area */}
-        <div className="flex-grow overflow-x-auto no-scrollbar -mx-4 px-4">
-            <div className="inline-flex space-x-3 pb-4">
+        {/* Vertical Card Grid Area */}
+        <div className="flex-grow overflow-y-auto no-scrollbar -mx-4 px-4">
+            <div className="grid grid-cols-2 gap-3 pb-4">
                 {getUpgradesByCategory(activeCategory).map(upgrade => (
-                    <div key={upgrade.id} className="w-32 flex-shrink-0">
+                    <div key={upgrade.id}>
                         <UpgradeCard
                             upgrade={upgrade}
                             balance={balance}

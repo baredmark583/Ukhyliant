@@ -319,10 +319,10 @@ const MissionsScreen: React.FC<{
     return (
         <div className="flex flex-col h-full text-white pt-4 px-4">
             <h1 className="text-3xl font-display text-center mb-6 flex-shrink-0">{t('missions')}</h1>
-            <div className="flex-grow overflow-x-auto no-scrollbar -mx-4 px-4">
-                <div className="inline-flex space-x-3 pb-4">
+            <div className="flex-grow overflow-y-auto no-scrollbar -mx-4 px-4">
+                <div className="flex flex-col space-y-4 pb-4">
                     {tasks.map(task => (
-                        <div key={task.id} className="w-60 flex-shrink-0">
+                        <div key={task.id}>
                             <TaskCard
                                 task={task}
                                 playerState={playerState}
@@ -353,10 +353,10 @@ const AirdropScreen: React.FC<{
         <div className="flex flex-col h-full text-white pt-4 px-4">
             <h1 className="text-3xl font-display text-center mb-2 flex-shrink-0">{t('airdrop_tasks')}</h1>
             <p className="text-center text-[var(--text-secondary)] mb-6 flex-shrink-0">{t('airdrop_description')}</p>
-            <div className="flex-grow overflow-x-auto no-scrollbar -mx-4 px-4">
-                <div className="inline-flex space-x-3 pb-4">
+            <div className="flex-grow overflow-y-auto no-scrollbar -mx-4 px-4">
+                <div className="flex flex-col space-y-4 pb-4">
                     {specialTasks.map(task => (
-                       <div key={task.id} className="w-60 flex-shrink-0">
+                       <div key={task.id}>
                             <TaskCard
                                 task={task}
                                 playerState={playerState}
