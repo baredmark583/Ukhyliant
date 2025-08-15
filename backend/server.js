@@ -32,6 +32,7 @@ import {
     getPlayerLocations,
     claimComboReward,
     claimCipherReward,
+    claimGlitchCodeInDb,
     resetPlayerDailyProgress,
     claimDailyTaskReward,
     getLeaderboardData,
@@ -333,6 +334,8 @@ app.post('/api/login', async (req, res) => {
                 suspicion: 0,
                 cellId: null,
                 dailyBoostPurchases: {},
+                discoveredGlitchCodes: [],
+                claimedGlitchCodes: [],
             };
             await savePlayer(userId, player);
         } else {
@@ -523,6 +526,10 @@ const gameActions = {
         return await claimCipherReward(body.userId, body.cipher);
     },
     
+    'claim-glitch-code': async (body) => {
+        return await claimGlitchCodeInDb(body.userId, body.code);
+    },
+
     'unlock-free-task': async (body, player, config) => {
         const { userId, taskId } = body;
         const task = config.specialTasks.find(t => t.id === taskId);
@@ -1136,67 +1143,4 @@ app.post('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
     await saveDailyEvent(today, combo_ids, cipher_word, combo_reward, cipher_reward);
     res.sendStatus(200);
 });
-app.get('/admin/api/social-stats', checkAdminAuth, async (req, res) => {
-    try {
-        if (Date.now() - socialStatsCache.lastUpdated > 5 * 60 * 1000) { // 5 min cache
-            await updateSocialStatsCache();
-        }
-        res.json(socialStatsCache);
-    } catch (e) {
-        log('error', 'Fetching social stats failed', e);
-        // Return potentially stale data instead of failing
-        res.json(socialStatsCache);
-    }
-});
-
-app.get('/admin/api/cell-analytics', checkAdminAuth, async (req, res) => {
-    try {
-        const analytics = await getCellAnalytics();
-        res.json(analytics);
-    } catch(e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.get('/admin/api/battle/status', checkAdminAuth, async (req, res) => {
-    try {
-        const status = await getBattleStatusForCell(null);
-        res.json({ status });
-    } catch(e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.post('/admin/api/battle/force-start', checkAdminAuth, async (req, res) => {
-    try {
-        const config = await getGameConfig();
-        await forceStartBattle(config);
-        res.json({ ok: true });
-    } catch (e) {
-        res.status(400).json({ ok: false, error: e.message });
-    }
-});
-
-app.post('/admin/api/battle/force-end', checkAdminAuth, async (req, res) => {
-    try {
-        const config = await getGameConfig();
-        await forceEndBattle(config);
-        res.json({ ok: true });
-    } catch (e) {
-        res.status(400).json({ ok: false, error: e.message });
-    }
-});
-
-
-// --- Server Initialization ---
-const startServer = async () => {
-    await initializeDb();
-    await updateSocialStatsCache();
-    // Update social stats every 15 minutes
-    setInterval(updateSocialStatsCache, 15 * 60 * 1000);
-    app.listen(port, '0.0.0.0', () => {
-        log('info', `Server is running on http://0.0.0.0:${port}`);
-    });
-};
-
-startServer();
+app.get('/admin/api/social-stats', checkAdmin

@@ -112,6 +112,8 @@ type TranslationKey =
   | 'recruit_informant' | 'informants' | 'no_informants_recruited' | 'informant_dossier' | 'recruit' | 'recruiting'
   // Big Brother
   | 'big_brother_is_watching' | 'penalty_title' | 'penalty_close'
+  // Glitch Codes
+  | 'glitch_codes_title' | 'glitch_codes_desc' | 'activate' | 'claimed' | 'no_glitch_codes_found' | 'glitch_code_claimed'
   // Cell Battles
   | 'cell_battle' | 'battle_inactive' | 'battle_time_left' | 'join_battle' | 'view_leaderboard'
   | 'battle_your_score' | 'battle_leaderboard_title' | 'rank' | 'score'
@@ -274,6 +276,12 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     big_brother_is_watching: 'Big Brother is watching you',
     penalty_title: 'Penalty',
     penalty_close: 'Acknowledge',
+    glitch_codes_title: 'Glitch Codes',
+    glitch_codes_desc: 'Enter discovered codes from the system to claim rewards.',
+    activate: 'Activate',
+    claimed: 'Claimed',
+    no_glitch_codes_found: 'No glitch codes found yet. Keep searching.',
+    glitch_code_claimed: 'Glitch code activated!',
     cell_battle: 'Cell Battle',
     battle_inactive: 'The battle is currently inactive. Check back soon!',
     battle_time_left: 'Time Left',
@@ -474,6 +482,12 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     big_brother_is_watching: 'Великий брат стежить за тобою',
     penalty_title: 'Покарання',
     penalty_close: 'Зрозуміло',
+    glitch_codes_title: 'Глітч-коди',
+    glitch_codes_desc: 'Вводьте знайдені в системі коди, щоб отримати нагороди.',
+    activate: 'Активувати',
+    claimed: 'Отримано',
+    no_glitch_codes_found: 'Глітч-коди ще не знайдено. Продовжуйте пошук.',
+    glitch_code_claimed: 'Глітч-код активовано!',
     cell_battle: 'Битва осередків',
     battle_inactive: 'Битва наразі неактивна. Завітайте пізніше!',
     battle_time_left: 'Залишилось часу',
@@ -674,6 +688,12 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     big_brother_is_watching: 'Большой брат следит за тобой',
     penalty_title: 'Наказание',
     penalty_close: 'Принять',
+    glitch_codes_title: 'Глитч-коды',
+    glitch_codes_desc: 'Вводите найденные в системе коды, чтобы получить награды.',
+    activate: 'Активировать',
+    claimed: 'Получено',
+    no_glitch_codes_found: 'Глитч-коды еще не найдены. Продолжайте поиск.',
+    glitch_code_claimed: 'Глитч-код активирован!',
     cell_battle: 'Битва ячеек',
     battle_inactive: 'Битва в данный момент неактивна. Загляните позже!',
     battle_time_left: 'Осталось времени',

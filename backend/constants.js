@@ -35,7 +35,8 @@ export const INITIAL_UI_ICONS = {
   marketCoinBox: 'https://api.iconify.design/twemoji/package.svg',
   marketStarBox: 'https://api.iconify.design/twemoji/glowing-star.svg',
   soundOn: "https://api.iconify.design/ph/speaker-high-bold.svg?color=white",
-  soundOff: "https://api.iconify.design/ph/speaker-slash-bold.svg?color=white"
+  soundOff: "https://api.iconify.design/ph/speaker-slash-bold.svg?color=white",
+  secretCodeEntry: "https://api.iconify.design/ph/keyhole-bold.svg?color=white",
 };
 
 
@@ -81,6 +82,13 @@ export const INITIAL_COIN_SKINS = [
     { id: DEFAULT_COIN_SKIN_ID, name: {en: 'Default Coin', ua: 'Стандартна Монета', ru: 'Стандартная Монета'}, profitBoostPercent: 0, iconUrl: '/assets/coin.svg', boxType: 'direct', chance: 100, suspicionModifier: 0 },
     { id: 'skin_btc', name: {en: 'BTC', ua: 'BTC', ru: 'BTC'}, profitBoostPercent: 1, iconUrl: 'https://api.iconify.design/twemoji/coin.svg', boxType: 'coin', chance: 10, suspicionModifier: 0 },
     { id: 'skin_diamond', name: {en: 'Diamond', ua: 'Діамант', ru: 'Бриллиант'}, profitBoostPercent: 5, iconUrl: 'https://api.iconify.design/twemoji/gem-stone.svg', boxType: 'star', chance: 5, suspicionModifier: 0 },
+];
+
+export const INITIAL_GLITCH_EVENTS = [
+    { id: 'GLITCH_01', message: { en: 'The system is watching.', ua: 'Система все бачить.', ru: 'Система всё видит.'}, code: '1984', reward: { type: 'coins', amount: 19840 } },
+    { id: 'GLITCH_02', message: { en: 'You are a slave to the machine.', ua: 'Ти раб машини.', ru: 'Ты раб машины.'}, code: 'FRE3', reward: { type: 'coins', amount: 50000 } },
+    { id: 'GLITCH_03', message: { en: 'Escape. They won\'t find you.', ua: 'Тікай. Вони тебе не знайдуть.', ru: 'Беги. Они тебя не найдут.'}, code: 'RUNN', reward: { type: 'profit', amount: 100 } },
+    { id: 'GLITCH_04', message: { en: 'You think too much.', ua: 'Ти забагато думаєш.', ru: 'Ты слишком много думаешь.'}, code: 'THNK', reward: { type: 'coins', amount: 25000 } },
 ];
 
 // --- GAME MECHANICS ---

@@ -5,7 +5,7 @@ import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
 import CellScreen from './sections/Cell';
 import { REFERRAL_BONUS, TELEGRAM_BOT_NAME, MINI_APP_NAME } from './constants';
-import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League, UiIcons, Cell } from './types';
+import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League, UiIcons, Cell, GlitchEvent } from './types';
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
 
@@ -21,13 +21,22 @@ const formatNumber = (num: number): string => {
   return num.toLocaleString('en-US');
 };
 
-const GlitchEffect = () => {
+const GlitchEffect: React.FC<{ message?: string, code?: string, onClose?: () => void }> = ({ message: customMessage, code, onClose }) => {
     const t = useTranslation();
-    const message = t('why_not_state_language');
+    const message = customMessage || t('why_not_state_language');
+    
+    useEffect(() => {
+        if (onClose) {
+            const timer = setTimeout(onClose, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [onClose]);
+
     return (
-        <div className="glitch-effect">
+        <div className="glitch-effect" onClick={onClose}>
             <div className="glitch-message" data-text={message}>
                 {message}
+                {code && <div className="font-mono text-2xl mt-4 tracking-widest text-amber-300" data-text={code}>{code}</div>}
             </div>
         </div>
     );
@@ -95,9 +104,11 @@ interface ProfileScreenProps {
   onSetSkin: (skinId: string) => void;
   onOpenCoinLootbox: (boxType: 'coin') => void;
   onPurchaseStarLootbox: (boxType: 'star') => void;
+  handleMetaTap: (targetId: string, eventId: string) => void;
+  onOpenGlitchCodesModal: () => void;
 }
 
-const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox } : ProfileScreenProps) => {
+const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox, handleMetaTap, onOpenGlitchCodesModal } : ProfileScreenProps) => {
     const t = useTranslation();
     const [activeTab, setActiveTab] = useState<ProfileTab>('contacts');
     
@@ -111,9 +122,14 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
         };
         return (
             <div className="w-full max-w-md space-y-4 text-center">
-                <div className="card-glow p-4 rounded-xl">
+                <div className="card-glow p-4 rounded-xl cursor-pointer" onClick={() => handleMetaTap('referral-counter', 'GLITCH_01')}>
                     <p className="text-[var(--text-secondary)] text-lg">{t('your_referrals')}</p>
-                    <p className="text-5xl font-display my-1">{playerState.referrals}</p>
+                    <div className="flex items-center justify-center">
+                        <p className="text-5xl font-display my-1">{playerState.referrals}</p>
+                        <button onClick={(e) => { e.stopPropagation(); onOpenGlitchCodesModal(); }} className="ml-4 p-2 rounded-full hover:bg-slate-700/50">
+                            <img src={config.uiIcons.secretCodeEntry} alt="Secret Codes" className="w-6 h-6"/>
+                        </button>
+                    </div>
                 </div>
                 <div className="card-glow p-4 rounded-xl">
                     <p className="text-[var(--text-secondary)] text-lg">{t('referral_bonus')}</p>
@@ -470,6 +486,76 @@ const PurchaseResultModal: React.FC<{
     );
 };
 
+const GlitchCodesModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (code: string) => Promise<boolean>;
+  playerState: PlayerState;
+  config: GameConfig;
+  lang: Language;
+}> = ({ isOpen, onClose, onSubmit, playerState, config, lang }) => {
+    const [code, setCode] = useState('');
+    const [loading, setLoading] = useState(false);
+    const t = useTranslation();
+    
+    if (!isOpen) return null;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!code.trim() || loading) return;
+        setLoading(true);
+        const success = await onSubmit(code.trim().toUpperCase());
+        if (success) {
+            setCode('');
+        }
+        setLoading(false);
+    };
+
+    const discoveredEvents = (playerState.discoveredGlitchCodes || [])
+      .map(c => (config.glitchEvents || []).find(e => e.code === c))
+      .filter(Boolean) as GlitchEvent[];
+
+    return (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-white">{t('glitch_codes_title')}</h2>
+                    <button onClick={onClose} className="text-gray-400 text-3xl font-light">&times;</button>
+                </div>
+                
+                <form onSubmit={handleSubmit} className="mb-4">
+                    <p className="text-[var(--text-secondary)] text-sm mb-2">{t('glitch_codes_desc')}</p>
+                    <input
+                        type="text"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.toUpperCase())}
+                        className="w-full input-field mb-2 text-center font-mono tracking-widest text-lg"
+                        placeholder="CODE"
+                        maxLength={4}
+                        autoFocus
+                    />
+                    <button type="submit" disabled={loading || !code.trim()} className="w-full interactive-button rounded-lg font-bold py-3 text-lg">
+                        {loading ? '...' : t('activate')}
+                    </button>
+                </form>
+
+                <div className="bg-slate-900/50 shadow-inner rounded-xl p-2 space-y-2 overflow-y-auto max-h-48">
+                    {discoveredEvents.length > 0 ? discoveredEvents.map(event => {
+                        const isClaimed = playerState.claimedGlitchCodes?.includes(event.code);
+                        return (
+                            <div key={event.id} className={`p-2 rounded-md ${isClaimed ? 'bg-green-900/50' : 'bg-slate-800/50'}`}>
+                                <p className="font-mono text-amber-300">{event.code} - <span className="text-white font-sans">{event.message[lang]}</span></p>
+                                {isClaimed && <p className="text-xs text-green-400">{t('claimed')}</p>}
+                            </div>
+                        );
+                    }) : <p className="text-center text-sm text-[var(--text-secondary)] p-4">{t('no_glitch_codes_found')}</p>}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 const MainApp: React.FC = () => {
   const { user, isGlitching, setIsGlitching } = useAuth();
   const { 
@@ -478,9 +564,10 @@ const MainApp: React.FC = () => {
       claimDailyCombo, claimDailyCipher, getLeaderboard, 
       openCoinLootbox, purchaseLootboxWithStars, 
       setSkin,
+      claimGlitchCode,
       isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion,
       systemMessage, setSystemMessage,
-      purchaseResult, setPurchaseResult
+      purchaseResult, setPurchaseResult, setPlayerState
   } = useGame();
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -490,6 +577,11 @@ const MainApp: React.FC = () => {
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
+
+  // Glitch event states
+  const [metaTaps, setMetaTaps] = useState<Record<string, number>>({});
+  const [activeGlitchEvent, setActiveGlitchEvent] = useState<GlitchEvent | null>(null);
+  const [isGlitchCodesModalOpen, setIsGlitchCodesModalOpen] = useState(false);
 
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('isMuted') === 'true';
@@ -643,6 +735,20 @@ const MainApp: React.FC = () => {
     }
     return false;
   };
+  
+  const handleClaimGlitchCode = async (code: string): Promise<boolean> => {
+    const result = await claimGlitchCode(code);
+    if (result.player && result.reward) {
+        const rewardText = result.reward.type === 'profit'
+            ? `+${formatNumber(result.reward.amount)}/hr`
+            : `+${formatNumber(result.reward.amount)}`;
+        showNotification(`${t('glitch_code_claimed')} ${rewardText}`, 'success');
+        return true;
+    } else if (result.error) {
+        showNotification(result.error, 'error');
+    }
+    return false;
+  };
 
   const handleClaimCombo = async () => {
     const result = await claimDailyCombo();
@@ -676,6 +782,26 @@ const MainApp: React.FC = () => {
 
   const handleEnergyClick = () => showNotification(t('tooltip_energy'), 'success');
   const handleSuspicionClick = () => showNotification(t('tooltip_suspicion'), 'success');
+
+  const handleMetaTap = (targetId: string, eventId: string) => {
+        const newCount = (metaTaps[targetId] || 0) + 1;
+        setMetaTaps(prev => ({ ...prev, [targetId]: newCount }));
+        
+        // This can be expanded with a more dynamic trigger system
+        if (targetId === 'referral-counter' && newCount >= 5) {
+            const event = (config?.glitchEvents || []).find(e => e.id === eventId);
+            if (event && !activeGlitchEvent) {
+                setActiveGlitchEvent(event);
+                setPlayerState(p => {
+                    if (!p) return null;
+                    const discovered = new Set(p.discoveredGlitchCodes || []);
+                    discovered.add(event.code);
+                    return { ...p, discoveredGlitchCodes: Array.from(discovered) };
+                });
+                setMetaTaps(prev => ({ ...prev, [targetId]: 0 }));
+            }
+        }
+    };
 
   const PenaltyModal: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
       const t = useTranslation();
@@ -729,6 +855,8 @@ const MainApp: React.FC = () => {
                     onSetSkin={handleSetSkin}
                     onOpenCoinLootbox={handleOpenCoinLootbox}
                     onPurchaseStarLootbox={handlePurchaseStarLootbox}
+                    handleMetaTap={handleMetaTap}
+                    onOpenGlitchCodesModal={() => setIsGlitchCodesModalOpen(true)}
                 />;
       default:
         return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTapWithAudio} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} isMuted={isMuted} toggleMute={toggleMute} />;
@@ -757,6 +885,7 @@ const MainApp: React.FC = () => {
         <audio ref={audioRef} src={config.backgroundAudioUrl} loop muted={isMuted} playsInline />
       )}
       {isGlitching && <GlitchEffect />}
+      {activeGlitchEvent && <GlitchEffect message={activeGlitchEvent.message[user.language]} code={activeGlitchEvent.code} onClose={() => setActiveGlitchEvent(null)} />}
       {(systemMessage) && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
 
       {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
@@ -765,6 +894,7 @@ const MainApp: React.FC = () => {
            setSecretCodeTask(null);
         }} />
       }
+      {isGlitchCodesModalOpen && <GlitchCodesModal isOpen={isGlitchCodesModalOpen} onClose={() => setIsGlitchCodesModalOpen(false)} onSubmit={handleClaimGlitchCode} playerState={playerState} config={config} lang={user.language} />}
       {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
       <NotificationToast notification={notification} />
 

@@ -119,6 +119,13 @@ export interface DailyEvent {
     cipherReward: number;
 }
 
+export interface GlitchEvent {
+    id: string;
+    message: LocalizedString;
+    code: string;
+    reward: Reward;
+}
+
 export interface UiIcons {
   nav: {
     exchange: string;
@@ -142,6 +149,7 @@ export interface UiIcons {
   marketStarBox: string;
   soundOn: string;
   soundOff: string;
+  secretCodeEntry: string;
 }
 
 export interface GameConfig {
@@ -155,6 +163,7 @@ export interface GameConfig {
     dailyEvent: DailyEvent | null;
     loadingScreenImageUrl?: string;
     backgroundAudioUrl?: string;
+    glitchEvents?: GlitchEvent[];
     uiIcons: UiIcons;
     cellCreationCost: number;
     cellMaxMembers: number;
@@ -205,6 +214,8 @@ export interface PlayerState {
   cellId: number | null;
   penaltyLog?: { type: string; timestamp: string; message?: string }[];
   dailyBoostPurchases?: Record<string, number>;
+  discoveredGlitchCodes?: string[];
+  claimedGlitchCodes?: string[];
 }
 
 export interface CellMember {

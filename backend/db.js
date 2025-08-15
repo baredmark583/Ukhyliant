@@ -10,6 +10,7 @@ import {
     DEFAULT_COIN_SKIN_ID,
     INITIAL_LEAGUES,
     INITIAL_UI_ICONS,
+    INITIAL_GLITCH_EVENTS,
     CELL_CREATION_COST,
     CELL_MAX_MEMBERS,
     INFORMANT_RECRUIT_COST,
@@ -84,6 +85,16 @@ const applySuspicion = (player, modifier, lang = 'en') => {
     }
     
     player.suspicion = Math.max(0, Math.min(maxSuspicion, currentSuspicion));
+    return player;
+};
+
+const applyReward = (player, reward) => {
+    if (reward.type === 'coins') {
+        player.balance = Number(player.balance || 0) + reward.amount;
+    } else if (reward.type === 'profit') {
+        player.profitPerHour = (player.profitPerHour || 0) + reward.amount;
+        player.tasksProfitPerHour = (player.tasksProfitPerHour || 0) + reward.amount;
+    }
     return player;
 };
 
@@ -202,6 +213,7 @@ export const initializeDb = async () => {
             blackMarketCards: INITIAL_BLACK_MARKET_CARDS,
             coinSkins: INITIAL_COIN_SKINS,
             leagues: INITIAL_LEAGUES,
+            glitchEvents: INITIAL_GLITCH_EVENTS,
             loadingScreenImageUrl: '',
             backgroundAudioUrl: '',
             uiIcons: INITIAL_UI_ICONS,
@@ -252,6 +264,7 @@ export const initializeDb = async () => {
         migrateArrayConfig('blackMarketCards', INITIAL_BLACK_MARKET_CARDS);
         migrateArrayConfig('coinSkins', INITIAL_COIN_SKINS);
         migrateArrayConfig('leagues', INITIAL_LEAGUES);
+        migrateArrayConfig('glitchEvents', INITIAL_GLITCH_EVENTS);
 
         // Migrate all non-array (single value) properties
         const checkSingleProp = (key, initialValue) => {
@@ -449,17 +462,6 @@ export const unlockSpecialTask = async (userId, taskId, config) => {
     }
 };
 
-
-const applyReward = (player, reward) => {
-    if (reward.type === 'coins') {
-        player.balance = Number(player.balance || 0) + reward.amount;
-    } else if (reward.type === 'profit') {
-        player.profitPerHour = (player.profitPerHour || 0) + reward.amount;
-        player.tasksProfitPerHour = (player.tasksProfitPerHour || 0) + reward.amount;
-    }
-    return player;
-};
-
 export const completeAndRewardSpecialTask = async (userId, taskId, code) => {
     const client = await pool.connect();
     try {
@@ -553,6 +555,38 @@ export const claimDailyTaskReward = async (userId, taskId, code) => {
         client.release();
     }
 };
+
+export const claimGlitchCodeInDb = async (userId, code) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error('Player not found');
+        let player = playerRes.rows[0].data;
+
+        const config = await getGameConfig();
+        const event = (config.glitchEvents || []).find(e => e.code === code);
+        if (!event) throw new Error('Invalid code.');
+        
+        if (player.claimedGlitchCodes?.includes(code)) {
+            throw new Error('Code already claimed.');
+        }
+
+        player = applyReward(player, event.reward);
+        player.claimedGlitchCodes = [...(player.claimedGlitchCodes || []), code];
+
+        const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
+        await client.query('COMMIT');
+        return { player: updatedPlayerRes.rows[0].data, reward: event.reward };
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+};
+
 
 // --- Daily Event Functions ---
 export const getDailyEvent = async (date) => {

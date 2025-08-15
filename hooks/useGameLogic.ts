@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
-import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry } from '../types';
+import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry, Reward } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
 
 declare global {
@@ -168,6 +168,20 @@ const API = {
          console.error('Claim cipher API call failed', e);
          return { error: 'Не удалось подключиться к серверу для проверки шифра.' };
     }
+  },
+
+  claimGlitchCode: async (userId: string, code: string): Promise<{player?: PlayerState, reward?: Reward, error?: string}> => {
+    if (!API_BASE_URL) return { error: 'VITE_API_BASE_URL is not set.'};
+    const response = await fetch(`${API_BASE_URL}/api/action/claim-glitch-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, code }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        return { error: data.error || 'Failed to claim code.' };
+    }
+    return data;
   },
 
   getLeaderboard: async (): Promise<{topPlayers: LeaderboardPlayer[], totalPlayers: number} | null> => {
@@ -692,6 +706,13 @@ export const useGame = () => {
         return result;
     }, [user, setPlayerState]);
 
+    const claimGlitchCode = useCallback(async (code: string) => {
+        if (!user) return { error: 'User not found' };
+        const result = await API.claimGlitchCode(user.id, code);
+        if(result.player) setPlayerState(result.player);
+        return result;
+    }, [user, setPlayerState]);
+
     const getLeaderboard = useCallback(() => API.getLeaderboard(), []);
     
     const openCoinLootbox = useCallback(async (boxType: 'coin') => {
@@ -787,6 +808,7 @@ export const useGame = () => {
         completeSpecialTask,
         claimDailyCombo,
         claimDailyCipher,
+        claimGlitchCode,
         getLeaderboard,
         openCoinLootbox,
         purchaseLootboxWithStars,
