@@ -233,23 +233,35 @@ body {
 }
 
 /* --- FINAL GLITCH & VIDEO --- */
-@keyframes shatter {
-    0% { transform: scale(1); opacity: 1; filter: none; }
-    20% { transform: scale(1.01) translate(-2px, 2px) skew(-1deg); }
-    50% { opacity: 0.8; filter: blur(2px) contrast(200%); }
-    80% { transform: scale(1.05) translate(3px, -1px) skew(1deg); }
-    100% { transform: scale(0.8); opacity: 0; filter: blur(10px) contrast(50%); }
-}
-.app-shattering {
-    animation: shatter 2.5s forwards ease-in-out;
-}
-.final-glitch-overlay {
+.shatter-container {
     position: fixed;
     inset: 0;
     z-index: 2000;
     pointer-events: none;
-    background: radial-gradient(circle, transparent 50%, rgba(0,0,0,0.8) 100%);
+    overflow: hidden;
+    background: var(--bg-color);
+    perspective: 800px;
 }
+.shatter-fragment {
+    position: absolute;
+    background: var(--bg-card);
+    opacity: 0;
+    will-change: transform, opacity;
+}
+@keyframes shatter-anim {
+    0% {
+        transform: translate3d(0, 0, 0) rotateX(0) rotateY(0) rotateZ(0);
+        opacity: 1;
+    }
+    20% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate3d(var(--tx), var(--ty), var(--tz)) rotateX(var(--rx)) rotateY(var(--ry)) rotateZ(var(--rz));
+        opacity: 0;
+    }
+}
+
 .final-video-container {
     position: fixed;
     inset: 0;
@@ -259,7 +271,7 @@ body {
     justify-content: center;
     z-index: 3000;
     opacity: 0;
-    animation: fadeIn 0.5s 2.5s forwards;
+    animation: fadeIn 0.5s 8s forwards;
 }
 .final-video-container video {
     width: 100%;

@@ -1201,8 +1201,8 @@ app.get('/admin/api/battle/status', checkAdminAuth, async(req, res) => {
 
 // --- Serve Frontend ---
 // This should come after all API routes.
-// We serve from the project's root directory, one level up from `/backend`.
-const frontendPath = path.join(__dirname, '..');
+// We serve from the project's root directory.
+const frontendPath = process.cwd();
 app.use(express.static(frontendPath));
 
 // For any route not matched by API or static files, serve the index.html.

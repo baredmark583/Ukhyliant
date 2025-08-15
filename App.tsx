@@ -42,6 +42,42 @@ const GlitchEffect: React.FC<{ message?: string, code?: string, onClose?: () => 
     );
 };
 
+const ShatterEffect: React.FC = () => {
+    const [fragments, setFragments] = useState<React.ReactNode[]>([]);
+
+    useEffect(() => {
+        const numFragments = 200; // More fragments for a detailed effect
+        const newFragments = Array.from({ length: numFragments }).map((_, i) => {
+            const size = Math.random() * 20 + 5;
+            const duration = Math.random() * 2 + 6; // 6-8 seconds duration
+            const delay = Math.random() * 0.5;
+
+            const style: React.CSSProperties = {
+                width: `${size}px`,
+                height: `${size}px`,
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+                '--tx': `${(Math.random() - 0.5) * 800}px`,
+                '--ty': `${(Math.random() - 0.5) * 800}px`,
+                '--tz': `${(Math.random() - 0.5) * 800}px`,
+                '--rx': `${(Math.random() - 0.5) * 360}deg`,
+                '--ry': `${(Math.random() - 0.5) * 360}deg`,
+                '--rz': `${(Math.random() - 0.5) * 360}deg`,
+                animation: `shatter-anim ${duration}s ${delay}s forwards cubic-bezier(0.1, 0.8, 0.2, 1)`,
+            };
+
+            return <div key={i} className="shatter-fragment" style={style}></div>;
+        });
+        setFragments(newFragments);
+    }, []);
+
+    return (
+        <div className="shatter-container">
+            {fragments}
+        </div>
+    );
+};
+
 const FinalVideoPlayer: React.FC<{ videoUrl: string, onEnd: () => void }> = ({ videoUrl, onEnd }) => {
     const t = useTranslation();
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -624,7 +660,7 @@ const MainApp: React.FC = () => {
     // --- Trigger UI effect ---
     if (event.isFinal) {
         setIsFinalScene(true);
-        setTimeout(() => setShowVideo(true), 2500); // 2.5s to match CSS shatter animation
+        setTimeout(() => setShowVideo(true), 8000); // 8s to match CSS shatter animation
     } else {
         setActiveGlitchEvent(event);
     }
@@ -989,8 +1025,8 @@ const MainApp: React.FC = () => {
   );
 
   return (
-    <div className={`h-screen w-screen overflow-hidden flex flex-col prevent-select transition-all duration-300 ${isFullScreen ? 'pt-4' : ''} ${isFinalScene ? 'app-shattering' : ''}`}>
-      {isFinalScene && <div className="final-glitch-overlay" />}
+    <div className={`h-screen w-screen overflow-hidden flex flex-col prevent-select transition-all duration-300 ${isFullScreen ? 'pt-4' : ''}`}>
+      {isFinalScene && <ShatterEffect />}
       {showVideo && config?.finalVideoUrl && <FinalVideoPlayer videoUrl={config.finalVideoUrl} onEnd={() => { setShowVideo(false); setIsFinalScene(false); }} />}
       
       {config?.backgroundAudioUrl && (
