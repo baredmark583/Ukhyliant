@@ -42,6 +42,23 @@ const GlitchEffect: React.FC<{ message?: string, code?: string, onClose?: () => 
     );
 };
 
+const FinalVideoPlayer: React.FC<{ videoUrl: string, onEnd: () => void }> = ({ videoUrl, onEnd }) => {
+    const t = useTranslation();
+    const videoRef = useRef<HTMLVideoElement>(null);
+
+    useEffect(() => {
+        // Try to autoplay; it should work since it follows a user interaction (buying an upgrade).
+        videoRef.current?.play().catch(() => {});
+    }, [videoUrl]);
+    
+    return (
+        <div className="final-video-container">
+            <video ref={videoRef} src={videoUrl} onEnded={onEnd} playsInline autoPlay muted={false} />
+            <button onClick={onEnd} className="skip-button">{t('skip_video')}</button>
+        </div>
+    );
+};
+
 
 const AppContainer: React.FC = () => {
     const { user, isInitializing } = useAuth();
@@ -567,7 +584,8 @@ const MainApp: React.FC = () => {
       claimGlitchCode,
       isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion,
       systemMessage, setSystemMessage,
-      purchaseResult, setPurchaseResult, setPlayerState
+      purchaseResult, setPurchaseResult, setPlayerState,
+      savePlayerState
   } = useGame();
   
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
@@ -584,6 +602,8 @@ const MainApp: React.FC = () => {
   const [metaTaps, setMetaTaps] = useState<Record<string, number>>({});
   const [activeGlitchEvent, setActiveGlitchEvent] = useState<GlitchEvent | null>(null);
   const [isGlitchCodesModalOpen, setIsGlitchCodesModalOpen] = useState(false);
+  const [isFinalScene, setIsFinalScene] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
 
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('isMuted') === 'true';
@@ -595,14 +615,27 @@ const MainApp: React.FC = () => {
     if (!playerState || (playerState.claimedGlitchCodes || []).includes(event.code)) {
         return;
     }
-    setActiveGlitchEvent(event);
-    setPlayerState(p => {
-        if (!p) return null;
-        const discovered = new Set(p.discoveredGlitchCodes || []);
-        discovered.add(event.code);
-        return { ...p, discoveredGlitchCodes: Array.from(discovered) };
-    });
-  }, [playerState, setPlayerState]);
+
+    // --- Prepare state update ---
+    const discovered = new Set(playerState.discoveredGlitchCodes || []);
+    discovered.add(event.code);
+    const updatedPlayerState = { ...playerState, discoveredGlitchCodes: Array.from(discovered) };
+    
+    // --- Trigger UI effect ---
+    if (event.isFinal) {
+        setIsFinalScene(true);
+        setTimeout(() => setShowVideo(true), 2500); // 2.5s to match CSS shatter animation
+    } else {
+        setActiveGlitchEvent(event);
+    }
+    
+    // --- Update React state and immediately save to backend to prevent re-triggering ---
+    setPlayerState(updatedPlayerState);
+    if (user) {
+        // Bypasses the debounce for critical state changes
+        savePlayerState(updatedPlayerState, 0); 
+    }
+  }, [playerState, setPlayerState, user, savePlayerState]);
   
   useEffect(() => {
         const tg = window.Telegram?.WebApp;
@@ -956,7 +989,10 @@ const MainApp: React.FC = () => {
   );
 
   return (
-    <div className={`h-screen w-screen overflow-hidden flex flex-col prevent-select transition-all duration-300 ${isFullScreen ? 'pt-4' : ''}`}>
+    <div className={`h-screen w-screen overflow-hidden flex flex-col prevent-select transition-all duration-300 ${isFullScreen ? 'pt-4' : ''} ${isFinalScene ? 'app-shattering' : ''}`}>
+      {isFinalScene && <div className="final-glitch-overlay" />}
+      {showVideo && config?.finalVideoUrl && <FinalVideoPlayer videoUrl={config.finalVideoUrl} onEnd={() => { setShowVideo(false); setIsFinalScene(false); }} />}
+      
       {config?.backgroundAudioUrl && (
         <audio ref={audioRef} src={config.backgroundAudioUrl} loop muted={isMuted} playsInline />
       )}

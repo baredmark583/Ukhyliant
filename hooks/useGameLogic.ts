@@ -500,6 +500,15 @@ export const useGame = () => {
         return () => clearTimeout(handler);
     }, [playerState, user, setPlayerState]);
 
+    const savePlayerState = useCallback(async (stateToSave: PlayerState, taps: number = 0) => {
+        if (!user) return null;
+        const updatedState = await API.savePlayerState(user.id, stateToSave, taps);
+        if (updatedState) {
+            setPlayerState(updatedState);
+        }
+        return updatedState;
+    }, [user, setPlayerState]);
+    
     // Penalty detection effect
     useEffect(() => {
         if (!user || !playerState?.penaltyLog) return;
@@ -830,6 +839,7 @@ export const useGame = () => {
         setSystemMessage,
         purchaseResult,
         setPurchaseResult,
+        savePlayerState,
         getBattleStatus,
         joinBattle,
         getBattleLeaderboard,
