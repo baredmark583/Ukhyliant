@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -670,7 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const translationKey = `icon_${groupKey ? `${groupKey}_${key}` : key}`;
         return `
             <div class="mb-3">
-                <label class="form-label">${t(translationKey)}</label>
+                <label class="form-label">${t(translationKey) || key}</label>
                 <div class="input-group">
                     <input type="text" class="form-control" ${dataAttrs} value="${escapeHtml(value)}">
                     <span class="input-group-text"><img src="${escapeHtml(value)}" alt="" style="width: 24px; height: 24px; background: #fff;"></span>
@@ -683,7 +684,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const iconGroups = {
             nav: { titleKey: 'icon_group_nav', keys: ['exchange', 'mine', 'missions', 'airdrop', 'profile'] },
             profile_tabs: { titleKey: 'icon_group_profile_tabs', keys: ['contacts', 'boosts', 'skins', 'market', 'cell'] },
-            gameplay: { titleKey: 'icon_group_gameplay', keys: ['energy', 'coin', 'star', 'suspicion', 'soundOn', 'soundOff'] },
+            gameplay: { titleKey: 'icon_group_gameplay', keys: ['energy', 'coin', 'star', 'suspicion', 'soundOn', 'soundOff', 'secretCodeEntry'] },
             market: { titleKey: 'icon_group_market', keys: ['marketCoinBox', 'marketStarBox'] }
         };
 
@@ -1079,3 +1080,307 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="mb-3">
                         <label class="form-label">${t(col) || col}</label>
                         <input type="${typeof value === 'number' ? 'number' : 'text'}" class="form-control" data-col="${col}" value="${escapeHtml(value)}" ${isReadonly ? 'readonly' : ''}>
+                    </div>`;
+            }
+        }).join('');
+        
+        const footer = `<button type="button" class="btn me-auto" data-bs-dismiss="modal">${t('cancel')}</button>
+                        <button type="button" class="btn btn-primary" data-action="save-config-item" data-key="${key}" data-index="${isNew ? '' : index}">${t('save')}</button>`;
+        
+        const modalInstance = renderModal('config-modal', title, formBody, footer);
+
+        // Special handling for dynamic UI based on selections
+        if (key === 'tasks' || key === 'specialTasks') {
+            const taskTypeSelect = document.getElementById('task-type-select');
+            const secretCodeContainer = document.getElementById('secret-code-container');
+            if(taskTypeSelect && secretCodeContainer) {
+                const toggleSecretCode = () => secretCodeContainer.style.display = taskTypeSelect.value === 'video_code' ? 'block' : 'none';
+                taskTypeSelect.addEventListener('change', toggleSecretCode);
+            }
+        }
+         if (key === 'glitchEvents') {
+            const triggerTypeSelect = document.getElementById('trigger-type-select');
+            const paramsContainer = document.getElementById('trigger-params-container');
+            if (triggerTypeSelect && paramsContainer) {
+                const trigger = item.trigger || { type: 'meta_tap', params: {} };
+                renderTriggerParamsUI(paramsContainer, trigger.type, trigger.params);
+                triggerTypeSelect.addEventListener('change', () => {
+                    renderTriggerParamsUI(paramsContainer, triggerTypeSelect.value);
+                });
+            }
+        }
+    };
+
+    // --- MAIN EVENT LISTENER ---
+    document.addEventListener('click', async (e) => {
+        const actionTarget = e.target.closest('[data-action]');
+        if (!actionTarget) return;
+        
+        const { action, key, index, id, social } = actionTarget.dataset;
+
+        switch(action) {
+            case 'edit-config':
+                renderConfigForm(key, index);
+                break;
+            case 'add-config':
+                renderConfigForm(key);
+                break;
+            case 'delete-config':
+                if (confirm(t('confirm_delete'))) {
+                    localConfig[key].splice(index, 1);
+                    renderConfigTable(key);
+                }
+                break;
+            case 'save-config-item': {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('config-modal'));
+                const newItem = {};
+                document.querySelectorAll('#config-modal [data-col]').forEach(input => {
+                    const col = input.dataset.col;
+                    try {
+                        const parsed = JSON.parse(input.value);
+                        newItem[col] = parsed;
+                    } catch {
+                        newItem[col] = isNaN(input.value) || input.value === '' ? input.value : Number(input.value);
+                    }
+                });
+                 // Handle localized fields
+                document.querySelectorAll('#config-modal [data-lang-col]').forEach(input => {
+                    const col = input.dataset.langCol;
+                    const lang = input.dataset.lang;
+                    if (!newItem[col]) newItem[col] = {};
+                    newItem[col][lang] = input.value;
+                });
+                 // Handle reward fields
+                 document.querySelectorAll('#config-modal [data-reward-col]').forEach(input => {
+                    const col = input.dataset.rewardCol;
+                    const prop = input.dataset.rewardProp;
+                    if (!newItem[col]) newItem[col] = {};
+                    newItem[col][prop] = isNaN(input.value) ? input.value : Number(input.value);
+                });
+                // Handle trigger
+                if (key === 'glitchEvents') {
+                    const triggerType = document.getElementById('trigger-type-select').value;
+                    const params = {};
+                    document.querySelectorAll('#trigger-params-container [data-param]').forEach(input => {
+                         params[input.dataset.param] = isNaN(input.value) ? input.value : Number(input.value);
+                    });
+                    newItem.trigger = { type: triggerType, params };
+                }
+
+                if (index) { // Edit existing
+                    localConfig[key][index] = newItem;
+                } else { // Add new
+                    if (!localConfig[key]) localConfig[key] = [];
+                    localConfig[key].push(newItem);
+                }
+                modal.hide();
+                renderConfigTable(key);
+                break;
+            }
+            case 'translate-field': {
+                const btn = actionTarget;
+                const col = btn.dataset.col;
+                const enInput = document.querySelector(`[data-lang-col="${col}"][data-lang="en"]`);
+                if (!enInput || !enInput.value) { alert("English field must be filled to translate."); return; }
+
+                btn.disabled = true;
+                btn.textContent = t('translation_in_progress');
+                
+                const result = await postData('translate-text', {
+                    text: enInput.value,
+                    targetLangs: ['ru', 'ua']
+                });
+
+                if (result && result.translations) {
+                    for (const [lang, text] of Object.entries(result.translations)) {
+                        const input = document.querySelector(`[data-lang-col="${col}"][data-lang="${lang}"]`);
+                        if (input) input.value = text;
+                    }
+                } else {
+                    alert(t('translation_error'));
+                }
+                btn.disabled = false;
+                btn.textContent = t('translate');
+                break;
+            }
+            case 'player-details':
+                renderPlayerDetailsModal(id);
+                break;
+            case 'delete-player':
+                if (confirm(t('confirm_delete_player'))) {
+                    const res = await deleteData(`player/${id}`);
+                    if (res) renderPlayers();
+                }
+                break;
+            case 'reset-progress':
+                if (confirm(t('confirm_reset_progress'))) {
+                    const res = await postData(`player/${id}/reset-progress`);
+                    if (res) { alert(t('progress_reset_success')); renderCheaters(); }
+                     else { alert(t('error_resetting_progress')); }
+                }
+                break;
+            case 'view-cheat-log': {
+                const player = await fetchData(`player/${id}/details`);
+                const logHtml = player.cheatLog ? `<pre>${JSON.stringify(player.cheatLog, null, 2)}</pre>` : t('no_data');
+                renderModal('cheat-log-modal', `${t('cheat_log')}: ${player.name}`, logHtml, `<button class="btn" data-bs-dismiss="modal">${t('close')}</button>`);
+                break;
+            }
+            case 'force-start-battle':
+                await postData('battle/force-start');
+                renderBattleStatus();
+                break;
+            case 'force-end-battle':
+                await postData('battle/force-end');
+                renderBattleStatus();
+                break;
+            case 'generate-ai-content': {
+                const btn = actionTarget;
+                btn.disabled = true;
+                btn.querySelector('span').textContent = t('generating');
+                const content = await postData('generate-ai-content');
+                if (content) {
+                    const upgradesHtml = (content.upgrades || []).map(u => `<li>${u.id} - ${getLocalizedText(u.name)}</li>`).join('');
+                    const tasksHtml = (content.specialTasks || []).map(t => `<li>${t.id} - ${getLocalizedText(t.name)}</li>`).join('');
+                    const body = `
+                        <h4>${t('generated_upgrades')}</h4><ul>${upgradesHtml}</ul>
+                        <hr><h4>${t('generated_tasks')}</h4><ul>${tasksHtml}</ul>`;
+                    const footer = `<button class="btn" data-bs-dismiss="modal">${t('cancel')}</button>
+                                  <button class="btn btn-primary" data-action="confirm-ai-content">${t('add_to_game')}</button>`;
+                    const modal = renderModal('ai-content-modal', t('ai_generated_content'), body, footer);
+                    
+                    document.querySelector('[data-action="confirm-ai-content"]').onclick = () => {
+                        localConfig.upgrades = [...(localConfig.upgrades || []), ...content.upgrades];
+                        localConfig.specialTasks = [...(localConfig.specialTasks || []), ...content.specialTasks];
+                        alert(t('ai_add_success'));
+                        modal.hide();
+                    };
+                }
+                btn.disabled = false;
+                btn.querySelector('span').textContent = t('generate_new_content');
+                break;
+            }
+            case 'send-broadcast': {
+                const btn = actionTarget;
+                const text = document.getElementById('broadcast-text').value;
+                const imageUrl = document.getElementById('broadcast-image-url').value;
+                const buttonUrl = document.getElementById('broadcast-button-url').value;
+                const buttonText = document.getElementById('broadcast-button-text').value;
+
+                if (!text) { alert(t('message_text_required')); return; }
+                if ((buttonUrl || buttonText) && !(buttonUrl && buttonText)) { alert(t('button_requires_url_and_text')); return; }
+                if (!confirm(t('confirm_broadcast'))) return;
+                
+                btn.disabled = true;
+                btn.querySelector('span').textContent = t('sending_broadcast');
+                const result = await postData('broadcast-message', { text, imageUrl, buttonUrl, buttonText });
+                if (result) alert(result.message);
+                
+                btn.disabled = false;
+                btn.querySelector('span').textContent = t('send_broadcast');
+                break;
+            }
+        }
+    });
+
+    // --- INPUT EVENT LISTENERS for live updates ---
+    document.addEventListener('input', (e) => {
+        const target = e.target;
+
+        // Player search
+        if (target.id === 'player-search') {
+            const query = target.value.toLowerCase();
+            const filtered = allPlayers.filter(p => p.id.includes(query) || p.name.toLowerCase().includes(query));
+            document.getElementById('players-table-body').innerHTML = generatePlayerRows(filtered);
+        }
+        
+        // Dashboard single value inputs
+        if (target.id === 'loadingScreenUrl') localConfig.loadingScreenImageUrl = target.value;
+        if (target.id === 'backgroundAudioUrl') localConfig.backgroundAudioUrl = target.value;
+        
+        // Daily events
+        if (target.classList.contains('combo-card-select')) {
+            dailyEvent.combo_ids = Array.from(document.querySelectorAll('.combo-card-select')).map(select => select.value).filter(Boolean);
+        }
+        if (target.id === 'cipher-word-input') dailyEvent.cipher_word = target.value.toUpperCase();
+        if (target.id === 'combo-reward-input') dailyEvent.combo_reward = Number(target.value);
+        if (target.id === 'cipher-reward-input') dailyEvent.cipher_reward = Number(target.value);
+
+        // UI Icons
+        if (target.closest('.card-body')?.parentNode?.querySelector('h3')?.textContent === t('uiIcons')) {
+            const { key, group } = target.dataset;
+            if (group) {
+                if (!localConfig.uiIcons[group]) localConfig.uiIcons[group] = {};
+                localConfig.uiIcons[group][key] = target.value;
+            } else {
+                localConfig.uiIcons[key] = target.value;
+            }
+            // Update preview
+            const preview = target.nextElementSibling?.querySelector('img');
+            if(preview) preview.src = target.value;
+        }
+
+        // Generic settings & Cell config
+        if (target.dataset.configKey) {
+            const { configKey, subKey } = target.dataset;
+            let value = target.type === 'number' ? Number(target.value) : target.value;
+
+            if (configKey === 'informantProfitBonus' || configKey === 'cellBankProfitShare') {
+                value = value / 100;
+            }
+
+            if (subKey) {
+                if (!localConfig[configKey]) localConfig[configKey] = {};
+                localConfig[configKey][subKey] = value;
+            } else {
+                localConfig[configKey] = value;
+            }
+        } else if (target.closest('.card-body')?.parentNode?.querySelector('h3')?.textContent === t('cell_config')) {
+             const key = target.dataset.key;
+             if (key) {
+                localConfig[key] = Number(target.value);
+             }
+        }
+    });
+    
+    // --- NAVIGATION & INITIALIZATION ---
+    const switchTab = (tabName) => {
+        activeTab = tabName;
+        window.location.hash = tabName;
+        render();
+    };
+
+    const init = async () => {
+        // Setup nav links
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                switchTab(btn.dataset.tab);
+            });
+        });
+        
+        document.querySelectorAll('.lang-select-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                currentLang = btn.dataset.lang;
+                localStorage.setItem('adminLang', currentLang);
+                render();
+            });
+        });
+        
+        saveMainButton.addEventListener('click', saveAllChanges);
+        
+        // Initial data load
+        showLoading();
+        localConfig = await fetchData('config') || {};
+        
+        // Initial tab from hash or default to dashboard
+        const hash = window.location.hash.substring(1);
+        if (hash) {
+            activeTab = hash;
+        }
+        
+        render();
+    };
+
+    init();
+});

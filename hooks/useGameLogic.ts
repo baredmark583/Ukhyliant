@@ -593,25 +593,28 @@ export const useGame = () => {
     }, [user, setPlayerState, setPurchaseResult]);
 
     const allUpgrades = useMemo(() => {
-        const regularUpgrades = (config?.upgrades || []).map(u => ({...u, price: Math.floor(u.price * Math.pow(1.15, playerState?.upgrades[u.id] || 0))}));
-        const marketCards: (BlackMarketCard & { category: UpgradeCategory, price: number })[] = (config?.blackMarketCards || [])
-          .filter(c => playerState?.upgrades[c.id])
+        if (!config || !playerState) return [];
+        
+        const regularUpgrades = (config.upgrades || []).map(u => ({ ...u, price: Math.floor(u.price * Math.pow(1.15, playerState.upgrades[u.id] || 0)) }));
+        const marketCards: (BlackMarketCard & { category: UpgradeCategory, price: number })[] = (config.blackMarketCards || [])
+          .filter(c => playerState.upgrades[c.id])
           .map(c => ({
               ...c, 
               category: UpgradeCategory.Special, 
-              price: Math.floor((c.price || c.profitPerHour * 10) * Math.pow(1.15, playerState?.upgrades[c.id] || 0))
+              price: Math.floor((c.price || c.profitPerHour * 10) * Math.pow(1.15, playerState.upgrades[c.id] || 0))
           }));
         
         const combined = [...regularUpgrades, ...marketCards];
-        return combined.map(u => ({...u, level: playerState?.upgrades[u.id] || 0}));
-
-    }, [config?.upgrades, config?.blackMarketCards, playerState?.upgrades]);
+        return combined.map(u => ({ ...u, level: playerState.upgrades[u.id] || 0 }));
+    }, [config, playerState]);
 
     const currentLeague = useMemo(() => {
-        const profit = playerState?.profitPerHour || 0;
-        const sortedLeagues = [...(config?.leagues || [])].sort((a, b) => b.minProfitPerHour - a.minProfitPerHour);
+        if (!config || !playerState) return null;
+        
+        const profit = playerState.profitPerHour || 0;
+        const sortedLeagues = [...(config.leagues || [])].sort((a, b) => b.minProfitPerHour - a.minProfitPerHour);
         return sortedLeagues.find(l => profit >= l.minProfitPerHour) || sortedLeagues[sortedLeagues.length - 1] || null;
-    }, [playerState?.profitPerHour, config?.leagues]);
+    }, [config, playerState]);
 
     const handleTap = useCallback(() => {
         const tapValue = effectiveCoinsPerTap * (isTurboActive ? 5 : 1);

@@ -64,7 +64,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const dailyCipherWord = (config.dailyEvent?.cipherWord || '').toUpperCase();
   const claimedCipher = playerState.claimedCipherToday;
 
-  const currentSkin = config.coinSkins.find(s => s.id === playerState.currentSkinId) || config.coinSkins.find(s => s.id === DEFAULT_COIN_SKIN_ID);
+  const currentSkin = (config.coinSkins || []).find(s => s.id === playerState.currentSkinId) || (config.coinSkins || []).find(s => s.id === DEFAULT_COIN_SKIN_ID);
   const coinSkinUrl = currentSkin?.iconUrl || '/assets/coin.svg';
   
   const resetMorseState = useCallback(() => {
