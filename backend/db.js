@@ -203,6 +203,7 @@ export const initializeDb = async () => {
             coinSkins: INITIAL_COIN_SKINS,
             leagues: INITIAL_LEAGUES,
             loadingScreenImageUrl: '',
+            backgroundAudioUrl: '',
             uiIcons: INITIAL_UI_ICONS,
             socials: initialSocials,
             cellCreationCost: CELL_CREATION_COST,
@@ -261,6 +262,7 @@ export const initializeDb = async () => {
         };
         
         checkSingleProp('loadingScreenImageUrl', '');
+        checkSingleProp('backgroundAudioUrl', '');
         checkSingleProp('cellCreationCost', CELL_CREATION_COST);
         checkSingleProp('cellMaxMembers', CELL_MAX_MEMBERS);
         checkSingleProp('informantRecruitCost', INFORMANT_RECRUIT_COST);
@@ -509,7 +511,17 @@ export const claimDailyTaskReward = async (userId, taskId, code) => {
         const config = configRes.rows[0].value;
         const task = config.tasks.find(t => t.id === taskId);
         if (!task) throw new Error('Task not found in config');
-        if (player.completedDailyTaskIds?.includes(taskId)) throw new Error('Task already completed today.');
+
+        // Differentiated completion check
+        if (task.type === 'taps') {
+            if (player.completedDailyTaskIds?.includes(taskId)) {
+                throw new Error('Task already completed today.');
+            }
+        } else {
+            if (player.completedSpecialTaskIds?.includes(taskId)) {
+                throw new Error('Task already completed.');
+            }
+        }
 
         if (task.type === 'taps' && player.dailyTaps < (task.requiredTaps || 0)) {
             throw new Error('Not enough taps to claim this task.');
@@ -521,7 +533,15 @@ export const claimDailyTaskReward = async (userId, taskId, code) => {
         const user = await getUser(userId);
         player = applyReward(player, task.reward);
         player = applySuspicion(player, task.suspicionModifier, user.language);
-        player.completedDailyTaskIds = [...(player.completedDailyTaskIds || []), taskId];
+
+        // Differentiated completion recording
+        if (task.type === 'taps') {
+            player.completedDailyTaskIds = [...(player.completedDailyTaskIds || []), taskId];
+        } else {
+            // Treat as a one-time task, add to the permanent list
+            player.completedSpecialTaskIds = [...(player.completedSpecialTaskIds || []), taskId];
+        }
+
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
         return updatedPlayerRes.rows[0].data;

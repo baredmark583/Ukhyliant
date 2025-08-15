@@ -65,6 +65,7 @@ window.LOCALES = {
         'purchases': 'Purchases',
         'player_map': 'Player Map',
         'loading_screen_image_url': 'Loading Screen Image URL',
+        'background_audio_url': 'Background Music URL',
         'youtube_stats': 'YouTube Stats',
         'telegram_stats': 'Telegram Stats',
         'social_youtube_subs': 'YouTube Subs',
@@ -228,6 +229,8 @@ window.LOCALES = {
         'icon_coin': 'Coin Icon',
         'icon_star': 'Star Icon',
         'icon_suspicion': 'Suspicion Icon',
+        'icon_soundOn': 'Sound On Icon',
+        'icon_soundOff': 'Sound Off Icon',
         'icon_marketCoinBox': 'Coin Box Icon',
         'icon_marketStarBox': 'Star Box Icon',
 
@@ -325,6 +328,7 @@ window.LOCALES = {
         'purchases': 'Покупки',
         'player_map': 'Карта игроков',
         'loading_screen_image_url': 'URL изображения экрана загрузки',
+        'background_audio_url': 'URL фоновой музыки',
         'youtube_stats': 'Статистика YouTube',
         'telegram_stats': 'Статистика Telegram',
         'social_youtube_subs': 'Подписчики YouTube',
@@ -488,6 +492,8 @@ window.LOCALES = {
         'icon_coin': 'Иконка Монеты',
         'icon_star': 'Иконка Звезды',
         'icon_suspicion': 'Иконка Подозрения',
+        'icon_soundOn': 'Иконка Звук Вкл',
+        'icon_soundOff': 'Иконка Звук Выкл',
         'icon_marketCoinBox': 'Иконка Коробки за монеты',
         'icon_marketStarBox': 'Иконка Коробки за звезды',
         

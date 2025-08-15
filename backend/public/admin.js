@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -202,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        saveMainButton.classList.toggle('d-none', !configMeta[activeTab] && activeTab !== 'dailyEvents' && activeTab !== 'cellSettings' && activeTab !== 'cellConfiguration');
+        saveMainButton.classList.toggle('d-none', !configMeta[activeTab] && activeTab !== 'dailyEvents' && activeTab !== 'cellSettings' && activeTab !== 'cellConfiguration' && activeTab !== 'dashboard');
         
         switch (activeTab) {
             case 'dashboard':
@@ -357,6 +356,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="card-body">
                                 <h3 class="card-title" data-translate="loading_screen_image_url">URL изображения экрана загрузки</h3>
                                 <input type="text" class="form-control" id="loadingScreenUrl" value="${escapeHtml(localConfig.loadingScreenImageUrl || '')}">
+                            </div>
+                        </div>
+                         <div class="card">
+                            <div class="card-body">
+                                <h3 class="card-title" data-translate="background_audio_url">URL фоновой музыки</h3>
+                                <input type="text" class="form-control" id="backgroundAudioUrl" value="${escapeHtml(localConfig.backgroundAudioUrl || '')}">
                             </div>
                         </div>
                     </div>
@@ -660,7 +665,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const iconGroups = {
             nav: { titleKey: 'icon_group_nav', keys: ['exchange', 'mine', 'missions', 'airdrop', 'profile'] },
             profile_tabs: { titleKey: 'icon_group_profile_tabs', keys: ['contacts', 'boosts', 'skins', 'market', 'cell'] },
-            gameplay: { titleKey: 'icon_group_gameplay', keys: ['energy', 'coin', 'star', 'suspicion'] },
+            gameplay: { titleKey: 'icon_group_gameplay', keys: ['energy', 'coin', 'star', 'suspicion', 'soundOn', 'soundOff'] },
             market: { titleKey: 'icon_group_market', keys: ['marketCoinBox', 'marketStarBox'] }
         };
 
@@ -1271,6 +1276,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // --- Live updates for Dashboard ---
+        if (target.id === 'loadingScreenUrl') {
+            localConfig.loadingScreenImageUrl = target.value;
+            return;
+        }
+        if (target.id === 'backgroundAudioUrl') {
+            localConfig.backgroundAudioUrl = target.value;
+            return;
+        }
+
         // --- Live updates for Daily Events ---
         if (target.classList.contains('combo-card-select')) {
             const selects = document.querySelectorAll('.combo-card-select');
@@ -1303,11 +1318,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const groupKey = target.dataset.group;
         if (groupKey) {
             localConfig.uiIcons[groupKey][key] = target.value;
-            const img = target.nextElementSibling.querySelector('img');
+            const img = target.nextElementSibling?.querySelector('img');
             if (img) img.src = target.value;
         } else if (key && localConfig.uiIcons && localConfig.uiIcons.hasOwnProperty(key)) {
             localConfig.uiIcons[key] = target.value;
-            const img = target.nextElementSibling.querySelector('img');
+            const img = target.nextElementSibling?.querySelector('img');
             if (img) img.src = target.value;
         }
         
@@ -1318,7 +1333,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (subKey) {
                  if (!localConfig[configKey]) localConfig[configKey] = {};
                  let value = target.value;
-                 if (target.type === 'number' || target.tagName === 'SELECT') {
+                 if (target.type === 'number' || (target.tagName === 'SELECT' && !isNaN(Number(target.value)))) {
                     value = Number(target.value)
                  }
                  localConfig[configKey][subKey] = value;

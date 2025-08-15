@@ -1,4 +1,5 @@
 
+
 export type Language = 'en' | 'ua' | 'ru';
 
 export interface LocalizedString {
@@ -139,6 +140,8 @@ export interface UiIcons {
   suspicion: string;
   marketCoinBox: string;
   marketStarBox: string;
+  soundOn: string;
+  soundOff: string;
 }
 
 export interface GameConfig {
@@ -151,6 +154,7 @@ export interface GameConfig {
     leagues: League[];
     dailyEvent: DailyEvent | null;
     loadingScreenImageUrl?: string;
+    backgroundAudioUrl?: string;
     uiIcons: UiIcons;
     cellCreationCost: number;
     cellMaxMembers: number;

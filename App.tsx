@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
@@ -228,18 +228,30 @@ const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedTasks, 
     uiIcons: UiIcons 
 }) => {
     const t = useTranslation();
-    const isDaily = !('isOneTime' in task);
-    const isCompleted = isDaily 
-        ? playerState.completedDailyTaskIds.includes(task.id) 
-        : playerState.completedSpecialTaskIds.includes(task.id);
+    const isAirdropTask = 'isOneTime' in task;
+
+    let isCompleted;
+    if (isAirdropTask) {
+        // Airdrop tasks are always one-time and use the special list.
+        isCompleted = playerState.completedSpecialTaskIds.includes(task.id);
+    } else {
+        // This is a task from the "Directives" (Missions) screen.
+        if (task.type === 'taps') {
+            // Tap-based tasks are daily and use the daily list.
+            isCompleted = playerState.completedDailyTaskIds.includes(task.id);
+        } else {
+            // Other directives (like 'telegram_join') are one-time and use the special list.
+            isCompleted = playerState.completedSpecialTaskIds.includes(task.id);
+        }
+    }
     
-    const isPurchased = isDaily ? true : playerState.purchasedSpecialTaskIds.includes(task.id);
+    const isPurchased = isAirdropTask ? playerState.purchasedSpecialTaskIds.includes(task.id) : true;
     const isStarted = startedTasks.has(task.id);
 
     let progressDisplay: string | null = null;
     let claimIsDisabled = false;
 
-    if (isDaily && task.type === 'taps') {
+    if (!isAirdropTask && task.type === 'taps') {
         const required = task.requiredTaps || 0;
         const progress = Math.min(playerState.dailyTaps, required);
         if (!isCompleted) {
@@ -255,7 +267,7 @@ const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedTasks, 
             return <button disabled className="bg-slate-900 shadow-inner rounded-lg font-bold py-2 px-4 text-sm w-full text-center text-[var(--text-secondary)]">{t('completed')}</button>;
         }
 
-        if (!isDaily && (task as SpecialTask).priceStars > 0 && !isPurchased && onPurchase) {
+        if (isAirdropTask && (task as SpecialTask).priceStars > 0 && !isPurchased && onPurchase) {
             return (
                 <button onClick={() => onPurchase(task as SpecialTask)} className="interactive-button rounded-lg font-bold py-2 px-3 text-sm flex items-center justify-center space-x-1.5 w-full">
                     <span>{t('unlock_for')} {(task as SpecialTask).priceStars}</span>
@@ -479,6 +491,33 @@ const MainApp: React.FC = () => {
   const [isAppReady, setIsAppReady] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
 
+  const [isMuted, setIsMuted] = useState(() => {
+    return localStorage.getItem('isMuted') === 'true';
+  });
+  const [hasPlayed, setHasPlayed] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const toggleMute = useCallback(() => {
+    setIsMuted(prev => {
+        const newMutedState = !prev;
+        localStorage.setItem('isMuted', String(newMutedState));
+        if (audioRef.current) {
+            audioRef.current.muted = newMutedState;
+        }
+        return newMutedState;
+    });
+  }, []);
+
+  const handleTapWithAudio = useCallback(() => {
+      const tapValue = handleTap();
+      if (!hasPlayed && audioRef.current && config?.backgroundAudioUrl) {
+          audioRef.current.play().catch(e => console.error("Audio play failed:", e));
+          setHasPlayed(true);
+      }
+      return tapValue;
+  }, [handleTap, hasPlayed, config?.backgroundAudioUrl]);
+
+
     useEffect(() => {
         const tg = window.Telegram?.WebApp;
         if (!tg) return;
@@ -659,7 +698,7 @@ const MainApp: React.FC = () => {
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} />;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTapWithAudio} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} isMuted={isMuted} toggleMute={toggleMute} />;
       case 'mine':
         return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} />;
       case 'missions':
@@ -692,7 +731,7 @@ const MainApp: React.FC = () => {
                     onPurchaseStarLootbox={handlePurchaseStarLootbox}
                 />;
       default:
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick}/>;
+        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTapWithAudio} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} isMuted={isMuted} toggleMute={toggleMute} />;
     }
   };
 
@@ -714,6 +753,9 @@ const MainApp: React.FC = () => {
 
   return (
     <div className={`h-screen w-screen overflow-hidden flex flex-col prevent-select transition-all duration-300 ${isFullScreen ? 'pt-4' : ''}`}>
+      {config?.backgroundAudioUrl && (
+        <audio ref={audioRef} src={config.backgroundAudioUrl} loop muted={isMuted} playsInline />
+      )}
       {isGlitching && <GlitchEffect />}
       {(systemMessage) && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
 

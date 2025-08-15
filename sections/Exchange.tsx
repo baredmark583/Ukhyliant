@@ -24,6 +24,8 @@ interface ExchangeProps {
   effectiveMaxSuspicion: number;
   onEnergyClick: () => void;
   onSuspicionClick: () => void;
+  isMuted: boolean;
+  toggleMute: () => void;
 }
 
 const formatNumber = (num: number): string => {
@@ -43,7 +45,7 @@ interface ClickFx {
   xOffset: number;
 }
 
-const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion, onEnergyClick, onSuspicionClick }) => {
+const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion, onEnergyClick, onSuspicionClick, isMuted, toggleMute }) => {
   const t = useTranslation();
   const { balance, profitPerHour, energy, suspicion } = playerState;
   const [clicks, setClicks] = useState<ClickFx[]>([]);
@@ -176,7 +178,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   return (
     <div className="flex flex-col h-full text-white p-2 sm:p-4 gap-2">
       {/* Top Section: Info Panel */}
-      <div className="w-full flex items-center justify-around gap-2 p-2 mb-2 text-center flex-shrink-0">
+      <div className="w-full grid grid-cols-5 items-center justify-around gap-1 text-center flex-shrink-0">
           <button onClick={onEnergyClick} className="p-0 border-none bg-transparent cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-[var(--accent-color)]">
             <CircularProgressBar value={energy} max={effectiveMaxEnergy} iconUrl={config.uiIcons.energy} color="var(--accent-color)" size={60} strokeWidth={6} />
           </button>
@@ -189,6 +191,9 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
           <button onClick={handleSwitchLanguage} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
               <img src="https://api.iconify.design/ph/globe-bold.svg?color=white" alt="Language" className="w-8 h-8"/>
               <span className="text-xs font-bold text-white leading-tight">{user.language.toUpperCase()}</span>
+          </button>
+           <button onClick={toggleMute} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex items-center justify-center">
+              <img src={isMuted ? config.uiIcons.soundOff : config.uiIcons.soundOn} alt="Mute/Unmute" className="w-8 h-8"/>
           </button>
       </div>
 
@@ -205,103 +210,74 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                 onTouchStart={handlePressStart}
                 onTouchEnd={handlePressEnd}
                 onContextMenu={(e) => e.preventDefault()}
-                onMouseLeave={pressTimer.current ? handlePressEnd : undefined}
-             >
+            >
                 <div
-                    className="w-full h-full transition-transform duration-100"
+                    className="relative w-full h-full rounded-full transition-transform duration-100"
                     style={{ transform: `scale(${scale})` }}
-                  >
-                    {isTurboActive && (
-                    <div className="absolute inset-0 rounded-full animate-pulse-fire" style={{ boxShadow: '0 0 40px 10px var(--accent-color), 0 0 60px 20px var(--accent-color-glow)' }}></div>
-                    )}
+                >
                     <img
                         src={coinSkinUrl}
-                        alt="Clickable Coin"
-                        draggable="false"
-                        className="w-full h-full pointer-events-none relative z-10"
-                        style={{ filter: "drop-shadow(0 0 15px var(--accent-color-glow))" }}
+                        alt="coin"
+                        className={`w-full h-full rounded-full transition-all duration-300 ${isTurboActive ? 'animate-pulse' : ''}`}
+                        style={isTurboActive ? { filter: 'drop-shadow(0 0 20px #f59e0b)' } : {}}
                     />
                 </div>
+
+                {/* Floating click numbers */}
                 {clicks.map(click => (
                     <div
-                    key={click.id}
-                    className="absolute text-3xl font-bold text-white pointer-events-none"
-                    style={{
-                        left: click.x,
-                        top: click.y,
-                        animation: 'floatUp 1s ease-out forwards',
-                        '--x-offset': `${click.xOffset}px`,
-                        textShadow: '0px 0px 8px var(--accent-color)'
-                    } as React.CSSProperties}
+                        key={click.id}
+                        className="absolute text-white text-3xl font-bold opacity-0 pointer-events-none"
+                        style={{
+                            top: `${click.y - 30}px`,
+                            left: `${click.x - 15}px`,
+                            '--x-offset': `${click.xOffset}px`,
+                            animation: 'floatUp 1s ease-out forwards',
+                        } as React.CSSProperties}
                     >
-                    +{click.value.toFixed(2)}
+                        +{click.value}
                     </div>
                 ))}
             </div>
-
-            {/* Balance and Profit */}
-            <div className="flex flex-col items-center flex-shrink-0 my-1">
-                <div className="flex items-center space-x-2">
-                    <img src={config.uiIcons.coin} alt="coin" className="w-[5vh] h-[5vh] max-w-[32px] max-h-[32px]"/>
-                    <h1 className="text-responsive-2xl font-display text-slate-100" style={{textShadow: 'none'}}>{formatNumber(balance)}</h1>
-                </div>
-                <div className="text-responsive-sm text-[var(--accent-color)] flex items-center gap-1 font-bold">
-                    <img src={config.uiIcons.energy} alt="" className="w-3 h-3"/>
-                    <span>+{formatNumber(profitPerHour)}/hr</span>
-                </div>
-            </div>
-
-            {/* Daily Cipher Section */}
-            {dailyCipherWord && (
-                <div className="w-[90%] mx-auto mt-2 flex-shrink-0">
-                    {claimedCipher ? (
-                        <div className="flex items-center justify-center gap-2 h-10 bg-slate-900/50 shadow-inner rounded-lg">
-                            <h3 className="font-display text-sm text-[var(--accent-color)]">{t('daily_cipher')}</h3>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color)]" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
+            
+             {/* Morse Code UI */}
+            {dailyCipherWord && !claimedCipher && (
+                 <div className={`w-full text-center flex-shrink-0 transition-all duration-300 ${morseError ? 'animate-shake' : ''}`}>
+                    {morseMode ? (
+                        <div className="card-glow bg-slate-900/50 rounded-xl p-2">
+                             <p className="text-xs text-[var(--text-secondary)]">{t('cipher_hint')}</p>
+                             <div className="my-1 font-mono text-xl tracking-widest h-8 bg-black/30 rounded flex items-center justify-center">
+                                 <span className="text-slate-300">{decodedWord}</span>
+                                 <span className="text-yellow-300">{morseSequence}</span>
+                                 <span className="animate-ping">_</span>
+                             </div>
+                             <button onClick={handleCancelMorse} className="text-xs text-red-400 hover:text-red-300">{t('cancel_morse_mode')}</button>
                         </div>
                     ) : (
-                      <>
-                        {!morseMode ? (
-                            <div className="flex items-center justify-between w-full gap-2 sm:gap-4 h-10">
-                                <h3 className="font-display text-sm sm:text-base text-[var(--accent-color)] flex-shrink-0">{t('daily_cipher')}</h3>
-                                <button onClick={() => setMorseMode(true)} className="interactive-button bg-[var(--accent-color-glow)] text-white font-bold py-2 px-2 sm:px-3 text-xs rounded-lg flex-shrink-0 whitespace-nowrap">
-                                    {t('enter_morse_mode')}
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="flex items-center justify-between w-full gap-2 h-10">
-                                <div className={`font-mono text-xl h-10 tracking-widest text-white bg-slate-900/50 shadow-inner rounded-lg flex items-center justify-center w-full transition-transform ${morseError ? 'animate-shake' : ''}`}>
-                                    {decodedWord}<span className="text-gray-500">{morseSequence}</span>
-                                </div>
-                                <button onClick={handleCancelMorse} className="text-xs text-gray-400 hover:text-white flex-shrink-0">
-                                    {t('cancel_morse_mode')}
-                                </button>
-                            </div>
-                        )}
-                      </>
+                        <button onClick={() => setMorseMode(true)} className="interactive-button rounded-lg font-bold py-2 px-4 text-sm w-full">
+                           {t('daily_cipher')}
+                        </button>
                     )}
-                </div>
+                 </div>
             )}
 
+
+            {/* Balance and Profit Info */}
+            <div className="text-center w-full mt-2 flex-shrink-0">
+                <div className="flex items-center justify-center space-x-2">
+                    <img src={config.uiIcons.coin} alt="coin" className="w-8 h-8 sm:w-10 sm:h-10" />
+                    <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tighter">
+                        {formatNumber(balance)}
+                    </h1>
+                </div>
+                <div className="mt-1 flex justify-center items-center space-x-2 text-[var(--accent-color)] font-semibold">
+                    <img src={config.uiIcons.energy} alt="Profit" className="w-4 h-4" />
+                    <span className="text-base">+{formatNumber(profitPerHour)}</span>
+                    <span className="text-sm text-[var(--text-secondary)]">/hr</span>
+                </div>
+            </div>
          </div>
       </div>
-        <style>{`
-            @keyframes pulse-fire {
-                0%, 100% {
-                    transform: scale(1);
-                    opacity: 0.7;
-                }
-                50% {
-                    transform: scale(1.05);
-                    opacity: 1;
-                }
-            }
-            .animate-pulse-fire {
-                animation: pulse-fire 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-            }
-        `}</style>
     </div>
   );
 };
