@@ -962,7 +962,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = '';
         switch (type) {
             case 'meta_tap':
-                const options = META_TAP_TARGETS.map(t => `<option value="${t.id}" ${params.targetId === t.id ? 'selected' : ''}>${t(t.nameKey)}</option>`).join('');
+                const options = META_TAP_TARGETS.map(target => `<option value="${target.id}" ${params.targetId === target.id ? 'selected' : ''}>${t(target.nameKey)}</option>`).join('');
                 html = `
                     <div class="mb-3">
                         <label class="form-label">${t('param_targetId')}</label>

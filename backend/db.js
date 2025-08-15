@@ -216,6 +216,7 @@ export const initializeDb = async () => {
             glitchEvents: INITIAL_GLITCH_EVENTS,
             loadingScreenImageUrl: '',
             backgroundAudioUrl: '',
+            finalVideoUrl: '',
             uiIcons: INITIAL_UI_ICONS,
             socials: initialSocials,
             cellCreationCost: CELL_CREATION_COST,
@@ -282,9 +283,14 @@ export const initializeDb = async () => {
                         event.trigger = { type: 'meta_tap', params: { targetId: `disabled_${event.id}`, taps: 9999 } };
                     }
                 }
+                 const initialEvent = INITIAL_GLITCH_EVENTS.find(e => e.id === event.id);
+                 if (initialEvent && initialEvent.isFinal && !event.hasOwnProperty('isFinal')) {
+                     event.isFinal = true;
+                     migrated = true;
+                 }
             });
             if (migrated) {
-                 console.log("Migrated glitchEvents to include new trigger structure.");
+                 console.log("Migrated glitchEvents to include new trigger/final structure.");
                  needsUpdate = true;
             }
              migrateArrayConfig('glitchEvents', INITIAL_GLITCH_EVENTS);
@@ -300,6 +306,7 @@ export const initializeDb = async () => {
         
         checkSingleProp('loadingScreenImageUrl', '');
         checkSingleProp('backgroundAudioUrl', '');
+        checkSingleProp('finalVideoUrl', '');
         checkSingleProp('cellCreationCost', CELL_CREATION_COST);
         checkSingleProp('cellMaxMembers', CELL_MAX_MEMBERS);
         checkSingleProp('informantRecruitCost', INFORMANT_RECRUIT_COST);

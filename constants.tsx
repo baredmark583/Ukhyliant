@@ -92,7 +92,8 @@ type TranslationKey =
   | 'telegram_join' | 'social_follow' | 'video_watch' | 'referral_bonus' | 'your_referrals' | 'invite_friends'
   // Daily Events
   | 'daily_combo' | 'daily_cipher' | 'find_cards' | 'cipher_hint' | 'claimed_today' | 'combo_not_active'
-  | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard' | 'your_league' | 'total_players'
+  | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard'
+  | 'your_league' | 'total_players'
   // Notifications
   | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked'
   // Boosts
@@ -114,6 +115,7 @@ type TranslationKey =
   | 'big_brother_is_watching' | 'penalty_title' | 'penalty_close'
   // Glitch Codes
   | 'glitch_codes_title' | 'glitch_codes_desc' | 'activate' | 'claimed' | 'no_glitch_codes_found' | 'glitch_code_claimed'
+  | 'is_final_event' | 'final_video_url' | 'skip_video'
   // Cell Battles
   | 'cell_battle' | 'battle_inactive' | 'battle_time_left' | 'join_battle' | 'view_leaderboard'
   | 'battle_your_score' | 'battle_leaderboard_title' | 'rank' | 'score'
@@ -282,6 +284,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     claimed: 'Claimed',
     no_glitch_codes_found: 'No glitch codes found yet. Keep searching.',
     glitch_code_claimed: 'Glitch code activated!',
+    is_final_event: 'Is Final Event?',
+    final_video_url: 'Final Video URL',
+    skip_video: 'Skip',
     cell_battle: 'Cell Battle',
     battle_inactive: 'The battle is currently inactive. Check back soon!',
     battle_time_left: 'Time Left',
@@ -488,6 +493,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     claimed: 'Отримано',
     no_glitch_codes_found: 'Глітч-коди ще не знайдено. Продовжуйте пошук.',
     glitch_code_claimed: 'Глітч-код активовано!',
+    is_final_event: 'Це фінальна подія?',
+    final_video_url: 'URL фінального відео',
+    skip_video: 'Пропустити',
     cell_battle: 'Битва осередків',
     battle_inactive: 'Битва наразі неактивна. Завітайте пізніше!',
     battle_time_left: 'Залишилось часу',
@@ -694,6 +702,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     claimed: 'Получено',
     no_glitch_codes_found: 'Глитч-коды еще не найдены. Продолжайте поиск.',
     glitch_code_claimed: 'Глитч-код активирован!',
+    is_final_event: 'Это финальное событие?',
+    final_video_url: 'URL финального видео',
+    skip_video: 'Пропустить',
     cell_battle: 'Битва ячеек',
     battle_inactive: 'Битва в данный момент неактивна. Загляните позже!',
     battle_time_left: 'Осталось времени',

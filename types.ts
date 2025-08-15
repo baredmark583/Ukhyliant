@@ -119,7 +119,7 @@ export interface DailyEvent {
     cipherReward: number;
 }
 
-// --- GLITCH EVENT TRIGGERS ---
+// --- GLITCH EVENT TRIGGGERS ---
 export interface MetaTapTriggerParams {
   targetId: string;
   taps: number;
@@ -151,6 +151,7 @@ export interface GlitchEvent {
     code: string;
     reward: Reward;
     trigger: GlitchTrigger;
+    isFinal?: boolean;
 }
 
 export interface UiIcons {
@@ -190,6 +191,7 @@ export interface GameConfig {
     dailyEvent: DailyEvent | null;
     loadingScreenImageUrl?: string;
     backgroundAudioUrl?: string;
+    finalVideoUrl?: string;
     glitchEvents?: GlitchEvent[];
     uiIcons: UiIcons;
     cellCreationCost: number;

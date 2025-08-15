@@ -112,6 +112,14 @@ export const INITIAL_GLITCH_EVENTS = [
         code: 'THNK',
         reward: { type: 'coins', amount: 25000 },
         trigger: { type: 'balance_equals', params: { amount: 1984000 } }
+    },
+    {
+        id: 'GLITCH_FINAL',
+        message: { en: 'You are free.', ua: 'Ти вільний.', ru: 'Ты свободен.'},
+        code: 'END',
+        reward: { type: 'coins', amount: 100000000 },
+        trigger: { type: 'upgrade_purchased', params: { upgradeId: 'spec2' } },
+        isFinal: true
     }
 ];
 

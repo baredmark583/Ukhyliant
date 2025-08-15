@@ -232,6 +232,63 @@ body {
   animation: glitch-anim-2 3s linear infinite reverse;
 }
 
+/* --- FINAL GLITCH & VIDEO --- */
+@keyframes shatter {
+    0% { transform: scale(1); opacity: 1; filter: none; }
+    20% { transform: scale(1.01) translate(-2px, 2px) skew(-1deg); }
+    50% { opacity: 0.8; filter: blur(2px) contrast(200%); }
+    80% { transform: scale(1.05) translate(3px, -1px) skew(1deg); }
+    100% { transform: scale(0.8); opacity: 0; filter: blur(10px) contrast(50%); }
+}
+.app-shattering {
+    animation: shatter 2.5s forwards ease-in-out;
+}
+.final-glitch-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    pointer-events: none;
+    background: radial-gradient(circle, transparent 50%, rgba(0,0,0,0.8) 100%);
+}
+.final-video-container {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+    opacity: 0;
+    animation: fadeIn 0.5s 2.5s forwards;
+}
+.final-video-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.final-video-container .skip-button {
+    position: absolute;
+    bottom: 2rem;
+    right: 2rem;
+    padding: 0.5rem 1rem;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: 1px solid white;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 3001;
+    font-family: 'IBM Plex Mono', monospace;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+.final-video-container .skip-button:hover {
+    opacity: 1;
+}
+@keyframes fadeIn {
+    to { opacity: 1; }
+}
+
+
 /* --- SHAKE ANIMATION for Morse Code error --- */
 @keyframes shake {
   10%, 90% { transform: translate3d(-1px, 0, 0); }

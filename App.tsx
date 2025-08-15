@@ -663,26 +663,46 @@ const MainApp: React.FC = () => {
 
   // Player state change triggers
   useEffect(() => {
-      if (prevPlayerState.current && playerState && config?.glitchEvents) {
-          config.glitchEvents.forEach(e => {
-              if (e.trigger?.type === 'balance_equals' && e.trigger.params &&
-                  playerState.balance >= e.trigger.params.amount &&
-                  (prevPlayerState.current?.balance || 0) < e.trigger.params.amount) {
-                  triggerGlitchEvent(e);
-              }
+    if (!playerState || !config?.glitchEvents || activeGlitchEvent) {
+        return;
+    }
 
-              if (e.trigger?.type === 'upgrade_purchased' && e.trigger.params) {
-                  const oldUpgrades = prevPlayerState.current.upgrades || {};
-                  const newUpgrades = playerState.upgrades || {};
-                  const purchasedUpgradeId = Object.keys(newUpgrades).find(id => newUpgrades[id] > (oldUpgrades[id] || 0));
-                  if (purchasedUpgradeId === e.trigger.params.upgradeId) {
-                      triggerGlitchEvent(e);
-                  }
-              }
-          });
-      }
-      prevPlayerState.current = playerState;
-  }, [playerState, config?.glitchEvents, triggerGlitchEvent]);
+    const discovered = new Set(playerState.discoveredGlitchCodes || []);
+    const claimed = new Set(playerState.claimedGlitchCodes || []);
+
+    for (const e of config.glitchEvents) {
+        // Stop if an event is already active or this one is claimed
+        if (activeGlitchEvent || claimed.has(e.code)) {
+            continue;
+        }
+
+        // --- Stateless check for balance ---
+        if (e.trigger?.type === 'balance_equals' && e.trigger.params) {
+            // Trigger if balance is sufficient AND this glitch hasn't been discovered yet.
+            if (!discovered.has(e.code) && playerState.balance >= e.trigger.params.amount) {
+                triggerGlitchEvent(e);
+                break; // Only trigger one event per render cycle
+            }
+        }
+        
+        // --- State change check for upgrades (requires prev state) ---
+        if (prevPlayerState.current && e.trigger?.type === 'upgrade_purchased' && e.trigger.params) {
+            const oldUpgrades = prevPlayerState.current.upgrades || {};
+            const newUpgrades = playerState.upgrades || {};
+            // Find an upgrade where the new level is higher than the old level
+            const purchasedUpgradeId = Object.keys(newUpgrades).find(id => newUpgrades[id] > (oldUpgrades[id] || 0));
+            
+            if (purchasedUpgradeId === e.trigger.params.upgradeId) {
+                triggerGlitchEvent(e);
+                break; // Only trigger one event per render cycle
+            }
+        }
+    }
+    
+    // Always update the ref for the next render
+    prevPlayerState.current = playerState;
+
+}, [playerState, config?.glitchEvents, triggerGlitchEvent, activeGlitchEvent]);
 
   // Meta-tap trigger
   useEffect(() => {
