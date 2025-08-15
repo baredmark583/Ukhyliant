@@ -12,6 +12,9 @@ import SecretCodeModal from './components/SecretCodeModal';
 type Screen = 'exchange' | 'mine' | 'missions' | 'airdrop' | 'profile';
 type ProfileTab = 'contacts' | 'boosts' | 'skins' | 'market' | 'cell';
 
+// Add html2canvas to the global scope for TypeScript
+declare const html2canvas: any;
+
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
   if (num >= 1_000_000_000_000) return `${(num / 1_000_000_000_000).toFixed(2)}T`;
@@ -42,41 +45,193 @@ const GlitchEffect: React.FC<{ message?: string, code?: string, onClose?: () => 
     );
 };
 
-const ShatterEffect: React.FC = () => {
-    const [fragments, setFragments] = useState<React.ReactNode[]>([]);
+const FinalShatterEffect: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+    const crackCanvasRef = useRef<HTMLCanvasElement>(null);
+    const shardsContainerRef = useRef<HTMLDivElement>(null);
+    const fadeRef = useRef<HTMLDivElement>(null);
+    const animationFrameId = useRef<number>();
 
     useEffect(() => {
-        const numFragments = 200; // More fragments for a detailed effect
-        const newFragments = Array.from({ length: numFragments }).map((_, i) => {
-            const size = Math.random() * 20 + 5;
-            const duration = Math.random() * 2 + 6; // 6-8 seconds duration
-            const delay = Math.random() * 0.5;
+        const content = document.getElementById('main-content-wrapper');
+        const crackCanvas = crackCanvasRef.current;
+        const shardsContainer = shardsContainerRef.current;
+        const fade = fadeRef.current;
 
-            const style: React.CSSProperties = {
-                width: `${size}px`,
-                height: `${size}px`,
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`,
-                '--tx': `${(Math.random() - 0.5) * 800}px`,
-                '--ty': `${(Math.random() - 0.5) * 800}px`,
-                '--tz': `${(Math.random() - 0.5) * 800}px`,
-                '--rx': `${(Math.random() - 0.5) * 360}deg`,
-                '--ry': `${(Math.random() - 0.5) * 360}deg`,
-                '--rz': `${(Math.random() - 0.5) * 360}deg`,
-                animation: `shatter-anim ${duration}s ${delay}s forwards cubic-bezier(0.1, 0.8, 0.2, 1)`,
+        if (!content || !crackCanvas || !shardsContainer || !fade) return;
+
+        const crackCtx = crackCanvas.getContext('2d');
+        if (!crackCtx) return;
+
+        const fit = () => {
+            crackCanvas.width = window.innerWidth;
+            crackCanvas.height = window.innerHeight;
+        };
+        fit();
+        window.addEventListener('resize', fit);
+
+        const wait = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+        // --- Crack Generation Logic (from user's example) ---
+        const drawCracksAnimated = (cx: number, cy: number, duration = 900) => {
+           // ... (This function is very large, so it's defined below to avoid cluttering useEffect)
+           _drawCracksAnimated(crackCtx, crackCanvas, cx, cy, duration);
+        };
+        
+        const makeShardsFromImage = (imgCanvas: HTMLCanvasElement, impactX: number, impactY: number, cols = 22, rows = 14) => {
+            const w = imgCanvas.width, h = imgCanvas.height;
+            const cellW = Math.ceil(w / cols), cellH = Math.ceil(h / rows);
+            const shards: any[] = [];
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const x0 = c * cellW, y0 = r * cellH;
+                    const x1 = Math.min(w, (c + 1) * cellW), y1 = Math.min(h, (r + 1) * cellH);
+                    const jitter = 8;
+                    const p1 = { x: x0 + (Math.random() - 0.5) * jitter, y: y0 + (Math.random() - 0.5) * jitter };
+                    const p2 = { x: x1 + (Math.random() - 0.5) * jitter, y: y0 + (Math.random() - 0.5) * jitter };
+                    const p3 = { x: x1 + (Math.random() - 0.5) * jitter, y: y1 + (Math.random() - 0.5) * jitter };
+                    const p4 = { x: x0 + (Math.random() - 0.5) * jitter, y: y1 + (Math.random() - 0.5) * jitter };
+                    const triA = [p1, p2, p3]; const triB = [p1, p3, p4];
+                    [triA, triB].forEach(poly => {
+                        const minX = Math.floor(Math.min(...poly.map(p => p.x)));
+                        const minY = Math.floor(Math.min(...poly.map(p => p.y)));
+                        const maxX = Math.ceil(Math.max(...poly.map(p => p.x)));
+                        const maxY = Math.ceil(Math.max(...poly.map(p => p.y)));
+                        const pw = Math.max(2, maxX - minX); const ph = Math.max(2, maxY - minY);
+                        const sCanvas = document.createElement('canvas'); sCanvas.width = pw; sCanvas.height = ph;
+                        sCanvas.style.position = 'absolute'; sCanvas.style.left = (minX) + 'px'; sCanvas.style.top = (minY) + 'px';
+                        const sCtx = sCanvas.getContext('2d');
+                        if (!sCtx) return;
+                        sCtx.save(); sCtx.beginPath();
+                        poly.forEach((pt, i) => { const tx = pt.x - minX; const ty = pt.y - minY; if (i === 0) sCtx.moveTo(tx, ty); else sCtx.lineTo(tx, ty); });
+                        sCtx.closePath(); sCtx.clip(); sCtx.drawImage(imgCanvas, -minX, -minY); sCtx.restore();
+                        const centroid = poly.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 }); centroid.x /= poly.length; centroid.y /= poly.length;
+                        const dirX = (centroid.x - impactX); const dirY = (centroid.y - impactY); const dist = Math.sqrt(dirX * dirX + dirY * dirY) + 0.01;
+                        const nx = dirX / dist, ny = dirY / dist;
+                        shards.push({ el: sCanvas, cx: centroid.x, cy: centroid.y, nx, ny, w: pw, h: ph });
+                    });
+                }
+            }
+            return shards;
+        };
+
+        const animateShards = (shards: any[]) => {
+            shards.forEach(s => {
+                shardsContainer.appendChild(s.el);
+                const impulse = 3 + Math.random() * 5;
+                s.vx = s.nx * (impulse * (0.6 + Math.random() * 1.4)) + (Math.random() - 0.5) * 2;
+                s.vy = s.ny * (impulse * (0.6 + Math.random() * 1.4)) + (Math.random() - 0.5) * 2 - (0.5 + Math.random() * 1.5);
+                s.ax = 0; s.ay = 0.12; s.rot = (Math.random() - 0.5) * 0.6; s.angle = (Math.random() - 0.5) * 0.2; s.opacity = 1; s.scale = 1;
+            });
+            let last = performance.now();
+            const frame = (now: number) => {
+                const dt = Math.min(40, now - last) / 1000; last = now;
+                let anyVisible = false;
+                for (let s of shards) {
+                    s.vx += s.ax * dt * 60; s.vy += s.ay * dt * 60; s.cx += s.vx * dt * 60; s.cy += s.vy * dt * 60; s.angle += s.rot * dt * 60; s.opacity -= 0.003 * (0.5 + Math.random());
+                    s.el.style.transform = `translate(${s.cx - (s.el.width / 2)}px, ${s.cy - (s.el.height / 2)}px) rotate(${s.angle}rad)`;
+                    s.el.style.opacity = String(Math.max(0, s.opacity));
+                    if (s.opacity > 0.02) anyVisible = true;
+                }
+                if (anyVisible) {
+                    animationFrameId.current = requestAnimationFrame(frame);
+                } else {
+                    setTimeout(() => {
+                        fade.style.opacity = '1';
+                        setTimeout(() => onComplete(), 1500); // Fade completes, then call onComplete
+                    }, 300);
+                }
             };
+            animationFrameId.current = requestAnimationFrame(frame);
+        };
 
-            return <div key={i} className="shatter-fragment" style={style}></div>;
-        });
-        setFragments(newFragments);
-    }, []);
+        const startShatter = async () => {
+            const impactX = window.innerWidth / 2;
+            const impactY = window.innerHeight / 2;
+
+            drawCracksAnimated(impactX, impactY, 1000);
+            await wait(900);
+
+            try {
+                const canvasSnapshot = await html2canvas(content, { backgroundColor: null, scale: Math.min(2, window.devicePixelRatio), useCORS: true });
+                const shards = makeShardsFromImage(canvasSnapshot, impactX, impactY, 20, 12);
+                crackCtx.clearRect(0, 0, crackCanvas.width, crackCanvas.height);
+                animateShards(shards);
+            } catch (error) {
+                console.error("html2canvas failed, falling back to simple animation", error);
+                // Fallback if canvas fails
+                setTimeout(onComplete, 1000);
+            }
+        };
+
+        startShatter();
+        
+        return () => {
+            window.removeEventListener('resize', fit);
+            if (animationFrameId.current) {
+                cancelAnimationFrame(animationFrameId.current);
+            }
+        };
+    }, [onComplete]);
 
     return (
-        <div className="shatter-container">
-            {fragments}
+        <div id="shatter-stage">
+            <canvas ref={crackCanvasRef} id="crackCanvas"></canvas>
+            <div ref={shardsContainerRef} id="shards"></div>
+            <div ref={fadeRef} id="fade"></div>
         </div>
     );
 };
+
+// Extracted from useEffect for clarity
+const _drawCracksAnimated = (crackCtx: CanvasRenderingContext2D, crackCanvas: HTMLCanvasElement, cx: number, cy: number, duration = 900) => {
+    const t0 = performance.now();
+    crackCtx.clearRect(0,0,crackCanvas.width, crackCanvas.height);
+    const primaryCount = 12 + Math.floor(Math.random()*12);
+    const paths: any[] = [];
+    for(let i=0;i<primaryCount;i++){
+        const baseAngle = i * (Math.PI*2/primaryCount) + (Math.random()-0.5)*0.3;
+        const baseLen = 120 + Math.random()*520;
+        const segments = 8 + Math.floor(Math.random()*8);
+        const points = [];
+        for(let s=0;s<=segments;s++){
+            const t = s/segments; const r = baseLen * (0.12 + 0.88 * t); const jitter = (1 - t) * 28;
+            const angle = baseAngle + (Math.random()-0.5) * 0.18;
+            points.push({x: cx + Math.cos(angle) * r + (Math.random()-0.5)*jitter, y: cy + Math.sin(angle) * r + (Math.random()-0.5)*jitter});
+        }
+        paths.push({points, width: 1.6 + Math.random()*2.2, depth:0});
+    }
+    const animData = paths.map((p,i)=>({p, start: 0 + Math.random()*120, dur: 300 + Math.random()*400}));
+    function drawPathPartial(points: {x:number, y:number}[], prog: number, width: number){
+        if(points.length<2) return;
+        crackCtx.save(); crackCtx.lineCap = 'round';
+        crackCtx.beginPath(); crackCtx.moveTo(points[0].x, points[0].y);
+        const total = (points.length-1); const maxIndex = Math.floor(prog * total);
+        for(let i=1;i<=maxIndex;i++) crackCtx.lineTo(points[i].x, points[i].y);
+        if(maxIndex < total){
+            const t = prog*total - maxIndex; const A = points[maxIndex]; const B = points[maxIndex+1];
+            crackCtx.lineTo(A.x + (B.x - A.x)*t, A.y + (B.y - A.y)*t);
+        }
+        crackCtx.lineWidth = width * 1.1; crackCtx.strokeStyle = 'rgba(10,12,18,0.95)';
+        crackCtx.shadowColor = 'rgba(0,0,0,0.25)'; crackCtx.shadowBlur = 2; crackCtx.stroke();
+        crackCtx.beginPath(); crackCtx.moveTo(points[0].x, points[0].y);
+        for(let i=1;i<=maxIndex;i++) crackCtx.lineTo(points[i].x, points[i].y);
+        if(maxIndex < total){ const t = prog*total - maxIndex; const A = points[maxIndex]; const B = points[maxIndex+1]; crackCtx.lineTo(A.x + (B.x-A.x)*t, A.y + (B.y-A.y)*t); }
+        crackCtx.lineWidth = Math.max(0.4, width*0.45); crackCtx.strokeStyle = 'rgba(255,255,255,0.55)';
+        crackCtx.globalCompositeOperation = 'lighter'; crackCtx.stroke(); crackCtx.globalCompositeOperation = 'source-over';
+        crackCtx.restore();
+    }
+    function frame(now: number){
+      const globalP = Math.min(1, (now - t0) / (duration + 200));
+      crackCtx.clearRect(0,0,crackCanvas.width, crackCanvas.height);
+      for(const ad of animData){
+        const localT = Math.max(0, Math.min(1, (now - t0 - ad.start) / ad.dur));
+        drawPathPartial(ad.p.points, localT, ad.p.width);
+      }
+      if(globalP < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+};
+
 
 const FinalVideoPlayer: React.FC<{ videoUrl: string, onEnd: () => void }> = ({ videoUrl, onEnd }) => {
     const t = useTranslation();
@@ -652,23 +807,18 @@ const MainApp: React.FC = () => {
         return;
     }
 
-    // --- Prepare state update ---
     const discovered = new Set(playerState.discoveredGlitchCodes || []);
     discovered.add(event.code);
     const updatedPlayerState = { ...playerState, discoveredGlitchCodes: Array.from(discovered) };
     
-    // --- Trigger UI effect ---
     if (event.isFinal) {
         setIsFinalScene(true);
-        setTimeout(() => setShowVideo(true), 8000); // 8s to match CSS shatter animation
     } else {
         setActiveGlitchEvent(event);
     }
     
-    // --- Update React state and immediately save to backend to prevent re-triggering ---
     setPlayerState(updatedPlayerState);
     if (user) {
-        // Bypasses the debounce for critical state changes
         savePlayerState(updatedPlayerState, 0); 
     }
   }, [playerState, setPlayerState, user, savePlayerState]);
@@ -740,35 +890,29 @@ const MainApp: React.FC = () => {
     const claimed = new Set(playerState.claimedGlitchCodes || []);
 
     for (const e of config.glitchEvents) {
-        // Stop if an event is already active or this one is claimed
         if (activeGlitchEvent || claimed.has(e.code)) {
             continue;
         }
 
-        // --- Stateless check for balance ---
         if (e.trigger?.type === 'balance_equals' && e.trigger.params) {
-            // Trigger if balance is sufficient AND this glitch hasn't been discovered yet.
             if (!discovered.has(e.code) && playerState.balance >= e.trigger.params.amount) {
                 triggerGlitchEvent(e);
-                break; // Only trigger one event per render cycle
+                break;
             }
         }
         
-        // --- State change check for upgrades (requires prev state) ---
         if (prevPlayerState.current && e.trigger?.type === 'upgrade_purchased' && e.trigger.params) {
             const oldUpgrades = prevPlayerState.current.upgrades || {};
             const newUpgrades = playerState.upgrades || {};
-            // Find an upgrade where the new level is higher than the old level
             const purchasedUpgradeId = Object.keys(newUpgrades).find(id => newUpgrades[id] > (oldUpgrades[id] || 0));
             
             if (purchasedUpgradeId === e.trigger.params.upgradeId) {
                 triggerGlitchEvent(e);
-                break; // Only trigger one event per render cycle
+                break;
             }
         }
     }
     
-    // Always update the ref for the next render
     prevPlayerState.current = playerState;
 
 }, [playerState, config?.glitchEvents, triggerGlitchEvent, activeGlitchEvent]);
@@ -789,7 +933,7 @@ const MainApp: React.FC = () => {
             if (event) {
                 triggerGlitchEvent(event);
                 setMetaTaps(prev => ({ ...prev, [targetId]: 0 }));
-                break; // Trigger only one event per check
+                break;
             }
         }
     }
@@ -859,7 +1003,6 @@ const MainApp: React.FC = () => {
     const isExternalLinkTask = !!task.url;
     const isTaskStarted = startedTasks.has(task.id);
 
-    // First click on an external link task
     if (isExternalLinkTask && !isTaskStarted) {
         if (task.url.startsWith('https://t.me/')) {
             window.Telegram.WebApp.openTelegramLink(task.url);
@@ -870,7 +1013,6 @@ const MainApp: React.FC = () => {
         return;
     }
     
-    // Handling a task that has been started, or is not external
     if (task.type === 'video_code') {
         setSecretCodeTask(task);
         return;
@@ -1026,7 +1168,7 @@ const MainApp: React.FC = () => {
 
   return (
     <div className={`h-screen w-screen overflow-hidden flex flex-col prevent-select transition-all duration-300 ${isFullScreen ? 'pt-4' : ''}`}>
-      {isFinalScene && <ShatterEffect />}
+      {isFinalScene && !showVideo && <FinalShatterEffect onComplete={() => setShowVideo(true)} />}
       {showVideo && config?.finalVideoUrl && <FinalVideoPlayer videoUrl={config.finalVideoUrl} onEnd={() => { setShowVideo(false); setIsFinalScene(false); }} />}
       
       {config?.backgroundAudioUrl && (
@@ -1045,20 +1187,22 @@ const MainApp: React.FC = () => {
       {isGlitchCodesModalOpen && <GlitchCodesModal isOpen={isGlitchCodesModalOpen} onClose={() => setIsGlitchCodesModalOpen(false)} onSubmit={handleClaimGlitchCode} playerState={playerState} config={config} lang={user.language} />}
       {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
       <NotificationToast notification={notification} />
+      
+      <div id="main-content-wrapper" className={`flex-grow min-h-0 flex flex-col ${isFinalScene ? 'app-shattering' : ''}`}>
+        <main className="flex-grow min-h-0 overflow-y-auto">
+            {renderScreen()}
+        </main>
+        <nav className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-t border-slate-700">
+            <div className="grid grid-cols-5 justify-around items-start max-w-xl mx-auto">
+            <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} />
+            <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} />
+            <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} />
+            <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} />
+            <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} />
+            </div>
+        </nav>
+      </div>
 
-      <main className="flex-grow min-h-0 overflow-y-auto">
-        {renderScreen()}
-      </main>
-
-      <nav className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-t border-slate-700">
-        <div className="grid grid-cols-5 justify-around items-start max-w-xl mx-auto">
-          <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} />
-          <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} />
-          <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} />
-          <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} />
-          <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} />
-        </div>
-      </nav>
        <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; } 
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

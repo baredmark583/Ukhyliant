@@ -232,36 +232,40 @@ body {
   animation: glitch-anim-2 3s linear infinite reverse;
 }
 
-/* --- FINAL GLITCH & VIDEO --- */
-.shatter-container {
+/* --- FINAL SHATTER EFFECT --- */
+#shatter-stage {
     position: fixed;
     inset: 0;
     z-index: 2000;
     pointer-events: none;
     overflow: hidden;
-    background: var(--bg-color);
-    perspective: 800px;
 }
-.shatter-fragment {
+#crackCanvas {
     position: absolute;
-    background: var(--bg-card);
-    opacity: 0;
+    left: 0; top: 0; width: 100%; height: 100%;
+    z-index: 2003;
+}
+#shards {
+    position: absolute;
+    left: 0; top: 0; width: 100%; height: 100%;
+    z-index: 2004;
+}
+#shards canvas {
     will-change: transform, opacity;
 }
-@keyframes shatter-anim {
-    0% {
-        transform: translate3d(0, 0, 0) rotateX(0) rotateY(0) rotateZ(0);
-        opacity: 1;
-    }
-    20% {
-        opacity: 1;
-    }
-    100% {
-        transform: translate3d(var(--tx), var(--ty), var(--tz)) rotateX(var(--rx)) rotateY(var(--ry)) rotateZ(var(--rz));
-        opacity: 0;
-    }
+#fade {
+    position: absolute;
+    left: 0; top: 0; width: 100%; height: 100%;
+    z-index: 2006;
+    background: var(--bg-color);
+    opacity: 0;
+    transition: opacity 1.5s linear;
+}
+.app-shattering #main-content-wrapper {
+    visibility: hidden;
 }
 
+/* --- FINAL VIDEO PLAYER --- */
 .final-video-container {
     position: fixed;
     inset: 0;
@@ -271,7 +275,7 @@ body {
     justify-content: center;
     z-index: 3000;
     opacity: 0;
-    animation: fadeIn 0.5s 8s forwards;
+    animation: fadeIn 0.5s forwards;
 }
 .final-video-container video {
     width: 100%;
