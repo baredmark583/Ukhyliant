@@ -569,6 +569,7 @@ const MainApp: React.FC = () => {
       systemMessage, setSystemMessage,
       purchaseResult, setPurchaseResult, setPlayerState
   } = useGame();
+  
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
@@ -590,6 +591,7 @@ const MainApp: React.FC = () => {
   const [hasPlayed, setHasPlayed] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // Moved hook calls before early return to comply with Rules of Hooks
   const toggleMute = useCallback(() => {
     setIsMuted(prev => {
         const newMutedState = !prev;
@@ -610,6 +612,53 @@ const MainApp: React.FC = () => {
       return tapValue;
   }, [handleTap, hasPlayed, config?.backgroundAudioUrl]);
 
+  const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
+    if (!playerState || (playerState.claimedGlitchCodes || []).includes(event.code)) {
+        return;
+    }
+    setActiveGlitchEvent(event);
+    setPlayerState(p => {
+        if (!p) return null;
+        const discovered = new Set(p.discoveredGlitchCodes || []);
+        discovered.add(event.code);
+        return { ...p, discoveredGlitchCodes: Array.from(discovered) };
+    });
+  }, [playerState, setPlayerState]);
+
+  // --- GLITCH TRIGGER CHECKS (with safety checks) ---
+  useEffect(() => {
+      if (!config?.glitchEvents) return;
+      const now = new Date();
+      config.glitchEvents.forEach(e => {
+          if (e.trigger?.type === 'login_at_time' && e.trigger.params &&
+              e.trigger.params.hour === now.getHours() &&
+              e.trigger.params.minute === now.getMinutes()) {
+              triggerGlitchEvent(e);
+          }
+      });
+  }, [config?.glitchEvents, triggerGlitchEvent]);
+
+  useEffect(() => {
+      if (prevPlayerState.current && playerState && config?.glitchEvents) {
+          config.glitchEvents.forEach(e => {
+              if (e.trigger?.type === 'balance_equals' && e.trigger.params &&
+                  playerState.balance >= e.trigger.params.amount &&
+                  (prevPlayerState.current?.balance || 0) < e.trigger.params.amount) {
+                  triggerGlitchEvent(e);
+              }
+
+              if (e.trigger?.type === 'upgrade_purchased' && e.trigger.params) {
+                  const oldUpgrades = prevPlayerState.current.upgrades || {};
+                  const newUpgrades = playerState.upgrades || {};
+                  const purchasedUpgradeId = Object.keys(newUpgrades).find(id => newUpgrades[id] > (oldUpgrades[id] || 0));
+                  if (purchasedUpgradeId === e.trigger.params.upgradeId) {
+                      triggerGlitchEvent(e);
+                  }
+              }
+          });
+      }
+      prevPlayerState.current = playerState;
+  }, [playerState, config?.glitchEvents, triggerGlitchEvent]);
 
     useEffect(() => {
         const tg = window.Telegram?.WebApp;
@@ -638,66 +687,6 @@ const MainApp: React.FC = () => {
         return () => clearTimeout(timer);
     }
   }, [isGlitching, setIsGlitching]);
-  
-  const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
-    if (!playerState || (playerState.claimedGlitchCodes || []).includes(event.code)) {
-        return;
-    }
-    setActiveGlitchEvent(event);
-    setPlayerState(p => {
-        if (!p) return null;
-        const discovered = new Set(p.discoveredGlitchCodes || []);
-        discovered.add(event.code);
-        return { ...p, discoveredGlitchCodes: Array.from(discovered) };
-    });
-  }, [playerState, setPlayerState]);
-
-  // --- GLITCH TRIGGER CHECKS ---
-    useEffect(() => {
-        if (!config?.glitchEvents) return;
-
-        // Login Time Trigger
-        const now = new Date();
-        const loginTrigger = config.glitchEvents.find(e =>
-            e.trigger.type === 'login_at_time' &&
-            e.trigger.params.hour === now.getHours() &&
-            e.trigger.params.minute === now.getMinutes()
-        );
-        if (loginTrigger) {
-            triggerGlitchEvent(loginTrigger);
-        }
-    }, [config?.glitchEvents, triggerGlitchEvent]);
-
-  useEffect(() => {
-        if (prevPlayerState.current && playerState && config?.glitchEvents) {
-            // Balance Equals Trigger
-            const balanceTrigger = config.glitchEvents.find(e =>
-                e.trigger.type === 'balance_equals' &&
-                playerState.balance >= e.trigger.params.amount &&
-                (prevPlayerState.current?.balance || 0) < e.trigger.params.amount
-            );
-            if (balanceTrigger) {
-                triggerGlitchEvent(balanceTrigger);
-            }
-
-            // Upgrade Purchased Trigger
-            const oldUpgrades = prevPlayerState.current.upgrades || {};
-            const newUpgrades = playerState.upgrades || {};
-            const purchasedUpgradeId = Object.keys(newUpgrades).find(id => newUpgrades[id] > (oldUpgrades[id] || 0));
-
-            if (purchasedUpgradeId) {
-                const upgradeTrigger = config.glitchEvents.find(e =>
-                    e.trigger.type === 'upgrade_purchased' &&
-                    e.trigger.params.upgradeId === purchasedUpgradeId
-                );
-                if (upgradeTrigger) {
-                    triggerGlitchEvent(upgradeTrigger);
-                }
-            }
-        }
-        prevPlayerState.current = playerState;
-    }, [playerState, config?.glitchEvents, triggerGlitchEvent]);
-
 
   if (!isAppReady || !user || !playerState || !config) {
     return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
@@ -848,9 +837,9 @@ const MainApp: React.FC = () => {
         setMetaTaps(prev => ({ ...prev, [targetId]: newCount }));
         
         const event = (config?.glitchEvents || []).find(e => 
-            e.trigger.type === 'meta_tap' &&
-            e.trigger.params.targetId === targetId &&
-            newCount >= e.trigger.params.taps
+            e.trigger?.type === 'meta_tap' &&
+            e.trigger?.params?.targetId === targetId &&
+            newCount >= (e.trigger.params.taps || 999)
         );
 
         if (event && !activeGlitchEvent) {
