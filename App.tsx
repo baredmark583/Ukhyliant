@@ -254,7 +254,7 @@ const animateShards = (shards: any[], shardsContainer: HTMLDivElement, fade: HTM
         const dt = Math.min(40, now - last)/1000; last = now; let anyVisible = false;
         for (let s of shards){
             s.vx += s.ax * dt * 60; s.vy += s.ay * dt * 60; s.cx += s.vx * dt * 60; s.cy += s.vy * dt * 60; s.angle += s.rot * dt * 60; s.opacity -= 0.003 * (0.5 + Math.random());
-            s.el.style.transform = `translate(${(s.cx - (s.el.width/2)) - parseFloat(s.el.style.left || '0')}px, ${(s.cy - (s.el.height/2)) - parseFloat(s.el.style.top || '0')}px) rotate(${s.angle}rad) translate(-${s.el.width/2}px,-${s.el.height/2}px)`;
+            s.el.style.transform = `translate(${(s.cx - (s.el.width / 2)) - parseFloat(s.el.style.left || '0')}px, ${(s.cy - (s.el.height / 2)) - parseFloat(s.el.style.top || '0')}px) rotate(${s.angle}rad) translate(-${s.el.width / 2}px, -${s.el.height / 2}px)`;
             s.el.style.opacity = String(Math.max(0, s.opacity)); if (s.opacity > 0.02) anyVisible = true;
         }
         if (anyVisible) {
@@ -805,7 +805,7 @@ const PurchaseResultModal: React.FC<{
     const iconUrl = item.iconUrl || item.imageUrl;
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[1500] flex items-center justify-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2500] flex items-center justify-center p-4" onClick={onClose}>
             <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" onClick={e => e.stopPropagation()}>
                 <h2 className="text-xl font-bold text-white mb-4">{title}!</h2>
                 <div className="w-32 h-32 mb-4 bg-slate-900/50 shadow-inner rounded-2xl p-2 flex items-center justify-center">
@@ -853,7 +853,7 @@ const GlitchCodesModal: React.FC<{
       .filter(Boolean) as GlitchEvent[];
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[1500] flex items-center justify-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2500] flex items-center justify-center p-4" onClick={onClose}>
             <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-bold text-white">{t('glitch_codes_title')}</h2>
@@ -918,7 +918,6 @@ const MainApp: React.FC = () => {
   const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
 
   // Glitch event states
-  const prevPlayerState = useRef<PlayerState | null>(null);
   const [metaTaps, setMetaTaps] = useState<Record<string, number>>({});
   const [activeGlitchEvent, setActiveGlitchEvent] = useState<GlitchEvent | null>(null);
   const [isGlitchCodesModalOpen, setIsGlitchCodesModalOpen] = useState(false);
@@ -930,6 +929,11 @@ const MainApp: React.FC = () => {
   });
   const [hasPlayed, setHasPlayed] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  
+  const prevPlayerState = useRef<PlayerState | null>(null);
+  useEffect(() => {
+      prevPlayerState.current = playerState;
+  });
   
   const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
     if (!playerState) return;
@@ -999,8 +1003,7 @@ const MainApp: React.FC = () => {
       setMetaTaps(prev => ({ ...prev, [targetId]: (prev[targetId] || 0) + 1 }));
   }, []);
 
-  // --- GLITCH TRIGGER CHECKS (with safety checks) ---
-  // On Load trigger
+  // --- CLIENT-SIDE GLITCH TRIGGERS (for events not tied to server state) ---
   useEffect(() => {
       if (!config?.glitchEvents) return;
       const now = new Date();
@@ -1013,44 +1016,6 @@ const MainApp: React.FC = () => {
       });
   }, [config?.glitchEvents, triggerGlitchEvent]);
 
-  // Player state change triggers
-  useEffect(() => {
-    if (!playerState || !config?.glitchEvents || activeGlitchEvent) {
-        return;
-    }
-
-    const discovered = new Set(playerState.discoveredGlitchCodes || []);
-    const claimed = new Set(playerState.claimedGlitchCodes || []);
-
-    for (const e of config.glitchEvents) {
-        if (claimed.has(e.code) || discovered.has(e.code)) {
-            continue;
-        }
-
-        if (e.trigger?.type === 'balance_equals' && e.trigger.params) {
-            if (playerState.balance >= e.trigger.params.amount) {
-                triggerGlitchEvent(e);
-                break;
-            }
-        }
-        
-        if (prevPlayerState.current && e.trigger?.type === 'upgrade_purchased' && e.trigger.params) {
-            const oldUpgrades = prevPlayerState.current.upgrades || {};
-            const newUpgrades = playerState.upgrades || {};
-            const purchasedUpgradeId = Object.keys(newUpgrades).find(id => newUpgrades[id] > (oldUpgrades[id] || 0));
-            
-            if (purchasedUpgradeId === e.trigger.params.upgradeId) {
-                triggerGlitchEvent(e);
-                break;
-            }
-        }
-    }
-    
-    prevPlayerState.current = playerState;
-
-}, [playerState, config?.glitchEvents, triggerGlitchEvent, activeGlitchEvent]);
-
-  // Meta-tap trigger
   useEffect(() => {
     if (!config?.glitchEvents || !playerState || activeGlitchEvent) return;
 
@@ -1071,6 +1036,29 @@ const MainApp: React.FC = () => {
         }
     }
   }, [metaTaps, config?.glitchEvents, activeGlitchEvent, triggerGlitchEvent, playerState]);
+  
+  // --- SERVER-SIDE GLITCH DISPLAY (Reacts to state changes from server) ---
+  useEffect(() => {
+    if (!playerState || !prevPlayerState.current || !config?.glitchEvents || activeGlitchEvent || isFinalScene) {
+        return;
+    }
+
+    const oldDiscovered = new Set(prevPlayerState.current.discoveredGlitchCodes || []);
+    const newDiscovered = playerState.discoveredGlitchCodes || [];
+    const newlyDiscoveredCode = newDiscovered.find(code => !oldDiscovered.has(code));
+    
+    if (newlyDiscoveredCode) {
+        const event = config.glitchEvents.find(e => e.code === newlyDiscoveredCode);
+        if (event) {
+            if (event.isFinal) {
+                setIsFinalScene(true);
+            } else {
+                setActiveGlitchEvent(event);
+            }
+        }
+    }
+  }, [playerState, config?.glitchEvents, activeGlitchEvent, isFinalScene]);
+
 
   useEffect(() => {
     if (isGlitching) {
@@ -1226,7 +1214,7 @@ const MainApp: React.FC = () => {
   const PenaltyModal: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
       const t = useTranslation();
       return (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[1500] flex items-center justify-center p-4" onClick={onClose}>
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2500] flex items-center justify-center p-4" onClick={onClose}>
               <div 
                 className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" 
                 onClick={e => e.stopPropagation()}

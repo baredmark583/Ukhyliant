@@ -460,6 +460,23 @@ app.post('/api/player/:id', async (req, res) => {
                  stateUpdatedForClient = true; // Make sure client knows about cheat status
             }
         }
+
+        // --- Server-side Glitch Trigger for Balance ---
+        const config = await getGameConfig();
+        if (config.glitchEvents) {
+            for (const event of config.glitchEvents) {
+                if (event.trigger?.type === 'balance_equals') {
+                    const alreadyDiscovered = finalState.discoveredGlitchCodes?.includes(event.code);
+                    const alreadyClaimed = finalState.claimedGlitchCodes?.includes(event.code);
+
+                    if (!alreadyDiscovered && !alreadyClaimed && (Number(finalState.balance) || 0) >= event.trigger.params.amount) {
+                         finalState.discoveredGlitchCodes = [...(finalState.discoveredGlitchCodes || []), event.code];
+                         stateUpdatedForClient = true;
+                         log('info', `Triggered balance glitch '${event.code}' for user ${id}`);
+                    }
+                }
+            }
+        }
         
         // Always update the timestamp
         finalState.lastLoginTimestamp = Date.now();

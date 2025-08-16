@@ -1363,6 +1363,23 @@ export const buyUpgradeInDb = async (userId, upgradeId, config) => {
         const user = await getUser(userId);
         player = applySuspicion(player, upgrade.suspicionModifier, user.language);
         
+        // --- Server-side Glitch Trigger on Purchase ---
+        const glitchEvent = (config.glitchEvents || []).find(e => 
+            e.trigger?.type === 'upgrade_purchased' && e.trigger?.params?.upgradeId === upgradeId
+        );
+
+        if (glitchEvent) {
+            const alreadyDiscovered = player.discoveredGlitchCodes?.includes(glitchEvent.code);
+            const alreadyClaimed = player.claimedGlitchCodes?.includes(glitchEvent.code);
+            
+            // Trigger if the player has never seen this glitch before, regardless of upgrade level.
+            // This fixes the issue for existing players who already bought the upgrade.
+            if (!alreadyDiscovered && !alreadyClaimed) {
+                player.discoveredGlitchCodes = [...(player.discoveredGlitchCodes || []), glitchEvent.code];
+                console.log(`[INFO] Triggered upgrade glitch '${glitchEvent.code}' for user ${userId}`);
+            }
+        }
+        
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         
         const referrerId = (await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId])).rows[0]?.referrer_id;
