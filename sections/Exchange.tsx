@@ -69,7 +69,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
   const currentSkin = (config.coinSkins || []).find(s => s.id === playerState.currentSkinId) || (config.coinSkins || []).find(s => s.id === DEFAULT_COIN_SKIN_ID);
   const coinSkinUrl = currentSkin?.iconUrl || '/assets/coin.svg';
-  const leagueOverlayUrl = currentLeague?.overlayIconUrl;
+  const leagueOverlayUrl = currentLeague?.overlayIconUrl?.trim();
   
   const resetMorseState = useCallback(() => {
     setMorseSequence('');

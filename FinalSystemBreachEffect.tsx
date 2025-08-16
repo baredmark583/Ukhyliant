@@ -18,7 +18,11 @@ const FinalSystemBreachEffect: React.FC<{ onComplete: () => void }> = ({ onCompl
         const content = document.getElementById('main-content-wrapper');
         if (!content) return;
 
-        html2canvas(content, { backgroundColor: null, scale: 1 }).then(canvas => {
+        html2canvas(content, { 
+            backgroundColor: null, 
+            scale: 1,
+            useCORS: true // This is crucial for external images
+        }).then(canvas => {
             setUiScreenshot(canvas.toDataURL());
             setStage(1); // Start resistance phase
         }).catch(err => {
