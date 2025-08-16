@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
+import { useGlitchSystem } from './hooks/useGlitchSystem';
 import ExchangeScreen from './sections/Exchange';
 import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
@@ -918,11 +919,17 @@ const MainApp: React.FC = () => {
   const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
 
   // Glitch event states
-  const [metaTaps, setMetaTaps] = useState<Record<string, number>>({});
-  const [activeGlitchEvent, setActiveGlitchEvent] = useState<GlitchEvent | null>(null);
   const [isGlitchCodesModalOpen, setIsGlitchCodesModalOpen] = useState(false);
   const [isFinalScene, setIsFinalScene] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  
+  const { activeGlitchEvent, setActiveGlitchEvent, handleMetaTap } = useGlitchSystem({
+      playerState,
+      setPlayerState,
+      config,
+      savePlayerState,
+      isFinalScene
+  });
 
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('isMuted') === 'true';
@@ -930,21 +937,12 @@ const MainApp: React.FC = () => {
   const [hasPlayed, setHasPlayed] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
-      if (!playerState || activeGlitchEvent || isFinalScene) return;
-
-      const isDiscovered = (playerState.discoveredGlitchCodes || []).map(String).includes(String(event.code));
-      if (isDiscovered) return;
-      
-      setActiveGlitchEvent(event);
-      
-      const discovered = new Set(playerState.discoveredGlitchCodes || []);
-      discovered.add(event.code);
-      const updatedPlayerState = { ...playerState, discoveredGlitchCodes: Array.from(discovered) };
-      
-      setPlayerState(updatedPlayerState);
-      savePlayerState(updatedPlayerState, 0); 
-  }, [playerState, activeGlitchEvent, isFinalScene, setPlayerState, savePlayerState]);
+  const handleGlitchEffectClose = () => {
+    if (activeGlitchEvent?.isFinal) {
+        setIsFinalScene(true);
+    }
+    setActiveGlitchEvent(null);
+  };
 
   useEffect(() => {
         const tg = window.Telegram?.WebApp;
@@ -984,83 +982,6 @@ const MainApp: React.FC = () => {
       }
       return tapValue;
   }, [handleTap, hasPlayed, config?.backgroundAudioUrl]);
-
-  const handleMetaTap = useCallback((targetId: string) => {
-      setMetaTaps(prev => ({ ...prev, [targetId]: (prev[targetId] || 0) + 1 }));
-  }, []);
-
-  // --- CLIENT-SIDE GLITCH TRIGGERS (for events not tied to server state) ---
-  useEffect(() => {
-      if (!config?.glitchEvents) return;
-      const now = new Date();
-      config.glitchEvents.forEach(e => {
-          if (e.trigger?.type === 'login_at_time' && e.trigger.params &&
-              e.trigger.params.hour === now.getHours() &&
-              e.trigger.params.minute === now.getMinutes()) {
-              triggerGlitchEvent(e);
-          }
-      });
-  }, [config?.glitchEvents, triggerGlitchEvent]);
-
-  useEffect(() => {
-    if (!config?.glitchEvents || !playerState || activeGlitchEvent) return;
-
-    for (const targetId in metaTaps) {
-        const tapCount = metaTaps[targetId];
-        if (tapCount > 0) {
-            const event = config.glitchEvents.find(e => 
-                e.trigger?.type === 'meta_tap' &&
-                e.trigger?.params?.targetId === targetId &&
-                tapCount >= (e.trigger.params.taps || 999)
-            );
-
-            if (event) {
-                triggerGlitchEvent(event);
-                setMetaTaps(prev => ({ ...prev, [targetId]: 0 }));
-                break;
-            }
-        }
-    }
-  }, [metaTaps, config?.glitchEvents, activeGlitchEvent, triggerGlitchEvent, playerState]);
-  
-  // --- UNIFIED GLITCH EFFECT DISPLAY (Reacts to `discoveredGlitchCodes` from any source) ---
-  const shownGlitchCodes = useRef(new Set<string>());
-
-  useEffect(() => {
-    // This is a new, robust logic. It keeps a persistent set of codes that have been "shown".
-    // When a new code appears in the player's state that isn't in our set, we show the effect.
-    if (!playerState || !config?.glitchEvents || activeGlitchEvent || isFinalScene) {
-      return;
-    }
-
-    // On first load after playerState is available, sync the "shown" set.
-    // This prevents firing effects for codes discovered in previous sessions.
-    if (shownGlitchCodes.current.size === 0 && (playerState.discoveredGlitchCodes || []).length > 0) {
-        playerState.discoveredGlitchCodes.forEach(c => shownGlitchCodes.current.add(String(c)));
-        return; // Exit early on first sync.
-    }
-    
-    // Check for any code in the player's state that we haven't shown yet.
-    const newCodeToShow = (playerState.discoveredGlitchCodes || [])
-        .find(code => !shownGlitchCodes.current.has(String(code)));
-
-    if (newCodeToShow) {
-        const event = config.glitchEvents.find(e => String(e.code) === String(newCodeToShow));
-        if (event) {
-            // Mark as shown and trigger the visual effect.
-            shownGlitchCodes.current.add(String(newCodeToShow));
-            setActiveGlitchEvent(event);
-        }
-    }
-  }, [playerState, config?.glitchEvents, activeGlitchEvent, isFinalScene]);
-  
-  const handleGlitchEffectClose = () => {
-    if (activeGlitchEvent?.isFinal) {
-        setIsFinalScene(true);
-    }
-    setActiveGlitchEvent(null);
-  };
-
 
   useEffect(() => {
     if (isGlitching) {

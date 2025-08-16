@@ -1,0 +1,103 @@
+import { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
+import { PlayerState, GameConfig, GlitchEvent } from '../types';
+
+interface UseGlitchSystemProps {
+    playerState: PlayerState | null;
+    setPlayerState: React.Dispatch<React.SetStateAction<PlayerState | null>>;
+    config: GameConfig | null;
+    savePlayerState: (state: PlayerState, taps?: number) => Promise<PlayerState | null>;
+    isFinalScene: boolean;
+}
+
+export const useGlitchSystem = ({
+    playerState,
+    setPlayerState,
+    config,
+    savePlayerState,
+    isFinalScene,
+}: UseGlitchSystemProps) => {
+    const [metaTaps, setMetaTaps] = useState<Record<string, number>>({});
+    const [activeGlitchEvent, setActiveGlitchEvent] = useState<GlitchEvent | null>(null);
+    const shownGlitchCodes = useRef(new Set<string>());
+
+    const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
+        if (!playerState || activeGlitchEvent || isFinalScene) return;
+
+        const isDiscovered = (playerState.discoveredGlitchCodes || []).map(String).includes(String(event.code));
+        if (isDiscovered) return;
+        
+        const discovered = new Set(playerState.discoveredGlitchCodes || []);
+        discovered.add(event.code);
+        const updatedPlayerState = { ...playerState, discoveredGlitchCodes: Array.from(discovered) };
+        
+        setPlayerState(updatedPlayerState);
+        savePlayerState(updatedPlayerState, 0); 
+    }, [playerState, activeGlitchEvent, isFinalScene, setPlayerState, savePlayerState]);
+
+    const handleMetaTap = useCallback((targetId: string) => {
+        setMetaTaps(prev => ({ ...prev, [targetId]: (prev[targetId] || 0) + 1 }));
+    }, []);
+
+    // --- CLIENT-SIDE GLITCH TRIGGERS ---
+    useEffect(() => {
+        if (!config?.glitchEvents || isFinalScene || activeGlitchEvent) return;
+        const now = new Date();
+        config.glitchEvents.forEach(e => {
+            if (e.trigger?.type === 'login_at_time' && e.trigger.params &&
+                e.trigger.params.hour === now.getHours() &&
+                e.trigger.params.minute === now.getMinutes()) {
+                triggerGlitchEvent(e);
+            }
+        });
+    }, [config?.glitchEvents, triggerGlitchEvent, isFinalScene, activeGlitchEvent]);
+
+    useEffect(() => {
+        if (!config?.glitchEvents || !playerState || activeGlitchEvent || isFinalScene) return;
+
+        for (const targetId in metaTaps) {
+            const tapCount = metaTaps[targetId];
+            if (tapCount > 0) {
+                const event = config.glitchEvents.find(e => 
+                    e.trigger?.type === 'meta_tap' &&
+                    e.trigger?.params?.targetId === targetId &&
+                    tapCount >= (e.trigger.params.taps || 999)
+                );
+
+                if (event) {
+                    triggerGlitchEvent(event);
+                    setMetaTaps(prev => ({ ...prev, [targetId]: 0 }));
+                    break;
+                }
+            }
+        }
+    }, [metaTaps, config?.glitchEvents, activeGlitchEvent, triggerGlitchEvent, playerState, isFinalScene]);
+
+    // --- UNIFIED GLITCH EFFECT DISPLAY ---
+    useEffect(() => {
+        if (!playerState || !config?.glitchEvents || activeGlitchEvent || isFinalScene) {
+            return;
+        }
+
+        if (shownGlitchCodes.current.size === 0 && (playerState.discoveredGlitchCodes || []).length > 0) {
+            playerState.discoveredGlitchCodes.forEach(c => shownGlitchCodes.current.add(String(c)));
+            return; 
+        }
+        
+        const newCodeToShow = (playerState.discoveredGlitchCodes || [])
+            .find(code => !shownGlitchCodes.current.has(String(code)));
+
+        if (newCodeToShow) {
+            const event = config.glitchEvents.find(e => String(e.code) === String(newCodeToShow));
+            if (event) {
+                shownGlitchCodes.current.add(String(newCodeToShow));
+                setActiveGlitchEvent(event);
+            }
+        }
+    }, [playerState, config?.glitchEvents, activeGlitchEvent, isFinalScene]);
+    
+    return {
+        activeGlitchEvent,
+        setActiveGlitchEvent,
+        handleMetaTap,
+    };
+};
