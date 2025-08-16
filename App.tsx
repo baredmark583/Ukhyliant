@@ -632,6 +632,10 @@ const MainApp: React.FC = () => {
     setActiveGlitchEvent(null);
   };
 
+  const handleFinalSceneComplete = useCallback(() => {
+    setShowVideo(true);
+  }, []);
+
   useEffect(() => {
         const tg = window.Telegram?.WebApp;
         if (!tg) return;
@@ -904,7 +908,7 @@ const MainApp: React.FC = () => {
 
   return (
     <div className={`h-screen w-screen overflow-hidden flex flex-col prevent-select transition-all duration-300 ${isFullScreen ? 'pt-4' : ''}`}>
-      {isFinalScene && !showVideo && <FinalSystemBreachEffect onComplete={() => setShowVideo(true)} />}
+      {isFinalScene && !showVideo && <FinalSystemBreachEffect onComplete={handleFinalSceneComplete} />}
       {showVideo && config?.finalVideoUrl && <FinalVideoPlayer videoUrl={config.finalVideoUrl} onEnd={() => { setShowVideo(false); setIsFinalScene(false); }} />}
       
       {config?.backgroundAudioUrl && (
