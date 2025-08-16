@@ -9,6 +9,8 @@ interface UseGlitchSystemProps {
     isFinalScene: boolean;
 }
 
+const SHOWN_GLITCHES_STORAGE_KEY = 'shownGlitchCodes_v1';
+
 export const useGlitchSystem = ({
     playerState,
     setPlayerState,
@@ -19,6 +21,18 @@ export const useGlitchSystem = ({
     const [metaTaps, setMetaTaps] = useState<Record<string, number>>({});
     const [activeGlitchEvent, setActiveGlitchEvent] = useState<GlitchEvent | null>(null);
     const shownGlitchCodes = useRef(new Set<string>());
+
+    // Initialize from localStorage on mount
+    useEffect(() => {
+        try {
+            const storedCodes = localStorage.getItem(SHOWN_GLITCHES_STORAGE_KEY);
+            if (storedCodes) {
+                shownGlitchCodes.current = new Set(JSON.parse(storedCodes));
+            }
+        } catch (e) {
+            console.error("Failed to parse shown glitch codes from localStorage", e);
+        }
+    }, []);
 
     const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
         if (!playerState || activeGlitchEvent || isFinalScene) return;
@@ -84,7 +98,14 @@ export const useGlitchSystem = ({
         if (newCodeToShow) {
             const event = config.glitchEvents.find(e => String(e.code) === String(newCodeToShow));
             if (event) {
+                // Add to current set and update localStorage
                 shownGlitchCodes.current.add(String(newCodeToShow));
+                try {
+                    localStorage.setItem(SHOWN_GLITCHES_STORAGE_KEY, JSON.stringify(Array.from(shownGlitchCodes.current)));
+                } catch (e) {
+                    console.error("Failed to save shown glitch codes to localStorage", e);
+                }
+                
                 setActiveGlitchEvent(event);
             }
         }

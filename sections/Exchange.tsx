@@ -48,6 +48,14 @@ interface ClickFx {
 
 const isExternal = (url: string | undefined) => url && url.startsWith('http');
 
+const getProxiedUrl = (url: string | undefined): string | undefined => {
+    if (!url || !isExternal(url)) {
+      return url;
+    }
+    // All external URLs are proxied to avoid CORS issues.
+    return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+};
+
 const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion, onEnergyClick, onSuspicionClick, isMuted, toggleMute, handleMetaTap }) => {
   const t = useTranslation();
   const { balance, profitPerHour, energy, suspicion } = playerState;
@@ -63,6 +71,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const morseCharTimeout = useRef<number | null>(null);
   const lastClickPos = useRef({ x: 0, y: 0 });
   const lastTapTime = useRef(0);
+  const [overlayError, setOverlayError] = useState(false);
 
   const dailyCipherWord = (config.dailyEvent?.cipherWord || '').toUpperCase();
   const claimedCipher = playerState.claimedCipherToday;
@@ -70,6 +79,17 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
   const currentSkin = (config.coinSkins || []).find(s => s.id === playerState.currentSkinId) || (config.coinSkins || []).find(s => s.id === DEFAULT_COIN_SKIN_ID);
   const coinSkinUrl = currentSkin?.iconUrl || '/assets/coin.svg';
   const leagueOverlayUrl = currentLeague?.overlayIconUrl?.trim();
+  
+  useEffect(() => {
+    if (leagueOverlayUrl) {
+        setOverlayError(false);
+    }
+  }, [leagueOverlayUrl]);
+
+  const handleOverlayError = () => {
+    console.warn("Failed to load overlay image:", leagueOverlayUrl);
+    setOverlayError(true);
+  };
   
   const resetMorseState = useCallback(() => {
     setMorseSequence('');
@@ -226,12 +246,12 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                         style={isTurboActive ? { filter: 'drop-shadow(0 0 20px #f59e0b)' } : {}}
                         {...(isExternal(coinSkinUrl) && { crossOrigin: 'anonymous' })}
                     />
-                    {leagueOverlayUrl && (
+                    {leagueOverlayUrl && !overlayError && (
                         <img
-                            src={leagueOverlayUrl}
+                            src={getProxiedUrl(leagueOverlayUrl)}
+                            onError={handleOverlayError}
                             alt="league effect"
                             className="absolute top-0 left-0 w-full h-full pointer-events-none"
-                            {...(isExternal(leagueOverlayUrl) && { crossOrigin: 'anonymous' })}
                         />
                     )}
                 </div>

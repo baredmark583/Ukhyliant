@@ -236,6 +236,45 @@ app.use('/admin', express.static(path.join(__dirname, 'public')));
 
 // --- API ROUTES ---
 
+app.get('/api/image-proxy', async (req, res) => {
+    const { url } = req.query;
+    if (!url) {
+        return res.status(400).send('URL parameter is required.');
+    }
+
+    try {
+        const decodedUrl = decodeURIComponent(url);
+        const parsedUrl = new URL(decodedUrl);
+
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+             return res.status(400).send('Invalid protocol.');
+        }
+
+        const response = await fetch(decodedUrl, { headers: { 'User-Agent': 'Ukhyliant-Clicker-Proxy/1.0' } });
+
+        if (!response.ok) {
+            log('warn', `Proxy failed to fetch ${decodedUrl}`, { status: response.status, statusText: response.statusText });
+            return res.status(response.status).send(response.statusText);
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.startsWith('image/')) {
+            log('warn', `Proxy attempt to non-image content`, { url: decodedUrl, contentType });
+            return res.status(400).send('URL does not point to an image.');
+        }
+
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+        
+        // Node's native fetch body is a ReadableStream, which works with pipe.
+        response.body.pipe(res);
+
+    } catch (error) {
+        log('error', 'Image proxy error', error);
+        res.status(500).send('Error fetching the image.');
+    }
+});
+
 // Telegram Webhook - MUST use raw body parser
 app.post('/api/telegram-webhook', express.json(), async (req, res) => {
     const update = req.body;
