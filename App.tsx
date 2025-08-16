@@ -934,29 +934,29 @@ const MainApp: React.FC = () => {
   useEffect(() => {
       prevPlayerState.current = playerState;
   });
-  
-  // Refactored: This function's ONLY job is to update the player state with a new discovered code.
-  // The `useEffect` below will react to this state change to show the visual effect.
+
   const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
-    if (!playerState) return;
+      if (!playerState || activeGlitchEvent || isFinalScene) return;
 
-    const isDiscovered = playerState.discoveredGlitchCodes?.includes(event.code);
-    const isClaimed = playerState.claimedGlitchCodes?.includes(event.code);
+      const isDiscovered = playerState.discoveredGlitchCodes?.includes(event.code);
+      if (isDiscovered) return;
 
-    if (isDiscovered || isClaimed) {
-        return;
-    }
-    
-    const discovered = new Set(playerState.discoveredGlitchCodes || []);
-    discovered.add(event.code);
-    const updatedPlayerState = { ...playerState, discoveredGlitchCodes: Array.from(discovered) };
-    
-    setPlayerState(updatedPlayerState);
-    if (user) {
-        savePlayerState(updatedPlayerState, 0); 
-    }
-  }, [playerState, setPlayerState, user, savePlayerState]);
-  
+      // Show visual effect immediately
+      if (event.isFinal) {
+          setIsFinalScene(true);
+      } else {
+          setActiveGlitchEvent(event);
+      }
+      
+      // Update player state to mark as discovered
+      const discovered = new Set(playerState.discoveredGlitchCodes || []);
+      discovered.add(event.code);
+      const updatedPlayerState = { ...playerState, discoveredGlitchCodes: Array.from(discovered) };
+      
+      setPlayerState(updatedPlayerState);
+      savePlayerState(updatedPlayerState, 0); 
+  }, [playerState, activeGlitchEvent, isFinalScene, setPlayerState, savePlayerState]);
+
   useEffect(() => {
         const tg = window.Telegram?.WebApp;
         if (!tg) return;
@@ -1034,7 +1034,7 @@ const MainApp: React.FC = () => {
     }
   }, [metaTaps, config?.glitchEvents, activeGlitchEvent, triggerGlitchEvent, playerState]);
   
-  // --- UNIFIED GLITCH EFFECT DISPLAY (Reacts to ANY change in discoveredGlitchCodes) ---
+  // --- SERVER-SIDE GLITCH EFFECT DISPLAY (Reacts to `discoveredGlitchCodes` from server) ---
   useEffect(() => {
     if (!playerState || !prevPlayerState.current || !config?.glitchEvents || activeGlitchEvent || isFinalScene) {
         return;
@@ -1046,12 +1046,16 @@ const MainApp: React.FC = () => {
     
     if (newlyDiscoveredCode) {
         const event = config.glitchEvents.find(e => e.code === newlyDiscoveredCode);
-        // Ensure we don't re-show an effect for a code that has already been claimed (e.g., on login)
-        if (event && !playerState.claimedGlitchCodes?.includes(event.code)) {
-            if (event.isFinal) {
-                setIsFinalScene(true);
-            } else {
-                setActiveGlitchEvent(event);
+        if (event) {
+            // Show the effect if this code wasn't already claimed BEFORE this state update.
+            // This correctly handles manual entry where discovery and claim happen simultaneously.
+            const wasAlreadyClaimed = prevPlayerState.current.claimedGlitchCodes?.includes(event.code);
+            if (!wasAlreadyClaimed) {
+                if (event.isFinal) {
+                    setIsFinalScene(true);
+                } else {
+                    setActiveGlitchEvent(event);
+                }
             }
         }
     }
@@ -1165,6 +1169,8 @@ const MainApp: React.FC = () => {
   const handleClaimGlitchCode = async (code: string): Promise<boolean> => {
     const result = await claimGlitchCode(code);
     if (result.player && result.reward) {
+        // The useEffect will catch the new discovery and show the visual effect.
+        // This function just needs to show the notification toast.
         const rewardText = result.reward.type === 'profit'
             ? `+${formatNumber(result.reward.amount)}/hr`
             : `+${formatNumber(result.reward.amount)}`;
