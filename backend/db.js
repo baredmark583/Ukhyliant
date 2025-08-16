@@ -603,8 +603,13 @@ export const claimGlitchCodeInDb = async (userId, code) => {
             throw new Error('Code already claimed.');
         }
 
+        const isDiscovered = player.discoveredGlitchCodes?.includes(code);
+        if (!isDiscovered) {
+             player.discoveredGlitchCodes = [...(player.discoveredGlitchCodes || []), code];
+        }
+
         player = applyReward(player, event.reward);
-        player.claimedGlitchCodes = [...(player.claimedGlitchCodes || []), code];
+        player.claimedGlitchCodes = [...new Set([...(player.claimedGlitchCodes || []), code])];
 
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');

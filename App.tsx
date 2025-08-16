@@ -935,24 +935,21 @@ const MainApp: React.FC = () => {
       prevPlayerState.current = playerState;
   });
   
+  // Refactored: This function's ONLY job is to update the player state with a new discovered code.
+  // The `useEffect` below will react to this state change to show the visual effect.
   const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
     if (!playerState) return;
 
-    const discovered = new Set(playerState.discoveredGlitchCodes || []);
-    const claimed = new Set(playerState.claimedGlitchCodes || []);
+    const isDiscovered = playerState.discoveredGlitchCodes?.includes(event.code);
+    const isClaimed = playerState.claimedGlitchCodes?.includes(event.code);
 
-    if (claimed.has(event.code) || discovered.has(event.code)) {
+    if (isDiscovered || isClaimed) {
         return;
     }
-
+    
+    const discovered = new Set(playerState.discoveredGlitchCodes || []);
     discovered.add(event.code);
     const updatedPlayerState = { ...playerState, discoveredGlitchCodes: Array.from(discovered) };
-    
-    if (event.isFinal) {
-        setIsFinalScene(true);
-    } else {
-        setActiveGlitchEvent(event);
-    }
     
     setPlayerState(updatedPlayerState);
     if (user) {
@@ -1037,7 +1034,7 @@ const MainApp: React.FC = () => {
     }
   }, [metaTaps, config?.glitchEvents, activeGlitchEvent, triggerGlitchEvent, playerState]);
   
-  // --- SERVER-SIDE GLITCH DISPLAY (Reacts to state changes from server) ---
+  // --- UNIFIED GLITCH EFFECT DISPLAY (Reacts to ANY change in discoveredGlitchCodes) ---
   useEffect(() => {
     if (!playerState || !prevPlayerState.current || !config?.glitchEvents || activeGlitchEvent || isFinalScene) {
         return;
@@ -1049,7 +1046,8 @@ const MainApp: React.FC = () => {
     
     if (newlyDiscoveredCode) {
         const event = config.glitchEvents.find(e => e.code === newlyDiscoveredCode);
-        if (event) {
+        // Ensure we don't re-show an effect for a code that has already been claimed (e.g., on login)
+        if (event && !playerState.claimedGlitchCodes?.includes(event.code)) {
             if (event.isFinal) {
                 setIsFinalScene(true);
             } else {
