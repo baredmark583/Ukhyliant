@@ -596,20 +596,22 @@ export const claimGlitchCodeInDb = async (userId, code) => {
         let player = playerRes.rows[0].data;
 
         const config = await getGameConfig();
-        const event = (config.glitchEvents || []).find(e => e.code === code);
+        const event = (config.glitchEvents || []).find(e => String(e.code).toUpperCase() === String(code).toUpperCase());
         if (!event) throw new Error('Invalid code.');
         
-        if (player.claimedGlitchCodes?.includes(code)) {
+        const claimedCodesStr = (player.claimedGlitchCodes || []).map(c => String(c).toUpperCase());
+        if (claimedCodesStr.includes(String(code).toUpperCase())) {
             throw new Error('Code already claimed.');
         }
 
-        const isDiscovered = player.discoveredGlitchCodes?.includes(code);
-        if (!isDiscovered) {
-             player.discoveredGlitchCodes = [...(player.discoveredGlitchCodes || []), code];
+        const discoveredCodesStr = (player.discoveredGlitchCodes || []).map(c => String(c).toUpperCase());
+        if (!discoveredCodesStr.includes(String(code).toUpperCase())) {
+             player.discoveredGlitchCodes = [...(player.discoveredGlitchCodes || []), event.code];
         }
 
         player = applyReward(player, event.reward);
-        player.claimedGlitchCodes = [...new Set([...(player.claimedGlitchCodes || []), code])];
+        // Add the code from the config to maintain type consistency
+        player.claimedGlitchCodes = [...(player.claimedGlitchCodes || []), event.code];
 
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
@@ -1374,11 +1376,9 @@ export const buyUpgradeInDb = async (userId, upgradeId, config) => {
         );
 
         if (glitchEvent) {
-            const alreadyDiscovered = player.discoveredGlitchCodes?.includes(glitchEvent.code);
-            const alreadyClaimed = player.claimedGlitchCodes?.includes(glitchEvent.code);
+            const alreadyDiscovered = (player.discoveredGlitchCodes || []).map(String).includes(String(glitchEvent.code));
+            const alreadyClaimed = (player.claimedGlitchCodes || []).map(String).includes(String(glitchEvent.code));
             
-            // Trigger if the player has never seen this glitch before, regardless of upgrade level.
-            // This fixes the issue for existing players who already bought the upgrade.
             if (!alreadyDiscovered && !alreadyClaimed) {
                 player.discoveredGlitchCodes = [...(player.discoveredGlitchCodes || []), glitchEvent.code];
                 console.log(`[INFO] Triggered upgrade glitch '${glitchEvent.code}' for user ${userId}`);

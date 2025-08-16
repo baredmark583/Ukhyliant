@@ -938,13 +938,11 @@ const MainApp: React.FC = () => {
   const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
       if (!playerState || activeGlitchEvent || isFinalScene) return;
 
-      const isDiscovered = playerState.discoveredGlitchCodes?.includes(event.code);
+      const isDiscovered = (playerState.discoveredGlitchCodes || []).map(String).includes(String(event.code));
       if (isDiscovered) return;
-
-      // UNIFIED LOGIC: Always show the glitch effect first. The onClose handler will manage the final scene.
+      
       setActiveGlitchEvent(event);
       
-      // Update player state to mark as discovered
       const discovered = new Set(playerState.discoveredGlitchCodes || []);
       discovered.add(event.code);
       const updatedPlayerState = { ...playerState, discoveredGlitchCodes: Array.from(discovered) };
@@ -1036,16 +1034,18 @@ const MainApp: React.FC = () => {
         return;
     }
 
-    const oldDiscovered = new Set(prevPlayerState.current.discoveredGlitchCodes || []);
+    // Ensure comparison is always string-to-string to prevent type mismatches (e.g., 1984 vs "1984")
+    const oldDiscovered = new Set((prevPlayerState.current.discoveredGlitchCodes || []).map(String));
     const newDiscovered = playerState.discoveredGlitchCodes || [];
-    const newlyDiscoveredCode = newDiscovered.find(code => !oldDiscovered.has(code));
+
+    const newlyDiscoveredCode = newDiscovered.find(code => !oldDiscovered.has(String(code)));
     
-    if (newlyDiscoveredCode) {
-        const event = config.glitchEvents.find(e => e.code === newlyDiscoveredCode);
+    if (newlyDiscoveredCode !== undefined) {
+        const event = config.glitchEvents.find(e => String(e.code) === String(newlyDiscoveredCode));
         if (event) {
-            const wasAlreadyClaimed = prevPlayerState.current.claimedGlitchCodes?.includes(event.code);
+            // Check against previous state's claimed codes to avoid re-showing effect on claim
+            const wasAlreadyClaimed = (prevPlayerState.current.claimedGlitchCodes || []).some(c => String(c) === String(event.code));
             if (!wasAlreadyClaimed) {
-                // UNIFIED LOGIC: Always show the GlitchEffect first for any new discovery.
                 setActiveGlitchEvent(event);
             }
         }
