@@ -929,11 +929,6 @@ const MainApp: React.FC = () => {
   });
   const [hasPlayed, setHasPlayed] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
-  
-  const prevPlayerState = useRef<PlayerState | null>(null);
-  useEffect(() => {
-      prevPlayerState.current = playerState;
-  });
 
   const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
       if (!playerState || activeGlitchEvent || isFinalScene) return;
@@ -1029,25 +1024,32 @@ const MainApp: React.FC = () => {
   }, [metaTaps, config?.glitchEvents, activeGlitchEvent, triggerGlitchEvent, playerState]);
   
   // --- UNIFIED GLITCH EFFECT DISPLAY (Reacts to `discoveredGlitchCodes` from any source) ---
+  const shownGlitchCodes = useRef(new Set<string>());
+
   useEffect(() => {
-    if (!playerState || !prevPlayerState.current || !config?.glitchEvents || activeGlitchEvent || isFinalScene) {
-        return;
+    // This is a new, robust logic. It keeps a persistent set of codes that have been "shown".
+    // When a new code appears in the player's state that isn't in our set, we show the effect.
+    if (!playerState || !config?.glitchEvents || activeGlitchEvent || isFinalScene) {
+      return;
     }
 
-    // Ensure comparison is always string-to-string to prevent type mismatches (e.g., 1984 vs "1984")
-    const oldDiscovered = new Set((prevPlayerState.current.discoveredGlitchCodes || []).map(String));
-    const newDiscovered = playerState.discoveredGlitchCodes || [];
-
-    const newlyDiscoveredCode = newDiscovered.find(code => !oldDiscovered.has(String(code)));
+    // On first load after playerState is available, sync the "shown" set.
+    // This prevents firing effects for codes discovered in previous sessions.
+    if (shownGlitchCodes.current.size === 0 && (playerState.discoveredGlitchCodes || []).length > 0) {
+        playerState.discoveredGlitchCodes.forEach(c => shownGlitchCodes.current.add(String(c)));
+        return; // Exit early on first sync.
+    }
     
-    if (newlyDiscoveredCode !== undefined) {
-        const event = config.glitchEvents.find(e => String(e.code) === String(newlyDiscoveredCode));
+    // Check for any code in the player's state that we haven't shown yet.
+    const newCodeToShow = (playerState.discoveredGlitchCodes || [])
+        .find(code => !shownGlitchCodes.current.has(String(code)));
+
+    if (newCodeToShow) {
+        const event = config.glitchEvents.find(e => String(e.code) === String(newCodeToShow));
         if (event) {
-            // Check against previous state's claimed codes to avoid re-showing effect on claim
-            const wasAlreadyClaimed = (prevPlayerState.current.claimedGlitchCodes || []).some(c => String(c) === String(event.code));
-            if (!wasAlreadyClaimed) {
-                setActiveGlitchEvent(event);
-            }
+            // Mark as shown and trigger the visual effect.
+            shownGlitchCodes.current.add(String(newCodeToShow));
+            setActiveGlitchEvent(event);
         }
     }
   }, [playerState, config?.glitchEvents, activeGlitchEvent, isFinalScene]);

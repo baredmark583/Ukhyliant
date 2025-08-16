@@ -596,21 +596,22 @@ export const claimGlitchCodeInDb = async (userId, code) => {
         let player = playerRes.rows[0].data;
 
         const config = await getGameConfig();
-        const event = (config.glitchEvents || []).find(e => String(e.code).toUpperCase() === String(code).toUpperCase());
+        const upperCaseCode = String(code).toUpperCase();
+        const event = (config.glitchEvents || []).find(e => String(e.code).toUpperCase() === upperCaseCode);
+        
         if (!event) throw new Error('Invalid code.');
         
         const claimedCodesStr = (player.claimedGlitchCodes || []).map(c => String(c).toUpperCase());
-        if (claimedCodesStr.includes(String(code).toUpperCase())) {
+        if (claimedCodesStr.includes(upperCaseCode)) {
             throw new Error('Code already claimed.');
         }
 
         const discoveredCodesStr = (player.discoveredGlitchCodes || []).map(c => String(c).toUpperCase());
-        if (!discoveredCodesStr.includes(String(code).toUpperCase())) {
+        if (!discoveredCodesStr.includes(upperCaseCode)) {
              player.discoveredGlitchCodes = [...(player.discoveredGlitchCodes || []), event.code];
         }
 
         player = applyReward(player, event.reward);
-        // Add the code from the config to maintain type consistency
         player.claimedGlitchCodes = [...(player.claimedGlitchCodes || []), event.code];
 
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
@@ -1376,8 +1377,9 @@ export const buyUpgradeInDb = async (userId, upgradeId, config) => {
         );
 
         if (glitchEvent) {
-            const alreadyDiscovered = (player.discoveredGlitchCodes || []).map(String).includes(String(glitchEvent.code));
-            const alreadyClaimed = (player.claimedGlitchCodes || []).map(String).includes(String(glitchEvent.code));
+            const codeStr = String(glitchEvent.code).toUpperCase();
+            const alreadyDiscovered = (player.discoveredGlitchCodes || []).map(c => String(c).toUpperCase()).includes(codeStr);
+            const alreadyClaimed = (player.claimedGlitchCodes || []).map(c => String(c).toUpperCase()).includes(codeStr);
             
             if (!alreadyDiscovered && !alreadyClaimed) {
                 player.discoveredGlitchCodes = [...(player.discoveredGlitchCodes || []), glitchEvent.code];
