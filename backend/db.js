@@ -266,6 +266,22 @@ export const initializeDb = async () => {
         migrateArrayConfig('coinSkins', INITIAL_COIN_SKINS);
         migrateArrayConfig('leagues', INITIAL_LEAGUES);
 
+        // --- NEW MIGRATION for league overlay icon ---
+        if (config.leagues && Array.isArray(config.leagues)) {
+            let leaguesMigrated = false;
+            config.leagues.forEach(league => {
+                if (league.overlayIconUrl === undefined) {
+                    league.overlayIconUrl = ''; // Add the new property with a default value
+                    leaguesMigrated = true;
+                }
+            });
+            if (leaguesMigrated) {
+                console.log("Migrated: Added 'overlayIconUrl' property to existing leagues.");
+                needsUpdate = true;
+            }
+        }
+        // --- END NEW MIGRATION ---
+
         // Special migration for glitchEvents to add triggers
         if (!config.glitchEvents) {
             config.glitchEvents = INITIAL_GLITCH_EVENTS;

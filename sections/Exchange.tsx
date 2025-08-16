@@ -69,6 +69,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
 
   const currentSkin = (config.coinSkins || []).find(s => s.id === playerState.currentSkinId) || (config.coinSkins || []).find(s => s.id === DEFAULT_COIN_SKIN_ID);
   const coinSkinUrl = currentSkin?.iconUrl || '/assets/coin.svg';
+  const leagueOverlayUrl = currentLeague?.overlayIconUrl;
   
   const resetMorseState = useCallback(() => {
     setMorseSequence('');
@@ -225,6 +226,14 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                         style={isTurboActive ? { filter: 'drop-shadow(0 0 20px #f59e0b)' } : {}}
                         {...(isExternal(coinSkinUrl) && { crossOrigin: 'anonymous' })}
                     />
+                    {leagueOverlayUrl && (
+                        <img
+                            src={leagueOverlayUrl}
+                            alt="league effect"
+                            className="absolute top-0 left-0 w-full h-full pointer-events-none"
+                            {...(isExternal(leagueOverlayUrl) && { crossOrigin: 'anonymous' })}
+                        />
+                    )}
                 </div>
 
                 {/* Floating click numbers */}

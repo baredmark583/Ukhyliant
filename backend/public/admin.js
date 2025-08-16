@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CONFIG META (for dynamic table rendering) ---
     const configMeta = {
-        leagues: { titleKey: 'nav_leagues', cols: ['id', 'name', 'description', 'minProfitPerHour', 'iconUrl'] },
+        leagues: { titleKey: 'nav_leagues', cols: ['id', 'name', 'description', 'minProfitPerHour', 'iconUrl', 'overlayIconUrl'] },
         upgrades: { titleKey: 'nav_upgrades', cols: ['id', 'name', 'price', 'profitPerHour', 'category', 'suspicionModifier', 'iconUrl'] },
         tasks: { titleKey: 'nav_daily_tasks', cols: ['id', 'name', 'type', 'reward', 'requiredTaps', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
         specialTasks: { titleKey: 'nav_special_tasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
@@ -710,9 +710,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const iconGroups = {
             nav: { titleKey: 'icon_group_nav', keys: ['exchange', 'mine', 'missions', 'airdrop', 'profile'] },
             profile_tabs: { titleKey: 'icon_group_profile_tabs', keys: ['contacts', 'boosts', 'skins', 'market', 'cell'] },
-            gameplay: { titleKey: 'icon_group_gameplay', keys: ['energy', 'coin', 'star', 'suspicion', 'soundOn', 'soundOff', 'secretCodeEntry'] },
+            gameplay: { titleKey: 'icon_group_gameplay', keys: ['energy', 'coin', 'star', 'suspicion', 'soundOn', 'soundOff', 'secretCodeEntry', 'languageSwitcher'] },
             market: { titleKey: 'icon_group_market', keys: ['marketCoinBox', 'marketStarBox'] },
-            general: { titleKey: 'icon_group_general', keys: ['languageSwitcher'] }
         };
 
         let formHtml = '';

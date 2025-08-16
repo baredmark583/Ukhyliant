@@ -24,6 +24,7 @@ export interface League {
   description: LocalizedString;
   minProfitPerHour: number;
   iconUrl: string;
+  overlayIconUrl?: string;
 }
 
 export enum UpgradeCategory {
