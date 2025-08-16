@@ -941,12 +941,8 @@ const MainApp: React.FC = () => {
       const isDiscovered = playerState.discoveredGlitchCodes?.includes(event.code);
       if (isDiscovered) return;
 
-      // Show visual effect immediately
-      if (event.isFinal) {
-          setIsFinalScene(true);
-      } else {
-          setActiveGlitchEvent(event);
-      }
+      // UNIFIED LOGIC: Always show the glitch effect first. The onClose handler will manage the final scene.
+      setActiveGlitchEvent(event);
       
       // Update player state to mark as discovered
       const discovered = new Set(playerState.discoveredGlitchCodes || []);
@@ -1034,7 +1030,7 @@ const MainApp: React.FC = () => {
     }
   }, [metaTaps, config?.glitchEvents, activeGlitchEvent, triggerGlitchEvent, playerState]);
   
-  // --- SERVER-SIDE GLITCH EFFECT DISPLAY (Reacts to `discoveredGlitchCodes` from server) ---
+  // --- UNIFIED GLITCH EFFECT DISPLAY (Reacts to `discoveredGlitchCodes` from any source) ---
   useEffect(() => {
     if (!playerState || !prevPlayerState.current || !config?.glitchEvents || activeGlitchEvent || isFinalScene) {
         return;
@@ -1047,19 +1043,21 @@ const MainApp: React.FC = () => {
     if (newlyDiscoveredCode) {
         const event = config.glitchEvents.find(e => e.code === newlyDiscoveredCode);
         if (event) {
-            // Show the effect if this code wasn't already claimed BEFORE this state update.
-            // This correctly handles manual entry where discovery and claim happen simultaneously.
             const wasAlreadyClaimed = prevPlayerState.current.claimedGlitchCodes?.includes(event.code);
             if (!wasAlreadyClaimed) {
-                if (event.isFinal) {
-                    setIsFinalScene(true);
-                } else {
-                    setActiveGlitchEvent(event);
-                }
+                // UNIFIED LOGIC: Always show the GlitchEffect first for any new discovery.
+                setActiveGlitchEvent(event);
             }
         }
     }
   }, [playerState, config?.glitchEvents, activeGlitchEvent, isFinalScene]);
+  
+  const handleGlitchEffectClose = () => {
+    if (activeGlitchEvent?.isFinal) {
+        setIsFinalScene(true);
+    }
+    setActiveGlitchEvent(null);
+  };
 
 
   useEffect(() => {
@@ -1175,6 +1173,7 @@ const MainApp: React.FC = () => {
             ? `+${formatNumber(result.reward.amount)}/hr`
             : `+${formatNumber(result.reward.amount)}`;
         showNotification(`${t('glitch_code_claimed')} ${rewardText}`, 'success');
+        setIsGlitchCodesModalOpen(false); // Close modal on success
         return true;
     } else if (result.error) {
         showNotification(result.error, 'error');
@@ -1301,7 +1300,7 @@ const MainApp: React.FC = () => {
         <audio ref={audioRef} src={config.backgroundAudioUrl} loop muted={isMuted} playsInline />
       )}
       {isGlitching && <GlitchEffect />}
-      {activeGlitchEvent && <GlitchEffect message={activeGlitchEvent.message[user.language]} code={activeGlitchEvent.code} onClose={() => setActiveGlitchEvent(null)} />}
+      {activeGlitchEvent && <GlitchEffect message={activeGlitchEvent.message[user.language]} code={activeGlitchEvent.code} onClose={handleGlitchEffectClose} />}
       {(systemMessage) && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
 
       {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
