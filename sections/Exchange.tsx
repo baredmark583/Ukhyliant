@@ -192,7 +192,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
               {currentLeague && <img src={currentLeague.iconUrl} alt={currentLeague.name[user.language]} className="w-8 h-8" {...(isExternal(currentLeague.iconUrl) && { crossOrigin: 'anonymous' })} />}
           </button>
           <button onClick={handleSwitchLanguage} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex flex-col items-center justify-center p-1 text-center">
-              <img src="https://api.iconify.design/ph/globe-bold.svg?color=white" alt="Language" className="w-8 h-8" crossOrigin="anonymous"/>
+              <img src={config.uiIcons.languageSwitcher} alt="Language" className="w-8 h-8" {...(isExternal(config.uiIcons.languageSwitcher) && { crossOrigin: 'anonymous' })}/>
               <span className="text-xs font-bold text-white leading-tight">{user.language.toUpperCase()}</span>
           </button>
            <button onClick={toggleMute} className="bg-slate-800/50 hover:bg-slate-700 transition-colors rounded-full w-[60px] h-[60px] flex items-center justify-center">

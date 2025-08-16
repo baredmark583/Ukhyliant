@@ -178,6 +178,7 @@ export interface UiIcons {
   soundOn: string;
   soundOff: string;
   secretCodeEntry: string;
+  languageSwitcher: string;
 }
 
 export interface GameConfig {

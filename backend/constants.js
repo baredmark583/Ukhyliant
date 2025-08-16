@@ -37,6 +37,7 @@ export const INITIAL_UI_ICONS = {
   soundOn: "https://api.iconify.design/ph/speaker-high-bold.svg?color=white",
   soundOff: "https://api.iconify.design/ph/speaker-slash-bold.svg?color=white",
   secretCodeEntry: "https://api.iconify.design/ph/keyhole-bold.svg?color=white",
+  languageSwitcher: "https://api.iconify.design/ph/globe-bold.svg?color=white",
 };
 
 

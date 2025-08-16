@@ -78,11 +78,6 @@ export const useGlitchSystem = ({
             return;
         }
 
-        if (shownGlitchCodes.current.size === 0 && (playerState.discoveredGlitchCodes || []).length > 0) {
-            playerState.discoveredGlitchCodes.forEach(c => shownGlitchCodes.current.add(String(c)));
-            return; 
-        }
-        
         const newCodeToShow = (playerState.discoveredGlitchCodes || [])
             .find(code => !shownGlitchCodes.current.has(String(code)));
 

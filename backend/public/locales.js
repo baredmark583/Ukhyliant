@@ -253,8 +253,10 @@ window.LOCALES = {
         
         // UI Icons
         'icon_group_nav': 'Navigation Bar',
+        'icon_group_profile_tabs': 'Profile Tabs',
         'icon_group_gameplay': 'Gameplay & Currencies',
         'icon_group_market': 'Market Icons',
+        'icon_group_general': 'General',
         'icon_nav_exchange': 'Stockpile Icon (Nav)',
         'icon_nav_mine': 'Mine Icon (Nav)',
         'icon_nav_missions': 'Missions Icon (Nav)',
@@ -266,8 +268,16 @@ window.LOCALES = {
         'icon_suspicion': 'Suspicion Icon',
         'icon_soundOn': 'Sound On Icon',
         'icon_soundOff': 'Sound Off Icon',
+        'icon_secretCodeEntry': 'Secret Code Entry Icon',
+        'icon_languageSwitcher': 'Language Switcher Icon',
         'icon_marketCoinBox': 'Coin Box Icon',
         'icon_marketStarBox': 'Star Box Icon',
+        'icon_profile_tabs_contacts': 'Contacts Tab Icon',
+        'icon_profile_tabs_boosts': 'Boosts Tab Icon',
+        'icon_profile_tabs_skins': 'Skins Tab Icon',
+        'icon_profile_tabs_market': 'Market Tab Icon',
+        'icon_profile_tabs_cell': 'Cell Tab Icon',
+
 
         // Player Details Modal
         'player_details': 'Player Details',
@@ -551,8 +561,10 @@ window.LOCALES = {
 
         // UI Icons
         'icon_group_nav': 'Панель навигации',
+        'icon_group_profile_tabs': 'Вкладки профиля',
         'icon_group_gameplay': 'Геймплей и Валюты',
         'icon_group_market': 'Иконки Рынка',
+        'icon_group_general': 'Общие',
         'icon_nav_exchange': 'Иконка Схрона (Нав)',
         'icon_nav_mine': 'Иконка Майнинга (Нав)',
         'icon_nav_missions': 'Иконка Директив (Нав)',
@@ -564,8 +576,15 @@ window.LOCALES = {
         'icon_suspicion': 'Иконка Подозрения',
         'icon_soundOn': 'Иконка Звук Вкл',
         'icon_soundOff': 'Иконка Звук Выкл',
+        'icon_secretCodeEntry': 'Иконка ввода секретного кода',
+        'icon_languageSwitcher': 'Иконка смены языка',
         'icon_marketCoinBox': 'Иконка Коробки за монеты',
         'icon_marketStarBox': 'Иконка Коробки за звезды',
+        'icon_profile_tabs_contacts': 'Иконка вкладки "Контакты"',
+        'icon_profile_tabs_boosts': 'Иконка вкладки "Бусты"',
+        'icon_profile_tabs_skins': 'Иконка вкладки "Скины"',
+        'icon_profile_tabs_market': 'Иконка вкладки "Рынок"',
+        'icon_profile_tabs_cell': 'Иконка вкладки "Ячейка"',
         
         // Player Details Modal
         'player_details': 'Детали игрока',
@@ -784,13 +803,13 @@ window.LOCALES = {
         'target_name_referral_counter': 'Лічильник рефералів (Профіль)',
         'target_name_balance_display': 'Лічильник балансу (Головний екран)',
         'target_name_mine_title': 'Заголовок екрана "Майнінг"',
-        'target_name_profile_title': 'Заголовок екрана "Профіль"',
-        
+        'target_name_profile_title': 'Заголовок екрана "Досьє"',
+
         // Cell Management
-        'cellConfiguration': 'Конфігурація Осередків',
-        'cellAnalytics': 'Аналітика Осередків',
+        'cellConfiguration': 'Конфігурація осередків',
+        'cellAnalytics': 'Аналітика осередків',
         'kpi_totalCells': 'Всього осередків',
-        'kpi_battleParticipants': 'Учасники битви',
+        'kpi_battleParticipants': 'Учасників битви',
         'kpi_totalBank': 'Загальний банк',
         'kpi_ticketsSpent': 'Витрачено квитків',
         'cell_leaderboard': 'Лідерборд осередків',
@@ -833,25 +852,27 @@ window.LOCALES = {
         'day_sat': 'Субота',
         'schedule_time_utc': 'Час початку (UTC)',
         'schedule_duration_hours': 'Тривалість (години)',
-
+        
         // Cell Settings
         'cellCreationCost': 'Вартість створення осередку',
-        'cellCreationCost_desc': 'Кількість монет, яку гравець має витратити для створення нового осередку.',
+        'cellCreationCost_desc': 'Кількість монет, яку гравець повинен витратити для створення нового осередку.',
         'cellMaxMembers': 'Макс. учасників в осередку',
         'cellMaxMembers_desc': 'Максимальна кількість гравців, яка може приєднатися до одного осередку.',
         'informantRecruitCost': 'Вартість вербування інформатора',
         'informantRecruitCost_desc': 'Кількість монет, необхідна для генерації та вербування одного інформатора.',
-        'lootboxCostCoins': 'Вартість лутбокса (монети)',
-        'lootboxCostCoins_desc': 'Вартість у монетах за відкриття одного лутбокса.',
-        'lootboxCostStars': 'Вартість лутбокса (зірки)',
-        'lootboxCostStars_desc': 'Вартість у Telegram Stars за відкриття одного лутбокса.',
+        'lootboxCostCoins': 'Вартість лутбоксу (монети)',
+        'lootboxCostCoins_desc': 'Вартість у монетах за відкриття одного лутбоксу.',
+        'lootboxCostStars': 'Вартість лутбоксу (зірки)',
+        'lootboxCostStars_desc': 'Вартість у Telegram Stars за відкриття одного лутбоксу.',
         'cellBattleTicketCost': 'Вартість квитка на битву',
         'cellBattleTicketCost_desc': 'Вартість у банку осередку, яку учасник платить за один квиток на битву.',
         
         // UI Icons
         'icon_group_nav': 'Панель навігації',
+        'icon_group_profile_tabs': 'Вкладки профілю',
         'icon_group_gameplay': 'Геймплей та Валюти',
         'icon_group_market': 'Іконки Ринку',
+        'icon_group_general': 'Загальні',
         'icon_nav_exchange': 'Іконка Схрону (Нав)',
         'icon_nav_mine': 'Іконка Майнінгу (Нав)',
         'icon_nav_missions': 'Іконка Директив (Нав)',
@@ -863,8 +884,15 @@ window.LOCALES = {
         'icon_suspicion': 'Іконка Підозри',
         'icon_soundOn': 'Іконка Звук Вкл',
         'icon_soundOff': 'Іконка Звук Вимк',
+        'icon_secretCodeEntry': 'Іконка вводу секретного коду',
+        'icon_languageSwitcher': 'Іконка зміни мови',
         'icon_marketCoinBox': 'Іконка Коробки за монети',
         'icon_marketStarBox': 'Іконка Коробки за зірки',
+        'icon_profile_tabs_contacts': 'Іконка вкладки "Контакти"',
+        'icon_profile_tabs_boosts': 'Іконка вкладки "Бусти"',
+        'icon_profile_tabs_skins': 'Іконка вкладки "Скіни"',
+        'icon_profile_tabs_market': 'Іконка вкладки "Ринок"',
+        'icon_profile_tabs_cell': 'Іконка вкладки "Осередок"',
         
         // Player Details Modal
         'player_details': 'Деталі гравця',
@@ -873,7 +901,7 @@ window.LOCALES = {
         'player_upgrades': 'Покращення гравця',
         'level': 'Рівень',
         'suspicion': 'Підозра',
-
+        
         // Alerts & Confirmations
         'confirm_delete': 'Ви впевнені, що хочете видалити цей елемент?',
         'confirm_delete_player': 'Ви впевнені, що хочете назавжди видалити цього гравця? Цю дію неможливо скасувати.',

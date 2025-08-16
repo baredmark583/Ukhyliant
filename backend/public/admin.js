@@ -711,7 +711,8 @@ document.addEventListener('DOMContentLoaded', () => {
             nav: { titleKey: 'icon_group_nav', keys: ['exchange', 'mine', 'missions', 'airdrop', 'profile'] },
             profile_tabs: { titleKey: 'icon_group_profile_tabs', keys: ['contacts', 'boosts', 'skins', 'market', 'cell'] },
             gameplay: { titleKey: 'icon_group_gameplay', keys: ['energy', 'coin', 'star', 'suspicion', 'soundOn', 'soundOff', 'secretCodeEntry'] },
-            market: { titleKey: 'icon_group_market', keys: ['marketCoinBox', 'marketStarBox'] }
+            market: { titleKey: 'icon_group_market', keys: ['marketCoinBox', 'marketStarBox'] },
+            general: { titleKey: 'icon_group_general', keys: ['languageSwitcher'] }
         };
 
         let formHtml = '';
@@ -725,7 +726,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formHtml += `</fieldset>`;
         }
         
-        tabContainer.innerHTML = `<div class="card"><div class="card-body">${formHtml}</div></div>`;
+        tabContainer.innerHTML = `<div class="card"><div class="card-body" id="ui-icons-form">${formHtml}</div></div>`;
     };
     
      const renderGenericSettingsForm = (key, fields, titleKey) => {
@@ -1352,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target.id === 'cipher-reward-input') dailyEvent.cipher_reward = Number(target.value);
 
         // UI Icons
-        if (target.closest('.card-body')?.parentNode?.querySelector('h3')?.textContent === t('uiIcons')) {
+        if (target.closest('#ui-icons-form')) {
             const { key, group } = target.dataset;
             if (group) {
                 if (!localConfig.uiIcons[group]) localConfig.uiIcons[group] = {};
