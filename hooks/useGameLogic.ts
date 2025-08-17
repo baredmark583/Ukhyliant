@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'https://esm.sh/react@19.1.1';
-import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry, Reward } from '../types';
+import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry, Reward, MarketListing, WithdrawalRequest } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
 
 declare global {
@@ -184,6 +184,20 @@ const API = {
     return data;
   },
 
+  markGlitchShown: async (userId: string, code: string): Promise<{player?: PlayerState, error?: string}> => {
+    if (!API_BASE_URL) return { error: "VITE_API_BASE_URL is not set." };
+    const response = await fetch(`${API_BASE_URL}/api/action/mark-glitch-shown`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, code }),
+    });
+    if (!response.ok) {
+        const data = await response.json();
+        return { error: data.error || 'Failed to mark glitch as shown.' };
+    }
+    return { player: await response.json() };
+  },
+
   getLeaderboard: async (): Promise<{topPlayers: LeaderboardPlayer[], totalPlayers: number} | null> => {
     if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
     const response = await fetch(`${API_BASE_URL}/api/leaderboard`);
@@ -208,7 +222,7 @@ const API = {
     }
   },
   
-  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox', itemId: string): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
+  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox' | 'market_purchase', itemId: string | number): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
     if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/create-star-invoice`, {
@@ -321,6 +335,53 @@ const API = {
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/battle/leaderboard`);
     return response.json();
+  },
+  
+  // --- Marketplace & Wallet APIs ---
+  listSkinOnMarket: async (userId: string, skinId: string, price: number): Promise<{ error?: string }> => {
+    if (!API_BASE_URL) return { error: "API is not configured" };
+    const response = await fetch(`${API_BASE_URL}/api/market/list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, skinId, priceStars: price })
+    });
+    return response.json();
+  },
+  
+  fetchMarketListings: async (): Promise<MarketListing[] | null> => {
+    if (!API_BASE_URL) return null;
+    const response = await fetch(`${API_BASE_URL}/api/market/listings`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.listings;
+  },
+
+  connectWallet: async(userId: string, address: string): Promise<{ player?: PlayerState, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API is not configured" };
+    const response = await fetch(`${API_BASE_URL}/api/wallet/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, walletAddress: address })
+    });
+    return response.json();
+  },
+
+  requestWithdrawal: async(userId: string, amount: number): Promise<{ player?: PlayerState, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API is not configured" };
+    const response = await fetch(`${API_BASE_URL}/api/wallet/request-withdrawal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, amountCredits: amount })
+    });
+    return response.json();
+  },
+  
+  fetchMyWithdrawalRequests: async(userId: string): Promise<WithdrawalRequest[] | null> => {
+     if (!API_BASE_URL) return null;
+    const response = await fetch(`${API_BASE_URL}/api/wallet/my-requests?userId=${userId}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.requests;
   },
 
   // Admin APIs
@@ -587,7 +648,7 @@ export const useGame = () => {
                 if(updatedPlayer) setPlayerState(updatedPlayer);
 
                 if (wonItem) {
-                    setPurchaseResult(wonItem);
+                    setPurchaseResult({ type: 'lootbox', item: wonItem });
                 }
                 
             } else {
@@ -725,6 +786,27 @@ export const useGame = () => {
         return result;
     }, [user, setPlayerState]);
 
+    const markGlitchAsShown = useCallback(async (code: string) => {
+        if (!user) return;
+        
+        // Optimistic update
+        setPlayerState(p => {
+            if (!p) return null;
+            const shownCodes = new Set(p.shownGlitchCodes || []);
+            if (shownCodes.has(code)) return p;
+            shownCodes.add(code);
+            return { ...p, shownGlitchCodes: Array.from(shownCodes) };
+        });
+
+        const result = await API.markGlitchShown(user.id, code);
+        if (result.player) {
+            setPlayerState(result.player);
+        } else if (result.error) {
+            console.error("Failed to mark glitch as shown on server:", result.error);
+            // Optional: Add logic here to roll back the optimistic update if needed
+        }
+    }, [user, setPlayerState]);
+
     const getLeaderboard = useCallback(() => API.getLeaderboard(), []);
     
     const openCoinLootbox = useCallback(async (boxType: 'coin') => {
@@ -805,6 +887,44 @@ export const useGame = () => {
 
     const getBattleLeaderboard = useCallback(() => API.getBattleLeaderboard(), []);
 
+    // --- Marketplace & Wallet Logic ---
+    const listSkinOnMarket = useCallback(async (skinId: string, price: number) => {
+        if (!user) return { error: 'User not found' };
+        return await API.listSkinOnMarket(user.id, skinId, price);
+    }, [user]);
+    
+    const fetchMarketListings = useCallback(() => API.fetchMarketListings(), []);
+
+    const purchaseMarketItem = useCallback(async (listingId: number) => {
+         if (!user) return { error: 'User not found' };
+        const result = await API.createStarInvoice(user.id, 'market_purchase', listingId);
+        if (result.ok && result.invoiceLink) {
+            window.Telegram.WebApp.openInvoice(result.invoiceLink);
+            return { success: true };
+        }
+        return { error: result.error || 'Failed to start payment.' };
+    }, [user]);
+
+    const connectWallet = useCallback(async (address: string) => {
+        if (!user) return { error: 'User not found' };
+        const result = await API.connectWallet(user.id, address);
+        if (result.player) setPlayerState(result.player);
+        return result;
+    }, [user, setPlayerState]);
+
+    const requestWithdrawal = useCallback(async (amount: number) => {
+        if (!user) return { error: 'User not found' };
+        const result = await API.requestWithdrawal(user.id, amount);
+        if (result.player) setPlayerState(result.player);
+        return result;
+    }, [user, setPlayerState]);
+
+    const fetchMyWithdrawalRequests = useCallback(async () => {
+        if (!user) return null;
+        return await API.fetchMyWithdrawalRequests(user.id);
+    }, [user]);
+
+
     return {
         playerState,
         config,
@@ -821,6 +941,7 @@ export const useGame = () => {
         claimDailyCombo,
         claimDailyCipher,
         claimGlitchCode,
+        markGlitchAsShown,
         getLeaderboard,
         openCoinLootbox,
         purchaseLootboxWithStars,
@@ -843,6 +964,12 @@ export const useGame = () => {
         getBattleStatus,
         joinBattle,
         getBattleLeaderboard,
+        listSkinOnMarket,
+        fetchMarketListings,
+        purchaseMarketItem,
+        connectWallet,
+        requestWithdrawal,
+        fetchMyWithdrawalRequests,
         // Admin functions
         getCellAnalytics: API.getCellAnalytics,
         forceStartBattle: API.forceStartBattle,

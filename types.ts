@@ -66,6 +66,7 @@ export interface CoinSkin {
     boxType: BoxType | 'direct'; // 'direct' for future direct purchase
     chance: number; // Rarity/drop chance
     suspicionModifier: number;
+    maxSupply?: number;
 }
 
 
@@ -247,6 +248,9 @@ export interface PlayerState {
   dailyBoostPurchases?: Record<string, number>;
   discoveredGlitchCodes?: string[];
   claimedGlitchCodes?: string[];
+  shownGlitchCodes?: string[];
+  marketCredits?: number;
+  tonWalletAddress?: string;
 }
 
 export interface CellMember {
@@ -298,4 +302,27 @@ export interface BattleLeaderboardEntry {
     cellId: number;
     cellName: string;
     score: number;
+}
+
+// --- Marketplace Types ---
+export interface MarketListing {
+  id: number;
+  skin_id: string;
+  owner_id: string;
+  owner_name: string;
+  price_stars: number;
+  created_at: string;
+  is_active: boolean;
+}
+
+export type WithdrawalStatus = 'pending' | 'approved' | 'rejected';
+
+export interface WithdrawalRequest {
+  id: number;
+  player_id: string;
+  amount_credits: number;
+  ton_wallet: string;
+  status: WithdrawalStatus;
+  created_at: string;
+  processed_at?: string;
 }

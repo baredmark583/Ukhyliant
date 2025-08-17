@@ -7,22 +7,8 @@ interface UseGlitchSystemProps {
     config: GameConfig | null;
     savePlayerState: (state: PlayerState, taps?: number) => Promise<PlayerState | null>;
     isFinalScene: boolean;
+    markGlitchAsShown: (code: string) => void;
 }
-
-const SHOWN_GLITCHES_STORAGE_KEY = 'shownGlitchCodes_v1';
-
-const getInitialShownCodes = (): Set<string> => {
-    try {
-        const storedCodes = localStorage.getItem(SHOWN_GLITCHES_STORAGE_KEY);
-        if (storedCodes) {
-            return new Set(JSON.parse(storedCodes));
-        }
-    } catch (e) {
-        console.error("Failed to parse shown glitch codes from localStorage", e);
-    }
-    return new Set();
-};
-
 
 export const useGlitchSystem = ({
     playerState,
@@ -30,11 +16,10 @@ export const useGlitchSystem = ({
     config,
     savePlayerState,
     isFinalScene,
+    markGlitchAsShown,
 }: UseGlitchSystemProps) => {
     const [metaTaps, setMetaTaps] = useState<Record<string, number>>({});
     const [activeGlitchEvent, setActiveGlitchEvent] = useState<GlitchEvent | null>(null);
-    const [shownCodes, setShownCodes] = useState(getInitialShownCodes);
-
 
     const triggerGlitchEvent = useCallback((event: GlitchEvent) => {
         if (!playerState || activeGlitchEvent || isFinalScene) return;
@@ -94,28 +79,19 @@ export const useGlitchSystem = ({
             return;
         }
 
+        const shownCodesSet = new Set(playerState.shownGlitchCodes || []);
+
         const newCodeToShow = (playerState.discoveredGlitchCodes || [])
-            .find(code => !shownCodes.has(String(code)));
+            .find(code => !shownCodesSet.has(String(code)));
 
         if (newCodeToShow) {
             const event = config.glitchEvents.find(e => String(e.code) === String(newCodeToShow));
             if (event) {
                 setActiveGlitchEvent(event);
-                
-                // Update shown codes state and persist to localStorage
-                setShownCodes(prevShownCodes => {
-                    const newSet = new Set(prevShownCodes);
-                    newSet.add(String(newCodeToShow));
-                    try {
-                        localStorage.setItem(SHOWN_GLITCHES_STORAGE_KEY, JSON.stringify(Array.from(newSet)));
-                    } catch (e) {
-                        console.error("Failed to save shown glitch codes to localStorage", e);
-                    }
-                    return newSet;
-                });
+                markGlitchAsShown(String(newCodeToShow));
             }
         }
-    }, [playerState, config?.glitchEvents, activeGlitchEvent, isFinalScene, shownCodes]);
+    }, [playerState, config?.glitchEvents, activeGlitchEvent, isFinalScene, markGlitchAsShown]);
     
     return {
         activeGlitchEvent,

@@ -164,6 +164,29 @@ export const initializeDb = async () => {
     `);
     console.log("Database tables checked/created successfully.");
 
+    await executeQuery(`
+        CREATE TABLE IF NOT EXISTS market_listings (
+            id SERIAL PRIMARY KEY,
+            skin_id VARCHAR(255) NOT NULL,
+            owner_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            price_stars INTEGER NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            is_active BOOLEAN DEFAULT TRUE
+        );
+
+        CREATE TABLE IF NOT EXISTS withdrawal_requests (
+            id SERIAL PRIMARY KEY,
+            player_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            amount_credits NUMERIC(20, 4) NOT NULL,
+            ton_wallet VARCHAR(255) NOT NULL,
+            status VARCHAR(50) DEFAULT 'pending',
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            processed_at TIMESTAMPTZ
+        );
+    `);
+    console.log("Marketplace tables checked/created successfully.");
+
+
     // Safely add columns to daily_events table if they don't exist
     try {
         await executeQuery(`ALTER TABLE daily_events ADD COLUMN IF NOT EXISTS combo_reward BIGINT DEFAULT 5000000;`);
@@ -192,6 +215,21 @@ export const initializeDb = async () => {
         await executeQuery(`ALTER TABLE cells ADD COLUMN IF NOT EXISTS last_profit_update TIMESTAMPTZ DEFAULT NOW();`);
     } catch (e) {
         console.error("Could not add new columns.", e.message);
+    }
+    
+    // Player data migration for market features
+    try {
+        await executeQuery(`
+            UPDATE players
+            SET data = jsonb_set(
+                jsonb_set(data, '{marketCredits}', '0', true),
+                '{tonWalletAddress}', '""', true
+            )
+            WHERE data->>'marketCredits' IS NULL OR data->>'tonWalletAddress' IS NULL;
+        `);
+        console.log("Player data migrated for market features.");
+    } catch (e) {
+        console.error("Could not migrate player data for market features.", e.message);
     }
 
 
@@ -280,8 +318,22 @@ export const initializeDb = async () => {
                 needsUpdate = true;
             }
         }
-        // --- END NEW MIGRATION ---
 
+        // --- NEW MIGRATION for CoinSkins maxSupply ---
+        if (config.coinSkins && Array.isArray(config.coinSkins)) {
+            let skinsMigrated = false;
+            config.coinSkins.forEach(skin => {
+                if (skin.maxSupply === undefined) {
+                    skin.maxSupply = null; // Use null to indicate infinite supply by default
+                    skinsMigrated = true;
+                }
+            });
+            if (skinsMigrated) {
+                console.log("Migrated: Added 'maxSupply' property to existing coinSkins.");
+                needsUpdate = true;
+            }
+        }
+        
         // Special migration for glitchEvents to add triggers
         if (!config.glitchEvents) {
             config.glitchEvents = INITIAL_GLITCH_EVENTS;
@@ -636,6 +688,37 @@ export const claimGlitchCodeInDb = async (userId, code) => {
 
     } catch (error) {
         await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+};
+
+export const markGlitchAsShownInDb = async (userId, code) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error('Player not found');
+        let player = playerRes.rows[0].data;
+
+        if (!player.shownGlitchCodes) {
+            player.shownGlitchCodes = [];
+        }
+
+        const codeStr = String(code);
+        const alreadyShown = (player.shownGlitchCodes || []).map(String).includes(codeStr);
+
+        if (!alreadyShown) {
+            player.shownGlitchCodes.push(code);
+        }
+
+        const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
+        await client.query('COMMIT');
+        return updatedPlayerRes.rows[0].data;
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error(`Transaction failed in markGlitchAsShownInDb for user ${userId}, code ${code}`, error);
         throw error;
     } finally {
         client.release();
@@ -1015,10 +1098,30 @@ export const openLootboxInDb = async (userId, boxType, config) => {
         if (currentBalance < cost) throw new Error("Not enough coins.");
         player.balance = currentBalance - cost;
 
-        const possibleItems = [
+        const allPossibleItems = [
             ...config.blackMarketCards.filter(c => c.boxType === boxType),
             ...config.coinSkins.filter(s => s.boxType === boxType && !(player.unlockedSkins || []).includes(s.id))
         ];
+
+        // Filter out limited skins that have reached their supply cap
+        const possibleItems = [];
+        for (const item of allPossibleItems) {
+            // Check if the item is a skin and has a limited supply
+            if ('profitBoostPercent' in item && item.maxSupply && item.maxSupply > 0) {
+                const supplyCheckRes = await client.query(
+                    `SELECT count(*) FROM players WHERE data->'unlockedSkins' @> $1::jsonb`,
+                    [JSON.stringify(item.id)]
+                );
+                const circulatingSupply = parseInt(supplyCheckRes.rows[0].count, 10);
+                
+                if (circulatingSupply < item.maxSupply) {
+                    possibleItems.push(item);
+                }
+            } else {
+                // It's a card or an unlimited skin, add it to the pool
+                possibleItems.push(item);
+            }
+        }
         
         if (possibleItems.length === 0) {
             await client.query('COMMIT'); // Commit the cost deduction even if no items are available
@@ -1083,10 +1186,27 @@ const grantStarLootboxItem = async (userId, config) => {
 
         // No cost deduction, as payment is handled by Telegram Stars
 
-        const possibleItems = [
+        const allPossibleItems = [
             ...config.blackMarketCards.filter(c => c.boxType === 'star'),
             ...config.coinSkins.filter(s => s.boxType === 'star' && !(player.unlockedSkins || []).includes(s.id))
         ];
+
+        // Filter out limited skins that have reached their supply cap
+        const possibleItems = [];
+        for (const item of allPossibleItems) {
+            if ('profitBoostPercent' in item && item.maxSupply && item.maxSupply > 0) {
+                const supplyCheckRes = await client.query(
+                    `SELECT count(*) FROM players WHERE data->'unlockedSkins' @> $1::jsonb`,
+                    [JSON.stringify(item.id)]
+                );
+                const circulatingSupply = parseInt(supplyCheckRes.rows[0].count, 10);
+                if (circulatingSupply < item.maxSupply) {
+                    possibleItems.push(item);
+                }
+            } else {
+                possibleItems.push(item);
+            }
+        }
         
         if (possibleItems.length === 0) {
             // This is an issue, we should probably refund or notify. For now, just log it.
@@ -1145,11 +1265,11 @@ const grantStarLootboxItem = async (userId, config) => {
     }
 };
 
-
-export const processSuccessfulPayment = async (payload) => {
-    // Example payloads:
-    // For tasks: task-USERID-TASKID
-    // For lootboxes: lootbox-USERID-BOXTYPE
+export const processSuccessfulPayment = async (payload, log) => {
+    // Payloads:
+    // Task: task-USERID-TASKID
+    // Lootbox: lootbox-USERID-BOXTYPE (star)
+    // Market: market_purchase-BUYERID-LISTINGID
     const [type, userId, itemId] = payload.split('-');
 
     if (!type || !userId || !itemId) {
@@ -1160,18 +1280,197 @@ export const processSuccessfulPayment = async (payload) => {
 
     if (type === 'task') {
         const taskId = itemId;
-        console.log(`Processing task unlock for user ${userId}, task ${taskId}`);
+        log('info', `Processing task unlock for user ${userId}, task ${taskId}`);
         await unlockSpecialTask(userId, taskId, config);
     } else if (type === 'lootbox') {
         const boxType = itemId;
         if (boxType === 'star') {
-            console.log(`Processing star lootbox grant for user ${userId}`);
+            log('info', `Processing star lootbox grant for user ${userId}`);
             await grantStarLootboxItem(userId, config);
         } else {
              throw new Error(`Unsupported lootbox type in payload: ${boxType}`);
         }
+    } else if (type === 'market_purchase') {
+        const buyerId = userId;
+        const listingId = itemId;
+        log('info', `Processing market purchase for buyer ${buyerId}, listing ${listingId}`);
+        await processMarketPurchaseInDb(listingId, buyerId, config);
     } else {
         throw new Error(`Unknown payload type: ${type}`);
+    }
+};
+
+// --- Marketplace DB Functions ---
+export const getMarketListingById = async (listingId) => {
+    const res = await executeQuery('SELECT * FROM market_listings WHERE id = $1', [listingId]);
+    return res.rows[0] || null;
+};
+
+export const listSkinForSaleInDb = async (ownerId, skinId, priceStars) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [ownerId]);
+        if (playerRes.rows.length === 0) throw new Error("Player not found.");
+        const player = playerRes.rows[0].data;
+
+        if (!player.unlockedSkins?.includes(skinId)) throw new Error("You do not own this skin.");
+        if (skinId === DEFAULT_COIN_SKIN_ID) throw new Error("Cannot sell the default skin.");
+
+        const existingListingRes = await client.query('SELECT id FROM market_listings WHERE owner_id = $1 AND skin_id = $2 AND is_active = TRUE', [ownerId, skinId]);
+        if (existingListingRes.rows.length > 0) throw new Error("You have already listed this skin for sale.");
+        
+        const price = parseInt(priceStars, 10);
+        if (isNaN(price) || price <= 0) throw new Error("Invalid price.");
+
+        const newListingRes = await client.query('INSERT INTO market_listings (owner_id, skin_id, price_stars) VALUES ($1, $2, $3) RETURNING *', [ownerId, skinId, price]);
+        
+        await client.query('COMMIT');
+        return newListingRes.rows[0];
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const getMarketListingsFromDb = async () => {
+    const res = await executeQuery(`
+        SELECT ml.id, ml.skin_id, ml.owner_id, ml.price_stars, u.name as owner_name
+        FROM market_listings ml
+        JOIN users u ON ml.owner_id = u.id
+        WHERE ml.is_active = TRUE
+        ORDER BY ml.created_at DESC
+    `);
+    return res.rows;
+};
+
+export const connectTonWalletInDb = async (userId, walletAddress) => {
+    const player = await getPlayer(userId);
+    if (!player) throw new Error("Player not found.");
+    player.tonWalletAddress = walletAddress;
+    await savePlayer(userId, player);
+    return player;
+};
+
+export const requestWithdrawalInDb = async (userId, amountCredits) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error("Player not found.");
+        let player = playerRes.rows[0].data;
+
+        const amount = Number(amountCredits);
+        if (isNaN(amount) || amount <= 0) throw new Error("Invalid withdrawal amount.");
+        if (!player.tonWalletAddress) throw new Error("TON wallet is not connected.");
+        if ((player.marketCredits || 0) < amount) throw new Error("Insufficient market credits.");
+        
+        player.marketCredits -= amount;
+        
+        await client.query('INSERT INTO withdrawal_requests (player_id, amount_credits, ton_wallet) VALUES ($1, $2, $3)', [userId, amount, player.tonWalletAddress]);
+        
+        const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
+        await client.query('COMMIT');
+        return updatedPlayerRes.rows[0].data;
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const getPlayerWithdrawalRequests = async (userId) => {
+    const res = await executeQuery('SELECT * FROM withdrawal_requests WHERE player_id = $1 ORDER BY created_at DESC', [userId]);
+    return res.rows;
+};
+
+export const processMarketPurchaseInDb = async (listingId, buyerId, config) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const listingRes = await client.query('SELECT * FROM market_listings WHERE id = $1 AND is_active = TRUE FOR UPDATE', [listingId]);
+        if (listingRes.rows.length === 0) throw new Error("Listing not found or already sold.");
+        const listing = listingRes.rows[0];
+        const { owner_id: sellerId, skin_id: skinId, price_stars: price } = listing;
+
+        if (buyerId === sellerId) throw new Error("Cannot buy your own item.");
+
+        const sellerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [sellerId]);
+        const buyerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [buyerId]);
+
+        if (sellerRes.rows.length === 0 || buyerRes.rows.length === 0) throw new Error("Buyer or seller not found.");
+        let seller = sellerRes.rows[0].data;
+        let buyer = buyerRes.rows[0].data;
+
+        // 1. Transfer skin
+        if (!seller.unlockedSkins?.includes(skinId)) throw new Error("Seller does not own the skin to sell.");
+        seller.unlockedSkins = seller.unlockedSkins.filter(id => id !== skinId);
+        buyer.unlockedSkins = [...new Set([...(buyer.unlockedSkins || []), skinId])];
+
+        // 2. Add market credits to seller
+        seller.marketCredits = (seller.marketCredits || 0) + price;
+        
+        // 3. Set last purchase result for buyer
+        const skin = config.coinSkins.find(s => s.id === skinId);
+        buyer.lastPurchaseResult = { type: 'lootbox', item: skin }; // Re-use lootbox type for UI modal
+
+        // 4. Deactivate listing
+        await client.query('UPDATE market_listings SET is_active = FALSE WHERE id = $1', [listingId]);
+        
+        // 5. Save players
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [seller, sellerId]);
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [buyer, buyerId]);
+
+        await client.query('COMMIT');
+        console.log(`Market purchase complete: Buyer ${buyerId} bought skin ${skinId} from seller ${sellerId} for ${price} stars.`);
+    } catch (e) {
+        await client.query('ROLLBACK');
+        console.error('Market purchase transaction failed', e);
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const getWithdrawalRequestsForAdmin = async () => {
+    const res = await executeQuery(`
+        SELECT wr.id, wr.player_id, u.name as player_name, wr.amount_credits, wr.ton_wallet, wr.status, wr.created_at
+        FROM withdrawal_requests wr
+        JOIN users u ON wr.player_id = u.id
+        ORDER BY wr.created_at DESC
+    `);
+    return res.rows;
+};
+
+export const updateWithdrawalRequestStatusInDb = async (requestId, status) => {
+    if (!['approved', 'rejected'].includes(status)) throw new Error("Invalid status.");
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const reqRes = await client.query('SELECT * FROM withdrawal_requests WHERE id = $1 AND status = \'pending\' FOR UPDATE', [requestId]);
+        if (reqRes.rows.length === 0) throw new Error("Request not found or already processed.");
+        const request = reqRes.rows[0];
+
+        if (status === 'rejected') {
+            // Refund credits
+            await client.query(`
+                UPDATE players SET data = jsonb_set(data, '{marketCredits}', ((data->>'marketCredits')::numeric + $1)::text::jsonb)
+                WHERE id = $2
+            `, [request.amount_credits, request.player_id]);
+        }
+
+        await client.query('UPDATE withdrawal_requests SET status = $1, processed_at = NOW() WHERE id = $2', [status, requestId]);
+        await client.query('COMMIT');
+        return { success: true };
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
     }
 };
 
@@ -1597,111 +1896,4 @@ export const forceEndBattle = async (config) => {
 };
 
 export const getBattleStatusForCell = async (cellId) => {
-    const battleRes = await executeQuery('SELECT * FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW() LIMIT 1');
-    const battle = battleRes.rows[0];
-    if (!battle) return { isActive: false };
-    
-    const timeRemaining = Math.floor((new Date(battle.end_time).getTime() - Date.now()) / 1000);
-    
-    if (!cellId) return { isActive: true, battleId: battle.id, timeRemaining };
-
-    const participantRes = await executeQuery('SELECT score FROM cell_battle_participants WHERE battle_id = $1 AND cell_id = $2', [battle.id, cellId]);
-    const participant = participantRes.rows[0];
-    
-    return {
-        isActive: true,
-        battleId: battle.id,
-        timeRemaining,
-        isParticipant: !!participant,
-        myScore: participant ? parseFloat(participant.score) : 0,
-    };
-};
-
-export const joinActiveBattle = async (userId) => {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        const player = await getPlayer(userId);
-        if (!player || !player.cellId) throw new Error("Not in a cell.");
-        
-        const battle = (await client.query('SELECT * FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW() LIMIT 1')).rows[0];
-        if (!battle) throw new Error("No active battle.");
-
-        const participant = (await client.query('SELECT id FROM cell_battle_participants WHERE battle_id = $1 AND cell_id = $2', [battle.id, player.cellId])).rows[0];
-        if (participant) throw new Error("Already joined the battle.");
-
-        const cell = (await client.query('SELECT ticket_count FROM cells WHERE id = $1 FOR UPDATE', [player.cellId])).rows[0];
-        if (cell.ticket_count < 1) throw new Error("Not enough tickets.");
-
-        await client.query('UPDATE cells SET ticket_count = ticket_count - 1 WHERE id = $1', [player.cellId]);
-        await client.query('INSERT INTO cell_battle_participants (battle_id, cell_id) VALUES ($1, $2)', [battle.id, player.cellId]);
-
-        await client.query('COMMIT');
-        return getBattleStatusForCell(player.cellId);
-    } catch(e) {
-        await client.query('ROLLBACK');
-        throw e;
-    } finally {
-        client.release();
-    }
-};
-
-export const addTapsToBattle = async (cellId, taps) => {
-    const battleRes = await executeQuery('SELECT id FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW() LIMIT 1');
-    const battle = battleRes.rows[0];
-    if (battle) {
-        await executeQuery(
-            'UPDATE cell_battle_participants SET score = score + $1 WHERE battle_id = $2 AND cell_id = $3',
-            [taps, battle.id, cellId]
-        );
-    }
-};
-
-export const getBattleLeaderboard = async () => {
-     const battleRes = await executeQuery('SELECT id FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW() LIMIT 1');
-    const battle = battleRes.rows[0];
-    if (!battle) return [];
-
-    const res = await executeQuery(`
-        SELECT p.cell_id, c.name as "cellName", p.score
-        FROM cell_battle_participants p
-        JOIN cells c ON p.cell_id = c.id
-        WHERE p.battle_id = $1
-        ORDER BY p.score DESC
-    `, [battle.id]);
-    return res.rows.map(r => ({ ...r, score: parseFloat(r.score) }));
-};
-
-export const getCellAnalytics = async () => {
-    const totalCells = (await executeQuery('SELECT COUNT(*) FROM cells')).rows[0].count;
-    const totalBank = (await executeQuery('SELECT SUM(balance) FROM cells')).rows[0].sum;
-    const totalTickets = (await executeQuery('SELECT SUM(ticket_count) FROM cells')).rows[0].sum;
-    const participants = (await executeQuery('SELECT COUNT(DISTINCT cell_id) FROM cell_battle_participants')).rows[0].count;
-
-    const leaderboard = (await executeQuery(`
-        SELECT c.id, c.name, c.balance,
-        (SELECT COUNT(*) FROM players WHERE (data->>'cellId')::int = c.id) as members,
-        (SELECT SUM((data->>'profitPerHour')::numeric) FROM players WHERE (data->>'cellId')::int = c.id) as total_profit
-        FROM cells c
-        ORDER BY total_profit DESC
-        LIMIT 20
-    `)).rows.map(r => ({
-        ...r,
-        balance: parseFloat(r.balance),
-        total_profit: parseFloat(r.total_profit || '0'),
-        members: parseInt(r.members, 10)
-    }));
-    
-    const battleHistory = (await executeQuery('SELECT * FROM cell_battles WHERE rewards_distributed = TRUE ORDER BY end_time DESC LIMIT 10')).rows;
-
-    return {
-        kpi: {
-            totalCells: parseInt(totalCells),
-            totalBank: parseFloat(totalBank),
-            ticketsSpent: parseInt(totalTickets), // Assuming all tickets bought were spent
-            battleParticipants: parseInt(participants),
-        },
-        leaderboard,
-        battleHistory
-    };
-};
+    const battleRes = await executeQuery('SELECT * FROM cell_battles WHERE end_time

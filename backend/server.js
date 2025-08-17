@@ -1,5 +1,3 @@
-
-
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -33,6 +31,7 @@ import {
     claimComboReward,
     claimCipherReward,
     claimGlitchCodeInDb,
+    markGlitchAsShownInDb,
     resetPlayerDailyProgress,
     claimDailyTaskReward,
     getLeaderboardData,
@@ -60,7 +59,14 @@ import {
     forceStartBattle,
     forceEndBattle,
     getCellAnalytics,
-    getAllUserIds
+    getAllUserIds,
+    getMarketListingById,
+    listSkinForSaleInDb,
+    getMarketListingsFromDb,
+    connectTonWalletInDb,
+    requestWithdrawalInDb,
+    getWithdrawalRequestsForAdmin,
+    updateWithdrawalRequestStatusInDb
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
@@ -300,7 +306,7 @@ app.post('/api/telegram-webhook', express.json(), async (req, res) => {
         const payment = update.message.successful_payment;
         log('info', `Received successful payment for payload: ${payment.invoice_payload}`);
         try {
-            await processSuccessfulPayment(payment.invoice_payload);
+            await processSuccessfulPayment(payment.invoice_payload, log);
         } catch (error) {
             log('error', `Failed to process successful payment for payload ${payment.invoice_payload}`, error);
         }
@@ -379,6 +385,9 @@ app.post('/api/login', async (req, res) => {
                 dailyBoostPurchases: {},
                 discoveredGlitchCodes: [],
                 claimedGlitchCodes: [],
+                shownGlitchCodes: [],
+                marketCredits: 0,
+                tonWalletAddress: ""
             };
             await savePlayer(userId, player);
         } else {
@@ -590,6 +599,12 @@ const gameActions = {
         return await claimGlitchCodeInDb(body.userId, body.code);
     },
 
+    'mark-glitch-shown': async (body) => {
+        const { userId, code } = body;
+        const updatedPlayer = await markGlitchAsShownInDb(userId, code);
+        return { player: updatedPlayer };
+    },
+
     'unlock-free-task': async (body, player, config) => {
         const { userId, taskId } = body;
         const task = config.specialTasks.find(t => t.id === taskId);
@@ -693,6 +708,17 @@ app.post('/api/create-star-invoice', async (req, res) => {
             payload = `lootbox-${userId}-${itemId}`;
             price = config.lootboxCostStars || 0;
             if (price <= 0) return res.status(400).json({ ok: false, error: "Lootbox not for sale." });
+        } else if (payloadType === 'market_purchase') {
+            const listingId = itemId;
+            const listing = await getMarketListingById(listingId);
+            if (!listing || !listing.is_active) return res.status(404).json({ ok: false, error: "Listing not available." });
+            if (listing.owner_id === userId) return res.status(400).json({ ok: false, error: "Cannot buy your own item." });
+            
+            const skin = config.coinSkins.find(s => s.id === listing.skin_id);
+            title = skin ? `Skin: ${skin.name['en']}` : 'Market Item';
+            description = `Purchase from another player.`;
+            payload = `market_purchase-${userId}-${listingId}`;
+            price = listing.price_stars;
         } else {
             return res.status(400).json({ ok: false, error: "Invalid payload type." });
         }
@@ -925,6 +951,51 @@ app.get('/api/leaderboard', async (req, res) => {
     } catch (error) {
         log('error', '/api/leaderboard failed', error);
         res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// --- Marketplace API ---
+app.post('/api/market/list', async (req, res) => {
+    try {
+        const { userId, skinId, priceStars } = req.body;
+        const listing = await listSkinForSaleInDb(userId, skinId, priceStars);
+        res.status(201).json({ listing });
+    } catch (e) {
+        log('error', 'Failed to list skin for sale', e);
+        res.status(400).json({ error: e.message });
+    }
+});
+
+app.get('/api/market/listings', async (req, res) => {
+    try {
+        const listings = await getMarketListingsFromDb();
+        res.json({ listings });
+    } catch (e) {
+        log('error', 'Failed to fetch market listings', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- Wallet API ---
+app.post('/api/wallet/connect', async (req, res) => {
+    try {
+        const { userId, walletAddress } = req.body;
+        const player = await connectTonWalletInDb(userId, walletAddress);
+        res.json({ player });
+    } catch (e) {
+        log('error', 'Failed to connect TON wallet', e);
+        res.status(400).json({ error: e.message });
+    }
+});
+
+app.post('/api/wallet/request-withdrawal', async (req, res) => {
+    try {
+        const { userId, amountCredits } = req.body;
+        const player = await requestWithdrawalInDb(userId, amountCredits);
+        res.json({ player });
+    } catch (e) {
+        log('error', 'Failed to request withdrawal', e);
+        res.status(400).json({ error: e.message });
     }
 });
 
@@ -1255,6 +1326,28 @@ app.get('/admin/api/battle/status', checkAdminAuth, async(req, res) => {
     } catch(e) {
         log('error', 'Failed to get global battle status', e);
         res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/admin/api/withdrawals', checkAdminAuth, async (req, res) => {
+    try {
+        const requests = await getWithdrawalRequestsForAdmin();
+        res.json(requests);
+    } catch (e) {
+        log('error', 'Failed to get withdrawal requests for admin', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/admin/api/withdrawals/:id/update', checkAdminAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        const result = await updateWithdrawalRequestStatusInDb(id, status);
+        res.json(result);
+    } catch (e) {
+        log('error', `Failed to update withdrawal request ${req.params.id}`, e);
+        res.status(400).json({ error: e.message });
     }
 });
 

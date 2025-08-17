@@ -17,10 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
         specialTasks: { titleKey: 'nav_special_tasks', cols: ['id', 'name', 'description', 'type', 'reward', 'priceStars', 'suspicionModifier', 'url', 'secretCode', 'imageUrl'] },
         glitchEvents: { titleKey: 'nav_glitch_events', cols: ['id', 'message', 'code', 'reward', 'trigger', 'isFinal'] },
         blackMarketCards: { titleKey: 'nav_market_cards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
-        coinSkins: { titleKey: 'nav_coin_skins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
+        coinSkins: { titleKey: 'nav_coin_skins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'suspicionModifier', 'maxSupply', 'iconUrl'] },
         uiIcons: { titleKey: 'nav_ui_icons' },
         boosts: { titleKey: 'nav_boosts', cols: ['id', 'name', 'description', 'costCoins', 'suspicionModifier', 'iconUrl'] },
         cellSettings: { titleKey: 'nav_cell_settings', fields: ['cellCreationCost', 'cellMaxMembers', 'informantRecruitCost', 'lootboxCostCoins', 'lootboxCostStars', 'cellBattleTicketCost'] },
+        withdrawalRequests: { titleKey: 'nav_withdrawal_requests' },
     };
     
     const META_TAP_TARGETS = [
@@ -223,6 +224,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'dailyEvents':
                 renderDailyEvents();
+                break;
+            case 'withdrawalRequests':
+                renderWithdrawals();
                 break;
             case 'cellAnalytics':
                 renderCellAnalytics();
@@ -619,6 +623,65 @@ document.addEventListener('DOMContentLoaded', () => {
                 select.value = dailyEvent.combo_ids[index];
             }
         });
+    };
+
+    const renderWithdrawals = async () => {
+        showLoading();
+        const requests = await fetchData('withdrawals');
+        if (!requests) { tabContainer.innerHTML = `<p>${t('no_data')}</p>`; return; }
+
+        const getStatusBadge = (status) => {
+            const statusKey = `status_${status}`;
+            switch(status) {
+                case 'approved': return `<span class="badge bg-green-lt">${t(statusKey)}</span>`;
+                case 'rejected': return `<span class="badge bg-red-lt">${t(statusKey)}</span>`;
+                case 'pending':
+                default:
+                    return `<span class="badge bg-yellow-lt">${t(statusKey)}</span>`;
+            }
+        };
+
+        const rows = requests.map(req => `
+            <tr>
+                <td>${req.id}</td>
+                <td>${escapeHtml(req.player_name)} (${req.player_id})</td>
+                <td>${formatNumber(req.amount_credits)}</td>
+                <td><code class="text-secondary">${escapeHtml(req.ton_wallet)}</code></td>
+                <td>${getStatusBadge(req.status)}</td>
+                <td>${new Date(req.created_at).toLocaleString()}</td>
+                <td>
+                    ${req.status === 'pending' ? `
+                    <div class="btn-list flex-nowrap">
+                        <button class="btn btn-sm btn-success" data-action="approve-withdrawal" data-id="${req.id}">${t('approve')}</button>
+                        <button class="btn btn-sm btn-danger" data-action="reject-withdrawal" data-id="${req.id}">${t('reject')}</button>
+                    </div>
+                    ` : t('processed')}
+                </td>
+            </tr>
+        `).join('');
+
+        const tableHtml = `
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">${t('withdrawal_requests')}</h3></div>
+                <div class="table-responsive">
+                    <table class="table table-vcenter card-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>${t('player_name')}</th>
+                                <th>${t('amount_credits')}</th>
+                                <th>${t('ton_wallet')}</th>
+                                <th>${t('status')}</th>
+                                <th>${t('request_date')}</th>
+                                <th class="w-1">${t('actions')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows || `<tr><td colspan="7" class="text-center">${t('no_data')}</td></tr>`}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        tabContainer.innerHTML = tableHtml;
     };
 
     const renderConfigTable = (key) => {
@@ -1113,7 +1176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return `
                     <div class="mb-3">
                         <label class="form-label">${t(col) || col}</label>
-                        <input type="${typeof value === 'number' ? 'number' : 'text'}" class="form-control" data-col="${col}" value="${escapeHtml(value)}" ${isReadonly ? 'readonly' : ''}>
+                        <input type="${typeof value === 'number' || col === 'maxSupply' ? 'number' : 'text'}" class="form-control" data-col="${col}" value="${escapeHtml(value)}" ${isReadonly ? 'readonly' : ''}>
                     </div>`;
             }
         }).join('');
@@ -1177,16 +1240,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'save-config-item': {
                 const modal = bootstrap.Modal.getInstance(document.getElementById('config-modal'));
+                const isNew = !index;
                 const newItem = {};
+                
                 document.querySelectorAll('#config-modal [data-col]').forEach(input => {
                     const col = input.dataset.col;
-                    try {
-                        const parsed = JSON.parse(input.value);
-                        newItem[col] = parsed;
-                    } catch {
-                        newItem[col] = isNaN(input.value) || input.value === '' ? input.value : Number(input.value);
+                    let value = input.value;
+
+                    // Improved parsing logic
+                    if (input.tagName === 'TEXTAREA') {
+                        try { newItem[col] = JSON.parse(value); } 
+                        catch { newItem[col] = value; }
+                    } else {
+                        const originalItem = isNew ? {} : localConfig[key][index];
+                        const originalValue = originalItem ? originalItem[col] : undefined;
+                        const isNumericField = typeof originalValue === 'number' || input.type === 'number';
+
+                        if (isNumericField) {
+                            newItem[col] = value === '' ? null : Number(value);
+                        } else {
+                            newItem[col] = value;
+                        }
                     }
                 });
+
                  // Handle localized fields
                 document.querySelectorAll('#config-modal [data-lang-col]').forEach(input => {
                     const col = input.dataset.langCol;
@@ -1212,7 +1289,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     newItem.isFinal = document.getElementById('isFinal-checkbox')?.checked || false;
                 }
 
-                if (index) { // Edit existing
+                if (!isNew) { // Edit existing
                     localConfig[key][index] = newItem;
                 } else { // Add new
                     if (!localConfig[key]) localConfig[key] = [];
@@ -1277,6 +1354,20 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'force-end-battle':
                 await postData('battle/force-end');
                 renderBattleStatus();
+                break;
+            case 'approve-withdrawal':
+                if (confirm(t('confirm_approve'))) {
+                    const res = await postData(`withdrawals/${id}/update`, { status: 'approved' });
+                    if (res) { alert(t('withdrawal_updated')); renderWithdrawals(); }
+                    else { alert(t('withdrawal_update_error')); }
+                }
+                break;
+            case 'reject-withdrawal':
+                if (confirm(t('confirm_reject'))) {
+                    const res = await postData(`withdrawals/${id}/update`, { status: 'rejected' });
+                    if (res) { alert(t('withdrawal_updated')); renderWithdrawals(); }
+                    else { alert(t('withdrawal_update_error')); }
+                }
                 break;
             case 'generate-ai-content': {
                 const btn = actionTarget;
