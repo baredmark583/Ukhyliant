@@ -1082,6 +1082,100 @@ export const buyTicketInDb = async (userId, config) => {
     }
 }
 
+export const addTapsToBattle = async (cellId, taps) => {
+    if (!cellId || taps <= 0) return;
+
+    try {
+        // Find the active battle ID
+        const battleRes = await executeQuery('SELECT id FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW() LIMIT 1');
+        const activeBattleId = battleRes.rows[0]?.id;
+
+        if (activeBattleId) {
+            // This is a "fire-and-forget" update. If the cell is not a participant, it does nothing.
+            // This is efficient and prevents errors if a player is tapping but their cell hasn't joined yet.
+            await executeQuery(
+                'UPDATE cell_battle_participants SET score = score + $1 WHERE battle_id = $2 AND cell_id = $3',
+                [taps, activeBattleId, cellId]
+            );
+        }
+    } catch (e) {
+        console.error(`[BATTLE_TAP_ERROR] Failed to add taps for cell ${cellId}:`, e.message);
+        // Don't throw, as this shouldn't crash the main player save loop.
+    }
+};
+
+export const joinActiveBattle = async (userId) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        const player = playerRes.rows[0]?.data;
+        if (!player || !player.cellId) {
+            throw new Error("You must be in a cell to join a battle.");
+        }
+        const { cellId } = player;
+
+        const battleRes = await client.query('SELECT id FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW() LIMIT 1');
+        const activeBattleId = battleRes.rows[0]?.id;
+        if (!activeBattleId) {
+            throw new Error("There is no active battle to join.");
+        }
+
+        const participantRes = await client.query('SELECT id FROM cell_battle_participants WHERE battle_id = $1 AND cell_id = $2', [activeBattleId, cellId]);
+        if (participantRes.rows.length > 0) {
+            throw new Error("Your cell has already joined this battle.");
+        }
+
+        const cellRes = await client.query('SELECT ticket_count FROM cells WHERE id = $1 FOR UPDATE', [cellId]);
+        const ticketCount = cellRes.rows[0]?.ticket_count || 0;
+        if (ticketCount < 1) {
+            throw new Error("Your cell does not have enough tickets to join the battle.");
+        }
+
+        await client.query('UPDATE cells SET ticket_count = ticket_count - 1 WHERE id = $1', [cellId]);
+        await client.query('INSERT INTO cell_battle_participants (battle_id, cell_id) VALUES ($1, $2)', [activeBattleId, cellId]);
+
+        await client.query('COMMIT');
+        
+        // Return the fresh status after joining
+        return getBattleStatusForCell(cellId);
+
+    } catch (e) {
+        await client.query('ROLLBACK');
+        console.error(`[JOIN_BATTLE_ERROR] User ${userId} failed to join battle:`, e.message);
+        throw e; // Re-throw to be caught by the API route handler
+    } finally {
+        client.release();
+    }
+};
+
+export const getBattleLeaderboard = async () => {
+    // Find the currently active battle
+    const battleRes = await executeQuery('SELECT id FROM cell_battles WHERE start_time <= NOW() AND end_time > NOW() ORDER BY start_time DESC LIMIT 1');
+    const activeBattle = battleRes.rows[0];
+
+    if (!activeBattle) {
+        return []; // No active battle, return empty leaderboard
+    }
+
+    const leaderboardRes = await executeQuery(`
+        SELECT
+            cbp.cell_id as "cellId",
+            c.name as "cellName",
+            cbp.score
+        FROM cell_battle_participants cbp
+        JOIN cells c ON cbp.cell_id = c.id
+        WHERE cbp.battle_id = $1
+        ORDER BY cbp.score DESC
+    `, [activeBattle.id]);
+
+    return leaderboardRes.rows.map(row => ({
+        ...row,
+        score: parseFloat(row.score)
+    }));
+};
+
 export const openLootboxInDb = async (userId, boxType, config) => {
     if (boxType !== 'coin') throw new Error("This function only supports coin lootboxes.");
     
@@ -1475,6 +1569,63 @@ export const updateWithdrawalRequestStatusInDb = async (requestId, status) => {
 };
 
 // --- Admin Panel Functions ---
+export const getCellAnalytics = async () => {
+    // KPI Queries
+    const totalCellsRes = await executeQuery('SELECT COUNT(*) FROM cells');
+    const totalBankRes = await executeQuery('SELECT SUM(balance) FROM cells');
+    
+    // Find the most recent battle (active or last finished)
+    const lastBattleRes = await executeQuery('SELECT id FROM cell_battles ORDER BY end_time DESC LIMIT 1');
+    const lastBattleId = lastBattleRes.rows[0]?.id;
+
+    let totalParticipants = 0;
+    if (lastBattleId) {
+        const participantsRes = await executeQuery('SELECT COUNT(*) FROM cell_battle_participants WHERE battle_id = $1', [lastBattleId]);
+        totalParticipants = parseInt(participantsRes.rows[0].count, 10);
+    }
+
+    // Leaderboard Query
+    const leaderboardRes = await executeQuery(`
+        SELECT
+            c.id,
+            c.name,
+            c.balance,
+            (SELECT COUNT(*) FROM players WHERE (data->>'cellId')::int = c.id) as members,
+            (
+                SELECT COALESCE(SUM((p.data->>'profitPerHour')::numeric), 0)
+                FROM players p
+                WHERE (p.data->>'cellId')::int = c.id
+            ) as total_profit
+        FROM cells c
+        ORDER BY total_profit DESC NULLS LAST;
+    `);
+
+    // Battle History Query
+    const battleHistoryRes = await executeQuery(`
+        SELECT id, end_time, winner_details
+        FROM cell_battles
+        WHERE winner_details IS NOT NULL AND rewards_distributed = TRUE
+        ORDER BY end_time DESC
+        LIMIT 10;
+    `);
+
+    return {
+        kpi: {
+            totalCells: parseInt(totalCellsRes.rows[0].count, 10),
+            battleParticipants: totalParticipants,
+            totalBank: parseFloat(totalBankRes.rows[0].sum) || 0,
+            ticketsSpent: totalParticipants, // Assuming one ticket per participant
+        },
+        leaderboard: leaderboardRes.rows.map(r => ({
+            ...r,
+            balance: parseFloat(r.balance),
+            members: parseInt(r.members, 10),
+            total_profit: parseFloat(r.total_profit)
+        })),
+        battleHistory: battleHistoryRes.rows
+    };
+};
+
 export const getAllPlayersForAdmin = async () => {
     const usersRes = await executeQuery('SELECT id, name, language FROM users');
     const playersRes = await executeQuery('SELECT id, data FROM players');
@@ -1871,29 +2022,4 @@ export const checkAndManageBattles = async (config) => {
         const currentDayUTC = now.getUTCDay();
         const currentHourUTC = now.getUTCHours();
         
-        const lastBattleRes = await executeQuery('SELECT end_time FROM cell_battles ORDER BY end_time DESC LIMIT 1');
-        const lastBattleEnd = lastBattleRes.rows[0] ? new Date(lastBattleRes.rows[0].end_time) : new Date(0);
-        
-        if (currentDayUTC === schedule.dayOfWeek && currentHourUTC >= schedule.startHourUTC) {
-            if (now.getTime() - lastBattleEnd.getTime() > 24 * 60 * 60 * 1000) { // Ensure at least 24h passed
-                 await startNewBattle(config);
-            }
-        }
-    }
-};
-
-export const forceStartBattle = async (config) => {
-    const activeBattleRes = await executeQuery(`SELECT id FROM cell_battles WHERE end_time > NOW()`);
-    if (activeBattleRes.rows.length > 0) throw new Error("A battle is already active.");
-    await startNewBattle(config);
-};
-
-export const forceEndBattle = async (config) => {
-    const activeBattleRes = await executeQuery(`SELECT id FROM cell_battles WHERE end_time > NOW()`);
-    if (activeBattleRes.rows.length === 0) throw new Error("No active battle to end.");
-    const battleId = activeBattleRes.rows[0].id;
-    await endBattle(battleId, config);
-};
-
-export const getBattleStatusForCell = async (cellId) => {
-    const battleRes = await executeQuery('SELECT * FROM cell_battles WHERE end_time
+        const lastBattleRes = await

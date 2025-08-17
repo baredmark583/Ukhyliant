@@ -43,7 +43,7 @@ export const INITIAL_SPECIAL_TASKS: SpecialTask[] = [
 export const INITIAL_BOOSTS: Boost[] = [
     { id: 'boost_full_energy', name: { en: 'Full Energy', ua: 'Повна енергія', ru: 'Полная энергия' }, description: { en: 'Instantly refill your energy.', ua: 'Миттєво відновити енергію.', ru: 'Мгновенно восстановить энергию.' }, iconUrl: 'https://api.iconify.design/twemoji/high-voltage.svg', costCoins: 2000, suspicionModifier: 1 },
     { id: 'boost_turbo_mode', name: { en: 'Turbo Mode', ua: 'Турбо-режим', ru: 'Турбо-режим' }, description: { en: 'x5 coins per tap for 20 seconds!', ua: 'x5 монет за тап протягом 20 секунд!', ru: 'x5 монет за тап в течение 20 секунд!' }, iconUrl: 'https://api.iconify.design/twemoji/fire.svg', costCoins: 2000, suspicionModifier: 2 },
-    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+50% to coins per tap (compounding).', ua: '+50% до монет за тап (складний відсоток).', ru: '+50% к монетам за тап (сложный процент).' }, iconUrl: 'https://api.iconify.design/ph/hand-tapping-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
+    { id: 'boost_tap_guru', name: { en: 'Guru Tapper', ua: 'Гуру Тапів', ru: 'Гуру Тапов' }, description: { en: '+50% to coins per tap (compounding).', ua: '+50% до монет за тап (складний відсоток).', ru: '+50% к монетам за тап (сложный процент).' }, iconUrl: 'https://api.iconify.design/ph/hand-pointing-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
     { id: 'boost_energy_limit', name: { en: 'Energy Limit', ua: 'Ліміт Енергії', ru: 'Лимит Энергии' }, description: { en: 'x2 to your max energy capacity.', ua: 'x2 до максимального запасу енергії.', ru: 'x2 к максимальному запасу энергии.' }, iconUrl: 'https://api.iconify.design/ph/battery-plus-vertical-fill.svg?color=white', costCoins: 1000, suspicionModifier: 1 },
     { id: 'boost_suspicion_limit', name: { en: 'Suspicion Limit', ua: 'Ліміт Підозри', ru: 'Лимит Подозрения' }, description: { en: '+10 to max suspicion capacity.', ua: '+10 до макс. запасу підозри.', ru: '+10 к макс. запасу подозрения.' }, iconUrl: 'https://api.iconify.design/ph/shield-warning-fill.svg?color=white', costCoins: 1000, suspicionModifier: 0 },
 ];
@@ -105,6 +105,7 @@ type TranslationKey =
   | 'skins_gallery' | 'skins_gallery_desc' | 'select_skin' | 'selected' | 'profit_boost'
   | 'won_item' | 'close'
   // Underground Market
+  | 'underground_market' | 'underground_market_desc'
   | 'market_buy' | 'market_sell' | 'market_wallet' | 'market_credits' | 'ton_wallet_address' | 'connect_wallet'
   | 'request_withdrawal' | 'market_set_price' | 'market_price_in_stars' | 'market_list_for_sale'
   | 'market_sell_desc' | 'market_no_listings' | 'market_no_skins_to_sell' | 'market_invalid_price'
@@ -255,6 +256,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     profit_boost: 'Profit Boost',
     won_item: 'You won',
     close: 'Close',
+    underground_market: 'Underground Market',
+    underground_market_desc: 'Trade rare skins with other players for special currency.',
     market_buy: 'Buy',
     market_sell: 'Sell',
     market_wallet: 'Wallet',
@@ -489,6 +492,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     profit_boost: 'Бонус до прибутку',
     won_item: 'Ви виграли',
     close: 'Закрити',
+    underground_market: 'Підпільний ринок',
+    underground_market_desc: 'Торгуйте рідкісними скінами з іншими гравцями за особливу валюту.',
     market_buy: 'Купити',
     market_sell: 'Продати',
     market_wallet: 'Гаманець',
@@ -723,6 +728,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     profit_boost: 'Бонус к прибыли',
     won_item: 'Вы выиграли',
     close: 'Закрыть',
+    underground_market: 'Подпольный рынок',
+    underground_market_desc: 'Торгуйте редкими скинами с другими игроками за особую валюту.',
     market_buy: 'Купить',
     market_sell: 'Продать',
     market_wallet: 'Кошелек',

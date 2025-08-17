@@ -217,7 +217,41 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
         );
     };
 
-    const MarketContent = () => {
+    const BlackMarketContent = () => {
+        const lootboxCostCoins = config.lootboxCostCoins || 25000;
+        const lootboxCostStars = config.lootboxCostStars || 10;
+        
+        return (
+            <div className="w-full max-w-md space-y-4 pt-8 text-center">
+                <h2 className="text-2xl font-display text-white">{t('black_market')}</h2>
+                <p className="text-[var(--text-secondary)] mb-4">{t('black_market_desc')}</p>
+                 <div className="card-glow rounded-xl p-4 flex flex-col items-center">
+                    <img src={config.uiIcons.marketCoinBox} alt="Coin Box" className="w-24 h-24 mb-3" {...(isExternal(config.uiIcons.marketCoinBox) && { crossOrigin: 'anonymous' })} />
+                    <h3 className="font-bold text-lg">{t('lootbox_coin')}</h3>
+                    <button
+                        onClick={() => onOpenCoinLootbox('coin')}
+                        className="w-full mt-4 interactive-button rounded-lg py-3 font-bold flex items-center justify-center space-x-2"
+                    >
+                        <span>{t('open_for')} {formatNumber(lootboxCostCoins)}</span>
+                        <img src={config.uiIcons.coin} alt="coin" className="w-6 h-6" {...(isExternal(config.uiIcons.coin) && { crossOrigin: 'anonymous' })}/>
+                    </button>
+                </div>
+                <div className="card-glow rounded-xl p-4 flex flex-col items-center">
+                    <img src={config.uiIcons.marketStarBox} alt="Star Box" className="w-24 h-24 mb-3" {...(isExternal(config.uiIcons.marketStarBox) && { crossOrigin: 'anonymous' })}/>
+                    <h3 className="font-bold text-lg">{t('lootbox_star')}</h3>
+                    <button
+                        onClick={() => onPurchaseStarLootbox('star')}
+                        className="w-full mt-4 interactive-button rounded-lg py-3 font-bold flex items-center justify-center space-x-2"
+                    >
+                        <span>{t('open_for')} {lootboxCostStars}</span>
+                        <img src={config.uiIcons.star} alt="star" className="w-6 h-6" {...(isExternal(config.uiIcons.star) && { crossOrigin: 'anonymous' })}/>
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
+    const UndergroundMarketContent = () => {
         const [marketTab, setMarketTab] = useState<'buy' | 'sell' | 'wallet'>('buy');
 
         const BuyTab = () => {
@@ -405,7 +439,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
         };
 
         return (
-            <div className="w-full max-w-md">
+            <div className="w-full">
                 <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex justify-around items-center gap-1 border border-slate-700 mb-4">
                     <button onClick={() => setMarketTab('buy')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'buy' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_buy')}</button>
                     <button onClick={() => setMarketTab('sell')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'sell' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_sell')}</button>
@@ -414,6 +448,44 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
                 {marketTab === 'buy' && <BuyTab />}
                 {marketTab === 'sell' && <SellTab />}
                 {marketTab === 'wallet' && <WalletTab />}
+            </div>
+        );
+    };
+
+    const MarketContent = () => {
+        const t = useTranslation();
+        const [marketView, setMarketView] = useState<'main' | 'black' | 'underground'>('main');
+
+        const MainView = () => (
+            <div className="w-full max-w-md space-y-4">
+                <div onClick={() => setMarketView('black')} className="card-glow p-4 rounded-xl cursor-pointer hover:border-[var(--accent-color)] border border-transparent transition-all">
+                    <h2 className="text-xl font-bold">{t('black_market')}</h2>
+                    <p className="text-sm text-[var(--text-secondary)]">{t('black_market_desc')}</p>
+                </div>
+                <div onClick={() => setMarketView('underground')} className="card-glow p-4 rounded-xl cursor-pointer hover:border-[var(--accent-color)] border border-transparent transition-all">
+                    <h2 className="text-xl font-bold">{t('underground_market')}</h2>
+                    <p className="text-sm text-[var(--text-secondary)]">{t('underground_market_desc')}</p>
+                </div>
+            </div>
+        );
+
+        if (marketView === 'main') {
+            return <MainView />;
+        }
+
+        const BackButton = () => (
+            <button onClick={() => setMarketView('main')} className="absolute top-0 left-0 text-slate-400 hover:text-white bg-slate-800/50 rounded-full p-2 z-10">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+        );
+
+        return (
+            <div className="relative w-full max-w-md">
+                 <BackButton />
+                 {marketView === 'black' && <BlackMarketContent />}
+                 {marketView === 'underground' && <UndergroundMarketContent />}
             </div>
         );
     };
