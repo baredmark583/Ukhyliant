@@ -250,7 +250,11 @@ app.get('/api/image-proxy', async (req, res) => {
              return res.status(400).send('Invalid protocol.');
         }
 
-        const response = await fetch(decodedUrl, { headers: { 'User-Agent': 'Ukhyliant-Clicker-Proxy/1.0' } });
+        const response = await fetch(decodedUrl, { 
+            headers: { 
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' 
+            } 
+        });
 
         if (!response.ok) {
             log('warn', `Proxy failed to fetch ${decodedUrl}`, { status: response.status, statusText: response.statusText });
