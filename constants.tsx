@@ -106,12 +106,15 @@ type TranslationKey =
   | 'won_item' | 'close'
   // Underground Market
   | 'underground_market' | 'underground_market_desc'
-  | 'market_buy' | 'market_sell' | 'market_wallet' | 'market_credits' | 'ton_wallet_address' | 'connect_wallet'
+  | 'market_buy' | 'market_sell' | 'market_credits'
   | 'request_withdrawal' | 'market_set_price' | 'market_price_in_stars' | 'market_list_for_sale'
   | 'market_sell_desc' | 'market_no_listings' | 'market_no_skins_to_sell' | 'market_invalid_price'
   | 'market_list_success' | 'market_wallet_connected' | 'market_invalid_amount' | 'market_withdrawal_requested'
   | 'withdrawal_history' | 'market_no_history' | 'status_pending' | 'status_approved' | 'status_rejected'
-  | 'request' | 'change' | 'market_invalid_wallet' | 'wallet_connection_cancelled' | 'wallet_feature_unavailable'
+  | 'request' | 'change'
+  // Wallet Connection
+  | 'connect_your_ton_wallet' | 'connect_wallet_task_desc' | 'wallet_connected' | 'connect_wallet'
+  | 'wallet_connection_cancelled' | 'wallet_feature_unavailable' | 'connect_in_airdrop_prompt'
   // Suspicion & Cells
   | 'suspicion' | 'suspicion_modifier' | 'cell' | 'cell_info' | 'create_cell' | 'join_cell' | 'leave_cell' | 'no_cell_info'
   | 'cell_name' | 'enter_cell_name' | 'create' | 'enter_invite_code' | 'join' | 'members'
@@ -260,10 +263,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     underground_market_desc: 'Trade rare skins with other players for special currency.',
     market_buy: 'Buy',
     market_sell: 'Sell',
-    market_wallet: 'Wallet',
-    market_credits: 'Market Credits',
-    ton_wallet_address: 'TON Wallet Address',
-    connect_wallet: 'Connect Wallet',
+    market_credits: 'Credits',
     request_withdrawal: 'Request Withdrawal',
     market_set_price: 'Set Price',
     market_price_in_stars: 'Price in Stars',
@@ -283,9 +283,13 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     status_rejected: 'Rejected',
     request: 'Request',
     change: 'Change',
-    market_invalid_wallet: 'Invalid wallet address. Please copy a valid TON wallet address.',
+    connect_your_ton_wallet: 'Connect your TON wallet',
+    connect_wallet_task_desc: 'This is required for Airdrop and to enable withdrawals.',
+    wallet_connected: 'Wallet Connected',
+    connect_wallet: 'Connect Wallet',
     wallet_connection_cancelled: 'Wallet connection was cancelled.',
     wallet_feature_unavailable: 'Wallet feature is not available in your Telegram version.',
+    connect_in_airdrop_prompt: 'Connect your wallet in the Airdrop section to enable.',
     suspicion: 'Suspicion',
     suspicion_modifier: 'Suspicion',
     cell: 'Cell',
@@ -500,10 +504,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     underground_market_desc: 'Торгуйте рідкісними скінами з іншими гравцями за особливу валюту.',
     market_buy: 'Купити',
     market_sell: 'Продати',
-    market_wallet: 'Гаманець',
     market_credits: 'Ринкові Кредити',
-    ton_wallet_address: 'Адреса TON Гаманця',
-    connect_wallet: 'Підключити Гаманець',
     request_withdrawal: 'Запросити виведення',
     market_set_price: 'Встановити ціну',
     market_price_in_stars: 'Ціна в Зірках',
@@ -523,9 +524,13 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     status_rejected: 'Відхилено',
     request: 'Запросити',
     change: 'Змінити',
-    market_invalid_wallet: 'Невірна адреса гаманця. Будь ласка, скопіюйте дійсну адресу TON гаманця.',
+    connect_your_ton_wallet: 'Підключіть свій TON гаманець',
+    connect_wallet_task_desc: 'Це необхідно для Airdrop та виведення коштів.',
+    wallet_connected: 'Гаманець підключено',
+    connect_wallet: 'Підключити Гаманець',
     wallet_connection_cancelled: 'Підключення гаманця було скасовано.',
     wallet_feature_unavailable: 'Функція гаманця недоступна у вашій версії Telegram.',
+    connect_in_airdrop_prompt: 'Підключіть гаманець у розділі Airdrop, щоб активувати.',
     suspicion: 'Підозра',
     suspicion_modifier: 'Підозра',
     cell: 'Осередок',
@@ -740,10 +745,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     underground_market_desc: 'Торгуйте редкими скинами с другими игроками за особую валюту.',
     market_buy: 'Купить',
     market_sell: 'Продать',
-    market_wallet: 'Кошелек',
     market_credits: 'Рыночные Кредиты',
-    ton_wallet_address: 'Адрес TON Кошелька',
-    connect_wallet: 'Подключить Кошелек',
     request_withdrawal: 'Запросить вывод',
     market_set_price: 'Установить цену',
     market_price_in_stars: 'Цена в Звёздах',
@@ -763,9 +765,13 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     status_rejected: 'Отклонено',
     request: 'Запросить',
     change: 'Изменить',
-    market_invalid_wallet: 'Неверный адрес кошелька. Пожалуйста, скопируйте действительный адрес TON кошелька.',
+    connect_your_ton_wallet: 'Подключите свой TON кошелёк',
+    connect_wallet_task_desc: 'Это необходимо для Airdrop и вывода средств.',
+    wallet_connected: 'Кошелёк подключен',
+    connect_wallet: 'Подключить Кошелек',
     wallet_connection_cancelled: 'Подключение кошелька было отменено.',
     wallet_feature_unavailable: 'Функция кошелька недоступна в вашей версии Telegram.',
+    connect_in_airdrop_prompt: 'Подключите кошелёк в разделе Airdrop, чтобы активировать.',
     suspicion: 'Подозрение',
     suspicion_modifier: 'Подозрение',
     cell: 'Ячейка',

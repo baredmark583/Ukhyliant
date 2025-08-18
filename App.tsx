@@ -17,6 +17,8 @@ type ProfileTab = 'contacts' | 'boosts' | 'skins' | 'market' | 'cell';
 // Add html2canvas to the global scope for TypeScript
 declare const html2canvas: any;
 
+type GameApi = ReturnType<typeof useGame>;
+
 const isExternal = (url: string | undefined) => url && url.startsWith('http');
 
 const formatNumber = (num: number): string => {
@@ -244,8 +246,6 @@ const BlackMarketContent = ({ config, onOpenCoinLootbox, onPurchaseStarLootbox }
     );
 };
 
-type GameApi = ReturnType<typeof useGame>;
-
 const BuyTab = ({ user, config, showNotification, gameApi }: {
     user: User;
     config: GameConfig;
@@ -361,7 +361,7 @@ const SellTab = ({ user, playerState, config, showNotification, gameApi }: {
     );
 };
 
-const WalletTab = ({ playerState, showNotification, gameApi }: {
+const CreditsTab = ({ playerState, showNotification, gameApi }: {
     playerState: PlayerState;
     showNotification: (message: string, type?: 'success' | 'error') => void;
     gameApi: GameApi;
@@ -369,30 +369,11 @@ const WalletTab = ({ playerState, showNotification, gameApi }: {
     const t = useTranslation();
     const [withdrawalAmount, setWithdrawalAmount] = useState('');
     const [history, setHistory] = useState<WithdrawalRequest[]>([]);
+    const isWalletConnected = !!playerState.tonWalletAddress;
 
     useEffect(() => {
         gameApi.fetchMyWithdrawalRequests().then(data => setHistory(data || []));
     }, [gameApi, playerState.marketCredits]); // Refetch on credit change too
-
-    const handleConnectWallet = useCallback(() => {
-        if (window.Telegram?.WebApp?.requestWalletAddress) {
-            window.Telegram.WebApp.requestWalletAddress((address: string | false) => {
-                if (address) {
-                    gameApi.connectWallet(address).then(result => {
-                        if (result?.error) {
-                            showNotification(result.error, 'error');
-                        } else {
-                            showNotification(t('market_wallet_connected'), 'success');
-                        }
-                    });
-                } else {
-                    showNotification(t('wallet_connection_cancelled'), 'error');
-                }
-            });
-        } else {
-            showNotification(t('wallet_feature_unavailable'), 'error');
-        }
-    }, [gameApi, showNotification, t]);
 
     const handleRequest = async () => {
         const amount = Number(withdrawalAmount);
@@ -418,8 +399,6 @@ const WalletTab = ({ playerState, showNotification, gameApi }: {
                 return <span className="text-xs font-bold text-yellow-400">{t(statusKey)}</span>;
         }
     };
-    
-    const truncateAddress = (address: string) => `${address.slice(0, 6)}...${address.slice(-4)}`;
 
     return (
         <div className="space-y-4">
@@ -428,23 +407,17 @@ const WalletTab = ({ playerState, showNotification, gameApi }: {
                 <p className="text-5xl font-display my-1">{formatNumber(playerState.marketCredits || 0)}</p>
             </div>
             
-             <div className="card-glow p-4 rounded-xl">
-                <h3 className="font-bold mb-2">{t('ton_wallet_address')}</h3>
-                {playerState.tonWalletAddress ? (
-                    <div className="flex items-center justify-between">
-                         <code className="text-sm text-slate-300 truncate">{truncateAddress(playerState.tonWalletAddress)}</code>
-                         <button onClick={handleConnectWallet} className="interactive-button rounded-lg font-bold px-4 text-sm">{t('change')}</button>
-                    </div>
-                ) : (
-                    <button onClick={handleConnectWallet} className="w-full interactive-button rounded-lg font-bold py-3 text-lg">{t('connect_wallet')}</button>
-                )}
-             </div>
+             {!isWalletConnected && (
+                <div className="card-glow p-4 rounded-xl text-center bg-blue-900/30 border border-blue-500/50">
+                    <p className="text-sm text-blue-200">{t('connect_in_airdrop_prompt')}</p>
+                </div>
+            )}
              
              <div className="card-glow p-4 rounded-xl">
                 <h3 className="font-bold mb-2">{t('request_withdrawal')}</h3>
                 <div className="flex space-x-2">
-                     <input type="number" value={withdrawalAmount} onChange={e => setWithdrawalAmount(e.target.value)} placeholder={t('amount')} className="w-full input-field text-sm" />
-                     <button onClick={handleRequest} className="interactive-button rounded-lg font-bold px-4 text-sm" disabled={!playerState.tonWalletAddress}>{t('request')}</button>
+                     <input type="number" value={withdrawalAmount} onChange={e => setWithdrawalAmount(e.target.value)} placeholder={t('amount')} className="w-full input-field text-sm" disabled={!isWalletConnected} />
+                     <button onClick={handleRequest} className="interactive-button rounded-lg font-bold px-4 text-sm" disabled={!isWalletConnected}>{t('request')}</button>
                 </div>
              </div>
 
@@ -474,7 +447,7 @@ const UndergroundMarketContent = ({ user, playerState, config, showNotification,
     gameApi: GameApi;
 }) => {
     const t = useTranslation();
-    const [marketTab, setMarketTab] = useState<'buy' | 'sell' | 'wallet'>('buy');
+    const [marketTab, setMarketTab] = useState<'buy' | 'sell' | 'credits'>('buy');
 
     const tabProps = { user, playerState, config, showNotification, gameApi };
 
@@ -483,11 +456,11 @@ const UndergroundMarketContent = ({ user, playerState, config, showNotification,
             <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex justify-around items-center gap-1 border border-slate-700 mb-4">
                 <button onClick={() => setMarketTab('buy')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'buy' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_buy')}</button>
                 <button onClick={() => setMarketTab('sell')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'sell' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_sell')}</button>
-                <button onClick={() => setMarketTab('wallet')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'wallet' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_wallet')}</button>
+                <button onClick={() => setMarketTab('credits')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'credits' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_credits')}</button>
             </div>
             {marketTab === 'buy' && <BuyTab {...tabProps} />}
             {marketTab === 'sell' && <SellTab {...tabProps} />}
-            {marketTab === 'wallet' && <WalletTab {...tabProps} />}
+            {marketTab === 'credits' && <CreditsTab {...tabProps} />}
         </div>
     );
 };
@@ -549,12 +522,12 @@ interface ProfileScreenProps {
   handleMetaTap: (targetId: string) => void;
   onOpenGlitchCodesModal: () => void;
   showNotification: (message: string, type?: 'success' | 'error') => void;
+  gameApi: GameApi;
 }
 
-const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox, handleMetaTap, onOpenGlitchCodesModal, showNotification } : ProfileScreenProps) => {
+const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox, handleMetaTap, onOpenGlitchCodesModal, showNotification, gameApi } : ProfileScreenProps) => {
     const t = useTranslation();
     const [activeTab, setActiveTab] = useState<ProfileTab>('contacts');
-    const gameApi = useGame(); // Get API for market components
 
     const tabProps = {
         user,
@@ -726,6 +699,57 @@ const MissionsScreen: React.FC<{
     );
 };
 
+const WalletTaskCard = ({ playerState, onConnect, isReady, lang }: {
+    playerState: PlayerState;
+    onConnect: () => void;
+    isReady: boolean;
+    lang: Language;
+}) => {
+    const t = useTranslation();
+    const isConnected = !!playerState.tonWalletAddress;
+    const truncateAddress = (address: string) => `${address.slice(0, 6)}...${address.slice(-4)}`;
+
+    if (isConnected) {
+        return (
+             <div className="card-glow bg-green-900/30 border border-green-500/50 rounded-2xl p-3 flex items-center space-x-4">
+                <div className="bg-slate-900/50 shadow-inner rounded-lg p-1 w-14 h-14 flex-shrink-0 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                </div>
+                <div className="flex-grow min-w-0">
+                    <p className="text-white font-semibold">{t('wallet_connected')}</p>
+                    <p className="text-sm text-slate-300 truncate font-mono">{truncateAddress(playerState.tonWalletAddress!)}</p>
+                </div>
+                <button onClick={onConnect} disabled={!isReady} className="interactive-button rounded-lg font-bold py-2 px-3 text-sm flex-shrink-0">
+                    {t('change')}
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="card-glow bg-blue-900/30 border border-blue-500/50 rounded-2xl p-3 flex flex-col space-y-3">
+             <div className="flex items-start space-x-3">
+                <div className="bg-slate-900/50 shadow-inner rounded-lg p-1 w-14 h-14 flex-shrink-0">
+                    <img src="https://api.iconify.design/ph/wallet-bold.svg?color=white" alt="wallet" className="w-full h-full object-contain" />
+                </div>
+                <div className="flex-grow min-w-0">
+                    <p className="text-white font-semibold">{t('connect_your_ton_wallet')}</p>
+                    <p className="text-slate-300 text-xs mt-1">{t('connect_wallet_task_desc')}</p>
+                </div>
+            </div>
+            <button
+                onClick={onConnect}
+                disabled={!isReady}
+                className="w-full interactive-button bg-blue-600 hover:bg-blue-500 border-blue-500 rounded-lg font-bold py-3 text-lg disabled:bg-slate-700 disabled:border-slate-600"
+            >
+                {isReady ? t('connect_wallet') : t('loading')}
+            </button>
+        </div>
+    );
+};
+
 const AirdropScreen: React.FC<{
     specialTasks: SpecialTask[];
     playerState: PlayerState;
@@ -734,7 +758,9 @@ const AirdropScreen: React.FC<{
     lang: Language;
     startedTasks: Set<string>;
     uiIcons: UiIcons;
-}> = ({ specialTasks, playerState, onClaim, onPurchase, lang, startedTasks, uiIcons }) => {
+    isTgReady: boolean;
+    onConnectWallet: () => void;
+}> = ({ specialTasks, playerState, onClaim, onPurchase, lang, startedTasks, uiIcons, isTgReady, onConnectWallet }) => {
     const t = useTranslation();
     return (
         <div className="flex flex-col h-full text-white pt-4 px-4">
@@ -742,6 +768,12 @@ const AirdropScreen: React.FC<{
             <p className="text-center text-[var(--text-secondary)] mb-6 flex-shrink-0">{t('airdrop_description')}</p>
             <div className="flex-grow overflow-y-auto no-scrollbar -mx-4 px-4">
                 <div className="flex flex-col space-y-4 pb-4">
+                    <WalletTaskCard 
+                        playerState={playerState}
+                        onConnect={onConnectWallet}
+                        isReady={isTgReady}
+                        lang={lang}
+                    />
                     {specialTasks.map(task => (
                        <div key={task.id}>
                             <TaskCard
@@ -918,6 +950,7 @@ const GlitchCodesModal: React.FC<{
 
 const MainApp: React.FC = () => {
   const { user, isGlitching, setIsGlitching } = useAuth();
+  const gameApi = useGame();
   const { 
       playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, 
       claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask,
@@ -930,7 +963,7 @@ const MainApp: React.FC = () => {
       systemMessage, setSystemMessage,
       purchaseResult, setPurchaseResult, setPlayerState,
       savePlayerState
-  } = useGame();
+  } = gameApi;
   
   const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -940,6 +973,7 @@ const MainApp: React.FC = () => {
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
+  const [isTgReady, setIsTgReady] = useState(false);
 
   // Glitch event states
   const [isGlitchCodesModalOpen, setIsGlitchCodesModalOpen] = useState(false);
@@ -979,10 +1013,15 @@ const MainApp: React.FC = () => {
         const handleViewportChange = () => {
             setIsFullScreen(tg.isExpanded);
         };
+        
+        const timer = setTimeout(() => {
+            setIsTgReady(true);
+        }, 500); // Give the TG script a moment to initialize fully
 
         tg.onEvent('viewportChanged', handleViewportChange);
         return () => {
             tg.offEvent('viewportChanged', handleViewportChange);
+            clearTimeout(timer);
         };
     }, []);
 
@@ -1161,6 +1200,27 @@ const MainApp: React.FC = () => {
       await setSkin(skinId);
       showNotification(t('selected'), 'success');
   };
+  
+  const handleConnectWallet = useCallback(() => {
+        if (window.Telegram?.WebApp?.requestWalletAddress) {
+            window.Telegram.WebApp.requestWalletAddress((address: string | false) => {
+                if (address) {
+                    gameApi.connectWallet(address).then(result => {
+                        if (result?.error) {
+                            showNotification(result.error, 'error');
+                        } else {
+                            showNotification(t('market_wallet_connected'), 'success');
+                        }
+                    });
+                } else {
+                    showNotification(t('wallet_connection_cancelled'), 'error');
+                }
+            });
+        } else {
+            showNotification(t('wallet_feature_unavailable'), 'error');
+        }
+    }, [gameApi, showNotification, t]);
+
 
   const handleEnergyClick = () => showNotification(t('tooltip_energy'), 'success');
   const handleSuspicionClick = () => showNotification(t('tooltip_suspicion'), 'success');
@@ -1207,6 +1267,8 @@ const MainApp: React.FC = () => {
                     lang={user.language}
                     startedTasks={startedTasks}
                     uiIcons={config.uiIcons}
+                    isTgReady={isTgReady}
+                    onConnectWallet={handleConnectWallet}
                 />;
       case 'profile':
         return <ProfileScreen
@@ -1220,6 +1282,7 @@ const MainApp: React.FC = () => {
                     handleMetaTap={handleMetaTap}
                     onOpenGlitchCodesModal={() => setIsGlitchCodesModalOpen(true)}
                     showNotification={showNotification}
+                    gameApi={gameApi}
                 />;
       default:
         return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTapWithAudio} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} isMuted={isMuted} toggleMute={toggleMute} handleMetaTap={handleMetaTap} />;
