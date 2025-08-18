@@ -120,6 +120,405 @@ const ProfileTabButton = ({ label, iconUrl, isActive, onClick }: { label: string
     </button>
 );
 
+// --- ProfileScreen Components (Extracted) ---
+
+const ContactsContent = ({ user, playerState, config, handleMetaTap, onOpenGlitchCodesModal }: {
+    user: User;
+    playerState: PlayerState;
+    config: GameConfig;
+    handleMetaTap: (targetId: string) => void;
+    onOpenGlitchCodesModal: () => void;
+}) => {
+    const t = useTranslation();
+    const [copied, setCopied] = useState(false);
+    const handleCopyReferral = () => {
+        const referralLink = `https://t.me/${TELEGRAM_BOT_NAME}/${MINI_APP_NAME}?startapp=${user.id}`;
+        navigator.clipboard.writeText(referralLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+    return (
+        <div className="w-full max-w-md space-y-4 text-center">
+            <div className="card-glow p-4 rounded-xl cursor-pointer" onClick={() => handleMetaTap('referral-counter')}>
+                <p className="text-[var(--text-secondary)] text-lg">{t('your_referrals')}</p>
+                <div className="flex items-center justify-center">
+                    <p className="text-5xl font-display my-1">{playerState.referrals}</p>
+                    <button onClick={(e) => { e.stopPropagation(); onOpenGlitchCodesModal(); }} className="ml-4 p-2 rounded-full hover:bg-slate-700/50">
+                        <img src={config.uiIcons.secretCodeEntry} alt="Secret Codes" className="w-6 h-6" {...(isExternal(config.uiIcons.secretCodeEntry) && { crossOrigin: 'anonymous' })}/>
+                    </button>
+                </div>
+            </div>
+            <div className="card-glow p-4 rounded-xl">
+                <p className="text-[var(--text-secondary)] text-lg">{t('referral_bonus')}</p>
+                <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2">
+                    <span>+{REFERRAL_BONUS.toLocaleString()}</span>
+                    <img src={config.uiIcons.coin} alt="coin" className="w-6 h-6" {...(isExternal(config.uiIcons.coin) && { crossOrigin: 'anonymous' })} />
+                </p>
+            </div>
+             <div className="card-glow p-4 rounded-xl">
+                <p className="text-[var(--text-secondary)] text-lg">{t('profit_from_referrals')}</p>
+                <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2 text-[var(--accent-color)]">
+                    <span>+{formatNumber(playerState.referralProfitPerHour)}/hr</span>
+                    <img src={config.uiIcons.energy} alt="energy" className="w-6 h-6" {...(isExternal(config.uiIcons.energy) && { crossOrigin: 'anonymous' })} />
+                </p>
+            </div>
+            <button onClick={handleCopyReferral} className="w-full interactive-button text-white font-bold py-3 px-4 text-lg rounded-lg">
+                {copied ? t('copied') : t('invite_friends')}
+            </button>
+        </div>
+    );
+};
+    
+const SkinsContent = ({ user, playerState, config, onSetSkin }: {
+    user: User;
+    playerState: PlayerState;
+    config: GameConfig;
+    onSetSkin: (skinId: string) => void;
+}) => {
+    const t = useTranslation();
+    const unlockedSkins = (config.coinSkins || []).filter(skin => playerState.unlockedSkins.includes(skin.id));
+    return (
+        <div className="w-full max-w-md">
+            <p className="text-center text-[var(--text-secondary)] mb-4 max-w-xs mx-auto">{t('skins_gallery_desc')}</p>
+            <div className="grid grid-cols-3 gap-4">
+                {unlockedSkins.map(skin => {
+                    const isSelected = playerState.currentSkinId === skin.id;
+                    return (
+                        <div key={skin.id} className={`card-glow rounded-xl p-3 flex flex-col items-center text-center transition-all ${isSelected ? 'border-2 border-[var(--accent-color)]' : ''}`}>
+                            <div className="w-16 h-16 mb-2 flex items-center justify-center">
+                                <img src={skin.iconUrl} alt={skin.name[user.language]} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
+                            </div>
+                            <p className="text-xs font-bold leading-tight">{skin.name[user.language]}</p>
+                            <p className="text-xs text-[var(--accent-color)] mt-1">+{skin.profitBoostPercent}%</p>
+                            <button
+                                onClick={() => onSetSkin(skin.id)}
+                                disabled={isSelected}
+                                className="w-full mt-2 py-1 text-xs font-bold interactive-button rounded-md disabled:bg-slate-900 disabled:shadow-inner disabled:text-slate-500"
+                            >
+                                {isSelected ? t('selected') : t('select_skin')}
+                            </button>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+const BlackMarketContent = ({ config, onOpenCoinLootbox, onPurchaseStarLootbox }: {
+    config: GameConfig;
+    onOpenCoinLootbox: (boxType: 'coin') => void;
+    onPurchaseStarLootbox: (boxType: 'star') => void;
+}) => {
+    const t = useTranslation();
+    const lootboxCostCoins = config.lootboxCostCoins || 25000;
+    const lootboxCostStars = config.lootboxCostStars || 10;
+    
+    return (
+        <div className="w-full max-w-md space-y-4 pt-8 text-center">
+            <h2 className="text-2xl font-display text-white">{t('black_market')}</h2>
+            <p className="text-[var(--text-secondary)] mb-4">{t('black_market_desc')}</p>
+             <div className="card-glow rounded-xl p-4 flex flex-col items-center">
+                <img src={config.uiIcons.marketCoinBox} alt="Coin Box" className="w-24 h-24 mb-3" {...(isExternal(config.uiIcons.marketCoinBox) && { crossOrigin: 'anonymous' })} />
+                <h3 className="font-bold text-lg">{t('lootbox_coin')}</h3>
+                <button
+                    onClick={() => onOpenCoinLootbox('coin')}
+                    className="w-full mt-4 interactive-button rounded-lg py-3 font-bold flex items-center justify-center space-x-2"
+                >
+                    <span>{t('open_for')} {formatNumber(lootboxCostCoins)}</span>
+                    <img src={config.uiIcons.coin} alt="coin" className="w-6 h-6" {...(isExternal(config.uiIcons.coin) && { crossOrigin: 'anonymous' })}/>
+                </button>
+            </div>
+            <div className="card-glow rounded-xl p-4 flex flex-col items-center">
+                <img src={config.uiIcons.marketStarBox} alt="Star Box" className="w-24 h-24 mb-3" {...(isExternal(config.uiIcons.marketStarBox) && { crossOrigin: 'anonymous' })}/>
+                <h3 className="font-bold text-lg">{t('lootbox_star')}</h3>
+                <button
+                    onClick={() => onPurchaseStarLootbox('star')}
+                    className="w-full mt-4 interactive-button rounded-lg py-3 font-bold flex items-center justify-center space-x-2"
+                >
+                    <span>{t('open_for')} {lootboxCostStars}</span>
+                    <img src={config.uiIcons.star} alt="star" className="w-6 h-6" {...(isExternal(config.uiIcons.star) && { crossOrigin: 'anonymous' })}/>
+                </button>
+            </div>
+        </div>
+    );
+};
+
+type GameApi = ReturnType<typeof useGame>;
+
+const BuyTab = ({ user, config, showNotification, gameApi }: {
+    user: User;
+    config: GameConfig;
+    showNotification: (message: string, type?: 'success' | 'error') => void;
+    gameApi: GameApi;
+}) => {
+    const t = useTranslation();
+    const [listings, setListings] = useState<MarketListing[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        gameApi.fetchMarketListings().then(data => {
+            setListings(data || []);
+            setLoading(false);
+        });
+    }, [gameApi]);
+    
+    const handlePurchase = async (listingId: number) => {
+        const result = await gameApi.purchaseMarketItem(listingId);
+        if (result?.error) {
+            showNotification(result.error, 'error');
+        }
+    };
+
+    if (loading) return <div className="text-center py-8">{t('loading')}...</div>;
+
+    return (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {listings.map(listing => {
+                const skin = config.coinSkins.find(s => s.id === listing.skin_id);
+                if (!skin) return null;
+                return (
+                    <div key={listing.id} className="card-glow rounded-xl p-3 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 mb-2 flex items-center justify-center">
+                            <img src={skin.iconUrl} alt={skin.name[user.language]} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
+                        </div>
+                        <p className="text-xs font-bold leading-tight flex-grow">{skin.name[user.language]}</p>
+                        <p className="text-xs text-slate-400 truncate w-full" title={listing.owner_name}>{listing.owner_name}</p>
+                        <button
+                            onClick={() => handlePurchase(listing.id)}
+                            className="w-full mt-2 py-2 text-xs font-bold interactive-button rounded-md flex items-center justify-center space-x-1"
+                        >
+                            <span>{listing.price_stars}</span>
+                            <img src={config.uiIcons.star} alt="star" className="w-4 h-4" {...(isExternal(config.uiIcons.star) && { crossOrigin: 'anonymous' })} />
+                        </button>
+                    </div>
+                );
+            })}
+             {listings.length === 0 && <p className="col-span-full text-center py-8 text-[var(--text-secondary)]">{t('market_no_listings')}</p>}
+        </div>
+    );
+};
+
+const SellTab = ({ user, playerState, config, showNotification, gameApi }: {
+    user: User;
+    playerState: PlayerState;
+    config: GameConfig;
+    showNotification: (message: string, type?: 'success' | 'error') => void;
+    gameApi: GameApi;
+}) => {
+    const t = useTranslation();
+    const [sellingSkin, setSellingSkin] = useState<CoinSkin | null>(null);
+    const [price, setPrice] = useState('');
+    
+    const unlockedSkins = config.coinSkins.filter(skin => playerState.unlockedSkins.includes(skin.id) && skin.id !== 'default_coin');
+    
+    const handleListSkin = async () => {
+        if (!sellingSkin || !price || isNaN(Number(price)) || Number(price) <= 0) {
+            showNotification(t('market_invalid_price'), 'error');
+            return;
+        }
+        const result = await gameApi.listSkinOnMarket(sellingSkin.id, Number(price));
+        if (result?.error) {
+            showNotification(result.error, 'error');
+        } else {
+            showNotification(t('market_list_success'), 'success');
+            setSellingSkin(null);
+            setPrice('');
+        }
+    };
+    
+    return (
+        <>
+            {sellingSkin && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2500] flex items-center justify-center p-4" onClick={() => setSellingSkin(null)}>
+                    <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" onClick={e => e.stopPropagation()}>
+                        <h2 className="text-xl font-bold text-white mb-4">{t('market_set_price')}</h2>
+                         <div className="w-24 h-24 mb-4 bg-slate-900/50 shadow-inner rounded-2xl p-2 flex items-center justify-center">
+                             <img src={sellingSkin.iconUrl} alt={sellingSkin.name[user.language]} className="w-full h-full object-contain" {...(isExternal(sellingSkin.iconUrl) && { crossOrigin: 'anonymous' })} />
+                        </div>
+                        <p className="font-bold text-lg mb-4">{sellingSkin.name[user.language]}</p>
+                        <div className="relative w-full mb-4">
+                             <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder={t('market_price_in_stars')} className="w-full input-field text-center pr-8" />
+                             <img src={config.uiIcons.star} alt="star" className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2" {...(isExternal(config.uiIcons.star) && { crossOrigin: 'anonymous' })}/>
+                        </div>
+                        <button onClick={handleListSkin} className="w-full interactive-button rounded-lg font-bold py-3 text-lg">{t('market_list_for_sale')}</button>
+                    </div>
+                </div>
+            )}
+            <p className="text-center text-[var(--text-secondary)] mb-4">{t('market_sell_desc')}</p>
+            <div className="grid grid-cols-3 gap-4">
+                {unlockedSkins.map(skin => (
+                    <div key={skin.id} onClick={() => setSellingSkin(skin)} className="card-glow rounded-xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-[var(--accent-color)] border border-transparent">
+                        <div className="w-16 h-16 mb-2 flex items-center justify-center">
+                            <img src={skin.iconUrl} alt={skin.name[user.language]} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
+                        </div>
+                        <p className="text-xs font-bold leading-tight">{skin.name[user.language]}</p>
+                    </div>
+                ))}
+                 {unlockedSkins.length === 0 && <p className="col-span-full text-center py-8 text-[var(--text-secondary)]">{t('market_no_skins_to_sell')}</p>}
+            </div>
+        </>
+    );
+};
+
+const WalletTab = ({ playerState, showNotification, gameApi }: {
+    playerState: PlayerState;
+    showNotification: (message: string, type?: 'success' | 'error') => void;
+    gameApi: GameApi;
+}) => {
+    const t = useTranslation();
+    const [walletAddress, setWalletAddress] = useState(playerState.tonWalletAddress || '');
+    const [withdrawalAmount, setWithdrawalAmount] = useState('');
+    const [history, setHistory] = useState<WithdrawalRequest[]>([]);
+
+    useEffect(() => {
+        gameApi.fetchMyWithdrawalRequests().then(data => setHistory(data || []));
+    }, [gameApi]);
+
+    const handleConnect = async () => {
+        const result = await gameApi.connectWallet(walletAddress);
+        if(result?.error) showNotification(result.error, 'error');
+        else showNotification(t('market_wallet_connected'), 'success');
+    };
+
+    const handleRequest = async () => {
+        const amount = Number(withdrawalAmount);
+        if (isNaN(amount) || amount <= 0) {
+            showNotification(t('market_invalid_amount'), 'error');
+            return;
+        }
+        const result = await gameApi.requestWithdrawal(amount);
+        if(result?.error) showNotification(result.error, 'error');
+        else {
+            showNotification(t('market_withdrawal_requested'), 'success');
+            setWithdrawalAmount('');
+            gameApi.fetchMyWithdrawalRequests().then(data => setHistory(data || []));
+        }
+    };
+    
+    const getStatusBadge = (status: string) => {
+         const statusKey = `status_${status}`;
+         switch(status) {
+            case 'approved': return <span className="text-xs font-bold text-green-400">{t(statusKey)}</span>;
+            case 'rejected': return <span className="text-xs font-bold text-red-400">{t(statusKey)}</span>;
+            case 'pending':
+            default:
+                return <span className="text-xs font-bold text-yellow-400">{t(statusKey)}</span>;
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="card-glow p-4 rounded-xl text-center">
+                <p className="text-[var(--text-secondary)] text-lg">{t('market_credits')}</p>
+                <p className="text-5xl font-display my-1">{formatNumber(playerState.marketCredits || 0)}</p>
+            </div>
+            
+             <div className="card-glow p-4 rounded-xl">
+                <h3 className="font-bold mb-2">{t('ton_wallet_address')}</h3>
+                <div className="flex space-x-2">
+                     <input type="text" value={walletAddress} onChange={e => setWalletAddress(e.target.value)} placeholder={t('ton_wallet_placeholder')} className="w-full input-field text-sm" />
+                     <button onClick={handleConnect} className="interactive-button rounded-lg font-bold px-4 text-sm">{t('save')}</button>
+                </div>
+             </div>
+             
+             <div className="card-glow p-4 rounded-xl">
+                <h3 className="font-bold mb-2">{t('request_withdrawal')}</h3>
+                <div className="flex space-x-2">
+                     <input type="number" value={withdrawalAmount} onChange={e => setWithdrawalAmount(e.target.value)} placeholder={t('amount')} className="w-full input-field text-sm" />
+                     <button onClick={handleRequest} className="interactive-button rounded-lg font-bold px-4 text-sm">{t('request')}</button>
+                </div>
+             </div>
+
+             <div className="card-glow p-4 rounded-xl">
+                <h3 className="font-bold mb-2">{t('withdrawal_history')}</h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
+                    {history.length > 0 ? history.map(req => (
+                        <div key={req.id} className="bg-slate-900/50 shadow-inner rounded-md p-2 flex justify-between items-center text-sm">
+                            <div>
+                                <p className="font-bold">{formatNumber(req.amount_credits)} {t('market_credits')}</p>
+                                <p className="text-xs text-[var(--text-secondary)]">{new Date(req.created_at).toLocaleString()}</p>
+                            </div>
+                            {getStatusBadge(req.status)}
+                        </div>
+                    )) : <p className="text-center text-sm text-[var(--text-secondary)]">{t('market_no_history')}</p>}
+                </div>
+             </div>
+        </div>
+    );
+};
+
+const UndergroundMarketContent = ({ user, playerState, config, showNotification, gameApi }: {
+    user: User;
+    playerState: PlayerState;
+    config: GameConfig;
+    showNotification: (message: string, type?: 'success' | 'error') => void;
+    gameApi: GameApi;
+}) => {
+    const t = useTranslation();
+    const [marketTab, setMarketTab] = useState<'buy' | 'sell' | 'wallet'>('buy');
+
+    const tabProps = { user, playerState, config, showNotification, gameApi };
+
+    return (
+        <div className="w-full">
+            <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex justify-around items-center gap-1 border border-slate-700 mb-4">
+                <button onClick={() => setMarketTab('buy')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'buy' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_buy')}</button>
+                <button onClick={() => setMarketTab('sell')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'sell' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_sell')}</button>
+                <button onClick={() => setMarketTab('wallet')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'wallet' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_wallet')}</button>
+            </div>
+            {marketTab === 'buy' && <BuyTab {...tabProps} />}
+            {marketTab === 'sell' && <SellTab {...tabProps} />}
+            {marketTab === 'wallet' && <WalletTab {...tabProps} />}
+        </div>
+    );
+};
+
+const MarketContent = (props: {
+    user: User;
+    playerState: PlayerState;
+    config: GameConfig;
+    showNotification: (message: string, type?: 'success' | 'error') => void;
+    onOpenCoinLootbox: (boxType: 'coin') => void;
+    onPurchaseStarLootbox: (boxType: 'star') => void;
+    gameApi: GameApi;
+}) => {
+    const t = useTranslation();
+    const [marketView, setMarketView] = useState<'main' | 'black' | 'underground'>('main');
+
+    const MainView = () => (
+        <div className="w-full max-w-md space-y-4">
+            <div onClick={() => setMarketView('black')} className="card-glow p-4 rounded-xl cursor-pointer hover:border-[var(--accent-color)] border border-transparent transition-all">
+                <h2 className="text-xl font-bold">{t('black_market')}</h2>
+                <p className="text-sm text-[var(--text-secondary)]">{t('black_market_desc')}</p>
+            </div>
+            <div onClick={() => setMarketView('underground')} className="card-glow p-4 rounded-xl cursor-pointer hover:border-[var(--accent-color)] border border-transparent transition-all">
+                <h2 className="text-xl font-bold">{t('underground_market')}</h2>
+                <p className="text-sm text-[var(--text-secondary)]">{t('underground_market_desc')}</p>
+            </div>
+        </div>
+    );
+
+    if (marketView === 'main') {
+        return <MainView />;
+    }
+
+    const BackButton = () => (
+        <button onClick={() => setMarketView('main')} className="absolute top-0 left-0 text-slate-400 hover:text-white bg-slate-800/50 rounded-full p-2 z-10">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+        </button>
+    );
+
+    return (
+        <div className="relative w-full max-w-md">
+             <BackButton />
+             {marketView === 'black' && <BlackMarketContent {...props} />}
+             {marketView === 'underground' && <UndergroundMarketContent {...props} />}
+        </div>
+    );
+};
 
 interface ProfileScreenProps {
   playerState: PlayerState;
@@ -137,359 +536,20 @@ interface ProfileScreenProps {
 const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox, handleMetaTap, onOpenGlitchCodesModal, showNotification } : ProfileScreenProps) => {
     const t = useTranslation();
     const [activeTab, setActiveTab] = useState<ProfileTab>('contacts');
-    
-    const { 
-        listSkinOnMarket,
-        fetchMarketListings,
-        purchaseMarketItem,
-        connectWallet,
-        requestWithdrawal,
-        fetchMyWithdrawalRequests
-    } = useGame();
+    const gameApi = useGame(); // Get API for market components
 
-    const ContactsContent = () => {
-        const [copied, setCopied] = useState(false);
-        const handleCopyReferral = () => {
-            const referralLink = `https://t.me/${TELEGRAM_BOT_NAME}/${MINI_APP_NAME}?startapp=${user.id}`;
-            navigator.clipboard.writeText(referralLink);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        };
-        return (
-            <div className="w-full max-w-md space-y-4 text-center">
-                <div className="card-glow p-4 rounded-xl cursor-pointer" onClick={() => handleMetaTap('referral-counter')}>
-                    <p className="text-[var(--text-secondary)] text-lg">{t('your_referrals')}</p>
-                    <div className="flex items-center justify-center">
-                        <p className="text-5xl font-display my-1">{playerState.referrals}</p>
-                        <button onClick={(e) => { e.stopPropagation(); onOpenGlitchCodesModal(); }} className="ml-4 p-2 rounded-full hover:bg-slate-700/50">
-                            <img src={config.uiIcons.secretCodeEntry} alt="Secret Codes" className="w-6 h-6" {...(isExternal(config.uiIcons.secretCodeEntry) && { crossOrigin: 'anonymous' })}/>
-                        </button>
-                    </div>
-                </div>
-                <div className="card-glow p-4 rounded-xl">
-                    <p className="text-[var(--text-secondary)] text-lg">{t('referral_bonus')}</p>
-                    <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2">
-                        <span>+{REFERRAL_BONUS.toLocaleString()}</span>
-                        <img src={config.uiIcons.coin} alt="coin" className="w-6 h-6" {...(isExternal(config.uiIcons.coin) && { crossOrigin: 'anonymous' })} />
-                    </p>
-                </div>
-                 <div className="card-glow p-4 rounded-xl">
-                    <p className="text-[var(--text-secondary)] text-lg">{t('profit_from_referrals')}</p>
-                    <p className="text-2xl font-bold my-1 flex items-center justify-center space-x-2 text-[var(--accent-color)]">
-                        <span>+{formatNumber(playerState.referralProfitPerHour)}/hr</span>
-                        <img src={config.uiIcons.energy} alt="energy" className="w-6 h-6" {...(isExternal(config.uiIcons.energy) && { crossOrigin: 'anonymous' })} />
-                    </p>
-                </div>
-                <button onClick={handleCopyReferral} className="w-full interactive-button text-white font-bold py-3 px-4 text-lg rounded-lg">
-                    {copied ? t('copied') : t('invite_friends')}
-                </button>
-            </div>
-        );
+    const tabProps = {
+        user,
+        playerState,
+        config,
+        handleMetaTap,
+        onOpenGlitchCodesModal,
+        onSetSkin,
+        onOpenCoinLootbox,
+        onPurchaseStarLootbox,
+        showNotification,
+        gameApi,
     };
-    
-    const SkinsContent = () => {
-        const unlockedSkins = (config.coinSkins || []).filter(skin => playerState.unlockedSkins.includes(skin.id));
-        return (
-            <div className="w-full max-w-md">
-                <p className="text-center text-[var(--text-secondary)] mb-4 max-w-xs mx-auto">{t('skins_gallery_desc')}</p>
-                <div className="grid grid-cols-3 gap-4">
-                    {unlockedSkins.map(skin => {
-                        const isSelected = playerState.currentSkinId === skin.id;
-                        return (
-                            <div key={skin.id} className={`card-glow rounded-xl p-3 flex flex-col items-center text-center transition-all ${isSelected ? 'border-2 border-[var(--accent-color)]' : ''}`}>
-                                <div className="w-16 h-16 mb-2 flex items-center justify-center">
-                                    <img src={skin.iconUrl} alt={skin.name[user.language]} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
-                                </div>
-                                <p className="text-xs font-bold leading-tight">{skin.name[user.language]}</p>
-                                <p className="text-xs text-[var(--accent-color)] mt-1">+{skin.profitBoostPercent}%</p>
-                                <button
-                                    onClick={() => onSetSkin(skin.id)}
-                                    disabled={isSelected}
-                                    className="w-full mt-2 py-1 text-xs font-bold interactive-button rounded-md disabled:bg-slate-900 disabled:shadow-inner disabled:text-slate-500"
-                                >
-                                    {isSelected ? t('selected') : t('select_skin')}
-                                </button>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        );
-    };
-
-    const BlackMarketContent = () => {
-        const lootboxCostCoins = config.lootboxCostCoins || 25000;
-        const lootboxCostStars = config.lootboxCostStars || 10;
-        
-        return (
-            <div className="w-full max-w-md space-y-4 pt-8 text-center">
-                <h2 className="text-2xl font-display text-white">{t('black_market')}</h2>
-                <p className="text-[var(--text-secondary)] mb-4">{t('black_market_desc')}</p>
-                 <div className="card-glow rounded-xl p-4 flex flex-col items-center">
-                    <img src={config.uiIcons.marketCoinBox} alt="Coin Box" className="w-24 h-24 mb-3" {...(isExternal(config.uiIcons.marketCoinBox) && { crossOrigin: 'anonymous' })} />
-                    <h3 className="font-bold text-lg">{t('lootbox_coin')}</h3>
-                    <button
-                        onClick={() => onOpenCoinLootbox('coin')}
-                        className="w-full mt-4 interactive-button rounded-lg py-3 font-bold flex items-center justify-center space-x-2"
-                    >
-                        <span>{t('open_for')} {formatNumber(lootboxCostCoins)}</span>
-                        <img src={config.uiIcons.coin} alt="coin" className="w-6 h-6" {...(isExternal(config.uiIcons.coin) && { crossOrigin: 'anonymous' })}/>
-                    </button>
-                </div>
-                <div className="card-glow rounded-xl p-4 flex flex-col items-center">
-                    <img src={config.uiIcons.marketStarBox} alt="Star Box" className="w-24 h-24 mb-3" {...(isExternal(config.uiIcons.marketStarBox) && { crossOrigin: 'anonymous' })}/>
-                    <h3 className="font-bold text-lg">{t('lootbox_star')}</h3>
-                    <button
-                        onClick={() => onPurchaseStarLootbox('star')}
-                        className="w-full mt-4 interactive-button rounded-lg py-3 font-bold flex items-center justify-center space-x-2"
-                    >
-                        <span>{t('open_for')} {lootboxCostStars}</span>
-                        <img src={config.uiIcons.star} alt="star" className="w-6 h-6" {...(isExternal(config.uiIcons.star) && { crossOrigin: 'anonymous' })}/>
-                    </button>
-                </div>
-            </div>
-        );
-    };
-
-    const UndergroundMarketContent = () => {
-        const [marketTab, setMarketTab] = useState<'buy' | 'sell' | 'wallet'>('buy');
-
-        const BuyTab = () => {
-            const [listings, setListings] = useState<MarketListing[]>([]);
-            const [loading, setLoading] = useState(true);
-
-            useEffect(() => {
-                fetchMarketListings().then(data => {
-                    setListings(data || []);
-                    setLoading(false);
-                });
-            }, []);
-            
-            const handlePurchase = async (listingId: number) => {
-                const result = await purchaseMarketItem(listingId);
-                if (result?.error) {
-                    showNotification(result.error, 'error');
-                }
-            };
-
-            if (loading) return <div className="text-center py-8">{t('loading')}...</div>;
-
-            return (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    {listings.map(listing => {
-                        const skin = config.coinSkins.find(s => s.id === listing.skin_id);
-                        if (!skin) return null;
-                        return (
-                            <div key={listing.id} className="card-glow rounded-xl p-3 flex flex-col items-center text-center">
-                                <div className="w-16 h-16 mb-2 flex items-center justify-center">
-                                    <img src={skin.iconUrl} alt={skin.name[user.language]} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
-                                </div>
-                                <p className="text-xs font-bold leading-tight flex-grow">{skin.name[user.language]}</p>
-                                <p className="text-xs text-slate-400 truncate w-full" title={listing.owner_name}>{listing.owner_name}</p>
-                                <button
-                                    onClick={() => handlePurchase(listing.id)}
-                                    className="w-full mt-2 py-2 text-xs font-bold interactive-button rounded-md flex items-center justify-center space-x-1"
-                                >
-                                    <span>{listing.price_stars}</span>
-                                    <img src={config.uiIcons.star} alt="star" className="w-4 h-4" {...(isExternal(config.uiIcons.star) && { crossOrigin: 'anonymous' })} />
-                                </button>
-                            </div>
-                        );
-                    })}
-                     {listings.length === 0 && <p className="col-span-full text-center py-8 text-[var(--text-secondary)]">{t('market_no_listings')}</p>}
-                </div>
-            );
-        };
-
-        const SellTab = () => {
-            const [sellingSkin, setSellingSkin] = useState<CoinSkin | null>(null);
-            const [price, setPrice] = useState('');
-            
-            const unlockedSkins = config.coinSkins.filter(skin => playerState.unlockedSkins.includes(skin.id) && skin.id !== 'default_coin');
-            
-            const handleListSkin = async () => {
-                if (!sellingSkin || !price || isNaN(Number(price)) || Number(price) <= 0) {
-                    showNotification(t('market_invalid_price'), 'error');
-                    return;
-                }
-                const result = await listSkinOnMarket(sellingSkin.id, Number(price));
-                if (result?.error) {
-                    showNotification(result.error, 'error');
-                } else {
-                    showNotification(t('market_list_success'), 'success');
-                    setSellingSkin(null);
-                    setPrice('');
-                }
-            };
-            
-            return (
-                <>
-                    {sellingSkin && (
-                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2500] flex items-center justify-center p-4" onClick={() => setSellingSkin(null)}>
-                            <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" onClick={e => e.stopPropagation()}>
-                                <h2 className="text-xl font-bold text-white mb-4">{t('market_set_price')}</h2>
-                                 <div className="w-24 h-24 mb-4 bg-slate-900/50 shadow-inner rounded-2xl p-2 flex items-center justify-center">
-                                     <img src={sellingSkin.iconUrl} alt={sellingSkin.name[user.language]} className="w-full h-full object-contain" {...(isExternal(sellingSkin.iconUrl) && { crossOrigin: 'anonymous' })} />
-                                </div>
-                                <p className="font-bold text-lg mb-4">{sellingSkin.name[user.language]}</p>
-                                <div className="relative w-full mb-4">
-                                     <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder={t('market_price_in_stars')} className="w-full input-field text-center pr-8" />
-                                     <img src={config.uiIcons.star} alt="star" className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2" {...(isExternal(config.uiIcons.star) && { crossOrigin: 'anonymous' })}/>
-                                </div>
-                                <button onClick={handleListSkin} className="w-full interactive-button rounded-lg font-bold py-3 text-lg">{t('market_list_for_sale')}</button>
-                            </div>
-                        </div>
-                    )}
-                    <p className="text-center text-[var(--text-secondary)] mb-4">{t('market_sell_desc')}</p>
-                    <div className="grid grid-cols-3 gap-4">
-                        {unlockedSkins.map(skin => (
-                            <div key={skin.id} onClick={() => setSellingSkin(skin)} className="card-glow rounded-xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-[var(--accent-color)] border border-transparent">
-                                <div className="w-16 h-16 mb-2 flex items-center justify-center">
-                                    <img src={skin.iconUrl} alt={skin.name[user.language]} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
-                                </div>
-                                <p className="text-xs font-bold leading-tight">{skin.name[user.language]}</p>
-                            </div>
-                        ))}
-                         {unlockedSkins.length === 0 && <p className="col-span-full text-center py-8 text-[var(--text-secondary)]">{t('market_no_skins_to_sell')}</p>}
-                    </div>
-                </>
-            );
-        };
-        
-        const WalletTab = () => {
-            const [walletAddress, setWalletAddress] = useState(playerState.tonWalletAddress || '');
-            const [withdrawalAmount, setWithdrawalAmount] = useState('');
-            const [history, setHistory] = useState<WithdrawalRequest[]>([]);
-
-            useEffect(() => {
-                fetchMyWithdrawalRequests().then(data => setHistory(data || []));
-            }, []);
-
-            const handleConnect = async () => {
-                const result = await connectWallet(walletAddress);
-                if(result?.error) showNotification(result.error, 'error');
-                else showNotification(t('market_wallet_connected'), 'success');
-            };
-
-            const handleRequest = async () => {
-                const amount = Number(withdrawalAmount);
-                if (isNaN(amount) || amount <= 0) {
-                    showNotification(t('market_invalid_amount'), 'error');
-                    return;
-                }
-                const result = await requestWithdrawal(amount);
-                if(result?.error) showNotification(result.error, 'error');
-                else {
-                    showNotification(t('market_withdrawal_requested'), 'success');
-                    setWithdrawalAmount('');
-                    fetchMyWithdrawalRequests().then(data => setHistory(data || []));
-                }
-            };
-            
-            const getStatusBadge = (status: string) => {
-                 const statusKey = `status_${status}`;
-                 switch(status) {
-                    case 'approved': return <span className="text-xs font-bold text-green-400">{t(statusKey)}</span>;
-                    case 'rejected': return <span className="text-xs font-bold text-red-400">{t(statusKey)}</span>;
-                    case 'pending':
-                    default:
-                        return <span className="text-xs font-bold text-yellow-400">{t(statusKey)}</span>;
-                }
-            };
-
-            return (
-                <div className="space-y-4">
-                    <div className="card-glow p-4 rounded-xl text-center">
-                        <p className="text-[var(--text-secondary)] text-lg">{t('market_credits')}</p>
-                        <p className="text-5xl font-display my-1">{formatNumber(playerState.marketCredits || 0)}</p>
-                    </div>
-                    
-                     <div className="card-glow p-4 rounded-xl">
-                        <h3 className="font-bold mb-2">{t('ton_wallet_address')}</h3>
-                        <div className="flex space-x-2">
-                             <input type="text" value={walletAddress} onChange={e => setWalletAddress(e.target.value)} placeholder={t('ton_wallet_placeholder')} className="w-full input-field text-sm" />
-                             <button onClick={handleConnect} className="interactive-button rounded-lg font-bold px-4 text-sm">{t('save')}</button>
-                        </div>
-                     </div>
-                     
-                     <div className="card-glow p-4 rounded-xl">
-                        <h3 className="font-bold mb-2">{t('request_withdrawal')}</h3>
-                        <div className="flex space-x-2">
-                             <input type="number" value={withdrawalAmount} onChange={e => setWithdrawalAmount(e.target.value)} placeholder={t('amount')} className="w-full input-field text-sm" />
-                             <button onClick={handleRequest} className="interactive-button rounded-lg font-bold px-4 text-sm">{t('request')}</button>
-                        </div>
-                     </div>
-
-                     <div className="card-glow p-4 rounded-xl">
-                        <h3 className="font-bold mb-2">{t('withdrawal_history')}</h3>
-                        <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
-                            {history.length > 0 ? history.map(req => (
-                                <div key={req.id} className="bg-slate-900/50 shadow-inner rounded-md p-2 flex justify-between items-center text-sm">
-                                    <div>
-                                        <p className="font-bold">{formatNumber(req.amount_credits)} {t('market_credits')}</p>
-                                        <p className="text-xs text-[var(--text-secondary)]">{new Date(req.created_at).toLocaleString()}</p>
-                                    </div>
-                                    {getStatusBadge(req.status)}
-                                </div>
-                            )) : <p className="text-center text-sm text-[var(--text-secondary)]">{t('market_no_history')}</p>}
-                        </div>
-                     </div>
-                </div>
-            );
-        };
-
-        return (
-            <div className="w-full">
-                <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex justify-around items-center gap-1 border border-slate-700 mb-4">
-                    <button onClick={() => setMarketTab('buy')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'buy' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_buy')}</button>
-                    <button onClick={() => setMarketTab('sell')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'sell' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_sell')}</button>
-                    <button onClick={() => setMarketTab('wallet')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'wallet' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_wallet')}</button>
-                </div>
-                {marketTab === 'buy' && <BuyTab />}
-                {marketTab === 'sell' && <SellTab />}
-                {marketTab === 'wallet' && <WalletTab />}
-            </div>
-        );
-    };
-
-    const MarketContent = () => {
-        const t = useTranslation();
-        const [marketView, setMarketView] = useState<'main' | 'black' | 'underground'>('main');
-
-        const MainView = () => (
-            <div className="w-full max-w-md space-y-4">
-                <div onClick={() => setMarketView('black')} className="card-glow p-4 rounded-xl cursor-pointer hover:border-[var(--accent-color)] border border-transparent transition-all">
-                    <h2 className="text-xl font-bold">{t('black_market')}</h2>
-                    <p className="text-sm text-[var(--text-secondary)]">{t('black_market_desc')}</p>
-                </div>
-                <div onClick={() => setMarketView('underground')} className="card-glow p-4 rounded-xl cursor-pointer hover:border-[var(--accent-color)] border border-transparent transition-all">
-                    <h2 className="text-xl font-bold">{t('underground_market')}</h2>
-                    <p className="text-sm text-[var(--text-secondary)]">{t('underground_market_desc')}</p>
-                </div>
-            </div>
-        );
-
-        if (marketView === 'main') {
-            return <MainView />;
-        }
-
-        const BackButton = () => (
-            <button onClick={() => setMarketView('main')} className="absolute top-0 left-0 text-slate-400 hover:text-white bg-slate-800/50 rounded-full p-2 z-10">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-            </button>
-        );
-
-        return (
-            <div className="relative w-full max-w-md">
-                 <BackButton />
-                 {marketView === 'black' && <BlackMarketContent />}
-                 {marketView === 'underground' && <UndergroundMarketContent />}
-            </div>
-        );
-    };
-
 
     return (
         <div className="flex flex-col h-full text-white items-center">
@@ -505,10 +565,10 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
             </div>
             
             <div className="w-full max-w-md flex-grow overflow-y-auto no-scrollbar pt-4 flex justify-center px-4">
-                {activeTab === 'contacts' && <ContactsContent />}
+                {activeTab === 'contacts' && <ContactsContent {...tabProps} />}
                 {activeTab === 'boosts' && <BoostScreen playerState={playerState} boosts={config.boosts} onBuyBoost={onBuyBoost} lang={user.language} uiIcons={config.uiIcons} />}
-                {activeTab === 'skins' && <SkinsContent />}
-                {activeTab === 'market' && <MarketContent />}
+                {activeTab === 'skins' && <SkinsContent {...tabProps} />}
+                {activeTab === 'market' && <MarketContent {...tabProps} />}
                 {activeTab === 'cell' && <CellScreen />}
             </div>
         </div>

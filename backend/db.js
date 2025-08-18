@@ -2008,18 +2008,96 @@ const startNewBattle = async (config) => {
 };
 
 export const checkAndManageBattles = async (config) => {
-    const activeBattleRes = await executeQuery(`SELECT * FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW()`);
-    const activeBattle = activeBattleRes.rows[0];
-    
+    // End any battles that have finished but not yet processed rewards
     const endedBattleRes = await executeQuery(`SELECT * FROM cell_battles WHERE end_time <= NOW() AND rewards_distributed = FALSE`);
     for (const battle of endedBattleRes.rows) {
         await endBattle(battle.id, config);
     }
+
+    // Check if there's already an active battle
+    const activeBattleRes = await executeQuery(`SELECT * FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW()`);
+    if (activeBattleRes.rows.length > 0) {
+        return; // A battle is active, do nothing more.
+    }
     
-    if (!activeBattle) {
-        const schedule = config.battleSchedule;
-        const now = new Date();
-        const currentDayUTC = now.getUTCDay();
-        const currentHourUTC = now.getUTCHours();
+    const schedule = config.battleSchedule;
+    if (!schedule) {
+        // Use a simple log function if one is not passed
+        const log = (level, msg) => console.log(`[${level.toUpperCase()}] ${msg}`);
+        log('info', "No battle schedule configured. Skipping new battle start.");
+        return;
+    }
+
+    const now = new Date();
+    const currentDayUTC = now.getUTCDay();
+    const currentHourUTC = now.getUTCHours();
+
+    // Check if it's the right day and hour to potentially start a battle
+    if (currentDayUTC !== schedule.dayOfWeek || currentHourUTC !== schedule.startHourUTC) {
+        return;
+    }
+    
+    // Check the last battle's start time to prevent re-triggering within the same hour
+    const lastBattleRes = await executeQuery('SELECT start_time FROM cell_battles ORDER BY start_time DESC LIMIT 1');
+    if (lastBattleRes.rows.length > 0) {
+        const lastStartTime = new Date(lastBattleRes.rows[0].start_time);
+        const hoursSinceLastStart = (now.getTime() - lastStartTime.getTime()) / (1000 * 60 * 60);
         
-        const lastBattleRes = await
+        // If the last battle started less than 23 hours ago, don't start a new one.
+        // This prevents starting a new battle every minute during the scheduled hour.
+        if (hoursSinceLastStart < 23) {
+            return;
+        }
+    }
+    
+    // All checks passed, start a new battle
+    await startNewBattle(config);
+};
+
+export const forceStartBattle = async (config) => {
+    const activeBattleRes = await executeQuery(`SELECT * FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW()`);
+    if (activeBattleRes.rows.length > 0) {
+        throw new Error("A battle is already active.");
+    }
+    await startNewBattle(config);
+    return { success: true };
+};
+
+export const forceEndBattle = async (config) => {
+    const activeBattleRes = await executeQuery(`SELECT id FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW()`);
+    if (activeBattleRes.rows.length === 0) {
+        throw new Error("No active battle to end.");
+    }
+    const battleId = activeBattleRes.rows[0].id;
+    await endBattle(battleId, config);
+    return { success: true };
+};
+
+export const getBattleStatusForCell = async (cellId) => {
+    const battleRes = await executeQuery('SELECT id, end_time FROM cell_battles WHERE start_time <= NOW() AND end_time > NOW() ORDER BY start_time DESC LIMIT 1');
+    const activeBattle = battleRes.rows[0];
+
+    if (!activeBattle) {
+        return { isActive: false, isParticipant: false, battleId: null, timeRemaining: 0, myScore: 0 };
+    }
+
+    const timeRemaining = Math.floor((new Date(activeBattle.end_time).getTime() - Date.now()) / 1000);
+    let isParticipant = false;
+    let myScore = 0;
+
+    if (cellId) {
+        const participantRes = await executeQuery('SELECT score FROM cell_battle_participants WHERE battle_id = $1 AND cell_id = $2', [activeBattle.id, cellId]);
+        if (participantRes.rows.length > 0) {
+            isParticipant = true;
+            myScore = parseFloat(participantRes.rows[0].score);
+        }
+    }
+
+    return {
+        isActive: true,
+        isParticipant: isParticipant,
+        battleId: activeBattle.id,
+        timeRemaining: Math.max(0, timeRemaining),
+        myScore: myScore
+    };
+};
