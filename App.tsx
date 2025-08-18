@@ -465,19 +465,9 @@ const UndergroundMarketContent = ({ user, playerState, config, showNotification,
     );
 };
 
-const MarketContent = (props: {
-    user: User;
-    playerState: PlayerState;
-    config: GameConfig;
-    showNotification: (message: string, type?: 'success' | 'error') => void;
-    onOpenCoinLootbox: (boxType: 'coin') => void;
-    onPurchaseStarLootbox: (boxType: 'star') => void;
-    gameApi: GameApi;
-}) => {
+const MarketMainView = ({ setMarketView }: { setMarketView: (view: 'black' | 'underground') => void }) => {
     const t = useTranslation();
-    const [marketView, setMarketView] = useState<'main' | 'black' | 'underground'>('main');
-
-    const MainView = () => (
+    return (
         <div className="w-full max-w-md space-y-4">
             <div onClick={() => setMarketView('black')} className="card-glow p-4 rounded-xl cursor-pointer hover:border-[var(--accent-color)] border border-transparent transition-all">
                 <h2 className="text-xl font-bold">{t('black_market')}</h2>
@@ -489,22 +479,35 @@ const MarketContent = (props: {
             </div>
         </div>
     );
+};
+
+const MarketBackButton = ({ setMarketView }: { setMarketView: (view: 'main') => void }) => (
+    <button onClick={() => setMarketView('main')} className="absolute top-0 left-0 text-slate-400 hover:text-white bg-slate-800/50 rounded-full p-2 z-10">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+    </button>
+);
+
+
+const MarketContent = (props: {
+    user: User;
+    playerState: PlayerState;
+    config: GameConfig;
+    showNotification: (message: string, type?: 'success' | 'error') => void;
+    onOpenCoinLootbox: (boxType: 'coin') => void;
+    onPurchaseStarLootbox: (boxType: 'star') => void;
+    gameApi: GameApi;
+}) => {
+    const [marketView, setMarketView] = useState<'main' | 'black' | 'underground'>('main');
 
     if (marketView === 'main') {
-        return <MainView />;
+        return <MarketMainView setMarketView={setMarketView} />;
     }
-
-    const BackButton = () => (
-        <button onClick={() => setMarketView('main')} className="absolute top-0 left-0 text-slate-400 hover:text-white bg-slate-800/50 rounded-full p-2 z-10">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-        </button>
-    );
 
     return (
         <div className="relative w-full max-w-md">
-             <BackButton />
+             <MarketBackButton setMarketView={setMarketView} />
              {marketView === 'black' && <BlackMarketContent {...props} />}
              {marketView === 'underground' && <UndergroundMarketContent {...props} />}
         </div>
@@ -947,6 +950,41 @@ const GlitchCodesModal: React.FC<{
     );
 };
 
+const PenaltyModal: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
+    const t = useTranslation();
+    return (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2500] flex items-center justify-center p-4" onClick={onClose}>
+            <div 
+              className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" 
+              onClick={e => e.stopPropagation()}
+            >
+                <h2 className="text-2xl font-display text-red-400 mb-4">{t('penalty_title')}</h2>
+                <p className="text-lg text-white text-center mb-6">"{message}"</p>
+                <button onClick={onClose} className="w-full interactive-button rounded-lg font-bold py-3 mt-2 text-lg">
+                    {t('penalty_close')}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const NavItem = ({ screen, label, iconUrl, active, setActiveScreen }: { screen: Screen, label: string, iconUrl: string, active: boolean, setActiveScreen: (s: Screen) => void }) => (
+    <button
+      onClick={() => setActiveScreen(screen)}
+      className={`flex flex-col items-center justify-center text-xs w-full pt-2 pb-1 transition-colors duration-200 group ${active ? 'text-[var(--accent-color)]' : 'text-slate-400 hover:text-white'}`}
+    >
+        <div className={`w-12 h-8 flex items-center justify-center rounded-full transition-all duration-200 ${active ? 'bg-slate-700/50' : ''}`}>
+            <img 
+                src={iconUrl} 
+                alt={label} 
+                className={`w-7 h-7 transition-all duration-200 ${active ? 'active-icon' : ''}`} 
+                {...(isExternal(iconUrl) && { crossOrigin: 'anonymous' })}
+            />
+        </div>
+        <span className={`transition-opacity duration-200 font-bold ${active ? 'opacity-100' : 'opacity-0'}`}>{label}</span>
+    </button>
+);
+
 
 const MainApp: React.FC = () => {
   const { user, isGlitching, setIsGlitching } = useAuth();
@@ -1225,24 +1263,6 @@ const MainApp: React.FC = () => {
   const handleEnergyClick = () => showNotification(t('tooltip_energy'), 'success');
   const handleSuspicionClick = () => showNotification(t('tooltip_suspicion'), 'success');
 
-  const PenaltyModal: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
-      const t = useTranslation();
-      return (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2500] flex items-center justify-center p-4" onClick={onClose}>
-              <div 
-                className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" 
-                onClick={e => e.stopPropagation()}
-              >
-                  <h2 className="text-2xl font-display text-red-400 mb-4">{t('penalty_title')}</h2>
-                  <p className="text-lg text-white text-center mb-6">"{message}"</p>
-                  <button onClick={onClose} className="w-full interactive-button rounded-lg font-bold py-3 mt-2 text-lg">
-                      {t('penalty_close')}
-                  </button>
-              </div>
-          </div>
-      );
-  };
-
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
@@ -1289,23 +1309,6 @@ const MainApp: React.FC = () => {
     }
   };
 
-  const NavItem = ({ screen, label, iconUrl, active }: { screen: Screen, label: string, iconUrl: string, active: boolean }) => (
-    <button
-      onClick={() => setActiveScreen(screen)}
-      className={`flex flex-col items-center justify-center text-xs w-full pt-2 pb-1 transition-colors duration-200 group ${active ? 'text-[var(--accent-color)]' : 'text-slate-400 hover:text-white'}`}
-    >
-        <div className={`w-12 h-8 flex items-center justify-center rounded-full transition-all duration-200 ${active ? 'bg-slate-700/50' : ''}`}>
-            <img 
-                src={iconUrl} 
-                alt={label} 
-                className={`w-7 h-7 transition-all duration-200 ${active ? 'active-icon' : ''}`} 
-                {...(isExternal(iconUrl) && { crossOrigin: 'anonymous' })}
-            />
-        </div>
-        <span className={`transition-opacity duration-200 font-bold ${active ? 'opacity-100' : 'opacity-0'}`}>{label}</span>
-    </button>
-  );
-
   return (
     <div className={`h-screen w-screen overflow-hidden flex flex-col prevent-select transition-all duration-300 ${isFullScreen ? 'pt-4' : ''}`}>
       {isFinalScene && !showVideo && <FinalSystemBreachEffect onComplete={handleFinalSceneComplete} />}
@@ -1334,11 +1337,11 @@ const MainApp: React.FC = () => {
         </main>
         <nav className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-t border-slate-700">
             <div className="grid grid-cols-5 justify-around items-start max-w-xl mx-auto">
-            <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} />
-            <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} />
-            <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} />
-            <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} />
-            <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} />
+            <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} setActiveScreen={setActiveScreen} />
+            <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} setActiveScreen={setActiveScreen}/>
+            <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} setActiveScreen={setActiveScreen} />
+            <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} setActiveScreen={setActiveScreen}/>
+            <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} setActiveScreen={setActiveScreen}/>
             </div>
         </nav>
       </div>
