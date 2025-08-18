@@ -111,7 +111,7 @@ type TranslationKey =
   | 'market_sell_desc' | 'market_no_listings' | 'market_no_skins_to_sell' | 'market_invalid_price'
   | 'market_list_success' | 'market_wallet_connected' | 'market_invalid_amount' | 'market_withdrawal_requested'
   | 'withdrawal_history' | 'market_no_history' | 'status_pending' | 'status_approved' | 'status_rejected'
-  | 'request' | 'change' | 'market_invalid_wallet' | 'connect_wallet_modal_title' | 'connect_wallet_modal_desc' | 'paste_and_connect'
+  | 'request' | 'change' | 'market_invalid_wallet' | 'wallet_connection_cancelled' | 'wallet_feature_unavailable'
   // Suspicion & Cells
   | 'suspicion' | 'suspicion_modifier' | 'cell' | 'cell_info' | 'create_cell' | 'join_cell' | 'leave_cell' | 'no_cell_info'
   | 'cell_name' | 'enter_cell_name' | 'create' | 'enter_invite_code' | 'join' | 'members'
@@ -284,9 +284,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     request: 'Request',
     change: 'Change',
     market_invalid_wallet: 'Invalid wallet address. Please copy a valid TON wallet address.',
-    connect_wallet_modal_title: 'Connect Wallet',
-    connect_wallet_modal_desc: 'To connect, copy your TON wallet address to the clipboard, then tap the button below.',
-    paste_and_connect: 'Paste and Connect',
+    wallet_connection_cancelled: 'Wallet connection was cancelled.',
+    wallet_feature_unavailable: 'Wallet feature is not available in your Telegram version.',
     suspicion: 'Suspicion',
     suspicion_modifier: 'Suspicion',
     cell: 'Cell',
@@ -525,9 +524,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     request: 'Запросити',
     change: 'Змінити',
     market_invalid_wallet: 'Невірна адреса гаманця. Будь ласка, скопіюйте дійсну адресу TON гаманця.',
-    connect_wallet_modal_title: 'Підключити Гаманець',
-    connect_wallet_modal_desc: 'Для підключення скопіюйте адресу вашого TON-гаманця в буфер обміну, а потім натисніть кнопку нижче.',
-    paste_and_connect: 'Вставити та підключити',
+    wallet_connection_cancelled: 'Підключення гаманця було скасовано.',
+    wallet_feature_unavailable: 'Функція гаманця недоступна у вашій версії Telegram.',
     suspicion: 'Підозра',
     suspicion_modifier: 'Підозра',
     cell: 'Осередок',
@@ -766,9 +764,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     request: 'Запросить',
     change: 'Изменить',
     market_invalid_wallet: 'Неверный адрес кошелька. Пожалуйста, скопируйте действительный адрес TON кошелька.',
-    connect_wallet_modal_title: 'Подключить Кошелек',
-    connect_wallet_modal_desc: 'Для подключения скопируйте адрес вашего TON-кошелька в буфер обмена, а затем нажмите кнопку ниже.',
-    paste_and_connect: 'Вставить и подключить',
+    wallet_connection_cancelled: 'Подключение кошелька было отменено.',
+    wallet_feature_unavailable: 'Функция кошелька недоступна в вашей версии Telegram.',
     suspicion: 'Подозрение',
     suspicion_modifier: 'Подозрение',
     cell: 'Ячейка',
