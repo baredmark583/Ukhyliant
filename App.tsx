@@ -702,10 +702,36 @@ const MissionsScreen: React.FC<{
     );
 };
 
-const WalletTaskCard = ({ playerState, onConnect, lang }: {
+const WalletUnavailableContent = ({ user }: { user: User }) => {
+    const t = useTranslation();
+    const [copied, setCopied] = useState(false);
+
+    const handleCopyRelaunchLink = () => {
+        const relaunchLink = `https://t.me/${TELEGRAM_BOT_NAME}/${MINI_APP_NAME}?startapp=${user.id}`;
+        navigator.clipboard.writeText(relaunchLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="text-center p-3 bg-red-900/40 rounded-lg border border-red-500/50 space-y-3">
+            <p className="text-sm text-red-200 font-semibold">
+                {t('wallet_feature_unavailable_launch')}
+            </p>
+            <p className="text-xs text-slate-300">
+                {t('wallet_relaunch_instructions')}
+            </p>
+            <button onClick={handleCopyRelaunchLink} className="w-full interactive-button bg-blue-600 hover:bg-blue-500 border-blue-500 text-white font-bold py-2 px-4 text-sm rounded-lg">
+                {copied ? t('copied') : t('copy_relaunch_link')}
+            </button>
+        </div>
+    );
+};
+
+const WalletTaskCard = ({ playerState, onConnect, user }: {
     playerState: PlayerState;
     onConnect: () => void;
-    lang: Language;
+    user: User;
 }) => {
     const t = useTranslation();
     const isConnected = !!playerState.tonWalletAddress;
@@ -747,11 +773,7 @@ const WalletTaskCard = ({ playerState, onConnect, lang }: {
                     {t('connect_wallet')}
                 </button>
             ) : (
-                <div className="text-center p-2 bg-red-900/40 rounded-lg border border-red-500/50">
-                    <p className="text-sm text-red-200 font-semibold">
-                        {t('wallet_feature_unavailable_launch')}
-                    </p>
-                </div>
+                <WalletUnavailableContent user={user} />
             )}
         </div>
     );
@@ -762,11 +784,11 @@ const AirdropScreen: React.FC<{
     playerState: PlayerState;
     onClaim: (task: DailyTask | SpecialTask) => void;
     onPurchase: (task: SpecialTask) => void;
-    lang: Language;
+    user: User;
     startedTasks: Set<string>;
     uiIcons: UiIcons;
     onConnectWallet: () => void;
-}> = ({ specialTasks, playerState, onClaim, onPurchase, lang, startedTasks, uiIcons, onConnectWallet }) => {
+}> = ({ specialTasks, playerState, onClaim, onPurchase, user, startedTasks, uiIcons, onConnectWallet }) => {
     const t = useTranslation();
     return (
         <div className="flex flex-col h-full text-white pt-4 px-4">
@@ -777,7 +799,7 @@ const AirdropScreen: React.FC<{
                     <WalletTaskCard 
                         playerState={playerState}
                         onConnect={onConnectWallet}
-                        lang={lang}
+                        user={user}
                     />
                     {specialTasks.map(task => (
                        <div key={task.id}>
@@ -786,7 +808,7 @@ const AirdropScreen: React.FC<{
                                 playerState={playerState}
                                 onClaim={onClaim}
                                 onPurchase={onPurchase}
-                                lang={lang}
+                                lang={user.language}
                                 startedTasks={startedTasks}
                                 uiIcons={uiIcons}
                             />
@@ -1293,7 +1315,7 @@ const MainApp: React.FC = () => {
                     playerState={playerState}
                     onClaim={handleClaimTask}
                     onPurchase={purchaseSpecialTask}
-                    lang={user.language}
+                    user={user}
                     startedTasks={startedTasks}
                     uiIcons={config.uiIcons}
                     onConnectWallet={handleConnectWallet}
