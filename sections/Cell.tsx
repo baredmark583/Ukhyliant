@@ -291,132 +291,108 @@ const CellScreen: React.FC = () => {
     };
     
     if (loading) {
-        return <div className="text-center p-8"><span className="animate-pulse">{t('loading')}</span></div>;
+        return <div className="flex items-center justify-center h-full"><p className="text-lg animate-pulse text-gray-300">{t('loading')}...</p></div>;
     }
-    
-    if (cell) {
-        const ticketCost = config?.cellBattleTicketCost || 1000000;
-        const canAffordTicket = cell.balance >= ticketCost;
+
+    if (createMode || joinMode) {
+        const title = createMode ? t('create_cell') : t('join_cell');
+        const placeholder = createMode ? t('enter_cell_name') : t('enter_invite_code');
+        const value = createMode ? cellName : inviteCode;
+        const onChange = createMode ? (e: React.ChangeEvent<HTMLInputElement>) => setCellName(e.target.value) : (e: React.ChangeEvent<HTMLInputElement>) => setInviteCode(e.target.value.toUpperCase());
+        const onSubmit = createMode ? handleCreateCell : handleJoinCell;
+        const buttonText = createMode ? t('create') : t('join');
 
         return (
-            <div className="w-full max-w-md space-y-4">
-                <h2 className="text-2xl font-display text-center">{cell.name}</h2>
-                
-                <div className="neumorphic-raised rounded-xl p-3">
-                    <div className="flex justify-between items-center">
-                        <span className="text-[var(--text-secondary)]">{t('invite_code')}</span>
-                        <div className="flex items-center space-x-2">
-                             <span className="font-mono neumorphic-pressed rounded-md px-2 py-1">{cell.invite_code}</span>
-                             <button onClick={handleCopyInvite} className="px-3 py-1 neumorphic-raised-button font-bold text-sm">{copied ? t('copied') : t('copy')}</button>
-                        </div>
+            <div className="flex flex-col h-full justify-center items-center p-4">
+                <div className="card-glow bg-slate-800 rounded-2xl p-6 w-full max-w-sm relative">
+                    <button onClick={() => { setCreateMode(false); setJoinMode(false); setError(''); }} className="absolute top-2 right-2 text-slate-400 text-3xl font-light">&times;</button>
+                    <h2 className="text-xl font-bold mb-4 text-center">{title}</h2>
+                    {error && <p className="text-red-400 text-sm mb-2 text-center">{error}</p>}
+                    <div className="space-y-4">
+                        <input type="text" value={value} onChange={onChange} placeholder={placeholder} className="w-full input-field text-center" />
+                        <button onClick={onSubmit} className="w-full interactive-button font-bold py-3">{buttonText}</button>
                     </div>
-                </div>
-
-                <div className="neumorphic-raised rounded-xl p-3">
-                     <div className="flex justify-between items-center text-sm mb-2">
-                        <span className="text-[var(--text-secondary)]">{t('cell_bank')}</span>
-                        <span className="font-bold text-yellow-400">{formatNumber(cell.balance)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                        <span className="text-[var(--text-secondary)]">{t('cell_tickets')}</span>
-                        <span className="font-bold text-blue-400">{cell.ticketCount || 0}</span>
-                    </div>
-                </div>
-
-                <AccordionSection title={t('cell_battle')} defaultOpen={true}>
-                    <BattleSection cell={cell} refetchCell={fetchCell} />
-                </AccordionSection>
-                
-                <AccordionSection title={t('members')} count={cell.members.length} maxCount={config?.cellMaxMembers || 10} defaultOpen={false}>
-                    <div className="flex justify-between items-center mb-3 text-sm">
-                        <span className="text-[var(--text-secondary)]">{t('total_cell_profit')}</span>
-                        <span className="font-bold text-[var(--accent-color)]">+{formatNumber(cell.totalProfitPerHour)}/hr</span>
-                    </div>
-                    <ul className="space-y-2 max-h-48 overflow-y-auto no-scrollbar pr-2">
-                        {cell.members.map(member => (
-                            <li key={member.id} className="neumorphic-pressed rounded-lg p-2 flex justify-between items-center">
-                                <span className={member.id === user?.id ? 'font-bold text-[var(--accent-color)]' : ''}>{member.name}</span>
-                                <span className="text-sm text-[var(--accent-color)]">+{formatNumber(member.profitPerHour)}/hr</span>
-                            </li>
-                        ))}
-                    </ul>
-                </AccordionSection>
-
-                <AccordionSection title={t('informants')} count={cell.informants.length} defaultOpen={false}>
-                    <div className="space-y-3 max-h-48 overflow-y-auto no-scrollbar pr-2">
-                        {cell.informants.length > 0 ? (
-                            cell.informants.map(info => <InformantCard key={info.id} informant={info} />)
-                        ) : (
-                            <p className="text-gray-500 text-center py-4">{t('no_informants_recruited')}</p>
-                        )}
-                    </div>
-                </AccordionSection>
-
-                {error && <p className="text-red-400 text-center text-sm mt-2">{error}</p>}
-                
-                <div className="space-y-2 pt-2">
-                    <button onClick={handleBuyTicket} disabled={!canAffordTicket || isBuyingTicket} className="w-full neumorphic-raised-button font-bold py-2">
-                        {isBuyingTicket ? t('loading') : `${t('buy_ticket')} (${formatNumber(ticketCost)})`}
-                    </button>
-                    <button onClick={handleRecruitInformant} disabled={isRecruiting} className="w-full neumorphic-raised-button font-bold py-2">
-                        {isRecruiting ? t('recruiting') : t('recruit_informant')}
-                    </button>
-                    <button onClick={handleLeaveCell} className="w-full neumorphic-raised-button font-bold py-2">{t('leave_cell')}</button>
                 </div>
             </div>
         );
     }
 
-    if (createMode) {
+    if (!cell) {
         return (
-            <div className="w-full max-w-md space-y-4">
-                <h2 className="text-2xl font-display text-center">{t('create_cell')}</h2>
-                <input
-                    type="text"
-                    value={cellName}
-                    onChange={(e) => setCellName(e.target.value)}
-                    placeholder={t('enter_cell_name')}
-                    className="w-full input-neumorphic text-center"
-                />
-                <p className="text-center text-sm text-[var(--text-secondary)]">Cost: {config?.cellCreationCost.toLocaleString()} coins</p>
-                {error && <p className="text-red-400 text-center text-sm">{error}</p>}
-                <div className="flex space-x-2">
-                     <button onClick={() => { setCreateMode(false); setError('') }} className="w-full neumorphic-raised-button font-bold py-2">{t('cancel')}</button>
-                    <button onClick={handleCreateCell} className="w-full neumorphic-raised-button font-bold py-2">{t('create')}</button>
-                </div>
+            <div className="flex flex-col h-full justify-center items-center text-center p-4 space-y-4">
+                <h2 className="text-2xl font-display">{t('cell')}</h2>
+                <p className="text-[var(--text-secondary)] max-w-xs">{t('no_cell_info')}</p>
+                {error && <p className="text-red-400">{error}</p>}
+                <p className="text-xs text-slate-400">({t('cost')} {formatNumber(config?.cellCreationCost || 0)})</p>
+                <button onClick={() => setCreateMode(true)} className="w-full max-w-xs interactive-button font-bold py-3">{t('create_cell')}</button>
+                <button onClick={() => setJoinMode(true)} className="w-full max-w-xs interactive-button font-bold py-3">{t('join_cell')}</button>
             </div>
         );
     }
 
-    if (joinMode) {
-        return (
-            <div className="w-full max-w-md space-y-4">
-                <h2 className="text-2xl font-display text-center">{t('join_cell')}</h2>
-                <input
-                    type="text"
-                    value={inviteCode}
-                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                    placeholder={t('enter_invite_code')}
-                    className="w-full input-neumorphic text-center"
-                    autoCapitalize="characters"
-                />
-                {error && <p className="text-red-400 text-center text-sm">{error}</p>}
-                <div className="flex space-x-2">
-                     <button onClick={() => { setJoinMode(false); setError('') }} className="w-full neumorphic-raised-button font-bold py-2">{t('cancel')}</button>
-                    <button onClick={handleJoinCell} className="w-full neumorphic-raised-button font-bold py-2">{t('join')}</button>
-                </div>
-            </div>
-        );
-    }
-    
     return (
-        <div className="w-full max-w-md text-center space-y-4">
-            <h2 className="text-2xl font-display">{t('cell')}</h2>
-            <p className="text-[var(--text-secondary)]">{t('no_cell_info')}</p>
-            <div className="flex space-x-4">
-                <button onClick={() => setCreateMode(true)} className="w-full neumorphic-raised-button font-bold py-3">{t('create_cell')}</button>
-                <button onClick={() => setJoinMode(true)} className="w-full neumorphic-raised-button font-bold py-3">{t('join_cell')}</button>
+        <div className="h-full overflow-y-auto no-scrollbar p-4 space-y-4">
+            <div className="text-center">
+                <h1 className="text-3xl font-display">{cell.name}</h1>
+                <p className="text-lg text-[var(--accent-color)] font-bold flex items-center justify-center space-x-1">
+                    <span>+{formatNumber(cell.totalProfitPerHour)}/hr</span>
+                </p>
             </div>
+            
+            <div className="card-glow p-3 rounded-xl">
+                 <label className="text-xs text-[var(--text-secondary)]">{t('invite_code')}</label>
+                 <div className="flex items-center space-x-2">
+                     <code className="bg-slate-900 shadow-inner p-2 rounded-lg flex-grow text-center font-mono tracking-widest">{cell.invite_code}</code>
+                     <button onClick={handleCopyInvite} className="interactive-button p-2">{copied ? t('copied') : t('copy')}</button>
+                 </div>
+            </div>
+
+            {error && <p className="text-red-400 text-center p-2 bg-red-900/50 rounded-lg">{error}</p>}
+            
+             <AccordionSection title={t('cell_bank')}>
+                 <div className="flex justify-between items-center">
+                     <div>
+                        <p className="text-[var(--text-secondary)]">{t('cell_bank')}</p>
+                        <p className="text-2xl font-bold">{formatNumber(cell.balance)}</p>
+                     </div>
+                     <div>
+                         <p className="text-[var(--text-secondary)]">{t('cell_tickets')}</p>
+                         <p className="text-2xl font-bold">{cell.ticketCount}</p>
+                     </div>
+                 </div>
+                 <button onClick={handleBuyTicket} disabled={isBuyingTicket} className="w-full mt-3 interactive-button font-bold py-2">
+                     {isBuyingTicket ? `${t('loading')}...` : `${t('buy_ticket')} (${formatNumber(config?.cellBattleTicketCost || 0)})`}
+                 </button>
+             </AccordionSection>
+
+            <AccordionSection title={t('cell_battle')}>
+                <BattleSection cell={cell} refetchCell={fetchCell} />
+            </AccordionSection>
+
+            <AccordionSection title={t('informants')} count={cell.informants.length}>
+                <div className="space-y-3">
+                    {cell.informants.length > 0 
+                        ? cell.informants.map(inf => <InformantCard key={inf.id} informant={inf} />)
+                        : <p className="text-center text-[var(--text-secondary)]">{t('no_informants_recruited')}</p>
+                    }
+                    <button onClick={handleRecruitInformant} disabled={isRecruiting} className="w-full mt-2 interactive-button font-bold py-2">
+                        {isRecruiting ? t('recruiting') : `${t('recruit_informant')} (${formatNumber(config?.informantRecruitCost || 0)})`}
+                    </button>
+                </div>
+            </AccordionSection>
+
+            <AccordionSection title={t('members')} count={cell.members.length} maxCount={config?.cellMaxMembers}>
+                <div className="space-y-2">
+                    {cell.members.map(member => (
+                        <div key={member.id} className="neumorphic-pressed rounded-lg p-2 flex justify-between items-center text-sm">
+                            <span className="font-semibold truncate">{member.name}</span>
+                            <span className="text-[var(--accent-color)] font-mono">+{formatNumber(member.profitPerHour)}/hr</span>
+                        </div>
+                    ))}
+                </div>
+            </AccordionSection>
+
+            <button onClick={handleLeaveCell} className="w-full text-red-400 hover:bg-red-900/50 p-2 rounded-lg font-bold">{t('leave_cell')}</button>
         </div>
     );
 };
