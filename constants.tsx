@@ -114,7 +114,6 @@ type TranslationKey =
   // Wallet Connection
   | 'connect_your_ton_wallet' | 'connect_wallet_task_desc' | 'wallet_connected' | 'connect_wallet'
   | 'wallet_connection_cancelled' | 'wallet_feature_unavailable' | 'connect_in_airdrop_prompt'
-  | 'wallet_feature_unavailable_launch' | 'wallet_relaunch_instructions' | 'copy_relaunch_link'
   // Suspicion & Cells
   | 'suspicion' | 'suspicion_modifier' | 'cell' | 'cell_info' | 'create_cell' | 'join_cell' | 'leave_cell' | 'no_cell_info'
   | 'cell_name' | 'enter_cell_name' | 'create' | 'enter_invite_code' | 'join' | 'members'
@@ -290,9 +289,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     wallet_connection_cancelled: 'Wallet connection was cancelled.',
     wallet_feature_unavailable: 'Wallet feature is not available in your Telegram version.',
     connect_in_airdrop_prompt: 'Connect your wallet in the Airdrop section to enable.',
-    wallet_feature_unavailable_launch: 'Wallet features are temporarily unavailable.',
-    wallet_relaunch_instructions: 'To enable wallet features, restart the app using a special link. Copy the link below and open it.',
-    copy_relaunch_link: 'Copy Relaunch Link',
     suspicion: 'Suspicion',
     suspicion_modifier: 'Suspicion',
     cell: 'Cell',
@@ -534,9 +530,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     wallet_connection_cancelled: 'Підключення гаманця було скасовано.',
     wallet_feature_unavailable: 'Функція гаманця недоступна у вашій версії Telegram.',
     connect_in_airdrop_prompt: 'Підключіть гаманець у розділі Airdrop, щоб активувати.',
-    wallet_feature_unavailable_launch: 'Функції гаманця тимчасово недоступні.',
-    wallet_relaunch_instructions: 'Щоб увімкнути функції гаманця, перезапустіть додаток за спеціальним посиланням. Скопіюйте посилання нижче та відкрийте його.',
-    copy_relaunch_link: 'Скопіювати посилання',
     suspicion: 'Підозра',
     suspicion_modifier: 'Підозра',
     cell: 'Осередок',
@@ -778,9 +771,6 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     wallet_connection_cancelled: 'Подключение кошелька было отменено.',
     wallet_feature_unavailable: 'Функция кошелька недоступна в вашей версии Telegram.',
     connect_in_airdrop_prompt: 'Подключите кошелёк в разделе Airdrop, чтобы активировать.',
-    wallet_feature_unavailable_launch: 'Функции кошелька временно недоступны.',
-    wallet_relaunch_instructions: 'Чтобы включить функции кошелька, перезапустите приложение по специальной ссылке. Скопируйте ссылку ниже и откройте её.',
-    copy_relaunch_link: 'Копировать ссылку',
     suspicion: 'Подозрение',
     suspicion_modifier: 'Подозрение',
     cell: 'Ячейка',

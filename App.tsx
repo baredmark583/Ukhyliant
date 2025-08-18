@@ -702,40 +702,12 @@ const MissionsScreen: React.FC<{
     );
 };
 
-const WalletUnavailableContent = ({ user }: { user: User }) => {
-    const t = useTranslation();
-    const [copied, setCopied] = useState(false);
-
-    const handleCopyRelaunchLink = () => {
-        const relaunchLink = `https://t.me/${TELEGRAM_BOT_NAME}/${MINI_APP_NAME}?startapp=${user.id}`;
-        navigator.clipboard.writeText(relaunchLink);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    return (
-        <div className="text-center p-3 bg-red-900/40 rounded-lg border border-red-500/50 space-y-3">
-            <p className="text-sm text-red-200 font-semibold">
-                {t('wallet_feature_unavailable_launch')}
-            </p>
-            <p className="text-xs text-slate-300">
-                {t('wallet_relaunch_instructions')}
-            </p>
-            <button onClick={handleCopyRelaunchLink} className="w-full interactive-button bg-blue-600 hover:bg-blue-500 border-blue-500 text-white font-bold py-2 px-4 text-sm rounded-lg">
-                {copied ? t('copied') : t('copy_relaunch_link')}
-            </button>
-        </div>
-    );
-};
-
-const WalletTaskCard = ({ playerState, onConnect, user }: {
+const WalletTaskCard = ({ playerState, onConnect }: {
     playerState: PlayerState;
     onConnect: () => void;
-    user: User;
 }) => {
     const t = useTranslation();
     const isConnected = !!playerState.tonWalletAddress;
-    const isWalletAvailable = !!window.Telegram?.WebApp?.requestWalletAddress;
     const truncateAddress = (address: string) => `${address.slice(0, 6)}...${address.slice(-4)}`;
 
     if (isConnected) {
@@ -768,13 +740,9 @@ const WalletTaskCard = ({ playerState, onConnect, user }: {
                     <p className="text-slate-300 text-xs mt-1">{t('connect_wallet_task_desc')}</p>
                 </div>
             </div>
-            {isWalletAvailable ? (
-                <button onClick={onConnect} className="w-full interactive-button rounded-lg py-3 font-bold text-lg">
-                    {t('connect_wallet')}
-                </button>
-            ) : (
-                <WalletUnavailableContent user={user} />
-            )}
+            <button onClick={onConnect} className="w-full interactive-button rounded-lg py-3 font-bold text-lg">
+                {t('connect_wallet')}
+            </button>
         </div>
     );
 };
@@ -799,7 +767,6 @@ const AirdropScreen: React.FC<{
                     <WalletTaskCard 
                         playerState={playerState}
                         onConnect={onConnectWallet}
-                        user={user}
                     />
                     {specialTasks.map(task => (
                        <div key={task.id}>
