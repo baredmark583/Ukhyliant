@@ -1063,12 +1063,12 @@ const MainApp: React.FC = () => {
     return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
   }
   
-  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+  const showNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
     setTimeout(() => {
         setNotification(prev => (prev?.message === message ? null : prev));
     }, 3000);
-  };
+  }, []);
 
   const handleBuyUpgrade = async (upgradeId: string) => {
     const result = await buyUpgrade(upgradeId);
