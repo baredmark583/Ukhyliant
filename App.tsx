@@ -1097,10 +1097,6 @@ const MainApp: React.FC = () => {
     }
   }, [isGlitching, setIsGlitching]);
 
-  if (!isAppReady || !user || !playerState || !config) {
-    return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
-  }
-  
   const showNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
     setTimeout(() => {
@@ -1263,6 +1259,10 @@ const MainApp: React.FC = () => {
   const handleEnergyClick = () => showNotification(t('tooltip_energy'), 'success');
   const handleSuspicionClick = () => showNotification(t('tooltip_suspicion'), 'success');
 
+  if (!isAppReady || !user || !playerState || !config) {
+    return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
+  }
+  
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
