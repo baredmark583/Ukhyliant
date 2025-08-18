@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
+import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
 import { useGlitchSystem } from './hooks/useGlitchSystem';
 import ExchangeScreen from './sections/Exchange';
@@ -702,78 +703,82 @@ const MissionsScreen: React.FC<{
     );
 };
 
-const WalletUnavailableContent: React.FC = () => {
-    const t = useTranslation();
-    const handleRelaunch = () => {
-        const url = `https://t.me/${TELEGRAM_BOT_NAME}/${MINI_APP_NAME}`;
-        window.Telegram.WebApp.openTelegramLink(url);
-    };
-
-    return (
-        <div className="card-glow bg-red-900/30 border border-red-500/50 rounded-2xl p-3 flex flex-col space-y-3">
-            <div className="flex items-start space-x-3">
-                <div className="bg-slate-900/50 shadow-inner rounded-lg p-1 w-14 h-14 flex-shrink-0">
-                    <img src="https://api.iconify.design/ph/wallet-bold.svg?color=white" alt="wallet" className="w-full h-full object-contain" />
-                </div>
-                <div className="flex-grow min-w-0">
-                    <p className="text-white font-semibold">{t('connect_your_ton_wallet')}</p>
-                    <p className="text-slate-300 text-xs mt-1">{t('wallet_feature_unavailable_launch')}</p>
-                </div>
-            </div>
-            <p className="text-center text-xs text-amber-200">{t('wallet_relaunch_instructions')}</p>
-            <button onClick={handleRelaunch} className="w-full interactive-button rounded-lg py-3 font-bold text-lg bg-amber-600/50 hover:bg-amber-500/50">
-                {t('relaunch_for_wallet')}
-            </button>
-        </div>
-    );
-};
-
-const WalletTaskCard = ({ playerState, onConnect, isWalletAvailable }: {
+const WalletConnector: React.FC<{
     playerState: PlayerState;
-    onConnect: () => void;
-    isWalletAvailable: boolean;
-}) => {
+    gameApi: GameApi;
+    showNotification: (message: string, type?: 'success' | 'error') => void;
+}> = ({ playerState, gameApi, showNotification }) => {
     const t = useTranslation();
-    const isConnected = !!playerState.tonWalletAddress;
+    const wallet = useTonWallet();
+    const [tonConnectUI] = useTonConnectUI();
+    const { user } = useAuth();
+
+    // Effect to connect wallet to backend when it changes
+    useEffect(() => {
+        if (wallet && user) {
+            const address = wallet.account.address;
+            if (address && address !== playerState.tonWalletAddress) {
+                gameApi.connectWallet(address).then(result => {
+                    if (result?.error) {
+                        showNotification(result.error, 'error');
+                    } else {
+                        showNotification(t('market_wallet_connected'), 'success');
+                    }
+                });
+            }
+        }
+    }, [wallet, user, playerState.tonWalletAddress, gameApi, showNotification, t]);
+
+    // Effect to handle wallet disconnection
+    useEffect(() => {
+        return tonConnectUI.onStatusChange(wallet => {
+            if (!wallet) {
+                if (playerState.tonWalletAddress && user) {
+                    gameApi.connectWallet('').then(() => {
+                        showNotification(t('wallet_disconnected'), 'success');
+                    });
+                }
+            }
+        });
+    }, [tonConnectUI, playerState.tonWalletAddress, user, gameApi, showNotification, t]);
+
     const truncateAddress = (address: string) => `${address.slice(0, 6)}...${address.slice(-4)}`;
 
-    if (isConnected) {
-        return (
-             <div className="card-glow bg-green-900/30 border border-green-500/50 rounded-2xl p-3 flex items-center space-x-4">
-                <div className="bg-slate-900/50 shadow-inner rounded-lg p-1 w-14 h-14 flex-shrink-0 flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                </div>
-                <div className="flex-grow min-w-0">
-                    <p className="text-white font-semibold">{t('wallet_connected')}</p>
-                    <p className="text-sm text-slate-300 truncate font-mono">{truncateAddress(playerState.tonWalletAddress!)}</p>
-                </div>
-                <button onClick={onConnect} className="interactive-button rounded-lg font-bold py-2 px-3 text-sm flex-shrink-0">
-                    {t('change')}
-                </button>
-            </div>
-        );
-    }
-    
-    if (!isWalletAvailable) {
-        return <WalletUnavailableContent />;
-    }
-
     return (
-        <div className="card-glow bg-blue-900/30 border border-blue-500/50 rounded-2xl p-3 flex flex-col space-y-3">
-             <div className="flex items-start space-x-3">
+        <div className="card-glow bg-blue-900/30 border border-blue-500/50 rounded-2xl p-3 flex flex-col items-center space-y-3">
+            <div className="flex items-start space-x-3 w-full">
                 <div className="bg-slate-900/50 shadow-inner rounded-lg p-1 w-14 h-14 flex-shrink-0">
                     <img src="https://api.iconify.design/ph/wallet-bold.svg?color=white" alt="wallet" className="w-full h-full object-contain" />
                 </div>
                 <div className="flex-grow min-w-0">
                     <p className="text-white font-semibold">{t('connect_your_ton_wallet')}</p>
-                    <p className="text-slate-300 text-xs mt-1">{t('connect_wallet_task_desc')}</p>
+                    <p className="text-slate-300 text-xs mt-1">
+                        {wallet ? `Connected: ${truncateAddress(wallet.account.address)}` : t('connect_wallet_task_desc')}
+                    </p>
                 </div>
             </div>
-            <button onClick={onConnect} className="w-full interactive-button rounded-lg py-3 font-bold text-lg">
-                {t('connect_wallet')}
-            </button>
+            <div className="w-full">
+                <TonConnectButton className="ton-connect-button" />
+            </div>
+            <style>{`
+                .ton-connect-button button {
+                    width: 100%;
+                    background-color: var(--bg-card);
+                    border: 1px solid var(--border-color);
+                    box-shadow: 0 0 8px -2px rgba(0,0,0,0.6);
+                    transition: all 0.15s ease-out;
+                    font-family: 'Russo One', sans-serif;
+                    text-transform: uppercase;
+                    border-radius: 0.5rem;
+                    padding: 0.75rem 1rem;
+                    font-size: 1rem;
+                }
+                .ton-connect-button button:hover {
+                    background-color: #334155;
+                    border-color: var(--text-secondary);
+                    box-shadow: 0 0 10px -2px var(--accent-color-glow);
+                }
+            `}</style>
         </div>
     );
 };
@@ -786,9 +791,9 @@ const AirdropScreen: React.FC<{
     user: User;
     startedTasks: Set<string>;
     uiIcons: UiIcons;
-    onConnectWallet: () => void;
-    isWalletAvailable: boolean;
-}> = ({ specialTasks, playerState, onClaim, onPurchase, user, startedTasks, uiIcons, onConnectWallet, isWalletAvailable }) => {
+    gameApi: GameApi;
+    showNotification: (message: string, type?: 'success' | 'error') => void;
+}> = ({ specialTasks, playerState, onClaim, onPurchase, user, startedTasks, uiIcons, gameApi, showNotification }) => {
     const t = useTranslation();
     return (
         <div className="flex flex-col h-full text-white pt-4 px-4">
@@ -796,10 +801,10 @@ const AirdropScreen: React.FC<{
             <p className="text-center text-[var(--text-secondary)] mb-6 flex-shrink-0">{t('airdrop_description')}</p>
             <div className="flex-grow overflow-y-auto no-scrollbar -mx-4 px-4">
                 <div className="flex flex-col space-y-4 pb-4">
-                    <WalletTaskCard 
+                    <WalletConnector 
                         playerState={playerState}
-                        onConnect={onConnectWallet}
-                        isWalletAvailable={isWalletAvailable}
+                        gameApi={gameApi}
+                        showNotification={showNotification}
                     />
                     {specialTasks.map(task => (
                        <div key={task.id}>
@@ -1036,7 +1041,6 @@ const MainApp: React.FC = () => {
   const [isAppReady, setIsAppReady] = useState(false);
   const [isTgReady, setIsTgReady] = useState(!!window.Telegram?.WebApp?.initData);
   const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
-  const [isWalletAvailable, setIsWalletAvailable] = useState(false);
 
   // Glitch event states
   const [isGlitchCodesModalOpen, setIsGlitchCodesModalOpen] = useState(false);
@@ -1064,29 +1068,6 @@ const MainApp: React.FC = () => {
         setNotification(prev => (prev?.message === message ? null : prev));
     }, 3000);
   }, []);
-
-  const handleConnectWallet = useCallback(() => {
-        if (isWalletAvailable) {
-            window.Telegram.WebApp.requestWalletAddress((address: string | false) => {
-                if (address) {
-                    gameApi.connectWallet(address).then(result => {
-                        if (result?.error) {
-                            showNotification(result.error, 'error');
-                        } else {
-                            showNotification(t('market_wallet_connected'), 'success');
-                        }
-                    });
-                } else {
-                    showNotification(t('wallet_connection_cancelled'), 'error');
-                }
-            });
-        } else {
-            // This case is handled by the UI showing the relaunch button,
-            // but we keep this log for debugging.
-            console.warn('Connect wallet called, but API is not available.');
-            showNotification(t('wallet_feature_unavailable'), 'error');
-        }
-    }, [gameApi, showNotification, t, isWalletAvailable]);
 
   const handleGlitchEffectClose = () => {
     if (activeGlitchEvent?.isFinal) {
@@ -1118,7 +1099,6 @@ const MainApp: React.FC = () => {
     const checkTgReady = () => {
         if (window.Telegram?.WebApp?.initData) {
             setIsTgReady(true);
-            setIsWalletAvailable(!!window.Telegram.WebApp.requestWalletAddress);
             return true;
         }
         return false;
@@ -1334,8 +1314,8 @@ const MainApp: React.FC = () => {
                     user={user}
                     startedTasks={startedTasks}
                     uiIcons={config.uiIcons}
-                    onConnectWallet={handleConnectWallet}
-                    isWalletAvailable={isWalletAvailable}
+                    gameApi={gameApi}
+                    showNotification={showNotification}
                 />;
       case 'profile':
         return <ProfileScreen
