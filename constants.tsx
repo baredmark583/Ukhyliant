@@ -115,6 +115,7 @@ type TranslationKey =
   // Wallet Connection
   | 'connect_your_ton_wallet' | 'connect_wallet_task_desc' | 'wallet_connected' | 'connect_wallet'
   | 'wallet_connection_cancelled' | 'wallet_feature_unavailable' | 'connect_in_airdrop_prompt'
+  | 'use_main_button_to_connect'
   // Suspicion & Cells
   | 'suspicion' | 'suspicion_modifier' | 'cell' | 'cell_info' | 'create_cell' | 'join_cell' | 'leave_cell' | 'no_cell_info'
   | 'cell_name' | 'enter_cell_name' | 'create' | 'enter_invite_code' | 'join' | 'members'
@@ -290,6 +291,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     wallet_connection_cancelled: 'Wallet connection was cancelled.',
     wallet_feature_unavailable: 'Wallet feature is not available in your Telegram version.',
     connect_in_airdrop_prompt: 'Connect your wallet in the Airdrop section to enable.',
+    use_main_button_to_connect: 'Use the main button below to connect your wallet.',
     suspicion: 'Suspicion',
     suspicion_modifier: 'Suspicion',
     cell: 'Cell',
@@ -531,6 +533,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     wallet_connection_cancelled: 'Підключення гаманця було скасовано.',
     wallet_feature_unavailable: 'Функція гаманця недоступна у вашій версії Telegram.',
     connect_in_airdrop_prompt: 'Підключіть гаманець у розділі Airdrop, щоб активувати.',
+    use_main_button_to_connect: 'Використовуйте головну кнопку нижче, щоб підключити гаманець.',
     suspicion: 'Підозра',
     suspicion_modifier: 'Підозра',
     cell: 'Осередок',
@@ -772,6 +775,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     wallet_connection_cancelled: 'Подключение кошелька было отменено.',
     wallet_feature_unavailable: 'Функция кошелька недоступна в вашей версии Telegram.',
     connect_in_airdrop_prompt: 'Подключите кошелёк в разделе Airdrop, чтобы активировать.',
+    use_main_button_to_connect: 'Используйте главную кнопку ниже, чтобы подключить кошелек.',
     suspicion: 'Подозрение',
     suspicion_modifier: 'Подозрение',
     cell: 'Ячейка',

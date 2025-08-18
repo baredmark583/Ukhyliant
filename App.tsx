@@ -702,10 +702,9 @@ const MissionsScreen: React.FC<{
     );
 };
 
-const WalletTaskCard = ({ playerState, onConnect, isReady, lang }: {
+const WalletTaskCard = ({ playerState, onConnect, lang }: {
     playerState: PlayerState;
     onConnect: () => void;
-    isReady: boolean;
     lang: Language;
 }) => {
     const t = useTranslation();
@@ -724,7 +723,7 @@ const WalletTaskCard = ({ playerState, onConnect, isReady, lang }: {
                     <p className="text-white font-semibold">{t('wallet_connected')}</p>
                     <p className="text-sm text-slate-300 truncate font-mono">{truncateAddress(playerState.tonWalletAddress!)}</p>
                 </div>
-                <button onClick={onConnect} disabled={!isReady} className="interactive-button rounded-lg font-bold py-2 px-3 text-sm flex-shrink-0">
+                <button onClick={onConnect} className="interactive-button rounded-lg font-bold py-2 px-3 text-sm flex-shrink-0">
                     {t('change')}
                 </button>
             </div>
@@ -742,13 +741,9 @@ const WalletTaskCard = ({ playerState, onConnect, isReady, lang }: {
                     <p className="text-slate-300 text-xs mt-1">{t('connect_wallet_task_desc')}</p>
                 </div>
             </div>
-            <button
-                onClick={onConnect}
-                disabled={!isReady}
-                className="w-full interactive-button bg-blue-600 hover:bg-blue-500 border-blue-500 rounded-lg font-bold py-3 text-lg disabled:bg-slate-700 disabled:border-slate-600"
-            >
-                {isReady ? t('connect_wallet') : t('loading')}
-            </button>
+             <div className="text-center p-2 bg-slate-900/50 rounded-lg">
+                <p className="text-sm text-blue-200">{t('use_main_button_to_connect')}</p>
+            </div>
         </div>
     );
 };
@@ -761,9 +756,8 @@ const AirdropScreen: React.FC<{
     lang: Language;
     startedTasks: Set<string>;
     uiIcons: UiIcons;
-    isTgReady: boolean;
     onConnectWallet: () => void;
-}> = ({ specialTasks, playerState, onClaim, onPurchase, lang, startedTasks, uiIcons, isTgReady, onConnectWallet }) => {
+}> = ({ specialTasks, playerState, onClaim, onPurchase, lang, startedTasks, uiIcons, onConnectWallet }) => {
     const t = useTranslation();
     return (
         <div className="flex flex-col h-full text-white pt-4 px-4">
@@ -774,7 +768,6 @@ const AirdropScreen: React.FC<{
                     <WalletTaskCard 
                         playerState={playerState}
                         onConnect={onConnectWallet}
-                        isReady={isTgReady}
                         lang={lang}
                     />
                     {specialTasks.map(task => (
@@ -1011,7 +1004,6 @@ const MainApp: React.FC = () => {
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
-  const [isTgReady, setIsTgReady] = useState(false);
 
   // Glitch event states
   const [isGlitchCodesModalOpen, setIsGlitchCodesModalOpen] = useState(false);
@@ -1033,6 +1025,33 @@ const MainApp: React.FC = () => {
   const [hasPlayed, setHasPlayed] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  const showNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => {
+        setNotification(prev => (prev?.message === message ? null : prev));
+    }, 3000);
+  }, []);
+
+  const handleConnectWallet = useCallback(() => {
+        if (window.Telegram?.WebApp?.requestWalletAddress) {
+            window.Telegram.WebApp.requestWalletAddress((address: string | false) => {
+                if (address) {
+                    gameApi.connectWallet(address).then(result => {
+                        if (result?.error) {
+                            showNotification(result.error, 'error');
+                        } else {
+                            showNotification(t('market_wallet_connected'), 'success');
+                        }
+                    });
+                } else {
+                    showNotification(t('wallet_connection_cancelled'), 'error');
+                }
+            });
+        } else {
+            showNotification(t('wallet_feature_unavailable'), 'error');
+        }
+    }, [gameApi, showNotification, t]);
+
   const handleGlitchEffectClose = () => {
     if (activeGlitchEvent?.isFinal) {
         setIsFinalScene(true);
@@ -1052,14 +1071,9 @@ const MainApp: React.FC = () => {
             setIsFullScreen(tg.isExpanded);
         };
         
-        const timer = setTimeout(() => {
-            setIsTgReady(true);
-        }, 500); // Give the TG script a moment to initialize fully
-
         tg.onEvent('viewportChanged', handleViewportChange);
         return () => {
             tg.offEvent('viewportChanged', handleViewportChange);
-            clearTimeout(timer);
         };
     }, []);
 
@@ -1067,6 +1081,29 @@ const MainApp: React.FC = () => {
     const timer = setTimeout(() => setIsAppReady(true), 1500);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    if (!tg || !tg.MainButton) return;
+
+    const shouldShowButton = activeScreen === 'airdrop' && !playerState?.tonWalletAddress;
+
+    if (shouldShowButton) {
+        tg.MainButton.setText(t('connect_wallet'));
+        tg.MainButton.onClick(handleConnectWallet);
+        tg.MainButton.show();
+    } else {
+        tg.MainButton.hide();
+        tg.MainButton.offClick(handleConnectWallet);
+    }
+    
+    return () => {
+        if (tg && tg.MainButton) {
+            tg.MainButton.hide();
+            tg.MainButton.offClick(handleConnectWallet);
+        }
+    };
+  }, [activeScreen, playerState?.tonWalletAddress, handleConnectWallet, t]);
   
   const toggleMute = useCallback(() => {
     setIsMuted(prev => {
@@ -1096,13 +1133,6 @@ const MainApp: React.FC = () => {
         return () => clearTimeout(timer);
     }
   }, [isGlitching, setIsGlitching]);
-
-  const showNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => {
-        setNotification(prev => (prev?.message === message ? null : prev));
-    }, 3000);
-  }, []);
 
   const handleBuyUpgrade = async (upgradeId: string) => {
     const result = await buyUpgrade(upgradeId);
@@ -1234,27 +1264,6 @@ const MainApp: React.FC = () => {
       await setSkin(skinId);
       showNotification(t('selected'), 'success');
   };
-  
-  const handleConnectWallet = useCallback(() => {
-        if (window.Telegram?.WebApp?.requestWalletAddress) {
-            window.Telegram.WebApp.requestWalletAddress((address: string | false) => {
-                if (address) {
-                    gameApi.connectWallet(address).then(result => {
-                        if (result?.error) {
-                            showNotification(result.error, 'error');
-                        } else {
-                            showNotification(t('market_wallet_connected'), 'success');
-                        }
-                    });
-                } else {
-                    showNotification(t('wallet_connection_cancelled'), 'error');
-                }
-            });
-        } else {
-            showNotification(t('wallet_feature_unavailable'), 'error');
-        }
-    }, [gameApi, showNotification, t]);
-
 
   const handleEnergyClick = () => showNotification(t('tooltip_energy'), 'success');
   const handleSuspicionClick = () => showNotification(t('tooltip_suspicion'), 'success');
@@ -1287,7 +1296,6 @@ const MainApp: React.FC = () => {
                     lang={user.language}
                     startedTasks={startedTasks}
                     uiIcons={config.uiIcons}
-                    isTgReady={isTgReady}
                     onConnectWallet={handleConnectWallet}
                 />;
       case 'profile':
