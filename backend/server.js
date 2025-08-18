@@ -66,7 +66,8 @@ import {
     connectTonWalletInDb,
     requestWithdrawalInDb,
     getWithdrawalRequestsForAdmin,
-    updateWithdrawalRequestStatusInDb
+    updateWithdrawalRequestStatusInDb,
+    getPlayerWithdrawalRequests
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
@@ -74,8 +75,15 @@ import {
     CHEAT_DETECTION_THRESHOLD_TPS, CHEAT_DETECTION_STRIKES_TO_FLAG
 } from './constants.js';
 
+// --- Corrected Path Configuration ---
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const executionDir = path.dirname(__filename); // e.g., /path/to/project/backend
+
+// Path to the 'public' directory inside 'backend' for the admin panel.
+const adminPublicPath = path.join(executionDir, 'public');
+
+// Path to the project root (where index.html is), which is one level up from the execution directory.
+const projectRoot = path.resolve(executionDir, '..');
 
 const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 if (!ai) {
@@ -125,99 +133,6 @@ app.use(session({
     cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } // 30 days
 }));
 
-// --- Social Stats Cache ---
-const socialStatsCache = {
-    youtubeSubscribers: 0,
-    youtubeViews: 0,
-    telegramSubscribers: 0,
-    lastUpdated: 0
-};
-
-// --- Helper Functions ---
-const fetchWithTimeout = (url, options = {}, timeout = 5000) => {
-    return Promise.race([
-        fetch(url, options),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Request timed out')), timeout))
-    ]);
-};
-
-const answerPreCheckoutQuery = async (queryId, ok, errorMessage = '') => {
-    const { BOT_TOKEN } = process.env;
-    const url = `https://api.telegram.org/bot${BOT_TOKEN}/answerPreCheckoutQuery`;
-    await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            pre_checkout_query_id: queryId,
-            ok,
-            ...(errorMessage && { error_message: errorMessage })
-        })
-    });
-};
-
-
-const fetchYoutubeStats = async (channelId, apiKey) => {
-    if (!channelId || !apiKey) return { subscribers: 0, views: 0 };
-    try {
-        const url = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${apiKey}`;
-        const response = await fetchWithTimeout(url);
-        if (!response.ok) {
-            log('error', `YouTube API error: ${response.statusText}`);
-            return { subscribers: 0, views: 0 };
-        }
-        const data = await response.json();
-        const stats = data?.items?.[0]?.statistics;
-        return {
-            subscribers: parseInt(stats?.subscriberCount || 0),
-            views: parseInt(stats?.viewCount || 0)
-        };
-    } catch (error) {
-        log('error', 'Failed to fetch YouTube stats', error);
-        return { subscribers: 0, views: 0 };
-    }
-};
-
-const fetchTelegramStats = async (channelUsername, botToken) => {
-    if (!channelUsername || !botToken) return 0;
-    // Ensure channel username starts with @
-    const formattedUsername = channelUsername.startsWith('@') ? channelUsername : `@${channelUsername.split('/').pop()}`;
-    try {
-        const url = `https://api.telegram.org/bot${botToken}/getChatMembersCount?chat_id=${formattedUsername}`;
-        const response = await fetchWithTimeout(url);
-        if (!response.ok) {
-            log('error', `Telegram API error: ${response.statusText}`);
-            return 0;
-        }
-        const data = await response.json();
-        return data.result || 0;
-    } catch (error) {
-        log('error', 'Failed to fetch Telegram stats', error);
-        return 0;
-    }
-};
-
-
-const updateSocialStatsCache = async () => {
-    log('info', 'Updating social stats cache...');
-    const config = await getGameConfig();
-    if (!config || !config.socials) {
-        log('warn', 'Socials not configured, skipping cache update.');
-        return;
-    }
-
-    const { youtubeChannelId, telegramChannelId } = config.socials;
-    const { YOUTUBE_API_KEY, BOT_TOKEN } = process.env;
-
-    const youtubeData = await fetchYoutubeStats(youtubeChannelId, YOUTUBE_API_KEY);
-    const telegramSubs = await fetchTelegramStats(telegramChannelId, BOT_TOKEN);
-
-    socialStatsCache.youtubeSubscribers = youtubeData.subscribers;
-    socialStatsCache.youtubeViews = youtubeData.views;
-    socialStatsCache.telegramSubscribers = telegramSubs;
-    socialStatsCache.lastUpdated = Date.now();
-    log('info', 'Social stats cache updated.', socialStatsCache);
-};
-
 // --- AUTH MIDDLEWARE ---
 const checkAdminAuth = (req, res, next) => {
     if (req.session.isAdmin) {
@@ -229,16 +144,28 @@ const checkAdminAuth = (req, res, next) => {
 
 // Protected routes for the admin panel must come BEFORE the static middleware
 app.get('/admin/', checkAdminAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+    res.sendFile(path.join(adminPublicPath, 'admin.html'));
 });
 app.get('/admin/admin.html', checkAdminAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+    res.sendFile(path.join(adminPublicPath, 'admin.html'));
 });
 
 // Serve admin static files (JS, CSS, login.html etc).
-// This comes AFTER the protected routes so they can be handled first.
-app.use('/admin', express.static(path.join(__dirname, 'public')));
+app.use('/admin', express.static(adminPublicPath));
 
+
+// --- Serve root static files (for frontend app, manifest, etc.) ---
+app.use(express.static(projectRoot));
+
+// Explicit route for tonconnect-manifest.json to fix 404 errors in some deployment environments.
+app.get('/tonconnect-manifest.json', (req, res) => {
+    res.sendFile(path.join(projectRoot, 'tonconnect-manifest.json'), (err) => {
+        if (err) {
+            log('error', 'Failed to send tonconnect-manifest.json. Make sure the file exists in the root directory.', err);
+            res.status(404).send('Not Found');
+        }
+    });
+});
 
 // --- API ROUTES ---
 
@@ -999,6 +926,21 @@ app.post('/api/wallet/request-withdrawal', async (req, res) => {
     }
 });
 
+app.get('/api/wallet/my-requests', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) {
+            return res.status(400).json({ error: "User ID is required." });
+        }
+        const requests = await getPlayerWithdrawalRequests(userId);
+        res.json({ requests });
+    } catch (e) {
+        log('error', 'Failed to fetch player withdrawal requests', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
 // --- Admin Panel API (protected by middleware) ---
 app.post('/admin/login', (req, res) => {
     const { password } = req.body;
@@ -1014,6 +956,77 @@ app.get('/admin/logout', (req, res) => {
     req.session.destroy(() => {
         res.redirect('/admin/login.html');
     });
+});
+
+let socialStatsCache = {
+    youtubeSubscribers: 0,
+    youtubeViews: 0,
+    telegramSubscribers: 0,
+    lastUpdated: 0,
+};
+
+const updateSocialStatsCache = async () => {
+    log('info', 'Updating social stats cache...');
+    try {
+        const config = await getGameConfig();
+        const { socials } = config;
+        const { YOUTUBE_API_KEY, BOT_TOKEN } = process.env;
+
+        // Fetch YouTube Stats
+        if (YOUTUBE_API_KEY && socials?.youtubeChannelId) {
+            try {
+                const ytResponse = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${socials.youtubeChannelId}&key=${YOUTUBE_API_KEY}`);
+                const ytData = await ytResponse.json();
+                if (ytData.items && ytData.items.length > 0) {
+                    socialStatsCache.youtubeSubscribers = parseInt(ytData.items[0].statistics.subscriberCount, 10);
+                    socialStatsCache.youtubeViews = parseInt(ytData.items[0].statistics.viewCount, 10);
+                } else {
+                     log('warn', 'Could not fetch YouTube stats. Check channel ID.');
+                }
+            } catch (ytError) {
+                log('error', 'Failed to fetch YouTube stats', ytError);
+            }
+        } else {
+             log('info', 'Skipping YouTube stats fetch (no API key or channel ID).');
+        }
+
+        // Fetch Telegram Stats
+        if (BOT_TOKEN && socials?.telegramChannelId) {
+            try {
+                // Ensure chat_id starts with '@' if it's a username
+                const chatId = socials.telegramChannelId.startsWith('@') ? socials.telegramChannelId : `@${socials.telegramChannelId}`;
+                const tgResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatMembersCount?chat_id=${chatId}`);
+                const tgData = await tgResponse.json();
+                if (tgData.ok) {
+                    socialStatsCache.telegramSubscribers = tgData.result;
+                } else {
+                    log('warn', `Could not fetch Telegram stats: ${tgData.description}`);
+                }
+            } catch (tgError) {
+                log('error', 'Failed to fetch Telegram stats', tgError);
+            }
+        } else {
+             log('info', 'Skipping Telegram stats fetch (no Bot Token or channel ID).');
+        }
+
+        socialStatsCache.lastUpdated = Date.now();
+        log('info', 'Social stats cache updated successfully.', socialStatsCache);
+    } catch (error) {
+        log('error', 'Failed to update social stats cache', error);
+    }
+};
+
+app.get('/admin/api/social-stats', checkAdminAuth, async (req, res) => {
+    try {
+        const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+        if (Date.now() - socialStatsCache.lastUpdated > CACHE_DURATION) {
+            await updateSocialStatsCache();
+        }
+        res.json(socialStatsCache);
+    } catch (error) {
+        log('error', 'Fetching social stats failed', error);
+        res.status(500).json({ error: 'Failed to fetch social stats' });
+    }
 });
 
 app.post('/admin/api/translate-text', checkAdminAuth, async (req, res) => {
@@ -1274,18 +1287,6 @@ app.post('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
     await saveDailyEvent(today, combo_ids, cipher_word, combo_reward, cipher_reward);
     res.sendStatus(200);
 });
-app.get('/admin/api/social-stats', checkAdminAuth, async (req, res) => {
-    try {
-        const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-        if (Date.now() - socialStatsCache.lastUpdated > CACHE_DURATION) {
-            await updateSocialStatsCache();
-        }
-        res.json(socialStatsCache);
-    } catch (error) {
-        log('error', 'Fetching social stats failed', error);
-        res.status(500).json({ error: 'Failed to fetch social stats' });
-    }
-});
 
 app.get('/admin/api/cell-analytics', checkAdminAuth, async (req, res) => {
     try {
@@ -1363,4 +1364,19 @@ initializeDb().then(() => {
 }).catch(error => {
     log('error', 'Failed to initialize database', error);
     process.exit(1);
+});
+
+// Add a catch-all for SPA routing, ensuring it doesn't interfere with API/admin routes
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api/') && !req.path.startsWith('/admin/')) {
+    res.sendFile(path.join(projectRoot, 'index.html'), (err) => {
+        if (err) {
+            log('error', `Failed to send index.html. Looked in ${projectRoot}. Error: ${err.message}`);
+            res.status(404).send('Application not found.');
+        }
+    });
+  } else {
+    // If it's an unhandled API/admin route, it should 404
+    res.status(404).send('Not Found');
+  }
 });

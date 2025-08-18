@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -919,7 +918,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const tableHeaders = cols.map(col => `<th>${t(col)}</th>`).join('') + `<th>${t('actions')}</th>`;
         const tableRows = items.map((item, index) => `
             <tr>
-                ${cols.map(col => `<td>${getLocalizedText(item[col])}</td>`).join('')}
+                ${cols.map(col => {
+                    const value = item[col];
+                    const colLower = col.toLowerCase();
+                    if ((colLower.includes('iconurl') || colLower.includes('imageurl')) && typeof value === 'string' && value) {
+                        return `<td><img src="${escapeHtml(value)}" alt="icon" style="width: 40px; height: 40px; object-fit: contain; background: #333; border-radius: 4px; padding: 2px;"></td>`;
+                    }
+                    return `<td>${getLocalizedText(value)}</td>`;
+                }).join('')}
                 <td>
                     <button class="btn btn-sm" data-action="edit-config" data-key="${key}" data-index="${index}">${t('edit')}</button>
                     <button class="btn btn-sm btn-danger ms-2" data-action="delete-config" data-key="${key}" data-index="${index}">${t('delete')}</button>
@@ -1011,14 +1017,15 @@ document.addEventListener('DOMContentLoaded', () => {
         modalsContainer.innerHTML = modalHtml;
     };
     
-    const renderConfigModal = (key, index) => {
+    const renderConfigModal = (key, index, presetItem = null) => {
         const isNew = index === null || index === undefined;
-        const item = isNew ? {} : (localConfig[key] || [])[index];
+        const item = presetItem || (isNew ? {} : (localConfig[key] || [])[index]);
         const { titleKey, cols } = configMeta[key];
         
         const formFields = cols.map(col => {
             const value = item[col];
             let inputHtml;
+            const colLower = col.toLowerCase();
             
             if (typeof value === 'object' && value !== null) { // For 'name', 'description', 'reward', 'trigger'
                  let subFieldsHtml = '';
@@ -1100,6 +1107,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     <option value="false" ${!value ? 'selected' : ''}>${t('no')}</option>
                     <option value="true" ${value ? 'selected' : ''}>${t('yes')}</option>
                 </select>`;
+            } else if (colLower.includes('url')) {
+                const currentValue = escapeHtml(value || '');
+                inputHtml = `
+                    <div class="input-group">
+                        <input type="text" class="form-control" data-col="${col}" value="${currentValue}">
+                        ${currentValue ? `<span class="input-group-text"><img src="${currentValue}" alt="preview" style="width: 20px; height: 20px; object-fit: contain;"></span>` : ''}
+                    </div>`;
             } else {
                 inputHtml = `<input type="${typeof value === 'number' ? 'number' : 'text'}" class="form-control" data-col="${col}" value="${escapeHtml(value)}">`;
             }
