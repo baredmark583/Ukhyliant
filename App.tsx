@@ -709,6 +709,7 @@ const WalletTaskCard = ({ playerState, onConnect, lang }: {
 }) => {
     const t = useTranslation();
     const isConnected = !!playerState.tonWalletAddress;
+    const isWalletAvailable = !!window.Telegram?.WebApp?.requestWalletAddress;
     const truncateAddress = (address: string) => `${address.slice(0, 6)}...${address.slice(-4)}`;
 
     if (isConnected) {
@@ -741,9 +742,17 @@ const WalletTaskCard = ({ playerState, onConnect, lang }: {
                     <p className="text-slate-300 text-xs mt-1">{t('connect_wallet_task_desc')}</p>
                 </div>
             </div>
-             <div className="text-center p-2 bg-slate-900/50 rounded-lg">
-                <p className="text-sm text-blue-200">{t('use_main_button_to_connect')}</p>
-            </div>
+            {isWalletAvailable ? (
+                <button onClick={onConnect} className="w-full interactive-button rounded-lg py-3 font-bold text-lg">
+                    {t('connect_wallet')}
+                </button>
+            ) : (
+                <div className="text-center p-2 bg-red-900/40 rounded-lg border border-red-500/50">
+                    <p className="text-sm text-red-200 font-semibold">
+                        {t('wallet_feature_unavailable_launch')}
+                    </p>
+                </div>
+            )}
         </div>
     );
 };
@@ -1081,29 +1090,6 @@ const MainApp: React.FC = () => {
     const timer = setTimeout(() => setIsAppReady(true), 1500);
     return () => clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    if (!tg || !tg.MainButton) return;
-
-    const shouldShowButton = activeScreen === 'airdrop' && !playerState?.tonWalletAddress;
-
-    if (shouldShowButton) {
-        tg.MainButton.setText(t('connect_wallet'));
-        tg.MainButton.onClick(handleConnectWallet);
-        tg.MainButton.show();
-    } else {
-        tg.MainButton.hide();
-        tg.MainButton.offClick(handleConnectWallet);
-    }
-    
-    return () => {
-        if (tg && tg.MainButton) {
-            tg.MainButton.hide();
-            tg.MainButton.offClick(handleConnectWallet);
-        }
-    };
-  }, [activeScreen, playerState?.tonWalletAddress, handleConnectWallet, t]);
   
   const toggleMute = useCallback(() => {
     setIsMuted(prev => {
@@ -1267,7 +1253,6 @@ const MainApp: React.FC = () => {
 
   const handleEnergyClick = () => showNotification(t('tooltip_energy'), 'success');
   const handleSuspicionClick = () => showNotification(t('tooltip_suspicion'), 'success');
-
   if (!isAppReady || !user || !playerState || !config) {
     return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
   }
