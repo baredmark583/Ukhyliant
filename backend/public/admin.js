@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -430,51 +431,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 data: {
                     labels: dashboardStats.registrations.map(r => new Date(r.date).toLocaleDateString(currentLang, {day: '2-digit', month: '2-digit'})),
                     datasets: [{
-                        label: t('new_users_last_7_days'),
+                        label: t('new_players_24h'),
                         data: dashboardStats.registrations.map(r => r.count),
-                        backgroundColor: 'rgba(22, 163, 74, 0.4)',
-                        borderColor: 'rgba(34, 197, 94, 1)',
-                        pointBackgroundColor: 'rgba(34, 197, 94, 1)',
-                        pointBorderColor: '#fff',
-                        pointHoverRadius: 6,
-                        pointRadius: 4,
-                        borderWidth: 2,
+                        borderColor: 'var(--accent-green)',
+                        backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                        tension: 0.3,
                         fill: true,
-                        tension: 0.4
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: {
-                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'var(--text-secondary)'} },
-                        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'var(--text-secondary)' } }
-                    },
                     plugins: { legend: { display: false } },
-                    interaction: { intersect: false, mode: 'index' },
+                    scales: {
+                        y: { ticks: { color: 'var(--text-secondary)' }, grid: { color: 'var(--border-color)' } },
+                        x: { ticks: { color: 'var(--text-secondary)' }, grid: { color: 'var(--border-color)' } }
+                    }
                 }
             });
         }
-        
+
         // Render map
-        if (playerLocations.length > 0) {
-            const mapData = playerLocations.reduce((acc, loc) => ({...acc, [loc.country]: loc.player_count }), {});
+        const mapEl = document.getElementById('map-world');
+        if (mapEl && window.jsVectorMap) {
+            const mapData = playerLocations.reduce((acc, loc) => {
+                acc[loc.country.toUpperCase()] = loc.player_count;
+                return acc;
+            }, {});
+            
             charts.map = new jsVectorMap({
                 selector: '#map-world',
                 map: 'world',
                 backgroundColor: 'transparent',
-                regionStyle: { initial: { fill: 'var(--border-color)' }, hover: { fill: 'var(--accent-green-glow)' } },
+                regionStyle: {
+                    initial: { fill: 'var(--bg-card-hover)' },
+                    hover: { fill: 'var(--accent-green-glow)' }
+                },
                 series: {
                     regions: [{
                         values: mapData,
-                        scale: ['#374151', '#4ade80'], // Gray to Green
+                        scale: ['#374151', '#4ade80'],
                         normalizeFunction: 'polynomial'
                     }]
                 },
-                 onRegionTooltipShow(event, tooltip, code) {
+                onRegionTooltipShow(event, tooltip, code) {
                     tooltip.text(
-                      `${tooltip.text()} (${formatNumber(mapData[code] || 0)})`,
-                      true,
+                        `${tooltip.text()} (${(mapData[code] || 0).toLocaleString()} players)`,
+                        true,
                     );
                 },
             });
@@ -484,16 +487,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderPlayers = async () => {
         showLoading();
-        allPlayers = await fetchData('players');
-        if (!allPlayers) { tabContainer.innerHTML = `<p>${t('no_data')}</p>`; return; }
-
-        const tableHtml = `
+        allPlayers = await fetchData('players') || [];
+        
+        const tableHeader = `
             <div class="card">
                 <div class="card-header">
-                    <input type="text" id="player-search" class="form-control w-auto" placeholder="${t('search_by_id_name')}">
+                    <div class="input-icon">
+                        <span class="input-icon-addon">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"></path><path d="M21 21l-6 -6"></path></svg>
+                        </span>
+                        <input type="text" id="player-search" class="form-control" placeholder="${t('search_by_id_name')}" aria-label="Search players">
+                    </div>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-vcenter card-table">
+                    <table class="table card-table table-vcenter text-nowrap datatable">
                         <thead>
                             <tr>
                                 <th>${t('id')}</th>
@@ -502,170 +509,173 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <th>${t('profit_ph')}</th>
                                 <th>${t('referrals')}</th>
                                 <th>${t('language')}</th>
-                                <th class="w-1">${t('actions')}</th>
+                                <th>TON Wallet</th>
+                                <th>${t('actions')}</th>
                             </tr>
                         </thead>
                         <tbody id="players-table-body">
-                            ${generatePlayerRows(allPlayers)}
                         </tbody>
                     </table>
                 </div>
             </div>
         `;
-        tabContainer.innerHTML = tableHtml;
+        tabContainer.innerHTML = tableHeader;
+        renderPlayersTable(allPlayers);
     };
-
-    const generatePlayerRows = (players) => {
-        if (!players || players.length === 0) return `<tr><td colspan="7" class="text-center">${t('no_data')}</td></tr>`;
-        return players.map(p => `
+    
+    const renderPlayersTable = (players) => {
+        const tableBody = document.getElementById('players-table-body');
+        if (!tableBody) return;
+        tableBody.innerHTML = players.map(player => `
             <tr>
-                <td>${p.id}</td>
-                <td>${escapeHtml(p.name)}</td>
-                <td>${formatNumber(p.balance)}</td>
-                <td>${formatNumber(p.profitPerHour)}</td>
-                <td>${p.referrals}</td>
-                <td><span class="flag flag-country-${p.language === 'en' ? 'us' : p.language}"></span> ${p.language}</td>
+                <td><span class="text-secondary">${player.id}</span></td>
+                <td>${escapeHtml(player.name)}</td>
+                <td>${formatNumber(player.balance)}</td>
+                <td>${formatNumber(player.profitPerHour)}</td>
+                <td>${player.referrals}</td>
+                <td><span class="flag flag-country-${player.language === 'en' ? 'us' : player.language}"></span> ${player.language}</td>
+                <td><code class="text-secondary">${player.tonWalletAddress ? `${player.tonWalletAddress.slice(0, 6)}...${player.tonWalletAddress.slice(-4)}` : 'N/A'}</code></td>
                 <td>
-                    <div class="btn-list flex-nowrap">
-                        <button class="btn btn-sm" data-action="player-details" data-id="${p.id}">${t('details')}</button>
-                        <button class="btn btn-sm btn-danger" data-action="delete-player" data-id="${p.id}">${t('delete')}</button>
-                    </div>
+                    <button class="btn btn-sm" data-action="player-details" data-id="${player.id}">${t('details')}</button>
                 </td>
             </tr>
         `).join('');
     };
-    
+
     const renderCheaters = async () => {
         showLoading('loading_cheaters');
         const cheaters = await fetchData('cheaters');
         
-        let cheaterRows = `<tr><td colspan="3" class="text-center">${t('no_cheaters_found')}</td></tr>`;
-        if (cheaters && cheaters.length > 0) {
-            cheaterRows = cheaters.map(c => `
-                <tr>
-                    <td>${c.id}</td>
-                    <td>${escapeHtml(c.name)}</td>
-                    <td>
-                        <button class="btn btn-sm" data-action="view-cheat-log" data-id="${c.id}">${t('cheat_log')}</button>
-                        <button class="btn btn-sm btn-warning" data-action="reset-progress" data-id="${c.id}">${t('reset_progress')}</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-        
         tabContainer.innerHTML = `
             <div class="card">
-                <div class="card-header"><h3 class="card-title">${t('cheater_list')}</h3></div>
-                <div class="card-body"><p class="text-secondary">${t('cheater_list_desc')}</p></div>
+                <div class="card-header">
+                    <h3 class="card-title" data-translate="cheater_list"></h3>
+                </div>
+                 <div class="card-body">
+                    <p class="text-secondary" data-translate="cheater_list_desc"></p>
+                </div>
                 <div class="table-responsive">
-                    <table class="table table-vcenter card-table">
+                    <table class="table card-table table-vcenter">
                         <thead>
-                            <tr><th>${t('id')}</th><th>${t('name')}</th><th>${t('actions')}</th></tr>
+                            <tr>
+                                <th>${t('id')}</th>
+                                <th>${t('name')}</th>
+                                <th>${t('actions')}</th>
+                            </tr>
                         </thead>
-                        <tbody>${cheaterRows}</tbody>
+                        <tbody>
+                            ${cheaters && cheaters.length > 0 ? cheaters.map(cheater => `
+                                <tr>
+                                    <td>${cheater.id}</td>
+                                    <td>${escapeHtml(cheater.name)}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-warning" data-action="player-details" data-id="${cheater.id}">${t('details')}</button>
+                                        <button class="btn btn-sm btn-danger ms-2" data-action="reset-progress" data-id="${cheater.id}">${t('reset_progress')}</button>
+                                    </td>
+                                </tr>
+                            `).join('') : `<tr><td colspan="3" class="text-center text-secondary">${t('no_cheaters_found')}</td></tr>`}
+                        </tbody>
                     </table>
                 </div>
-            </div>`;
+            </div>
+        `;
+        applyTranslationsToDOM();
     };
-
+    
     const renderDailyEvents = async () => {
-        showLoading();
         dailyEvent = await fetchData('daily-events') || { combo_ids: [], cipher_word: '', combo_reward: 5000000, cipher_reward: 1000000 };
-        if (!Array.isArray(dailyEvent.combo_ids)) dailyEvent.combo_ids = [];
-        
-        const allCards = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
-        const cardOptions = allCards.map(c => `<option value="${c.id}">${getLocalizedText(c.name)}</option>`).join('');
+        const allUpgrades = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
+
+        const cardOptions = allUpgrades.map(u => `<option value="${u.id}">${getLocalizedText(u.name)}</option>`).join('');
 
         const comboSelectors = [0, 1, 2].map(i => `
-            <select class="form-select combo-card-select">
-                <option value="">${t('select_card')}</option>
-                ${cardOptions}
-            </select>
-        `);
+            <div class="col-md-4">
+                <select class="form-select combo-card-select" data-index="${i}">
+                    <option value="" data-translate="select_card">${t('select_card')}</option>
+                    ${cardOptions}
+                </select>
+            </div>
+        `).join('');
 
         tabContainer.innerHTML = `
-            <div class="card">
-                <div class="card-header"><h3 class="card-title">${t('daily_events_setup')}</h3></div>
-                <div class="card-body">
-                    <fieldset class="form-fieldset">
-                        <legend>${t('daily_combo')}</legend>
-                        <p class="text-secondary">${t('select_3_cards_for_combo')}</p>
-                        <div class="row">
-                            <div class="col-md-4 mb-3">${comboSelectors[0]}</div>
-                            <div class="col-md-4 mb-3">${comboSelectors[1]}</div>
-                            <div class="col-md-4 mb-3">${comboSelectors[2]}</div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">${t('combo_reward')}</label>
-                            <input type="number" class="form-control" id="combo-reward-input" value="${dailyEvent.combo_reward}">
-                        </div>
-                    </fieldset>
-                    <fieldset class="form-fieldset mt-4">
-                        <legend>${t('daily_cipher')}</legend>
-                        <p class="text-secondary">${t('enter_cipher_word')}</p>
-                         <div class="mb-3">
-                            <label class="form-label">${t('cipher_word')}</label>
-                            <input type="text" class="form-control" id="cipher-word-input" placeholder="${t('example_btc')}" value="${escapeHtml(dailyEvent.cipher_word)}">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">${t('cipher_reward')}</label>
-                            <input type="number" class="form-control" id="cipher-reward-input" value="${dailyEvent.cipher_reward}">
-                        </div>
-                    </fieldset>
+            <div class="container-xl">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title" data-translate="daily_events_setup"></h3>
+                    </div>
+                    <div class="card-body">
+                        <fieldset class="form-fieldset">
+                             <legend data-translate="daily_combo"></legend>
+                             <p class="text-secondary mb-3" data-translate="select_3_cards_for_combo"></p>
+                             <div class="row g-2 mb-3">
+                                ${comboSelectors}
+                             </div>
+                             <div class="mb-3">
+                                 <label class="form-label" data-translate="combo_reward"></label>
+                                 <input type="number" class="form-control" id="combo-reward-input" value="${escapeHtml(dailyEvent.combo_reward)}">
+                             </div>
+                        </fieldset>
+                        <fieldset class="form-fieldset">
+                            <legend data-translate="daily_cipher"></legend>
+                            <p class="text-secondary mb-3" data-translate="enter_cipher_word"></p>
+                             <div class="mb-3">
+                                 <label class="form-label" data-translate="cipher_word"></label>
+                                 <input type="text" class="form-control" id="cipher-word-input" placeholder="${t('example_btc')}" value="${escapeHtml(dailyEvent.cipher_word)}">
+                             </div>
+                             <div class="mb-3">
+                                 <label class="form-label" data-translate="cipher_reward"></label>
+                                 <input type="number" class="form-control" id="cipher-reward-input" value="${escapeHtml(dailyEvent.cipher_reward)}">
+                             </div>
+                        </fieldset>
+                    </div>
                 </div>
             </div>
         `;
         
-        // Set selected options for combo cards
-        const selects = document.querySelectorAll('.combo-card-select');
-        selects.forEach((select, index) => {
-            if (dailyEvent.combo_ids[index]) {
+        document.querySelectorAll('.combo-card-select').forEach((select, index) => {
+            if (dailyEvent.combo_ids && dailyEvent.combo_ids[index]) {
                 select.value = dailyEvent.combo_ids[index];
             }
         });
+
+        applyTranslationsToDOM();
     };
 
     const renderWithdrawals = async () => {
         showLoading();
-        const requests = await fetchData('withdrawals');
-        if (!requests) { tabContainer.innerHTML = `<p>${t('no_data')}</p>`; return; }
-
+        const requests = await fetchData('withdrawals') || [];
+        
         const getStatusBadge = (status) => {
-            const statusKey = `status_${status}`;
             switch(status) {
-                case 'approved': return `<span class="badge bg-green-lt">${t(statusKey)}</span>`;
-                case 'rejected': return `<span class="badge bg-red-lt">${t(statusKey)}</span>`;
-                case 'pending':
-                default:
-                    return `<span class="badge bg-yellow-lt">${t(statusKey)}</span>`;
+                case 'approved': return `<span class="badge bg-success-lt">${t('status_approved')}</span>`;
+                case 'rejected': return `<span class="badge bg-danger-lt">${t('status_rejected')}</span>`;
+                default: return `<span class="badge bg-warning-lt">${t('status_pending')}</span>`;
             }
         };
 
         const rows = requests.map(req => `
             <tr>
-                <td>${req.id}</td>
-                <td>${escapeHtml(req.player_name)} (${req.player_id})</td>
+                <td><span class="text-secondary">${req.id}</span></td>
+                <td>${escapeHtml(req.player_name)} <span class="text-secondary">(${req.player_id})</span></td>
                 <td>${formatNumber(req.amount_credits)}</td>
-                <td><code class="text-secondary">${escapeHtml(req.ton_wallet)}</code></td>
+                <td><code>${escapeHtml(req.ton_wallet)}</code></td>
                 <td>${getStatusBadge(req.status)}</td>
                 <td>${new Date(req.created_at).toLocaleString()}</td>
                 <td>
                     ${req.status === 'pending' ? `
-                    <div class="btn-list flex-nowrap">
                         <button class="btn btn-sm btn-success" data-action="approve-withdrawal" data-id="${req.id}">${t('approve')}</button>
-                        <button class="btn btn-sm btn-danger" data-action="reject-withdrawal" data-id="${req.id}">${t('reject')}</button>
-                    </div>
-                    ` : t('processed')}
+                        <button class="btn btn-sm btn-danger ms-2" data-action="reject-withdrawal" data-id="${req.id}">${t('reject')}</button>
+                    ` : `<span class="text-secondary">${t('processed')}</span>`}
                 </td>
             </tr>
         `).join('');
 
-        const tableHtml = `
+        tabContainer.innerHTML = `
             <div class="card">
-                <div class="card-header"><h3 class="card-title">${t('withdrawal_requests')}</h3></div>
+                 <div class="card-header"><h3 class="card-title" data-translate="withdrawal_requests"></h3></div>
                 <div class="table-responsive">
-                    <table class="table table-vcenter card-table">
-                        <thead>
+                    <table class="table card-table table-vcenter">
+                         <thead>
                             <tr>
                                 <th>ID</th>
                                 <th>${t('player_name')}</th>
@@ -673,850 +683,874 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <th>${t('ton_wallet')}</th>
                                 <th>${t('status')}</th>
                                 <th>${t('request_date')}</th>
-                                <th class="w-1">${t('actions')}</th>
+                                <th>${t('actions')}</th>
                             </tr>
                         </thead>
-                        <tbody>${rows || `<tr><td colspan="7" class="text-center">${t('no_data')}</td></tr>`}</tbody>
+                        <tbody>${rows}</tbody>
                     </table>
                 </div>
             </div>
         `;
-        tabContainer.innerHTML = tableHtml;
-    };
-
-    const renderConfigTable = (key) => {
-        const { titleKey, cols } = configMeta[key];
-        const data = localConfig[key] || [];
-
-        const headers = cols.map(col => `<th>${t(col) || col}</th>`).join('') + `<th>${t('actions')}</th>`;
-        const rows = data.map((item, index) => {
-            const cells = cols.map(col => {
-                 let value = item[col];
-                 if (key === 'glitchEvents' && col === 'isFinal') {
-                    value = !!value; // Coerce undefined to false for proper rendering
-                }
-                return `<td>${renderTableCell(value)}</td>`
-            }).join('');
-            return `
-                <tr>
-                    ${cells}
-                    <td>
-                        <div class="btn-list flex-nowrap">
-                            <button class="btn btn-sm" data-action="edit-config" data-key="${key}" data-index="${index}">${t('edit')}</button>
-                            <button class="btn btn-sm btn-danger" data-action="delete-config" data-key="${key}" data-index="${index}">${t('delete')}</button>
-                        </div>
-                    </td>
-                </tr>`;
-        }).join('');
-
-        tabContainer.innerHTML = `
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">${t(titleKey)}</h3>
-                    <div class="card-actions">
-                        <button class="btn btn-primary" data-action="add-config" data-key="${key}">${t('add_new')}</button>
-                    </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table card-table table-vcenter text-nowrap datatable">
-                        <thead><tr>${headers}</tr></thead>
-                        <tbody>${rows || `<tr><td colspan="${cols.length + 1}" class="text-center">${t('no_data')}</td></tr>`}</tbody>
-                    </table>
-                </div>
-            </div>`;
-    };
-
-    const renderTableCell = (data) => {
-        if (typeof data === 'boolean') {
-            return data ? `<span class="badge bg-green-lt">${t('yes')}</span>` : `<span class="badge bg-red-lt">${t('no')}</span>`;
-        }
-        if (typeof data === 'string' && (data.startsWith('http') || data.startsWith('/assets'))) {
-            return `<img src="${escapeHtml(data)}" alt="icon" style="width: 32px; height: 32px; object-fit: contain; background: #fff; padding: 2px;">`;
-        }
-        if (typeof data === 'object' && data !== null) {
-            if (data.hasOwnProperty('en')) { // Localized string
-                return getLocalizedText(data);
-            }
-            if (data.hasOwnProperty('type') && data.hasOwnProperty('amount')) { // Reward object
-                const typeKey = `reward_type_${data.type === 'profit' ? 'profit' : 'coins'}`;
-                return `${formatNumber(data.amount)} ${t(typeKey)}`;
-            }
-            if (data.hasOwnProperty('type') && data.hasOwnProperty('params')) { // Trigger object
-                const typeText = t(`trigger_type_${data.type}`) || data.type;
-                const paramsText = Object.entries(data.params).map(([key, value]) => {
-                    const keyText = t(`param_${key}`) || key;
-                    return `<div><small>${keyText}: <strong>${escapeHtml(value)}</strong></small></div>`;
-                }).join('');
-                return `<strong>${typeText}</strong>${paramsText}`;
-            }
-            // Fallback for other objects
-            return `<pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
-        }
-        return escapeHtml(data);
-    };
-
-    const renderIconInput = (groupKey, key, value) => {
-        const dataAttrs = groupKey ? `data-group="${groupKey}" data-key="${key}"` : `data-key="${key}"`;
-        const translationKey = `icon_${groupKey ? `${groupKey}_${key}` : key}`;
-        return `
-            <div class="mb-3">
-                <label class="form-label">${t(translationKey) || key}</label>
-                <div class="input-group">
-                    <input type="text" class="form-control" ${dataAttrs} value="${escapeHtml(value)}">
-                    <span class="input-group-text"><img src="${escapeHtml(value)}" alt="" style="width: 24px; height: 24px; background: #fff;"></span>
-                </div>
-            </div>`;
-    };
-    
-    const renderUiIconsConfig = () => {
-        const iconsData = localConfig.uiIcons || {};
-        const iconGroups = {
-            nav: { titleKey: 'icon_group_nav', keys: ['exchange', 'mine', 'missions', 'airdrop', 'profile'] },
-            profile_tabs: { titleKey: 'icon_group_profile_tabs', keys: ['contacts', 'boosts', 'skins', 'market', 'cell'] },
-            gameplay: { titleKey: 'icon_group_gameplay', keys: ['energy', 'coin', 'star', 'suspicion', 'soundOn', 'soundOff', 'secretCodeEntry', 'languageSwitcher'] },
-            market: { titleKey: 'icon_group_market', keys: ['marketCoinBox', 'marketStarBox'] },
-        };
-
-        let formHtml = '';
-        for (const [groupKey, group] of Object.entries(iconGroups)) {
-            formHtml += `<fieldset class="form-fieldset"><legend>${t(group.titleKey)}</legend>`;
-            if (groupKey === 'nav' || groupKey === 'profile_tabs') {
-                 formHtml += group.keys.map(key => renderIconInput(groupKey, key, iconsData[groupKey]?.[key] || '')).join('');
-            } else {
-                 formHtml += group.keys.map(key => renderIconInput(null, key, iconsData[key] || '')).join('');
-            }
-            formHtml += `</fieldset>`;
-        }
-        
-        tabContainer.innerHTML = `<div class="card"><div class="card-body" id="ui-icons-form">${formHtml}</div></div>`;
-    };
-    
-     const renderGenericSettingsForm = (key, fields, titleKey) => {
-        const settingsData = localConfig || {};
-        const formHtml = fields.map(field => `
-            <div class="mb-3">
-                <label class="form-label">${t(field)}</label>
-                <input type="number" class="form-control" data-key="${field}" value="${escapeHtml(settingsData[field] || 0)}">
-                <small class="form-hint">${t(`${field}_desc`)}</small>
-            </div>
-        `).join('');
-        
-        tabContainer.innerHTML = `
-            <div class="card">
-                <div class="card-header"><h3 class="card-title">${t(titleKey)}</h3></div>
-                <div class="card-body">
-                    <fieldset class="form-fieldset">${formHtml}</fieldset>
-                </div>
-            </div>`;
-    };
-    
-    const renderCellConfiguration = () => {
-        const settingsData = localConfig || {};
-        const economyFields = ['informantProfitBonus', 'cellBankProfitShare'].map(field => {
-            const labelKey = field.replace('informantProfitBonus', 'informant_bonus_percent').replace('cellBankProfitShare', 'bank_tax_percent');
-            const value = (parseFloat(settingsData[field] || 0) * 100).toFixed(2);
-            return `
-                <div class="mb-3">
-                    <label class="form-label">${t(labelKey)}</label>
-                    <input type="number" step="0.01" class="form-control" data-config-key="${field}" value="${value}">
-                </div>`;
-        }).join('');
-
-        const rewardsFields = ['firstPlace', 'secondPlace', 'thirdPlace', 'participant'].map(field => `
-             <div class="mb-3">
-                <label class="form-label">${t(`${field.replace('Place','_place')}_reward`)}</label>
-                <input type="number" class="form-control" data-config-key="battleRewards" data-sub-key="${field}" value="${escapeHtml(settingsData.battleRewards?.[field] || 0)}">
-            </div>
-        `).join('');
-        
-        const schedule = settingsData.battleSchedule || {};
-        const dayOptions = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
-            .map((day, i) => `<option value="${i}" ${schedule.dayOfWeek === i ? 'selected' : ''}>${t(`day_${day}`)}</option>`).join('');
-            
-        const freqOptions = ['weekly', 'biweekly', 'monthly']
-            .map(f => `<option value="${f}" ${schedule.frequency === f ? 'selected' : ''}>${t(`freq_${f}`)}</option>`).join('');
-
-
-        tabContainer.innerHTML = `
-        <div class="row row-cards">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header"><h3 class="card-title">${t('cell_economy')}</h3></div>
-                    <div class="card-body">${economyFields}</div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header"><h3 class="card-title">${t('battle_rewards')}</h3></div>
-                    <div class="card-body">${rewardsFields}</div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header"><h3 class="card-title">${t('battle_schedule')}</h3></div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">${t('schedule_frequency')}</label>
-                            <select class="form-select" data-config-key="battleSchedule" data-sub-key="frequency">${freqOptions}</select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">${t('schedule_day')}</label>
-                            <select class="form-select" data-config-key="battleSchedule" data-sub-key="dayOfWeek">${dayOptions}</select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">${t('schedule_time_utc')}</label>
-                            <input type="number" class="form-control" data-config-key="battleSchedule" data-sub-key="startHourUTC" value="${schedule.startHourUTC || 12}">
-                        </div>
-                         <div class="mb-3">
-                            <label class="form-label">${t('schedule_duration_hours')}</label>
-                            <input type="number" class="form-control" data-config-key="battleSchedule" data-sub-key="durationHours" value="${schedule.durationHours || 24}">
-                        </div>
-                    </div>
-                </div>
-            </div>
-             <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header"><h3 class="card-title">${t('battle_management')}</h3></div>
-                    <div class="card-body space-y-3">
-                        <div id="battle-status-container"></div>
-                        <button class="btn btn-primary w-100" data-action="force-start-battle">${t('force_start_battle')}</button>
-                        <button class="btn btn-danger w-100" data-action="force-end-battle">${t('force_end_battle')}</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        `;
-        renderBattleStatus();
-    };
-    
-    const renderBattleStatus = async () => {
-        const container = document.getElementById('battle-status-container');
-        if (!container) return;
-        const res = await fetchData('battle/status');
-        const status = res?.status;
-        if (status) {
-             container.innerHTML = `<p>${t('battle_status')}: <span class="badge bg-${status.isActive ? 'green' : 'red'}-lt">${status.isActive ? t('battle_status_active') : t('battle_status_inactive')}</span></p>`;
-        }
+        applyTranslationsToDOM();
     };
     
     const renderCellAnalytics = async () => {
         showLoading();
-        const data = await fetchData('cell-analytics');
-        if (!data) { tabContainer.innerHTML = 'Error loading data'; return; }
+        const analytics = await fetchData('cell-analytics');
+        if (!analytics) return;
+
+        const kpiHtml = `
+            <div class="col"><div class="card card-sm"><div class="card-body"><div class="subheader">${t('kpi_totalCells')}</div><div class="h1 mb-3">${formatNumber(analytics.kpi.totalCells)}</div></div></div></div>
+            <div class="col"><div class="card card-sm"><div class="card-body"><div class="subheader">${t('kpi_battleParticipants')}</div><div class="h1 mb-3">${formatNumber(analytics.kpi.battleParticipants)}</div></div></div></div>
+            <div class="col"><div class="card card-sm"><div class="card-body"><div class="subheader">${t('kpi_totalBank')}</div><div class="h1 mb-3">${formatNumber(analytics.kpi.totalBank)}</div></div></div></div>
+            <div class="col"><div class="card card-sm"><div class="card-body"><div class="subheader">${t('kpi_ticketsSpent')}</div><div class="h1 mb-3">${formatNumber(analytics.kpi.ticketsSpent)}</div></div></div></div>
+        `;
+
+        const leaderboardHtml = analytics.leaderboard.map(cell => `
+            <tr>
+                <td>${cell.id}</td>
+                <td>${escapeHtml(cell.name)}</td>
+                <td>${formatNumber(cell.members)}</td>
+                <td>${formatNumber(cell.balance)}</td>
+                <td>${formatNumber(cell.total_profit)}</td>
+            </tr>
+        `).join('') || `<tr><td colspan="5" class="text-center">${t('no_data')}</td></tr>`;
         
-        const kpiHtml = Object.entries(data.kpi).map(([key, value]) => `
-             <div class="col-md-3 col-6">
-                <div class="card card-sm">
-                    <div class="card-body text-center">
-                        <div class="h1 mb-1">${formatNumber(value)}</div>
-                        <div class="text-secondary">${t(`kpi_${key}`)}</div>
+        const historyHtml = analytics.battleHistory.map(battle => {
+            const winner = battle.winner_details?.firstPlace;
+            return `
+                 <tr>
+                    <td>${battle.id}</td>
+                    <td>${new Date(battle.end_time).toLocaleString()}</td>
+                    <td>${winner ? `${escapeHtml(winner.cell_id)} (${formatNumber(winner.score)} pts)` : 'N/A'}</td>
+                </tr>
+            `
+        }).join('') || `<tr><td colspan="3" class="text-center">${t('no_data')}</td></tr>`;
+
+        tabContainer.innerHTML = `
+            <div class="container-xl">
+                 <div class="row row-deck row-cards">${kpiHtml}</div>
+                 <div class="row mt-4">
+                     <div class="col-lg-7">
+                         <div class="card">
+                             <div class="card-header"><h3 class="card-title">${t('cell_leaderboard')}</h3></div>
+                             <div class="table-responsive">
+                                 <table class="table card-table table-vcenter">
+                                     <thead><tr><th>ID</th><th>${t('cell_name')}</th><th>${t('members')}</th><th>${t('cell_bank')}</th><th>${t('total_profit')}</th></tr></thead>
+                                     <tbody>${leaderboardHtml}</tbody>
+                                 </table>
+                             </div>
+                         </div>
+                     </div>
+                      <div class="col-lg-5">
+                         <div class="card">
+                             <div class="card-header"><h3 class="card-title">${t('battle_history')}</h3></div>
+                             <div class="table-responsive">
+                                 <table class="table card-table table-vcenter">
+                                     <thead><tr><th>ID</th><th>${t('battle_date')}</th><th>${t('winner')}</th></tr></thead>
+                                     <tbody>${historyHtml}</tbody>
+                                 </table>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+            </div>
+        `;
+        applyTranslationsToDOM();
+    };
+
+    const renderCellConfiguration = async () => {
+        showLoading();
+        const battleStatus = await fetchData('battle/status');
+        const config = localConfig;
+        
+        const schedule = config.battleSchedule || {};
+        const rewards = config.battleRewards || {};
+        
+        const freqOptions = ['weekly', 'biweekly', 'monthly'].map(f => `<option value="${f}" ${schedule.frequency === f ? 'selected' : ''}>${t(`freq_${f}`)}</option>`).join('');
+        const dayOptions = [
+            {val: 0, key: 'day_sun'}, {val: 1, key: 'day_mon'}, {val: 2, key: 'day_tue'}, {val: 3, key: 'day_wed'},
+            {val: 4, key: 'day_thu'}, {val: 5, key: 'day_fri'}, {val: 6, key: 'day_sat'}
+        ].map(d => `<option value="${d.val}" ${schedule.dayOfWeek == d.val ? 'selected' : ''}>${t(d.key)}</option>`).join('');
+
+        tabContainer.innerHTML = `
+            <div class="container-xl">
+                <div class="row">
+                    <div class="col-md-6">
+                        <fieldset class="form-fieldset">
+                             <legend>${t('battle_management')}</legend>
+                             <p class="text-secondary">${t('battle_status')}: <strong class="${battleStatus?.status?.isActive ? 'text-success' : 'text-warning'}">${battleStatus?.status?.isActive ? t('battle_status_active') : t('battle_status_inactive')}</strong></p>
+                             <div class="d-flex gap-2">
+                                <button class="btn btn-success flex-fill" data-action="force-start-battle">${t('force_start_battle')}</button>
+                                <button class="btn btn-danger flex-fill" data-action="force-end-battle">${t('force_end_battle')}</button>
+                             </div>
+                        </fieldset>
+                    </div>
+                    <div class="col-md-6">
+                         <fieldset class="form-fieldset">
+                             <legend>${t('cell_economy')}</legend>
+                             <div class="mb-3"><label class="form-label">${t('informant_bonus_percent')}</label><input type="number" class="form-control" data-config-key="informantProfitBonus" value="${config.informantProfitBonus || 0}"></div>
+                             <div><label class="form-label">${t('bank_tax_percent')}</label><input type="number" class="form-control" data-config-key="cellBankProfitShare" value="${config.cellBankProfitShare || 0}"></div>
+                        </fieldset>
+                    </div>
+                </div>
+                 <div class="row mt-4">
+                     <div class="col-12">
+                         <fieldset class="form-fieldset">
+                             <legend>${t('battle_schedule')}</legend>
+                             <div class="row">
+                                <div class="col-md-3 mb-3"><label class="form-label">${t('schedule_frequency')}</label><select class="form-select" data-schedule-key="frequency">${freqOptions}</select></div>
+                                <div class="col-md-3 mb-3"><label class="form-label">${t('schedule_day')}</label><select class="form-select" data-schedule-key="dayOfWeek">${dayOptions}</select></div>
+                                <div class="col-md-3 mb-3"><label class="form-label">${t('schedule_time_utc')}</label><input type="number" class="form-control" data-schedule-key="startHourUTC" value="${schedule.startHourUTC || 18}" min="0" max="23"></div>
+                                <div class="col-md-3 mb-3"><label class="form-label">${t('schedule_duration_hours')}</label><input type="number" class="form-control" data-schedule-key="durationHours" value="${schedule.durationHours || 24}"></div>
+                             </div>
+                         </fieldset>
+                     </div>
+                 </div>
+                  <div class="row mt-4">
+                     <div class="col-12">
+                         <fieldset class="form-fieldset">
+                             <legend>${t('battle_rewards')}</legend>
+                             <div class="row">
+                                <div class="col-md-3 mb-3"><label class="form-label">${t('first_place_reward')}</label><input type="number" class="form-control" data-reward-key="firstPlace" value="${rewards.firstPlace || 0}"></div>
+                                <div class="col-md-3 mb-3"><label class="form-label">${t('second_place_reward')}</label><input type="number" class="form-control" data-reward-key="secondPlace" value="${rewards.secondPlace || 0}"></div>
+                                <div class="col-md-3 mb-3"><label class="form-label">${t('third_place_reward')}</label><input type="number" class="form-control" data-reward-key="thirdPlace" value="${rewards.thirdPlace || 0}"></div>
+                                <div class="col-md-3 mb-3"><label class="form-label">${t('participant_reward')}</label><input type="number" class="form-control" data-reward-key="participant" value="${rewards.participant || 0}"></div>
+                             </div>
+                         </fieldset>
+                     </div>
+                 </div>
+            </div>
+        `;
+        applyTranslationsToDOM();
+    };
+
+    const renderGenericSettingsForm = (key, fields, titleKey) => {
+        const formFields = fields.map(field => `
+            <div class="mb-3">
+                <label for="${field}" class="form-label">${t(field)}</label>
+                <input type="number" class="form-control" id="${field}" data-config-key="${field}" value="${escapeHtml(localConfig[field] || 0)}">
+                <small class="form-hint">${t(`${field}_desc`)}</small>
+            </div>
+        `).join('');
+
+        tabContainer.innerHTML = `
+            <div class="container-xl">
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">${t(titleKey)}</h3></div>
+                    <div class="card-body">
+                        ${formFields}
                     </div>
                 </div>
             </div>
-        `).join('');
+        `;
+        applyTranslationsToDOM();
+    };
+
+    const renderUiIconsConfig = () => {
+        const renderGroup = (groupKey, icons) => {
+            const fields = Object.entries(icons).map(([key, value]) => `
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">${t(`icon_${groupKey}_${key}`)}</label>
+                    <input type="text" class="form-control" data-icon-group="${groupKey}" data-icon-key="${key}" value="${escapeHtml(value)}">
+                </div>
+            `).join('');
+            return `
+                <fieldset class="form-fieldset">
+                    <legend>${t(`icon_group_${groupKey}`)}</legend>
+                    <div class="row">${fields}</div>
+                </fieldset>
+            `;
+        };
         
-        const leaderboardRows = data.leaderboard.map(c => `
+        const { nav, profile_tabs, ...rest } = localConfig.uiIcons;
+        const generalIcons = {
+            ...rest,
+            ...Object.fromEntries(Object.entries(profile_tabs).map(([key, value]) => [`profile_tabs_${key}`, value]))
+        };
+
+        const navHtml = renderGroup('nav', nav);
+
+        // Re-structure other icons for better grouping
+        const gameplayGroup = {
+            energy: generalIcons.energy,
+            coin: generalIcons.coin,
+            star: generalIcons.star,
+            suspicion: generalIcons.suspicion,
+        };
+        const marketGroup = {
+            marketCoinBox: generalIcons.marketCoinBox,
+            marketStarBox: generalIcons.marketStarBox,
+        };
+        const generalGroup = {
+            soundOn: generalIcons.soundOn,
+            soundOff: generalIcons.soundOff,
+            secretCodeEntry: generalIcons.secretCodeEntry,
+            languageSwitcher: generalIcons.languageSwitcher,
+        };
+        const profileTabsGroup = profile_tabs;
+
+        const gameplayHtml = renderGroup('gameplay', gameplayGroup);
+        const marketHtml = renderGroup('market', marketGroup);
+        const profileTabsHtml = renderGroup('profile_tabs', profileTabsGroup);
+        const generalHtml = renderGroup('general', generalGroup);
+
+        tabContainer.innerHTML = `
+            <div class="container-xl">
+                 <div class="card">
+                    <div class="card-header"><h3 class="card-title">${t('nav_ui_icons')}</h3></div>
+                    <div class="card-body">
+                        ${navHtml}
+                        ${profileTabsHtml}
+                        ${gameplayHtml}
+                        ${marketHtml}
+                        ${generalHtml}
+                    </div>
+                 </div>
+            </div>
+        `;
+        applyTranslationsToDOM();
+    };
+    
+    const renderConfigTable = (key) => {
+        const { titleKey, cols } = configMeta[key];
+        const items = localConfig[key] || [];
+
+        const tableHeaders = cols.map(col => `<th>${t(col)}</th>`).join('') + `<th>${t('actions')}</th>`;
+        const tableRows = items.map((item, index) => `
             <tr>
-                <td>${c.id}</td>
-                <td>${escapeHtml(c.name)}</td>
-                <td>${c.members}</td>
-                <td>${formatNumber(c.total_profit)}</td>
-                <td>${formatNumber(c.balance)}</td>
+                ${cols.map(col => `<td>${getLocalizedText(item[col])}</td>`).join('')}
+                <td>
+                    <button class="btn btn-sm" data-action="edit-config" data-key="${key}" data-index="${index}">${t('edit')}</button>
+                    <button class="btn btn-sm btn-danger ms-2" data-action="delete-config" data-key="${key}" data-index="${index}">${t('delete')}</button>
+                </td>
             </tr>
         `).join('');
 
-        const battleHistoryRows = (data.battleHistory || []).map(b => {
-             const winnerCell = (data.leaderboard || []).find(cell => cell.id === b.winner_details?.firstPlace?.cell_id);
-             const winnerName = winnerCell ? winnerCell.name : (b.winner_details?.firstPlace?.cell_id || 'N/A');
-             const prizePool = (b.winner_details && localConfig.battleRewards) 
-                 ? (localConfig.battleRewards.firstPlace + localConfig.battleRewards.secondPlace + localConfig.battleRewards.thirdPlace + localConfig.battleRewards.participant)
-                 : 'N/A';
-
-            return `
-             <tr>
-                <td>${new Date(b.end_time).toLocaleString()}</td>
-                <td>${escapeHtml(winnerName)}</td>
-                <td>${formatNumber(b.winner_details?.firstPlace?.score || 0)}</td>
-                <td>${formatNumber(prizePool)}</td>
-            </tr>`;
-        }).join('');
-
-
         tabContainer.innerHTML = `
-            <div class="row row-cards">${kpiHtml}</div>
-            <div class="row row-cards mt-4">
-                <div class="col-lg-6">
-                     <div class="card">
-                        <div class="card-header"><h3 class="card-title">${t('cell_leaderboard')}</h3></div>
-                        <div class="table-responsive" style="max-height: 400px;"><table class="table card-table table-vcenter">
-                            <thead><tr><th>ID</th><th>${t('cell_name')}</th><th>${t('members')}</th><th>${t('total_profit')}</th><th>${t('cell_bank')}</th></tr></thead>
-                            <tbody>${leaderboardRows}</tbody>
-                        </table></div>
+            <div class="container-xl">
+                <div class="card">
+                    <div class="card-header">
+                         <h3 class="card-title">${t(titleKey)}</h3>
+                         <div class="ms-auto">
+                            <button class="btn btn-primary" data-action="add-config" data-key="${key}">${t('add_new')}</button>
+                         </div>
                     </div>
-                </div>
-                <div class="col-lg-6">
-                     <div class="card">
-                        <div class="card-header"><h3 class="card-title">${t('battle_history')}</h3></div>
-                        <div class="table-responsive" style="max-height: 400px;"><table class="table card-table table-vcenter">
-                            <thead><tr><th>${t('battle_date')}</th><th>${t('winner')}</th><th>${t('score')}</th><th>${t('prize_pool')}</th></tr></thead>
-                            <tbody>${battleHistoryRows || `<tr><td colspan="4" class="text-center">${t('no_data')}</td></tr>`}</tbody>
-                        </table></div>
+                    <div class="table-responsive">
+                        <table class="table card-table table-vcenter">
+                            <thead><tr>${tableHeaders}</tr></thead>
+                            <tbody>${tableRows}</tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         `;
+        applyTranslationsToDOM();
     };
     
-    // --- MODAL RENDERING ---
-    const renderModal = (id, title, body, footer) => {
+    // --- MODALS ---
+    const renderPlayerDetailsModal = async (userId) => {
+        const details = await fetchData(`player/${userId}/details`);
+        if (!details) return;
+
+        const allUpgradesMap = new Map([...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])].map(u => [u.id, u]));
+        const upgradesHtml = Object.entries(details.upgrades || {}).map(([id, level]) => {
+            const upgradeInfo = allUpgradesMap.get(id);
+            return `<li><strong>${upgradeInfo ? getLocalizedText(upgradeInfo.name) : id}:</strong> ${t('level')} ${level}</li>`;
+        }).join('') || `<li>${t('no_data')}</li>`;
+        
+        const cheatLogHtml = (details.cheatLog || []).map(log => `
+            <li class="text-warning small">
+                ${new Date(log.timestamp).toLocaleString()}: ${log.tps.toFixed(2)} TPS (${log.taps} taps / ${log.timeDiff.toFixed(2)}s)
+            </li>
+        `).join('') || `<li>${t('no_data')}</li>`;
+
         const modalHtml = `
-            <div class="modal modal-blur fade" id="${id}" tabindex="-1" role="dialog" aria-hidden="true">
-              <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-                <div class="modal-content">
-                  <div class="modal-header">
-                    <h5 class="modal-title">${title}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                  </div>
-                  <div class="modal-body">${body}</div>
-                  <div class="modal-footer">${footer}</div>
+            <div class="modal fade show" style="display: block;" tabindex="-1" id="player-details-modal">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${t('player_details')}: ${escapeHtml(details.name)}</h5>
+                            <button type="button" class="btn-close" data-action="close-modal"></button>
+                        </div>
+                        <div class="modal-body">
+                           <div class="row">
+                               <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">${t('current_balance')}</label>
+                                        <input type="text" class="form-control" value="${formatNumber(details.balance)}" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">${t('suspicion')}</label>
+                                        <input type="text" class="form-control" value="${formatNumber(details.suspicion || 0)}" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">${t('bonus_amount')}</label>
+                                        <input type="number" id="bonus-amount-input" class="form-control" placeholder="e.g., 10000 or -5000">
+                                    </div>
+                                    <button class="btn btn-primary w-100" data-action="add-player-bonus" data-id="${details.id}">${t('add_bonus')}</button>
+                                    <hr class="my-4">
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-warning w-100" data-action="reset-player-daily" data-id="${details.id}">${t('reset_daily')}</button>
+                                        <button class="btn btn-danger w-100" data-action="delete-player" data-id="${details.id}">${t('delete')}</button>
+                                    </div>
+                               </div>
+                               <div class="col-md-6">
+                                    <h6>${t('player_upgrades')}</h6>
+                                    <ul class="list-unstyled overflow-auto" style="max-height: 150px;">${upgradesHtml}</ul>
+                                    <h6 class="mt-3">${t('cheat_log')}</h6>
+                                    <ul class="list-unstyled overflow-auto" style="max-height: 150px;">${cheatLogHtml}</ul>
+                               </div>
+                           </div>
+                        </div>
+                    </div>
                 </div>
-              </div>
-            </div>`;
+            </div>
+            <div class="modal-backdrop fade show"></div>
+        `;
         modalsContainer.innerHTML = modalHtml;
-        const modal = new bootstrap.Modal(document.getElementById(id));
-        modal.show();
-        document.getElementById(id).addEventListener('hidden.bs.modal', () => {
-            modalsContainer.innerHTML = '';
-        });
-        return modal;
     };
     
-    const renderPlayerDetailsModal = async (playerId) => {
-        const player = await fetchData(`player/${playerId}/details`);
-        if (!player) { alert('Could not load player details'); return; }
+    const renderConfigModal = (key, index) => {
+        const isNew = index === null || index === undefined;
+        const item = isNew ? {} : (localConfig[key] || [])[index];
+        const { titleKey, cols } = configMeta[key];
         
-        const upgradesHtml = Object.entries(player.upgrades || {}).map(([id, level]) => `
-            <li>${id}: <strong>${t('level')} ${level}</strong></li>
-        `).join('');
-
-        const body = `
-            <p><strong>ID:</strong> ${player.id}</p>
-            <p><strong>${t('name')}:</strong> ${escapeHtml(player.name)}</p>
-            <p><strong>${t('current_balance')}:</strong> ${formatNumber(player.balance)}</p>
-            <p><strong>${t('suspicion')}:</strong> ${player.suspicion || 0}</p>
-            <hr>
-            <h4>${t('player_upgrades')}</h4>
-            <ul class="list-unstyled">${upgradesHtml || `<li>${t('no_data')}</li>`}</ul>
-            <hr>
-            <h4>${t('add_bonus')}</h4>
-            <div class="input-group">
-                <input type="number" id="bonus-amount-input" class="form-control" placeholder="${t('bonus_amount')}">
-                <button class="btn btn-primary" id="add-bonus-btn">${t('add_bonus')}</button>
-            </div>
-            <hr>
-            <button class="btn btn-warning" id="reset-daily-btn">${t('reset_daily')}</button>
-        `;
-        const footer = `<button type="button" class="btn" data-bs-dismiss="modal">${t('close')}</button>`;
-        const modalInstance = renderModal('player-details-modal', `${t('player_details')}: ${escapeHtml(player.name)}`, body, footer);
-
-        document.getElementById('add-bonus-btn').onclick = async () => {
-            const amount = document.getElementById('bonus-amount-input').value;
-            if (amount) {
-                const res = await postData(`player/${playerId}/update-balance`, { amount: Number(amount) });
-                if (res) { alert(t('balance_updated')); modalInstance.hide(); renderPlayers(); } 
-                else { alert(t('error_updating_balance')); }
-            }
-        };
-        document.getElementById('reset-daily-btn').onclick = async () => {
-            if (confirm(t('confirm_reset_daily'))) {
-                const res = await postData(`player/${playerId}/reset-daily`);
-                if (res) { alert(t('daily_progress_reset_success')); modalInstance.hide(); } 
-                else { alert(t('daily_progress_reset_error')); }
-            }
-        };
-    };
-
-    const renderTriggerParamsUI = (container, type, params = {}) => {
-        let html = '';
-        const localT = t; // Shadowing `t` in map function below was causing issues.
-        switch (type) {
-            case 'meta_tap':
-                const options = META_TAP_TARGETS.map(target => `<option value="${target.id}" ${params.targetId === target.id ? 'selected' : ''}>${localT(target.nameKey)}</option>`).join('');
-                html = `
-                    <div class="mb-3">
-                        <label class="form-label">${localT('param_targetId')}</label>
-                        <select class="form-select" data-param="targetId">${options}</select>
-                    </div>
-                    <div class="mb-3"><label class="form-label">${localT('param_taps')}</label><input type="number" class="form-control" data-param="taps" value="${escapeHtml(params.taps || 5)}"></div>
-                `;
-                break;
-            case 'login_at_time':
-                html = `
-                    <div class="row">
-                        <div class="col"><div class="mb-3"><label class="form-label">${localT('param_hour')}</label><input type="number" class="form-control" data-param="hour" value="${escapeHtml(params.hour || 0)}"></div></div>
-                        <div class="col"><div class="mb-3"><label class="form-label">${localT('param_minute')}</label><input type="number" class="form-control" data-param="minute" value="${escapeHtml(params.minute || 0)}"></div></div>
-                    </div>
-                `;
-                break;
-            case 'balance_equals':
-                html = `<div class="mb-3"><label class="form-label">${localT('param_amount')}</label><input type="number" class="form-control" data-param="amount" value="${escapeHtml(params.amount || 0)}"></div>`;
-                break;
-            case 'upgrade_purchased':
-                const allUpgrades = [...(localConfig.upgrades || []), ...(localConfig.blackMarketCards || [])];
-                const upgradeOptions = allUpgrades.map(u => `<option value="${u.id}" ${params.upgradeId === u.id ? 'selected' : ''}>${getLocalizedText(u.name)}</option>`).join('');
-                html = `<div class="mb-3"><label class="form-label">${localT('param_upgradeId')}</label><select class="form-select" data-param="upgradeId">${upgradeOptions}</select></div>`;
-                break;
-        }
-        container.innerHTML = html;
-    };
-
-    const renderConfigForm = (key, index) => {
-        const isNew = index === undefined;
-        const item = isNew ? {} : localConfig[key][index];
-        const title = isNew ? t('config_add_item') : t('config_edit_item');
-        const { cols } = configMeta[key];
-        
-        let formBody = cols.map(col => {
-            let value = item[col];
-             if (isNew) {
-                if (col === 'id') value = `new_${key}_${Date.now()}`;
-                else if (typeof value === 'undefined') {
-                    // Pre-fill default structures for certain types
-                    if (['name', 'description', 'message'].includes(col)) value = { en: '', ru: '', ua: '' };
-                    else if (col === 'reward') value = { type: 'coins', amount: 0 };
-                    else if (col === 'trigger') value = { type: 'meta_tap', params: { targetId: '', taps: 5 } };
-                    else value = '';
-                }
-            }
+        const formFields = cols.map(col => {
+            const value = item[col];
+            let inputHtml;
             
-            const isLangObject = typeof value === 'object' && value !== null && (value.hasOwnProperty('en') || value.hasOwnProperty('ru') || value.hasOwnProperty('ua'));
-            const isRewardObject = typeof value === 'object' && value !== null && value.hasOwnProperty('type') && value.hasOwnProperty('amount');
-            const isTriggerObject = col === 'trigger';
+            if (typeof value === 'object' && value !== null) { // For 'name', 'description', 'reward', 'trigger'
+                 let subFieldsHtml = '';
+                 if (col === 'trigger') {
+                    const triggerType = value.type || 'meta_tap';
+                    const triggerParams = value.params || {};
 
-            if (isLangObject && !isRewardObject) {
-                return `
-                    <fieldset class="form-fieldset mb-3">
-                        <legend class="d-flex justify-content-between align-items-center">
-                            <span>${t(col) || col}</span>
-                            <button class="btn btn-sm btn-outline-info" data-action="translate-field" data-col="${col}">${t('translate')}</button>
-                        </legend>
+                    const typeOptions = [
+                        'meta_tap', 'login_at_time', 'balance_equals', 'upgrade_purchased'
+                    ].map(t => `<option value="${t}" ${triggerType === t ? 'selected' : ''}>${t}</option>`).join('');
+
+                    let paramsHtml = '';
+                    switch (triggerType) {
+                        case 'meta_tap':
+                            const targetOptions = META_TAP_TARGETS.map(t => `<option value="${t.id}" ${triggerParams.targetId === t.id ? 'selected': ''}>${t(t.nameKey)}</option>`).join('');
+                            paramsHtml = `
+                                <label class="form-label">${t('param_targetId')}</label>
+                                <select class="form-select mb-2" data-sub-key="targetId">${targetOptions}</select>
+                                <label class="form-label">${t('param_taps')}</label>
+                                <input type="number" class="form-control" data-sub-key="taps" value="${triggerParams.taps || 1}">
+                            `;
+                            break;
+                        case 'login_at_time':
+                             paramsHtml = `
+                                <label class="form-label">${t('param_hour')}</label>
+                                <input type="number" class="form-control mb-2" data-sub-key="hour" value="${triggerParams.hour || 0}" min="0" max="23">
+                                <label class="form-label">${t('param_minute')}</label>
+                                <input type="number" class="form-control" data-sub-key="minute" value="${triggerParams.minute || 0}" min="0" max="59">
+                            `;
+                            break;
+                        case 'balance_equals':
+                             paramsHtml = `<label class="form-label">${t('param_amount')}</label><input type="number" class="form-control" data-sub-key="amount" value="${triggerParams.amount || 0}">`;
+                            break;
+                        case 'upgrade_purchased':
+                             const upgradeOptions = localConfig.upgrades.map(u => `<option value="${u.id}" ${triggerParams.upgradeId === u.id ? 'selected': ''}>${getLocalizedText(u.name)}</option>`).join('');
+                             paramsHtml = `<label class="form-label">${t('param_upgradeId')}</label><select class="form-select" data-sub-key="upgradeId">${upgradeOptions}</select>`;
+                            break;
+                    }
+
+                    subFieldsHtml = `
                         <div class="mb-2">
-                            <label class="form-label">EN</label>
-                            <input type="text" class="form-control" data-lang-col="${col}" data-lang="en" value="${escapeHtml(value.en || '')}">
+                            <label class="form-label">${t('trigger_type')}</label>
+                            <select class="form-select" data-sub-key="type" data-trigger-type-select="true">${typeOptions}</select>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label">RU</label>
-                            <input type="text" class="form-control" data-lang-col="${col}" data-lang="ru" value="${escapeHtml(value.ru || '')}">
+                        <div data-trigger-params-container="true">
+                            <label class="form-label mt-2">${t('trigger_params')}</label>
+                            <div class="border p-2 rounded">${paramsHtml}</div>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label">UA</label>
-                            <input type="text" class="form-control" data-lang-col="${col}" data-lang="ua" value="${escapeHtml(value.ua || '')}">
-                        </div>
-                    </fieldset>
-                 `;
-            } else if (col === 'reward') {
-                const reward = value || { type: 'coins', amount: 0 };
-                const coinSelected = reward.type === 'coins' ? 'selected' : '';
-                const profitSelected = reward.type === 'profit' ? 'selected' : '';
-                 return `
-                    <fieldset class="form-fieldset mb-3">
-                        <legend>${t('reward')}</legend>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label class="form-label">${t('type')}</label>
-                                <select class="form-select" data-reward-col="${col}" data-reward-prop="type">
-                                    <option value="coins" ${coinSelected}>${t('reward_type_coins')}</option>
-                                    <option value="profit" ${profitSelected}>${t('reward_type_profit')}</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">${t('amount')}</label>
-                                <input type="number" class="form-control" data-reward-col="${col}" data-reward-prop="amount" value="${escapeHtml(reward.amount || 0)}">
-                            </div>
-                        </div>
-                    </fieldset>`;
-            } else if (isTriggerObject) {
-                 const trigger = value || { type: 'meta_tap', params: {} };
-                 const triggerTypes = ['meta_tap', 'login_at_time', 'balance_equals', 'upgrade_purchased'];
-                 const options = triggerTypes.map(opt => `<option value="${opt}" ${trigger.type === opt ? 'selected' : ''}>${t(`trigger_type_${opt}`)}</option>`).join('');
-                 return `
-                    <fieldset class="form-fieldset mb-3">
-                        <legend>${t('trigger')}</legend>
-                        <div class="mb-3">
-                           <label class="form-label">${t('trigger_type')}</label>
-                           <select class="form-select" id="trigger-type-select">${options}</select>
-                        </div>
-                        <div id="trigger-params-container"></div>
-                    </fieldset>
-                 `;
-            } else if (col === 'type' && (key === 'tasks' || key === 'specialTasks')) {
-                const taskTypes = ['taps', 'telegram_join', 'youtube_subscribe', 'twitter_follow', 'instagram_follow', 'video_watch', 'video_code'];
-                const options = taskTypes.map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${t(`task_type_${opt}`)}</option>`).join('');
-                return `<div class="mb-3">
-                            <label class="form-label">${t(col) || col}</label>
-                            <select class="form-select" data-col="${col}" id="task-type-select">${options}</select>
-                        </div>`;
-            } else if (col === 'secretCode') {
-                const isVisible = item.type === 'video_code';
-                return `<div class="mb-3" id="secret-code-container" style="display: ${isVisible ? 'block' : 'none'};">
-                            <label class="form-label">${t(col) || col}</label>
-                            <input type="text" class="form-control" data-col="${col}" value="${escapeHtml(value || '')}">
-                        </div>`;
+                    `;
+
+                 } else { // For 'name', 'description', 'reward'
+                     subFieldsHtml = Object.entries(value).map(([subKey, subVal]) => {
+                         if (subKey === 'type') {
+                             const options = col === 'reward' ? ['coins', 'profit'] : [];
+                             const optionHtml = options.map(opt => `<option value="${opt}" ${subVal === opt ? 'selected' : ''}>${t(`reward_type_${opt}`)}</option>`).join('');
+                             return `<div class="mb-2"><label class="form-label">${t(subKey)}</label><select class="form-select" data-sub-key="${subKey}">${optionHtml}</select></div>`;
+                         }
+                         return `<div class="mb-2"><label class="form-label">${t(subKey)}</label><input type="text" class="form-control" data-sub-key="${subKey}" value="${escapeHtml(subVal)}"></div>`;
+                     }).join('');
+                 }
+                inputHtml = `<div class="border p-2 rounded" data-col="${col}">${subFieldsHtml}</div>`;
+                if (col === 'name' || col === 'description' || col === 'message') {
+                     inputHtml += `<button class="btn btn-sm btn-outline-info mt-2" data-action="translate-field" data-col="${col}">${t('translate')}</button>`;
+                }
+            } else if (col === 'type') {
+                 const options = [
+                    'taps', 'telegram_join', 'video_watch', 'video_code', 
+                    'youtube_subscribe', 'twitter_follow', 'instagram_follow'
+                ].map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${t(`task_type_${opt}`)}</option>`).join('');
+                inputHtml = `<select class="form-select" data-col="${col}">${options}</select>`;
+            } else if (col === 'category') {
+                 const options = ["Documents", "Legal", "Lifestyle", "Special"].map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`).join('');
+                inputHtml = `<select class="form-select" data-col="${col}">${options}</select>`;
+            } else if (col === 'boxType') {
+                const options = ['coin', 'star', 'direct'].map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`).join('');
+                inputHtml = `<select class="form-select" data-col="${col}">${options}</select>`;
             } else if (col === 'isFinal') {
-                // This column is handled separately below, so we skip it here.
-                return '';
-            } else if (typeof value === 'object' && value !== null) {
-                return `
-                    <div class="mb-3">
-                        <label class="form-label">${t(col) || col}</label>
-                        <textarea class="form-control" rows="3" data-col="${col}">${escapeHtml(JSON.stringify(value, null, 2))}</textarea>
-                    </div>`;
+                inputHtml = `<select class="form-select" data-col="${col}">
+                    <option value="false" ${!value ? 'selected' : ''}>${t('no')}</option>
+                    <option value="true" ${value ? 'selected' : ''}>${t('yes')}</option>
+                </select>`;
             } else {
-                const isReadonly = isNew && col === 'id';
-                return `
-                    <div class="mb-3">
-                        <label class="form-label">${t(col) || col}</label>
-                        <input type="${typeof value === 'number' || col === 'maxSupply' ? 'number' : 'text'}" class="form-control" data-col="${col}" value="${escapeHtml(value)}" ${isReadonly ? 'readonly' : ''}>
-                    </div>`;
+                inputHtml = `<input type="${typeof value === 'number' ? 'number' : 'text'}" class="form-control" data-col="${col}" value="${escapeHtml(value)}">`;
             }
+
+            return `<div class="mb-3"><label class="form-label">${t(col)}</label>${inputHtml}</div>`;
         }).join('');
-        
-        if (key === 'glitchEvents') {
-            const isFinal = item.isFinal || false;
-            formBody += `
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="isFinal-checkbox" ${isFinal ? 'checked' : ''}>
-                    <label class="form-check-label" for="isFinal-checkbox">${t('is_final_event')}</label>
+
+        const modalHtml = `
+            <div class="modal fade show" style="display: block;" tabindex="-1" id="config-modal">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${isNew ? t('config_add_item') : t('config_edit_item')}</h5>
+                            <button type="button" class="btn-close" data-action="close-modal"></button>
+                        </div>
+                        <div class="modal-body">${formFields}</div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn" data-action="close-modal">${t('cancel')}</button>
+                            <button type="button" class="btn btn-primary" data-action="save-config-item" data-key="${key}" data-index="${isNew ? '' : index}">${t('save')}</button>
+                        </div>
+                    </div>
                 </div>
-            `;
-        }
-
-        const footer = `<button type="button" class="btn me-auto" data-bs-dismiss="modal">${t('cancel')}</button>
-                        <button type="button" class="btn btn-primary" data-action="save-config-item" data-key="${key}" data-index="${isNew ? '' : index}">${t('save')}</button>`;
-        
-        const modalInstance = renderModal('config-modal', title, formBody, footer);
-
-        // Special handling for dynamic UI based on selections
-        if (key === 'tasks' || key === 'specialTasks') {
-            const taskTypeSelect = document.getElementById('task-type-select');
-            const secretCodeContainer = document.getElementById('secret-code-container');
-            if(taskTypeSelect && secretCodeContainer) {
-                const toggleSecretCode = () => secretCodeContainer.style.display = taskTypeSelect.value === 'video_code' ? 'block' : 'none';
-                taskTypeSelect.addEventListener('change', toggleSecretCode);
-            }
-        }
-         if (key === 'glitchEvents') {
-            const triggerTypeSelect = document.getElementById('trigger-type-select');
-            const paramsContainer = document.getElementById('trigger-params-container');
-            if (triggerTypeSelect && paramsContainer) {
-                const trigger = item.trigger || { type: 'meta_tap', params: {} };
-                renderTriggerParamsUI(paramsContainer, trigger.type, trigger.params);
-                triggerTypeSelect.addEventListener('change', () => {
-                    renderTriggerParamsUI(paramsContainer, triggerTypeSelect.value);
-                });
-            }
-        }
+            </div>
+            <div class="modal-backdrop fade show"></div>
+        `;
+        modalsContainer.innerHTML = modalHtml;
     };
 
-    // --- MAIN EVENT LISTENER ---
-    document.addEventListener('click', async (e) => {
-        const actionTarget = e.target.closest('[data-action]');
-        if (!actionTarget) return;
+    const renderTranslationModal = (field, originalText) => {
+        modalsContainer.innerHTML = `
+             <div class="modal fade show" style="display: block;" tabindex="-1" id="translate-modal">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${t('translate')}</h5>
+                            <button type="button" class="btn-close" data-action="close-modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3"><label class="form-label">English (en)</label><textarea class="form-control" data-lang="en" rows="2">${escapeHtml(originalText)}</textarea></div>
+                            <div class="mb-3"><label class="form-label">Українська (ua)</label><textarea class="form-control" data-lang="ua" rows="2"></textarea></div>
+                            <div class="mb-3"><label class="form-label">Русский (ru)</label><textarea class="form-control" data-lang="ru" rows="2"></textarea></div>
+                            <div id="translation-spinner" class="text-center d-none"><div class="spinner-border"></div></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn" data-action="close-modal">${t('cancel')}</button>
+                            <button type="button" class="btn btn-primary" data-action="apply-translation" data-field="${field}">${t('save')}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-backdrop fade show"></div>
+        `;
+
+        const modal = document.getElementById('translate-modal');
+        const spinner = modal.querySelector('#translation-spinner');
+        spinner.classList.remove('d-none');
         
-        const { action, key, index, id, social } = actionTarget.dataset;
-
-        switch(action) {
-            case 'edit-config':
-                renderConfigForm(key, index);
-                break;
-            case 'add-config':
-                renderConfigForm(key);
-                break;
-            case 'delete-config':
-                if (confirm(t('confirm_delete'))) {
-                    localConfig[key].splice(index, 1);
-                    renderConfigTable(key);
-                }
-                break;
-            case 'save-config-item': {
-                const modal = bootstrap.Modal.getInstance(document.getElementById('config-modal'));
-                const isNew = !index;
-                const newItem = {};
-                
-                document.querySelectorAll('#config-modal [data-col]').forEach(input => {
-                    const col = input.dataset.col;
-                    let value = input.value;
-
-                    // Improved parsing logic
-                    if (input.tagName === 'TEXTAREA') {
-                        try { newItem[col] = JSON.parse(value); } 
-                        catch { newItem[col] = value; }
-                    } else {
-                        const originalItem = isNew ? {} : localConfig[key][index];
-                        const originalValue = originalItem ? originalItem[col] : undefined;
-                        const isNumericField = typeof originalValue === 'number' || input.type === 'number';
-
-                        if (isNumericField) {
-                            newItem[col] = value === '' ? null : Number(value);
-                        } else {
-                            newItem[col] = value;
-                        }
-                    }
-                });
-
-                 // Handle localized fields
-                document.querySelectorAll('#config-modal [data-lang-col]').forEach(input => {
-                    const col = input.dataset.langCol;
-                    const lang = input.dataset.lang;
-                    if (!newItem[col]) newItem[col] = {};
-                    newItem[col][lang] = input.value;
-                });
-                 // Handle reward fields
-                 document.querySelectorAll('#config-modal [data-reward-col]').forEach(input => {
-                    const col = input.dataset.rewardCol;
-                    const prop = input.dataset.rewardProp;
-                    if (!newItem[col]) newItem[col] = {};
-                    newItem[col][prop] = isNaN(input.value) ? input.value : Number(input.value);
-                });
-                // Handle trigger and isFinal
-                if (key === 'glitchEvents') {
-                    const triggerType = document.getElementById('trigger-type-select').value;
-                    const params = {};
-                    document.querySelectorAll('#trigger-params-container [data-param]').forEach(input => {
-                         params[input.dataset.param] = isNaN(input.value) || input.value === '' ? input.value : Number(input.value);
-                    });
-                    newItem.trigger = { type: triggerType, params };
-                    newItem.isFinal = document.getElementById('isFinal-checkbox')?.checked || false;
-                }
-
-                if (!isNew) { // Edit existing
-                    localConfig[key][index] = newItem;
-                } else { // Add new
-                    if (!localConfig[key]) localConfig[key] = [];
-                    localConfig[key].push(newItem);
-                }
-                modal.hide();
-                renderConfigTable(key);
-                break;
-            }
-            case 'translate-field': {
-                const btn = actionTarget;
-                const col = btn.dataset.col;
-                const enInput = document.querySelector(`[data-lang-col="${col}"][data-lang="en"]`);
-                if (!enInput || !enInput.value) { alert("English field must be filled to translate."); return; }
-
-                btn.disabled = true;
-                btn.textContent = t('translation_in_progress');
-                
-                const result = await postData('translate-text', {
-                    text: enInput.value,
-                    targetLangs: ['ru', 'ua']
-                });
-
-                if (result && result.translations) {
-                    for (const [lang, text] of Object.entries(result.translations)) {
-                        const input = document.querySelector(`[data-lang-col="${col}"][data-lang="${lang}"]`);
-                        if (input) input.value = text;
-                    }
+        postData('translate-text', { text: originalText, targetLangs: ['ua', 'ru'] })
+            .then(data => {
+                if (data && data.translations) {
+                    modal.querySelector('textarea[data-lang="ua"]').value = data.translations.ua || '';
+                    modal.querySelector('textarea[data-lang="ru"]').value = data.translations.ru || '';
                 } else {
                     alert(t('translation_error'));
                 }
-                btn.disabled = false;
-                btn.textContent = t('translate');
-                break;
-            }
-            case 'player-details':
-                renderPlayerDetailsModal(id);
-                break;
-            case 'delete-player':
-                if (confirm(t('confirm_delete_player'))) {
-                    const res = await deleteData(`player/${id}`);
-                    if (res) renderPlayers();
-                }
-                break;
-            case 'reset-progress':
-                if (confirm(t('confirm_reset_progress'))) {
-                    const res = await postData(`player/${id}/reset-progress`);
-                    if (res) { alert(t('progress_reset_success')); renderCheaters(); }
-                     else { alert(t('error_resetting_progress')); }
-                }
-                break;
-            case 'view-cheat-log': {
-                const player = await fetchData(`player/${id}/details`);
-                const logHtml = player.cheatLog ? `<pre>${JSON.stringify(player.cheatLog, null, 2)}</pre>` : t('no_data');
-                renderModal('cheat-log-modal', `${t('cheat_log')}: ${player.name}`, logHtml, `<button class="btn" data-bs-dismiss="modal">${t('close')}</button>`);
-                break;
-            }
-            case 'force-start-battle':
-                await postData('battle/force-start');
-                renderBattleStatus();
-                break;
-            case 'force-end-battle':
-                await postData('battle/force-end');
-                renderBattleStatus();
-                break;
-            case 'approve-withdrawal':
-                if (confirm(t('confirm_approve'))) {
-                    const res = await postData(`withdrawals/${id}/update`, { status: 'approved' });
-                    if (res) { alert(t('withdrawal_updated')); renderWithdrawals(); }
-                    else { alert(t('withdrawal_update_error')); }
-                }
-                break;
-            case 'reject-withdrawal':
-                if (confirm(t('confirm_reject'))) {
-                    const res = await postData(`withdrawals/${id}/update`, { status: 'rejected' });
-                    if (res) { alert(t('withdrawal_updated')); renderWithdrawals(); }
-                    else { alert(t('withdrawal_update_error')); }
-                }
-                break;
-            case 'generate-ai-content': {
-                const btn = actionTarget;
-                btn.disabled = true;
-                btn.querySelector('span').textContent = t('generating');
-                const content = await postData('generate-ai-content');
-                if (content) {
-                    const upgradesHtml = (content.upgrades || []).map(u => `<li>${u.id} - ${getLocalizedText(u.name)}</li>`).join('');
-                    const tasksHtml = (content.specialTasks || []).map(t => `<li>${t.id} - ${getLocalizedText(t.name)}</li>`).join('');
-                    const body = `
-                        <h4>${t('generated_upgrades')}</h4><ul>${upgradesHtml}</ul>
-                        <hr><h4>${t('generated_tasks')}</h4><ul>${tasksHtml}</ul>`;
-                    const footer = `<button class="btn" data-bs-dismiss="modal">${t('cancel')}</button>
-                                  <button class="btn btn-primary" data-action="confirm-ai-content">${t('add_to_game')}</button>`;
-                    const modal = renderModal('ai-content-modal', t('ai_generated_content'), body, footer);
-                    
-                    document.querySelector('[data-action="confirm-ai-content"]').onclick = () => {
-                        localConfig.upgrades = [...(localConfig.upgrades || []), ...content.upgrades];
-                        localConfig.specialTasks = [...(localConfig.specialTasks || []), ...content.specialTasks];
-                        alert(t('ai_add_success'));
-                        modal.hide();
-                    };
-                }
-                btn.disabled = false;
-                btn.querySelector('span').textContent = t('generate_new_content');
-                break;
-            }
-            case 'send-broadcast': {
-                const btn = actionTarget;
-                const text = document.getElementById('broadcast-text').value;
-                const imageUrl = document.getElementById('broadcast-image-url').value;
-                const buttonUrl = document.getElementById('broadcast-button-url').value;
-                const buttonText = document.getElementById('broadcast-button-text').value;
-
-                if (!text) { alert(t('message_text_required')); return; }
-                if ((buttonUrl || buttonText) && !(buttonUrl && buttonText)) { alert(t('button_requires_url_and_text')); return; }
-                if (!confirm(t('confirm_broadcast'))) return;
-                
-                btn.disabled = true;
-                btn.querySelector('span').textContent = t('sending_broadcast');
-                const result = await postData('broadcast-message', { text, imageUrl, buttonUrl, buttonText });
-                if (result) alert(result.message);
-                
-                btn.disabled = false;
-                btn.querySelector('span').textContent = t('send_broadcast');
-                break;
-            }
-        }
-    });
-
-    // --- INPUT EVENT LISTENERS for live updates ---
-    document.addEventListener('input', (e) => {
-        const target = e.target;
-
-        // Player search
-        if (target.id === 'player-search') {
-            const query = target.value.toLowerCase();
-            const filtered = allPlayers.filter(p => p.id.includes(query) || p.name.toLowerCase().includes(query));
-            document.getElementById('players-table-body').innerHTML = generatePlayerRows(filtered);
-        }
-        
-        // Dashboard single value inputs
-        if (target.id === 'loadingScreenUrl') localConfig.loadingScreenImageUrl = target.value;
-        if (target.id === 'backgroundAudioUrl') localConfig.backgroundAudioUrl = target.value;
-        if (target.id === 'finalVideoUrl') localConfig.finalVideoUrl = target.value;
-        
-        // Daily events
-        if (target.classList.contains('combo-card-select')) {
-            dailyEvent.combo_ids = Array.from(document.querySelectorAll('.combo-card-select')).map(select => select.value).filter(Boolean);
-        }
-        if (target.id === 'cipher-word-input') dailyEvent.cipher_word = target.value.toUpperCase();
-        if (target.id === 'combo-reward-input') dailyEvent.combo_reward = Number(target.value);
-        if (target.id === 'cipher-reward-input') dailyEvent.cipher_reward = Number(target.value);
-
-        // UI Icons
-        if (target.closest('#ui-icons-form')) {
-            const { key, group } = target.dataset;
-            if (group) {
-                if (!localConfig.uiIcons[group]) localConfig.uiIcons[group] = {};
-                localConfig.uiIcons[group][key] = target.value;
-            } else {
-                localConfig.uiIcons[key] = target.value;
-            }
-            // Update preview
-            const preview = target.nextElementSibling?.querySelector('img');
-            if(preview) preview.src = target.value;
-        }
-
-        // Generic settings & Cell config
-        if (target.dataset.configKey) {
-            const { configKey, subKey } = target.dataset;
-            let value = target.type === 'number' ? Number(target.value) : target.value;
-
-            if (configKey === 'informantProfitBonus' || configKey === 'cellBankProfitShare') {
-                value = value / 100;
-            }
-
-            if (subKey) {
-                if (!localConfig[configKey]) localConfig[configKey] = {};
-                localConfig[configKey][subKey] = value;
-            } else {
-                localConfig[configKey] = value;
-            }
-        } else if (target.closest('.card-body')?.parentNode?.querySelector('h3')?.textContent === t('cell_config')) {
-             const key = target.dataset.key;
-             if (key) {
-                localConfig[key] = Number(target.value);
-             }
-        }
-    });
+            })
+            .finally(() => {
+                spinner.classList.add('d-none');
+            });
+    };
     
-    // --- NAVIGATION & INITIALIZATION ---
-    const switchTab = (tabName) => {
-        activeTab = tabName;
-        window.location.hash = tabName;
-        render();
+    const renderSocialsModal = (socialType) => {
+        const socials = localConfig.socials || {};
+        const isYoutube = socialType === 'youtube';
+        
+        modalsContainer.innerHTML = `
+             <div class="modal fade show" style="display: block;" tabindex="-1" id="socials-modal">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${t(isYoutube ? 'edit_youtube_settings' : 'edit_telegram_settings')}</h5>
+                            <button type="button" class="btn-close" data-action="close-modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">${t(isYoutube ? 'youtube_channel_url' : 'telegram_channel_url')}</label>
+                                <input type="text" class="form-control" id="social-url" value="${escapeHtml(socials[`${socialType}Url`] || '')}">
+                                <small class="form-hint">${t(isYoutube ? 'youtube_channel_url_desc' : 'telegram_channel_url_desc')}</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">${t(isYoutube ? 'youtube_channel_id' : 'telegram_channel_id')}</label>
+                                <input type="text" class="form-control" id="social-id" value="${escapeHtml(socials[`${socialType}ChannelId`] || '')}">
+                                <small class="form-hint">${t(isYoutube ? 'youtube_channel_id_desc' : 'telegram_channel_id_desc')}</small>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn" data-action="close-modal">${t('cancel')}</button>
+                            <button type="button" class="btn btn-primary" data-action="save-socials" data-social="${socialType}">${t('save')}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-backdrop fade show"></div>
+        `;
+    };
+    
+    const renderAiContentModal = (content) => {
+        const renderItems = (items, key) => items.map((item, index) => `
+            <div class="card card-sm mb-2">
+                <div class="card-body">
+                    <p class="mb-1"><strong>${getLocalizedText(item.name)}</strong></p>
+                    <p class="text-secondary text-sm mb-2">${getLocalizedText(item.description || '')}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">ID: ${item.id}</small>
+                        <button class="btn btn-sm btn-success" data-action="add-ai-item" data-key="${key}" data-index="${index}">${t('add_to_game')}</button>
+                    </div>
+                </div>
+            </div>
+        `).join('') || `<p class="text-secondary text-center">${t('no_data')}</p>`;
+
+        modalsContainer.innerHTML = `
+            <div class="modal fade show" style="display: block;" tabindex="-1" id="ai-content-modal">
+                <div class="modal-dialog modal-xl modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${t('ai_generated_content')}</h5>
+                            <button type="button" class="btn-close" data-action="close-modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="mb-3">${t('generated_upgrades')}</h6>
+                                    <div class="overflow-auto" style="max-height: 50vh;">${renderItems(content.upgrades || [], 'upgrades')}</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="mb-3">${t('generated_tasks')}</h6>
+                                    <div class="overflow-auto" style="max-height: 50vh;">${renderItems(content.specialTasks || [], 'specialTasks')}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-backdrop fade show"></div>
+        `;
     };
 
-    const init = async () => {
-        // Setup nav links
-        document.querySelectorAll('.tab-button').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+
+    // --- EVENT LISTENERS ---
+    const initEventListeners = () => {
+        // Tab switching
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', e => {
                 e.preventDefault();
-                switchTab(btn.dataset.tab);
-            });
-        });
-        
-        document.querySelectorAll('.lang-select-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                currentLang = btn.dataset.lang;
-                localStorage.setItem('adminLang', currentLang);
+                activeTab = button.dataset.tab;
                 render();
             });
         });
         
+        // Save button
         saveMainButton.addEventListener('click', saveAllChanges);
-        
-        // Initial data load
-        showLoading();
+
+        // Language switcher
+        document.querySelectorAll('.lang-select-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                currentLang = e.currentTarget.dataset.lang;
+                localStorage.setItem('adminLang', currentLang);
+                applyTranslationsToDOM();
+            });
+        });
+
+        // Event delegation for dynamic content
+        document.body.addEventListener('click', async e => {
+            const target = e.target.closest('[data-action]');
+            if (!target) return;
+            
+            const { action, id, key, index, social } = target.dataset;
+
+            switch (action) {
+                case 'close-modal':
+                    modalsContainer.innerHTML = '';
+                    break;
+                case 'player-details':
+                    renderPlayerDetailsModal(id);
+                    break;
+                case 'add-player-bonus': {
+                    const amount = document.getElementById('bonus-amount-input').value;
+                    if (amount && !isNaN(amount)) {
+                        await postData(`player/${id}/update-balance`, { amount });
+                        alert(t('balance_updated'));
+                        modalsContainer.innerHTML = '';
+                        renderPlayers();
+                    } else {
+                        alert(t('error_updating_balance'));
+                    }
+                    break;
+                }
+                case 'reset-player-daily':
+                    if (confirm(t('confirm_reset_daily'))) {
+                       await postData(`player/${id}/reset-daily`);
+                       alert(t('daily_progress_reset_success'));
+                       modalsContainer.innerHTML = '';
+                    }
+                    break;
+                case 'delete-player':
+                     if (confirm(t('confirm_delete_player'))) {
+                       await deleteData(`player/${id}`);
+                       modalsContainer.innerHTML = '';
+                       renderPlayers();
+                    }
+                    break;
+                case 'reset-progress':
+                     if (confirm(t('confirm_reset_progress'))) {
+                       await postData(`player/${id}/reset-progress`);
+                       alert(t('progress_reset_success'));
+                       renderCheaters();
+                    }
+                    break;
+                case 'edit-config':
+                    renderConfigModal(key, index);
+                    break;
+                case 'add-config':
+                    renderConfigModal(key, null);
+                    break;
+                case 'delete-config':
+                    if (confirm(t('confirm_delete'))) {
+                        localConfig[key].splice(index, 1);
+                        render();
+                    }
+                    break;
+                case 'save-config-item': {
+                    const modal = document.getElementById('config-modal');
+                    let newItem = {};
+                    configMeta[key].cols.forEach(col => {
+                        const input = modal.querySelector(`[data-col="${col}"]`);
+                        if (input) {
+                            if (input.dataset.hasOwnProperty('subKey')) { // complex object
+                                newItem[col] = {};
+                                input.querySelectorAll('[data-sub-key]').forEach(subInput => {
+                                     let val = subInput.value;
+                                     if(subInput.type === 'number') val = Number(val);
+                                     if(subInput.tagName === 'SELECT' && (val === 'true' || val === 'false')) val = val === 'true';
+                                     newItem[col][subInput.dataset.subKey] = val;
+                                });
+                            } else {
+                                 let val = input.value;
+                                 if(input.type === 'number') val = Number(val);
+                                 if(input.tagName === 'SELECT' && (val === 'true' || val === 'false')) val = val === 'true';
+                                newItem[col] = val;
+                            }
+                        }
+                    });
+
+                    if (index) {
+                        localConfig[key][index] = newItem;
+                    } else {
+                        if (!localConfig[key]) localConfig[key] = [];
+                        localConfig[key].push(newItem);
+                    }
+                    modalsContainer.innerHTML = '';
+                    render();
+                    break;
+                }
+                 case 'translate-field':
+                    const fieldName = target.dataset.col;
+                    const fieldContainer = target.closest('.mb-3').querySelector(`[data-col="${fieldName}"]`);
+                    const originalText = fieldContainer.querySelector('[data-sub-key="en"]').value;
+                    renderTranslationModal(fieldName, originalText);
+                    break;
+                case 'apply-translation': {
+                    const field = target.dataset.field;
+                    const translateModal = document.getElementById('translate-modal');
+                    const configModal = document.getElementById('config-modal');
+                    
+                    const newTranslations = {
+                        en: translateModal.querySelector('[data-lang="en"]').value,
+                        ua: translateModal.querySelector('[data-lang="ua"]').value,
+                        ru: translateModal.querySelector('[data-lang="ru"]').value,
+                    };
+                    
+                    const targetContainer = configModal.querySelector(`[data-col="${field}"]`);
+                    Object.entries(newTranslations).forEach(([lang, text]) => {
+                        const input = targetContainer.querySelector(`[data-sub-key="${lang}"]`);
+                        if (input) input.value = text;
+                    });
+
+                    modalsContainer.innerHTML = ''; // Close only translation modal
+                    break;
+                }
+                case 'edit-socials':
+                    renderSocialsModal(social);
+                    break;
+                case 'save-socials':
+                    if (!localConfig.socials) localConfig.socials = {};
+                    localConfig.socials[`${social}Url`] = document.getElementById('social-url').value;
+                    localConfig.socials[`${social}ChannelId`] = document.getElementById('social-id').value;
+                    modalsContainer.innerHTML = '';
+                    break;
+                case 'send-broadcast': {
+                    const text = document.getElementById('broadcast-text').value;
+                    const imageUrl = document.getElementById('broadcast-image-url').value;
+                    const buttonUrl = document.getElementById('broadcast-button-url').value;
+                    const buttonText = document.getElementById('broadcast-button-text').value;
+
+                    if (!text) { alert(t('message_text_required')); return; }
+                    if ((buttonUrl && !buttonText) || (!buttonUrl && buttonText)) { alert(t('button_requires_url_and_text')); return; }
+                    if (confirm(t('confirm_broadcast'))) {
+                        target.disabled = true;
+                        target.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${t('sending_broadcast')}`;
+                        const res = await postData('broadcast-message', { text, imageUrl, buttonUrl, buttonText });
+                        if (res) alert(res.message);
+                        target.disabled = false;
+                        target.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-send" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 14l11 -11" /><path d="M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5" /></svg> ${t('send_broadcast')}`;
+                    }
+                    break;
+                }
+                case 'generate-ai-content':
+                    target.disabled = true;
+                    target.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${t('generating')}`;
+                    const content = await postData('generate-ai-content');
+                    if (content && (content.upgrades || content.specialTasks)) {
+                        renderAiContentModal(content);
+                    } else if (content && content.error) {
+                         alert(`AI Error: ${content.error}`);
+                    }
+                    target.disabled = false;
+                    target.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-sparkles" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2z" /><path d="M8 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2z" /><path d="M12 12a5 5 0 0 1 5 5a5 5 0 0 1 5 -5a5 5 0 0 1 -5 -5a5 5 0 0 1 -5 5z" /></svg> ${t('generate_new_content')}`;
+                    break;
+                case 'add-ai-item': {
+                    const aiModal = document.getElementById('ai-content-modal');
+                    const items = JSON.parse(aiModal.dataset.items);
+                    const itemToAdd = items[key][index];
+                    
+                    if (!localConfig[key]) localConfig[key] = [];
+                    localConfig[key].push(itemToAdd);
+                    
+                    target.textContent = 'Added!';
+                    target.disabled = true;
+                    alert(t('ai_add_success'));
+                    break;
+                }
+                case 'approve-withdrawal':
+                    if (confirm(t('confirm_approve'))) {
+                        const res = await postData(`withdrawals/${id}/update`, { status: 'approved' });
+                        if (res?.success) {
+                            alert(t('withdrawal_updated'));
+                            renderWithdrawals();
+                        } else {
+                            alert(t('withdrawal_update_error'));
+                        }
+                    }
+                    break;
+                case 'reject-withdrawal':
+                     if (confirm(t('confirm_reject'))) {
+                        const res = await postData(`withdrawals/${id}/update`, { status: 'rejected' });
+                        if (res?.success) {
+                            alert(t('withdrawal_updated'));
+                            renderWithdrawals();
+                        } else {
+                            alert(t('withdrawal_update_error'));
+                        }
+                    }
+                    break;
+                 case 'force-start-battle':
+                    const startRes = await postData('battle/force-start');
+                    if(startRes?.ok) { alert('Battle started'); renderCellConfiguration(); }
+                    break;
+                 case 'force-end-battle':
+                    const endRes = await postData('battle/force-end');
+                    if(endRes?.ok) { alert('Battle ended'); renderCellConfiguration(); }
+                    break;
+            }
+        });
+
+        tabContainer.addEventListener('input', e => {
+            const target = e.target;
+            if (target.id === 'player-search') {
+                const searchTerm = target.value.toLowerCase();
+                const filtered = allPlayers.filter(p => p.id.includes(searchTerm) || p.name.toLowerCase().includes(searchTerm));
+                renderPlayersTable(filtered);
+            } else if (target.classList.contains('combo-card-select')) {
+                const index = parseInt(target.dataset.index, 10);
+                dailyEvent.combo_ids[index] = target.value;
+            } else if (target.id === 'cipher-word-input') {
+                dailyEvent.cipher_word = target.value;
+            } else if (target.id === 'combo-reward-input') {
+                dailyEvent.combo_reward = Number(target.value);
+            } else if (target.id === 'cipher-reward-input') {
+                dailyEvent.cipher_reward = Number(target.value);
+            } else if (target.dataset.configKey) {
+                const key = target.dataset.configKey;
+                localConfig[key] = target.type === 'number' ? Number(target.value) : target.value;
+            } else if (target.dataset.iconKey) {
+                const group = target.dataset.iconGroup;
+                const key = target.dataset.iconKey;
+                if (group === 'profile_tabs') {
+                     localConfig.uiIcons.profile_tabs[key] = target.value;
+                } else if (group === 'nav') {
+                     localConfig.uiIcons.nav[key] = target.value;
+                } else {
+                    localConfig.uiIcons[key] = target.value;
+                }
+            } else if (target.dataset.scheduleKey) {
+                 const key = target.dataset.scheduleKey;
+                 if (!localConfig.battleSchedule) localConfig.battleSchedule = {};
+                 localConfig.battleSchedule[key] = target.type === 'number' ? Number(target.value) : target.value;
+            } else if (target.dataset.rewardKey) {
+                 const key = target.dataset.rewardKey;
+                 if (!localConfig.battleRewards) localConfig.battleRewards = {};
+                 localConfig.battleRewards[key] = Number(target.value);
+            } else if(target.id === 'loadingScreenUrl') {
+                 localConfig.loadingScreenImageUrl = target.value;
+            } else if(target.id === 'backgroundAudioUrl') {
+                 localConfig.backgroundAudioUrl = target.value;
+            } else if(target.id === 'finalVideoUrl') {
+                localConfig.finalVideoUrl = target.value;
+            }
+        });
+
+        modalsContainer.addEventListener('change', e => {
+            const target = e.target;
+            // Handle trigger type change in glitch event modal
+            if (target.dataset.triggerTypeSelect) {
+                const modalBody = target.closest('.modal-body');
+                const key = modalBody.querySelector('[data-action="save-config-item"]').dataset.key;
+                const index = modalBody.querySelector('[data-action="save-config-item"]').dataset.index;
+                const isNew = !index;
+                const item = isNew ? {} : { ...localConfig[key][index] }; // Create a copy
+                item.trigger = { type: target.value, params: {} }; // Reset params on type change
+                
+                // Re-render only the modal content
+                renderConfigModal(key, isNew ? null : index, item);
+            }
+        });
+    };
+
+    // --- INITIALIZATION ---
+    const init = async () => {
+        applyTranslationsToDOM(); // Apply initial translations
         localConfig = await fetchData('config') || {};
-        
-        // Initial tab from hash or default to dashboard
-        const hash = window.location.hash.substring(1);
-        if (hash) {
-            activeTab = hash;
+        const urlHash = window.location.hash.replace('#', '');
+        if (urlHash && (configMeta[urlHash] || ['dashboard', 'players', 'cheaters', 'dailyEvents', 'withdrawalRequests', 'cellAnalytics', 'cellConfiguration'].includes(urlHash))) {
+            activeTab = urlHash;
+        } else {
+            activeTab = 'dashboard';
         }
+        window.history.replaceState(null, '', `/admin/#${activeTab}`);
         
         render();
+        initEventListeners();
     };
 
     init();

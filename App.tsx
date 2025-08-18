@@ -361,25 +361,47 @@ const SellTab = ({ user, playerState, config, showNotification, gameApi }: {
     );
 };
 
+const ConnectWalletModal: React.FC<{ onClose: () => void; onPaste: (text: string) => void; }> = ({ onClose, onPaste }) => {
+    const t = useTranslation();
+    const handlePaste = () => {
+        window.Telegram.WebApp.readTextFromClipboard(onPaste);
+    };
+    return (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2500] flex items-center justify-center p-4" onClick={onClose}>
+            <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" onClick={e => e.stopPropagation()}>
+                <h2 className="text-xl font-bold text-white mb-4">{t('connect_wallet_modal_title')}</h2>
+                <p className="text-[var(--text-secondary)] text-center mb-6">{t('connect_wallet_modal_desc')}</p>
+                <button onClick={handlePaste} className="w-full interactive-button rounded-lg font-bold py-3 text-lg">{t('paste_and_connect')}</button>
+            </div>
+        </div>
+    );
+};
+
 const WalletTab = ({ playerState, showNotification, gameApi }: {
     playerState: PlayerState;
     showNotification: (message: string, type?: 'success' | 'error') => void;
     gameApi: GameApi;
 }) => {
     const t = useTranslation();
-    const [walletAddress, setWalletAddress] = useState(playerState.tonWalletAddress || '');
     const [withdrawalAmount, setWithdrawalAmount] = useState('');
     const [history, setHistory] = useState<WithdrawalRequest[]>([]);
+    const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
 
     useEffect(() => {
         gameApi.fetchMyWithdrawalRequests().then(data => setHistory(data || []));
-    }, [gameApi]);
+    }, [gameApi, playerState.marketCredits]); // Refetch on credit change too
 
-    const handleConnect = async () => {
-        const result = await gameApi.connectWallet(walletAddress);
-        if(result?.error) showNotification(result.error, 'error');
-        else showNotification(t('market_wallet_connected'), 'success');
-    };
+    const handlePasteFromClipboard = useCallback((text: string | null) => {
+        if (text && (text.startsWith('EQ') || text.startsWith('UQ')) && text.length > 40) {
+            gameApi.connectWallet(text).then(result => {
+                if(result?.error) showNotification(result.error, 'error');
+                else showNotification(t('market_wallet_connected'), 'success');
+            });
+        } else {
+            showNotification(t('market_invalid_wallet'), 'error');
+        }
+        setIsConnectModalOpen(false);
+    }, [gameApi, showNotification, t]);
 
     const handleRequest = async () => {
         const amount = Number(withdrawalAmount);
@@ -392,7 +414,6 @@ const WalletTab = ({ playerState, showNotification, gameApi }: {
         else {
             showNotification(t('market_withdrawal_requested'), 'success');
             setWithdrawalAmount('');
-            gameApi.fetchMyWithdrawalRequests().then(data => setHistory(data || []));
         }
     };
     
@@ -406,9 +427,12 @@ const WalletTab = ({ playerState, showNotification, gameApi }: {
                 return <span className="text-xs font-bold text-yellow-400">{t(statusKey)}</span>;
         }
     };
+    
+    const truncateAddress = (address: string) => `${address.slice(0, 6)}...${address.slice(-4)}`;
 
     return (
         <div className="space-y-4">
+            {isConnectModalOpen && <ConnectWalletModal onClose={() => setIsConnectModalOpen(false)} onPaste={handlePasteFromClipboard} />}
             <div className="card-glow p-4 rounded-xl text-center">
                 <p className="text-[var(--text-secondary)] text-lg">{t('market_credits')}</p>
                 <p className="text-5xl font-display my-1">{formatNumber(playerState.marketCredits || 0)}</p>
@@ -416,17 +440,21 @@ const WalletTab = ({ playerState, showNotification, gameApi }: {
             
              <div className="card-glow p-4 rounded-xl">
                 <h3 className="font-bold mb-2">{t('ton_wallet_address')}</h3>
-                <div className="flex space-x-2">
-                     <input type="text" value={walletAddress} onChange={e => setWalletAddress(e.target.value)} placeholder={t('ton_wallet_placeholder')} className="w-full input-field text-sm" />
-                     <button onClick={handleConnect} className="interactive-button rounded-lg font-bold px-4 text-sm">{t('save')}</button>
-                </div>
+                {playerState.tonWalletAddress ? (
+                    <div className="flex items-center justify-between">
+                         <code className="text-sm text-slate-300 truncate">{truncateAddress(playerState.tonWalletAddress)}</code>
+                         <button onClick={() => setIsConnectModalOpen(true)} className="interactive-button rounded-lg font-bold px-4 text-sm">{t('change')}</button>
+                    </div>
+                ) : (
+                    <button onClick={() => setIsConnectModalOpen(true)} className="w-full interactive-button rounded-lg font-bold py-3 text-lg">{t('connect_wallet')}</button>
+                )}
              </div>
              
              <div className="card-glow p-4 rounded-xl">
                 <h3 className="font-bold mb-2">{t('request_withdrawal')}</h3>
                 <div className="flex space-x-2">
                      <input type="number" value={withdrawalAmount} onChange={e => setWithdrawalAmount(e.target.value)} placeholder={t('amount')} className="w-full input-field text-sm" />
-                     <button onClick={handleRequest} className="interactive-button rounded-lg font-bold px-4 text-sm">{t('request')}</button>
+                     <button onClick={handleRequest} className="interactive-button rounded-lg font-bold px-4 text-sm" disabled={!playerState.tonWalletAddress}>{t('request')}</button>
                 </div>
              </div>
 

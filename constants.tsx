@@ -111,7 +111,7 @@ type TranslationKey =
   | 'market_sell_desc' | 'market_no_listings' | 'market_no_skins_to_sell' | 'market_invalid_price'
   | 'market_list_success' | 'market_wallet_connected' | 'market_invalid_amount' | 'market_withdrawal_requested'
   | 'withdrawal_history' | 'market_no_history' | 'status_pending' | 'status_approved' | 'status_rejected'
-  | 'ton_wallet_placeholder' | 'request'
+  | 'request' | 'change' | 'market_invalid_wallet' | 'connect_wallet_modal_title' | 'connect_wallet_modal_desc' | 'paste_and_connect'
   // Suspicion & Cells
   | 'suspicion' | 'suspicion_modifier' | 'cell' | 'cell_info' | 'create_cell' | 'join_cell' | 'leave_cell' | 'no_cell_info'
   | 'cell_name' | 'enter_cell_name' | 'create' | 'enter_invite_code' | 'join' | 'members'
@@ -142,7 +142,7 @@ type TranslationKey =
   // Tooltips
   | 'tooltip_energy' | 'tooltip_suspicion'
   // Generic
-  | 'loading' | 'cancel'
+  | 'loading' | 'cancel' | 'amount'
   | 'why_not_state_language';
 
 
@@ -281,8 +281,12 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     status_pending: 'Pending',
     status_approved: 'Approved',
     status_rejected: 'Rejected',
-    ton_wallet_placeholder: 'Your TON wallet address',
     request: 'Request',
+    change: 'Change',
+    market_invalid_wallet: 'Invalid wallet address. Please copy a valid TON wallet address.',
+    connect_wallet_modal_title: 'Connect Wallet',
+    connect_wallet_modal_desc: 'To connect, copy your TON wallet address to the clipboard, then tap the button below.',
+    paste_and_connect: 'Paste and Connect',
     suspicion: 'Suspicion',
     suspicion_modifier: 'Suspicion',
     cell: 'Cell',
@@ -336,6 +340,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     battle_boost_activate: 'Activate',
     loading: 'Loading...',
     cancel: 'Cancel',
+    amount: 'Amount',
     nav_cells: 'Cells',
     nav_cell_analytics: 'Analytics',
     nav_cell_config: 'Configuration',
@@ -517,8 +522,12 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     status_pending: 'В очікуванні',
     status_approved: 'Схвалено',
     status_rejected: 'Відхилено',
-    ton_wallet_placeholder: 'Ваша адреса TON гаманця',
     request: 'Запросити',
+    change: 'Змінити',
+    market_invalid_wallet: 'Невірна адреса гаманця. Будь ласка, скопіюйте дійсну адресу TON гаманця.',
+    connect_wallet_modal_title: 'Підключити Гаманець',
+    connect_wallet_modal_desc: 'Для підключення скопіюйте адресу вашого TON-гаманця в буфер обміну, а потім натисніть кнопку нижче.',
+    paste_and_connect: 'Вставити та підключити',
     suspicion: 'Підозра',
     suspicion_modifier: 'Підозра',
     cell: 'Осередок',
@@ -572,6 +581,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     battle_boost_activate: 'Активувати',
     loading: 'Завантаження...',
     cancel: 'Скасувати',
+    amount: 'Сума',
     nav_cells: 'Осередки',
     nav_cell_analytics: 'Аналітика',
     nav_cell_config: 'Конфігурація',
@@ -753,8 +763,12 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     status_pending: 'В ожидании',
     status_approved: 'Одобрено',
     status_rejected: 'Отклонено',
-    ton_wallet_placeholder: 'Ваш адрес TON кошелька',
     request: 'Запросить',
+    change: 'Изменить',
+    market_invalid_wallet: 'Неверный адрес кошелька. Пожалуйста, скопируйте действительный адрес TON кошелька.',
+    connect_wallet_modal_title: 'Подключить Кошелек',
+    connect_wallet_modal_desc: 'Для подключения скопируйте адрес вашего TON-кошелька в буфер обмена, а затем нажмите кнопку ниже.',
+    paste_and_connect: 'Вставить и подключить',
     suspicion: 'Подозрение',
     suspicion_modifier: 'Подозрение',
     cell: 'Ячейка',
@@ -808,6 +822,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     battle_boost_activate: 'Активировать',
     loading: 'Загрузка...',
     cancel: 'Отмена',
+    amount: 'Сумма',
     nav_cells: 'Ячейки',
     nav_cell_analytics: 'Аналитика',
     nav_cell_config: 'Конфигурация',

@@ -1077,8 +1077,6 @@ export const buyTicketInDb = async (userId, config) => {
     } catch (e) {
         await client.query('ROLLBACK');
         throw e;
-    } finally {
-        client.release();
     }
 }
 
@@ -1640,7 +1638,8 @@ export const getAllPlayersForAdmin = async () => {
             balance: effectiveBalance,
             referrals: playerData.referrals ?? 0,
             profitPerHour: playerData.profitPerHour ?? 0,
-            purchasedSpecialTaskIds: playerData.purchasedSpecialTaskIds || []
+            purchasedSpecialTaskIds: playerData.purchasedSpecialTaskIds || [],
+            tonWalletAddress: playerData.tonWalletAddress || ''
         };
     });
     allPlayers.sort((a, b) => (b.balance || 0) - (a.balance || 0));
