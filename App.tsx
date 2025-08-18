@@ -702,9 +702,36 @@ const MissionsScreen: React.FC<{
     );
 };
 
-const WalletTaskCard = ({ playerState, onConnect }: {
+const WalletUnavailableContent: React.FC = () => {
+    const t = useTranslation();
+    const handleRelaunch = () => {
+        const url = `https://t.me/${TELEGRAM_BOT_NAME}/${MINI_APP_NAME}`;
+        window.Telegram.WebApp.openTelegramLink(url);
+    };
+
+    return (
+        <div className="card-glow bg-red-900/30 border border-red-500/50 rounded-2xl p-3 flex flex-col space-y-3">
+            <div className="flex items-start space-x-3">
+                <div className="bg-slate-900/50 shadow-inner rounded-lg p-1 w-14 h-14 flex-shrink-0">
+                    <img src="https://api.iconify.design/ph/wallet-bold.svg?color=white" alt="wallet" className="w-full h-full object-contain" />
+                </div>
+                <div className="flex-grow min-w-0">
+                    <p className="text-white font-semibold">{t('connect_your_ton_wallet')}</p>
+                    <p className="text-slate-300 text-xs mt-1">{t('wallet_feature_unavailable_launch')}</p>
+                </div>
+            </div>
+            <p className="text-center text-xs text-amber-200">{t('wallet_relaunch_instructions')}</p>
+            <button onClick={handleRelaunch} className="w-full interactive-button rounded-lg py-3 font-bold text-lg bg-amber-600/50 hover:bg-amber-500/50">
+                {t('relaunch_for_wallet')}
+            </button>
+        </div>
+    );
+};
+
+const WalletTaskCard = ({ playerState, onConnect, isWalletAvailable }: {
     playerState: PlayerState;
     onConnect: () => void;
+    isWalletAvailable: boolean;
 }) => {
     const t = useTranslation();
     const isConnected = !!playerState.tonWalletAddress;
@@ -727,6 +754,10 @@ const WalletTaskCard = ({ playerState, onConnect }: {
                 </button>
             </div>
         );
+    }
+    
+    if (!isWalletAvailable) {
+        return <WalletUnavailableContent />;
     }
 
     return (
@@ -756,7 +787,8 @@ const AirdropScreen: React.FC<{
     startedTasks: Set<string>;
     uiIcons: UiIcons;
     onConnectWallet: () => void;
-}> = ({ specialTasks, playerState, onClaim, onPurchase, user, startedTasks, uiIcons, onConnectWallet }) => {
+    isWalletAvailable: boolean;
+}> = ({ specialTasks, playerState, onClaim, onPurchase, user, startedTasks, uiIcons, onConnectWallet, isWalletAvailable }) => {
     const t = useTranslation();
     return (
         <div className="flex flex-col h-full text-white pt-4 px-4">
@@ -767,6 +799,7 @@ const AirdropScreen: React.FC<{
                     <WalletTaskCard 
                         playerState={playerState}
                         onConnect={onConnectWallet}
+                        isWalletAvailable={isWalletAvailable}
                     />
                     {specialTasks.map(task => (
                        <div key={task.id}>
@@ -1003,6 +1036,7 @@ const MainApp: React.FC = () => {
   const [isAppReady, setIsAppReady] = useState(false);
   const [isTgReady, setIsTgReady] = useState(!!window.Telegram?.WebApp?.initData);
   const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
+  const [isWalletAvailable, setIsWalletAvailable] = useState(false);
 
   // Glitch event states
   const [isGlitchCodesModalOpen, setIsGlitchCodesModalOpen] = useState(false);
@@ -1032,7 +1066,7 @@ const MainApp: React.FC = () => {
   }, []);
 
   const handleConnectWallet = useCallback(() => {
-        if (window.Telegram?.WebApp?.requestWalletAddress) {
+        if (isWalletAvailable) {
             window.Telegram.WebApp.requestWalletAddress((address: string | false) => {
                 if (address) {
                     gameApi.connectWallet(address).then(result => {
@@ -1047,9 +1081,12 @@ const MainApp: React.FC = () => {
                 }
             });
         } else {
+            // This case is handled by the UI showing the relaunch button,
+            // but we keep this log for debugging.
+            console.warn('Connect wallet called, but API is not available.');
             showNotification(t('wallet_feature_unavailable'), 'error');
         }
-    }, [gameApi, showNotification, t]);
+    }, [gameApi, showNotification, t, isWalletAvailable]);
 
   const handleGlitchEffectClose = () => {
     if (activeGlitchEvent?.isFinal) {
@@ -1078,13 +1115,25 @@ const MainApp: React.FC = () => {
     
   // Effect to wait for the Telegram Web App script to be ready
   useEffect(() => {
-    if (isTgReady) return;
-    const intervalId = setInterval(() => {
+    const checkTgReady = () => {
         if (window.Telegram?.WebApp?.initData) {
             setIsTgReady(true);
+            setIsWalletAvailable(!!window.Telegram.WebApp.requestWalletAddress);
+            return true;
+        }
+        return false;
+    }
+    
+    if (isTgReady) return;
+    
+    if (checkTgReady()) return;
+
+    const intervalId = setInterval(() => {
+        if (checkTgReady()) {
             clearInterval(intervalId);
         }
     }, 100);
+
     return () => clearInterval(intervalId);
   }, [isTgReady]);
 
@@ -1286,6 +1335,7 @@ const MainApp: React.FC = () => {
                     startedTasks={startedTasks}
                     uiIcons={config.uiIcons}
                     onConnectWallet={handleConnectWallet}
+                    isWalletAvailable={isWalletAvailable}
                 />;
       case 'profile':
         return <ProfileScreen
