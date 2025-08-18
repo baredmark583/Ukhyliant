@@ -12,7 +12,7 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <TonConnectUIProvider 
-      manifestUrl="/tonconnect-manifest.json"
+      manifestUrl="https://ukhyliant.onrender.com/tonconnect-manifest.json"
       actionsConfiguration={{
         twaReturnUrl: 'https://t.me/Ukhyliantbot/ukhyliant_game'
       }}

@@ -82,9 +82,6 @@ const executionDir = path.dirname(__filename); // e.g., /path/to/project/backend
 // Path to the 'public' directory inside 'backend' for the admin panel.
 const adminPublicPath = path.join(executionDir, 'public');
 
-// Path to the project root (where index.html is), which is one level up from the execution directory.
-const projectRoot = path.resolve(executionDir, '..');
-
 const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 if (!ai) {
     console.warn("GEMINI_API_KEY for Gemini is not set. AI features will be disabled.");
@@ -153,19 +150,6 @@ app.get('/admin/admin.html', checkAdminAuth, (req, res) => {
 // Serve admin static files (JS, CSS, login.html etc).
 app.use('/admin', express.static(adminPublicPath));
 
-
-// --- Serve root static files (for frontend app, manifest, etc.) ---
-app.use(express.static(projectRoot));
-
-// Explicit route for tonconnect-manifest.json to fix 404 errors in some deployment environments.
-app.get('/tonconnect-manifest.json', (req, res) => {
-    res.sendFile(path.join(projectRoot, 'tonconnect-manifest.json'), (err) => {
-        if (err) {
-            log('error', 'Failed to send tonconnect-manifest.json. Make sure the file exists in the root directory.', err);
-            res.status(404).send('Not Found');
-        }
-    });
-});
 
 // --- API ROUTES ---
 
@@ -1364,19 +1348,4 @@ initializeDb().then(() => {
 }).catch(error => {
     log('error', 'Failed to initialize database', error);
     process.exit(1);
-});
-
-// Add a catch-all for SPA routing, ensuring it doesn't interfere with API/admin routes
-app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api/') && !req.path.startsWith('/admin/')) {
-    res.sendFile(path.join(projectRoot, 'index.html'), (err) => {
-        if (err) {
-            log('error', `Failed to send index.html. Looked in ${projectRoot}. Error: ${err.message}`);
-            res.status(404).send('Application not found.');
-        }
-    });
-  } else {
-    // If it's an unhandled API/admin route, it should 404
-    res.status(404).send('Not Found');
-  }
 });

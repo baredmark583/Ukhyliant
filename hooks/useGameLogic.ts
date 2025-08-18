@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = 'https://ukhyliant-backend.onrender.com';
 
 const API = {
   login: async (tgUser: any, startParam: string | null): Promise<{ user: User, player: PlayerState, config: GameConfig } | null> => {
