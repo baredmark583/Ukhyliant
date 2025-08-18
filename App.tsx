@@ -1012,6 +1012,7 @@ const MainApp: React.FC = () => {
   const [startedTasks, setStartedTasks] = useState<Set<string>>(new Set());
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
+  const [isTgReady, setIsTgReady] = useState(!!window.Telegram?.WebApp?.initData);
   const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
 
   // Glitch event states
@@ -1085,6 +1086,19 @@ const MainApp: React.FC = () => {
             tg.offEvent('viewportChanged', handleViewportChange);
         };
     }, []);
+    
+  // Effect to wait for the Telegram Web App script to be ready
+  useEffect(() => {
+    if (isTgReady) return;
+    const intervalId = setInterval(() => {
+        if (window.Telegram?.WebApp?.initData) {
+            setIsTgReady(true);
+            clearInterval(intervalId);
+        }
+    }, 100);
+    return () => clearInterval(intervalId);
+  }, [isTgReady]);
+
 
   useEffect(() => {
     const timer = setTimeout(() => setIsAppReady(true), 1500);
@@ -1253,7 +1267,8 @@ const MainApp: React.FC = () => {
 
   const handleEnergyClick = () => showNotification(t('tooltip_energy'), 'success');
   const handleSuspicionClick = () => showNotification(t('tooltip_suspicion'), 'success');
-  if (!isAppReady || !user || !playerState || !config) {
+  
+  if (!isAppReady || !user || !playerState || !config || !isTgReady) {
     return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
   }
   
