@@ -94,7 +94,7 @@ type TranslationKey =
   | 'enter_morse_mode' | 'cancel_morse_mode' | 'enter_secret_code' | 'check' | 'leaderboard'
   | 'your_league' | 'total_players'
   // Notifications
-  | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked'
+  | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked' | 'market_purchase_success' | 'market_wallet_connected' | 'wallet_disconnected'
   // Boosts
   | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased' | 'suspicion_limit'
   | 'limit_today' | 'limit_reached'
@@ -105,15 +105,12 @@ type TranslationKey =
   | 'won_item' | 'close'
   // Underground Market
   | 'underground_market' | 'underground_market_desc'
-  | 'market_buy' | 'market_sell' | 'market_credits'
-  | 'request_withdrawal' | 'market_set_price' | 'market_price_in_stars' | 'market_list_for_sale'
+  | 'market_buy' | 'market_sell'
+  | 'market_set_price' | 'market_price_in_coins' | 'market_list_for_sale'
   | 'market_sell_desc' | 'market_no_listings' | 'market_no_skins_to_sell' | 'market_invalid_price'
-  | 'market_list_success' | 'market_wallet_connected' | 'market_invalid_amount' | 'market_withdrawal_requested'
-  | 'withdrawal_history' | 'market_no_history' | 'status_pending' | 'status_approved' | 'status_rejected'
-  | 'request' | 'change'
+  | 'market_list_success' | 'amount'
   // Wallet Connection
-  | 'connect_your_ton_wallet' | 'connect_wallet_task_desc' | 'wallet_connected' | 'connect_wallet'
-  | 'wallet_connection_cancelled' | 'wallet_feature_unavailable' | 'connect_in_airdrop_prompt' | 'wallet_disconnected'
+  | 'connect_your_ton_wallet' | 'connect_wallet_task_desc'
   // Suspicion & Cells
   | 'suspicion' | 'suspicion_modifier' | 'cell' | 'cell_info' | 'create_cell' | 'join_cell' | 'leave_cell' | 'no_cell_info'
   | 'cell_name' | 'enter_cell_name' | 'create' | 'enter_invite_code' | 'join' | 'members'
@@ -144,7 +141,7 @@ type TranslationKey =
   // Tooltips
   | 'tooltip_energy' | 'tooltip_suspicion'
   // Generic
-  | 'loading' | 'cancel' | 'amount'
+  | 'loading' | 'cancel'
   | 'why_not_state_language';
 
 
@@ -234,6 +231,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     combo_collected: 'Combo collected!',
     cipher_solved: 'Cipher solved!',
     task_unlocked: 'Task Unlocked',
+    market_purchase_success: 'Purchase successful!',
+    market_wallet_connected: 'Wallet connected!',
+    wallet_disconnected: 'Wallet disconnected.',
     guru_tapper: 'Guru Tapper',
     energy_limit: 'Energy Limit',
     turbo_mode: 'Turbo Mode',
@@ -259,37 +259,19 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     won_item: 'You won',
     close: 'Close',
     underground_market: 'Underground Market',
-    underground_market_desc: 'Trade rare skins with other players for special currency.',
+    underground_market_desc: 'Trade rare skins with other players for coins.',
     market_buy: 'Buy',
     market_sell: 'Sell',
-    market_credits: 'Credits',
-    request_withdrawal: 'Request Withdrawal',
     market_set_price: 'Set Price',
-    market_price_in_stars: 'Price in Stars',
+    market_price_in_coins: 'Price in Coins',
     market_list_for_sale: 'List for Sale',
     market_sell_desc: 'Select one of your skins to list it on the market.',
     market_no_listings: 'No skins are for sale right now. Check back later!',
     market_no_skins_to_sell: 'You have no rare skins to sell.',
     market_invalid_price: 'Invalid price.',
     market_list_success: 'Skin listed successfully!',
-    market_wallet_connected: 'Wallet connected!',
-    market_invalid_amount: 'Invalid withdrawal amount.',
-    market_withdrawal_requested: 'Withdrawal requested. It will be reviewed by an administrator.',
-    withdrawal_history: 'Withdrawal History',
-    market_no_history: 'No transactions yet.',
-    status_pending: 'Pending',
-    status_approved: 'Approved',
-    status_rejected: 'Rejected',
-    request: 'Request',
-    change: 'Change',
     connect_your_ton_wallet: 'Connect your TON wallet',
-    connect_wallet_task_desc: 'This is required for Airdrop and to enable withdrawals.',
-    wallet_connected: 'Wallet Connected',
-    connect_wallet: 'Connect Wallet',
-    wallet_connection_cancelled: 'Wallet connection was cancelled.',
-    wallet_feature_unavailable: 'Wallet feature is not available in your Telegram version.',
-    wallet_disconnected: 'Wallet disconnected',
-    connect_in_airdrop_prompt: 'Connect your wallet in the Airdrop section to enable.',
+    connect_wallet_task_desc: 'This is required for Airdrop.',
     suspicion: 'Suspicion',
     suspicion_modifier: 'Suspicion',
     cell: 'Cell',
@@ -476,6 +458,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     combo_collected: 'Комбо зібрано!',
     cipher_solved: 'Шифр розгадано!',
     task_unlocked: 'Завдання розблоковано',
+    market_purchase_success: 'Покупка успішна!',
+    market_wallet_connected: 'Гаманець підключено!',
+    wallet_disconnected: 'Гаманець відключено.',
     guru_tapper: 'Гуру Тапів',
     energy_limit: 'Ліміт Енергії',
     turbo_mode: 'Турбо-режим',
@@ -501,37 +486,19 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     won_item: 'Ви виграли',
     close: 'Закрити',
     underground_market: 'Підпільний ринок',
-    underground_market_desc: 'Торгуйте рідкісними скінами з іншими гравцями за особливу валюту.',
+    underground_market_desc: 'Торгуйте рідкісними скінами з іншими гравцями за монети.',
     market_buy: 'Купити',
     market_sell: 'Продати',
-    market_credits: 'Ринкові Кредити',
-    request_withdrawal: 'Запросити виведення',
     market_set_price: 'Встановити ціну',
-    market_price_in_stars: 'Ціна в Зірках',
+    market_price_in_coins: 'Ціна в Монетах',
     market_list_for_sale: 'Виставити на продаж',
     market_sell_desc: 'Виберіть один зі своїх скінів, щоб виставити його на ринок.',
     market_no_listings: 'Зараз немає скінів на продаж. Заходьте пізніше!',
     market_no_skins_to_sell: 'У вас немає рідкісних скінів для продажу.',
     market_invalid_price: 'Невірна ціна.',
     market_list_success: 'Скін успішно виставлено на продаж!',
-    market_wallet_connected: 'Гаманець підключено!',
-    market_invalid_amount: 'Невірна сума для виведення.',
-    market_withdrawal_requested: 'Запит на виведення створено. Його перевірить адміністратор.',
-    withdrawal_history: 'Історія виведень',
-    market_no_history: 'Ще немає транзакцій.',
-    status_pending: 'В очікуванні',
-    status_approved: 'Схвалено',
-    status_rejected: 'Відхилено',
-    request: 'Запросити',
-    change: 'Змінити',
     connect_your_ton_wallet: 'Підключіть свій TON гаманець',
-    connect_wallet_task_desc: 'Це необхідно для Airdrop та виведення коштів.',
-    wallet_connected: 'Гаманець підключено',
-    connect_wallet: 'Підключити Гаманець',
-    wallet_connection_cancelled: 'Підключення гаманця було скасовано.',
-    wallet_feature_unavailable: 'Функція гаманця недоступна у вашій версії Telegram.',
-    wallet_disconnected: 'Гаманець від\'єднано',
-    connect_in_airdrop_prompt: 'Підключіть гаманець у розділі Airdrop, щоб активувати.',
+    connect_wallet_task_desc: 'Це необхідно для Airdrop.',
     suspicion: 'Підозра',
     suspicion_modifier: 'Підозра',
     cell: 'Осередок',
@@ -718,6 +685,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     combo_collected: 'Комбо собрано!',
     cipher_solved: 'Шифр разгадан!',
     task_unlocked: 'Задание разблокировано',
+    market_purchase_success: 'Покупка совершена!',
+    market_wallet_connected: 'Кошелёк подключен!',
+    wallet_disconnected: 'Кошелёк отключен.',
     guru_tapper: 'Гуру Тапов',
     energy_limit: 'Лимит Энергии',
     turbo_mode: 'Турбо-режим',
@@ -743,37 +713,19 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     won_item: 'Вы выиграли',
     close: 'Закрыть',
     underground_market: 'Подпольный рынок',
-    underground_market_desc: 'Торгуйте редкими скинами с другими игроками за особую валюту.',
+    underground_market_desc: 'Торгуйте редкими скинами с другими игроками за монеты.',
     market_buy: 'Купить',
     market_sell: 'Продать',
-    market_credits: 'Рыночные Кредиты',
-    request_withdrawal: 'Запросить вывод',
     market_set_price: 'Установить цену',
-    market_price_in_stars: 'Цена в Звёздах',
+    market_price_in_coins: 'Цена в Монетах',
     market_list_for_sale: 'Выставить на продажу',
     market_sell_desc: 'Выберите один из своих скинов, чтобы выставить его на рынок.',
     market_no_listings: 'Сейчас нет скинов на продажу. Заходите позже!',
     market_no_skins_to_sell: 'У вас нет редких скинов для продажи.',
     market_invalid_price: 'Неверная цена.',
     market_list_success: 'Скин успешно выставлен на продажу!',
-    market_wallet_connected: 'Кошелек подключен!',
-    market_invalid_amount: 'Неверная сумма для вывода.',
-    market_withdrawal_requested: 'Запрос на вывод создан. Его проверит администратор.',
-    withdrawal_history: 'История выводов',
-    market_no_history: 'Еще нет транзакций.',
-    status_pending: 'В ожидании',
-    status_approved: 'Одобрено',
-    status_rejected: 'Отклонено',
-    request: 'Запросить',
-    change: 'Изменить',
     connect_your_ton_wallet: 'Подключите свой TON кошелёк',
-    connect_wallet_task_desc: 'Это необходимо для Airdrop и вывода средств.',
-    wallet_connected: 'Кошелёк подключен',
-    connect_wallet: 'Подключить Кошелек',
-    wallet_connection_cancelled: 'Подключение кошелька было отменено.',
-    wallet_feature_unavailable: 'Функция кошелька недоступна в вашей версии Telegram.',
-    wallet_disconnected: 'Кошелёк отключен',
-    connect_in_airdrop_prompt: 'Подключите кошелёк в разделе Airdrop, чтобы активировать.',
+    connect_wallet_task_desc: 'Это необходимо для Airdrop.',
     suspicion: 'Подозрение',
     suspicion_modifier: 'Подозрение',
     cell: 'Ячейка',

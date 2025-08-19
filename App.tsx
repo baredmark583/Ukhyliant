@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
@@ -7,7 +8,7 @@ import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
 import CellScreen from './sections/Cell';
 import { REFERRAL_BONUS, TELEGRAM_BOT_NAME, MINI_APP_NAME } from './constants';
-import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League, UiIcons, Cell, GlitchEvent, MarketListing, WithdrawalRequest } from './types';
+import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League, UiIcons, Cell, GlitchEvent, MarketListing } from './types';
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
 import FinalSystemBreachEffect from './FinalSystemBreachEffect';
@@ -179,7 +180,7 @@ const SkinsContent = ({ user, playerState, config, onSetSkin }: {
     onSetSkin: (skinId: string) => void;
 }) => {
     const t = useTranslation();
-    const unlockedSkins = (config.coinSkins || []).filter(skin => playerState.unlockedSkins.includes(skin.id));
+    const unlockedSkins = (config.coinSkins || []).filter(skin => (playerState.unlockedSkins[skin.id] || 0) > 0);
     return (
         <div className="w-full max-w-md">
             <p className="text-center text-[var(--text-secondary)] mb-4 max-w-xs mx-auto">{t('skins_gallery_desc')}</p>
@@ -187,10 +188,12 @@ const SkinsContent = ({ user, playerState, config, onSetSkin }: {
                 {unlockedSkins.map(skin => {
                     const isSelected = playerState.currentSkinId === skin.id;
                     const skinName = skin.name?.[user.language] || skin.id;
+                    const quantity = playerState.unlockedSkins[skin.id] || 0;
                     return (
                         <div key={skin.id} className={`card-glow rounded-xl p-3 flex flex-col items-center text-center transition-all ${isSelected ? 'border-2 border-[var(--accent-color)]' : ''}`}>
-                            <div className="w-16 h-16 mb-2 flex items-center justify-center">
+                            <div className="w-16 h-16 mb-2 flex items-center justify-center relative">
                                 <img src={skin.iconUrl} alt={skinName} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
+                                {quantity > 1 && <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs font-bold rounded-full px-1.5 leading-tight">{quantity}</span>}
                             </div>
                             <p className="text-xs font-bold leading-tight">{skinName}</p>
                             <p className="text-xs text-[var(--accent-color)] mt-1">+{skin.profitBoostPercent}%</p>
@@ -257,19 +260,29 @@ const BuyTab = ({ user, config, showNotification, gameApi }: {
     const t = useTranslation();
     const [listings, setListings] = useState<MarketListing[]>([]);
     const [loading, setLoading] = useState(true);
+    const [purchasingId, setPurchasingId] = useState<number | null>(null);
 
-    useEffect(() => {
+    const fetchListings = useCallback(() => {
         gameApi.fetchMarketListings().then(data => {
             setListings(data || []);
             setLoading(false);
         });
     }, [gameApi]);
     
+    useEffect(() => {
+        fetchListings();
+    }, [fetchListings]);
+    
     const handlePurchase = async (listingId: number) => {
+        setPurchasingId(listingId);
         const result = await gameApi.purchaseMarketItem(listingId);
         if (result?.error) {
             showNotification(result.error, 'error');
+        } else {
+            showNotification(t('market_purchase_success'), 'success');
+            fetchListings(); // Refresh listings after purchase
         }
+        setPurchasingId(null);
     };
 
     if (loading) return <div className="text-center py-8">{t('loading')}...</div>;
@@ -280,6 +293,7 @@ const BuyTab = ({ user, config, showNotification, gameApi }: {
                 const skin = config.coinSkins.find(s => s.id === listing.skin_id);
                 if (!skin) return null;
                 const skinName = skin.name?.[user.language] || skin.id;
+                const isPurchasing = purchasingId === listing.id;
                 return (
                     <div key={listing.id} className="card-glow rounded-xl p-3 flex flex-col items-center text-center">
                         <div className="w-16 h-16 mb-2 flex items-center justify-center">
@@ -289,10 +303,15 @@ const BuyTab = ({ user, config, showNotification, gameApi }: {
                         <p className="text-xs text-slate-400 truncate w-full" title={listing.owner_name}>{listing.owner_name}</p>
                         <button
                             onClick={() => handlePurchase(listing.id)}
+                            disabled={isPurchasing}
                             className="w-full mt-2 py-2 text-xs font-bold interactive-button rounded-md flex items-center justify-center space-x-1"
                         >
-                            <span>{listing.price_stars}</span>
-                            <img src={config.uiIcons.star} alt="star" className="w-4 h-4" {...(isExternal(config.uiIcons.star) && { crossOrigin: 'anonymous' })} />
+                            {isPurchasing ? '...' : (
+                                <>
+                                    <span>{formatNumber(listing.price_coins)}</span>
+                                    <img src={config.uiIcons.coin} alt="coin" className="w-4 h-4" {...(isExternal(config.uiIcons.coin) && { crossOrigin: 'anonymous' })} />
+                                </>
+                            )}
                         </button>
                     </div>
                 );
@@ -313,7 +332,7 @@ const SellTab = ({ user, playerState, config, showNotification, gameApi }: {
     const [sellingSkin, setSellingSkin] = useState<CoinSkin | null>(null);
     const [price, setPrice] = useState('');
     
-    const unlockedSkins = config.coinSkins.filter(skin => playerState.unlockedSkins.includes(skin.id) && skin.id !== 'default_coin');
+    const sellableSkins = config.coinSkins.filter(skin => (playerState.unlockedSkins[skin.id] || 0) > 0 && skin.id !== 'default_coin');
     
     const handleListSkin = async () => {
         if (!sellingSkin || !price || isNaN(Number(price)) || Number(price) <= 0) {
@@ -341,8 +360,8 @@ const SellTab = ({ user, playerState, config, showNotification, gameApi }: {
                         </div>
                         <p className="font-bold text-lg mb-4">{sellingSkin.name?.[user.language] || sellingSkin.id}</p>
                         <div className="relative w-full mb-4">
-                             <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder={t('market_price_in_stars')} className="w-full input-field text-center pr-8" />
-                             <img src={config.uiIcons.star} alt="star" className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2" {...(isExternal(config.uiIcons.star) && { crossOrigin: 'anonymous' })}/>
+                             <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder={t('market_price_in_coins')} className="w-full input-field text-center pr-8" />
+                             <img src={config.uiIcons.coin} alt="coin" className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2" {...(isExternal(config.uiIcons.coin) && { crossOrigin: 'anonymous' })}/>
                         </div>
                         <button onClick={handleListSkin} className="w-full interactive-button rounded-lg font-bold py-3 text-lg">{t('market_list_for_sale')}</button>
                     </div>
@@ -350,98 +369,22 @@ const SellTab = ({ user, playerState, config, showNotification, gameApi }: {
             )}
             <p className="text-center text-[var(--text-secondary)] mb-4">{t('market_sell_desc')}</p>
             <div className="grid grid-cols-3 gap-4">
-                {unlockedSkins.map(skin => {
+                {sellableSkins.map(skin => {
                     const skinName = skin.name?.[user.language] || skin.id;
+                    const quantity = playerState.unlockedSkins[skin.id] || 0;
                     return (
                         <div key={skin.id} onClick={() => setSellingSkin(skin)} className="card-glow rounded-xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-[var(--accent-color)] border border-transparent">
-                            <div className="w-16 h-16 mb-2 flex items-center justify-center">
+                            <div className="w-16 h-16 mb-2 flex items-center justify-center relative">
                                 <img src={skin.iconUrl} alt={skinName} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
+                                <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs font-bold rounded-full px-1.5 leading-tight">{quantity}</span>
                             </div>
                             <p className="text-xs font-bold leading-tight">{skinName}</p>
                         </div>
                     )
                 })}
-                 {unlockedSkins.length === 0 && <p className="col-span-full text-center py-8 text-[var(--text-secondary)]">{t('market_no_skins_to_sell')}</p>}
+                 {sellableSkins.length === 0 && <p className="col-span-full text-center py-8 text-[var(--text-secondary)]">{t('market_no_skins_to_sell')}</p>}
             </div>
         </>
-    );
-};
-
-const CreditsTab = ({ playerState, showNotification, gameApi }: {
-    playerState: PlayerState;
-    showNotification: (message: string, type?: 'success' | 'error') => void;
-    gameApi: GameApi;
-}) => {
-    const t = useTranslation();
-    const [withdrawalAmount, setWithdrawalAmount] = useState('');
-    const [history, setHistory] = useState<WithdrawalRequest[]>([]);
-    const isWalletConnected = !!playerState.tonWalletAddress;
-
-    useEffect(() => {
-        gameApi.fetchMyWithdrawalRequests().then(data => setHistory(data || []));
-    }, [gameApi, playerState.marketCredits]); // Refetch on credit change too
-
-    const handleRequest = async () => {
-        const amount = Number(withdrawalAmount);
-        if (isNaN(amount) || amount <= 0) {
-            showNotification(t('market_invalid_amount'), 'error');
-            return;
-        }
-        const result = await gameApi.requestWithdrawal(amount);
-        if(result?.error) showNotification(result.error, 'error');
-        else {
-            showNotification(t('market_withdrawal_requested'), 'success');
-            setWithdrawalAmount('');
-        }
-    };
-    
-    const getStatusBadge = (status: string) => {
-         const statusKey = `status_${status}`;
-         switch(status) {
-            case 'approved': return <span className="text-xs font-bold text-green-400">{t(statusKey)}</span>;
-            case 'rejected': return <span className="text-xs font-bold text-red-400">{t(statusKey)}</span>;
-            case 'pending':
-            default:
-                return <span className="text-xs font-bold text-yellow-400">{t(statusKey)}</span>;
-        }
-    };
-
-    return (
-        <div className="space-y-4">
-            <div className="card-glow p-4 rounded-xl text-center">
-                <p className="text-[var(--text-secondary)] text-lg">{t('market_credits')}</p>
-                <p className="text-5xl font-display my-1">{formatNumber(playerState.marketCredits || 0)}</p>
-            </div>
-            
-             {!isWalletConnected && (
-                <div className="card-glow p-4 rounded-xl text-center bg-blue-900/30 border border-blue-500/50">
-                    <p className="text-sm text-blue-200">{t('connect_in_airdrop_prompt')}</p>
-                </div>
-            )}
-             
-             <div className="card-glow p-4 rounded-xl">
-                <h3 className="font-bold mb-2">{t('request_withdrawal')}</h3>
-                <div className="flex space-x-2">
-                     <input type="number" value={withdrawalAmount} onChange={e => setWithdrawalAmount(e.target.value)} placeholder={t('amount')} className="w-full input-field text-sm" disabled={!isWalletConnected} />
-                     <button onClick={handleRequest} className="interactive-button rounded-lg font-bold px-4 text-sm" disabled={!isWalletConnected}>{t('request')}</button>
-                </div>
-             </div>
-
-             <div className="card-glow p-4 rounded-xl">
-                <h3 className="font-bold mb-2">{t('withdrawal_history')}</h3>
-                <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
-                    {history.length > 0 ? history.map(req => (
-                        <div key={req.id} className="bg-slate-900/50 shadow-inner rounded-md p-2 flex justify-between items-center text-sm">
-                            <div>
-                                <p className="font-bold">{formatNumber(req.amount_credits)} {t('market_credits')}</p>
-                                <p className="text-xs text-[var(--text-secondary)]">{new Date(req.created_at).toLocaleString()}</p>
-                            </div>
-                            {getStatusBadge(req.status)}
-                        </div>
-                    )) : <p className="text-center text-sm text-[var(--text-secondary)]">{t('market_no_history')}</p>}
-                </div>
-             </div>
-        </div>
     );
 };
 
@@ -453,7 +396,7 @@ const UndergroundMarketContent = ({ user, playerState, config, showNotification,
     gameApi: GameApi;
 }) => {
     const t = useTranslation();
-    const [marketTab, setMarketTab] = useState<'buy' | 'sell' | 'credits'>('buy');
+    const [marketTab, setMarketTab] = useState<'buy' | 'sell'>('buy');
 
     const tabProps = { user, playerState, config, showNotification, gameApi };
 
@@ -462,11 +405,9 @@ const UndergroundMarketContent = ({ user, playerState, config, showNotification,
             <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex justify-around items-center gap-1 border border-slate-700 mb-4">
                 <button onClick={() => setMarketTab('buy')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'buy' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_buy')}</button>
                 <button onClick={() => setMarketTab('sell')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'sell' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_sell')}</button>
-                <button onClick={() => setMarketTab('credits')} className={`flex-1 font-bold py-2 text-sm rounded-lg ${marketTab === 'credits' ? 'bg-slate-900 text-[var(--accent-color)]' : 'text-slate-300'}`}>{t('market_credits')}</button>
             </div>
             {marketTab === 'buy' && <BuyTab {...tabProps} />}
             {marketTab === 'sell' && <SellTab {...tabProps} />}
-            {marketTab === 'credits' && <CreditsTab {...tabProps} />}
         </div>
     );
 };
@@ -1177,7 +1118,7 @@ const MainApp: React.FC = () => {
     }
   };
 
-  const processTaskCompletion = (task: DailyTask | SpecialTask, result: { player?: PlayerState, error?: string }) => {
+  const processTaskCompletion = (task: DailyTask | SpecialTask, result: { player?: PlayerState, error?: string }): boolean => {
       if (result.player) {
           window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
           const rewardText = task.reward?.type === 'profit'
@@ -1190,11 +1131,13 @@ const MainApp: React.FC = () => {
               newSet.delete(task.id);
               return newSet;
           });
+          return true;
       } else if (result.error) {
           window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
           showNotification(result.error, 'error');
+          return false;
       }
-      return result;
+      return false;
   };
 
   const handleClaimTask = async (task: DailyTask | SpecialTask) => {
@@ -1205,115 +1148,146 @@ const MainApp: React.FC = () => {
         if (task.url.startsWith('https://t.me/')) {
             window.Telegram.WebApp.openTelegramLink(task.url);
         } else {
-            window.Telegram.WebApp.openLink(task.url);
+            window.Telegram.WebApp.openLink(task.url, { try_instant_view: true });
         }
         setStartedTasks(prev => new Set(prev).add(task.id));
         return;
     }
-    
+
     if (task.type === 'video_code') {
         setSecretCodeTask(task);
         return;
     }
     
-    if ('isOneTime' in task) { // Special Task
-      const result = await completeSpecialTask(task);
-      processTaskCompletion(task, result);
-    } else { // Daily Task
-      const result = await claimTaskReward(task as DailyTask);
-      processTaskCompletion(task, result);
+    // This is for tap tasks, or for other tasks after they have been started.
+    let result;
+    const isAirdropTask = 'isOneTime' in task;
+
+    if (isAirdropTask) {
+        result = await completeSpecialTask(task as SpecialTask);
+    } else {
+        result = await claimTaskReward(task as DailyTask);
     }
+    processTaskCompletion(task, result);
   };
 
-  const handleClaimCipher = async (cipher: string): Promise<boolean> => {
-    const result = await claimDailyCipher(cipher);
-    if (result.player) {
-        const rewardAmount = result.reward || 0;
-        if (rewardAmount > 0) {
-            showNotification(`${t('cipher_solved')} +${formatNumber(rewardAmount)}`, 'success');
-        } else {
-            showNotification(t('cipher_solved'), 'success');
-        }
-        return true;
-    } else if (result.error) {
-        showNotification(result.error, 'error');
+  const handleSecretCodeSubmit = async (code: string) => {
+    if (!secretCodeTask) return;
+    const isAirdropTask = 'isOneTime' in secretCodeTask;
+    let result;
+    if (isAirdropTask) {
+        result = await completeSpecialTask(secretCodeTask as SpecialTask, code);
+    } else {
+        result = await claimTaskReward(secretCodeTask as DailyTask, code);
     }
-    return false;
+    
+    const wasSuccessful = processTaskCompletion(secretCodeTask, result);
+    if (wasSuccessful) {
+        setSecretCodeTask(null);
+    }
   };
   
+  const handleOpenGlitchCodesModal = () => {
+      setIsGlitchCodesModalOpen(true);
+  };
+
   const handleClaimGlitchCode = async (code: string): Promise<boolean> => {
-    const result = await claimGlitchCode(code);
-    if (result.player && result.reward) {
-        // The useEffect will catch the new discovery and show the visual effect.
-        // This function just needs to show the notification toast.
-        const rewardText = result.reward.type === 'profit'
-            ? `+${formatNumber(result.reward.amount)}/hr`
-            : `+${formatNumber(result.reward.amount)}`;
-        showNotification(`${t('glitch_code_claimed')} ${rewardText}`, 'success');
-        setIsGlitchCodesModalOpen(false); // Close modal on success
-        return true;
-    } else if (result.error) {
-        showNotification(result.error, 'error');
-    }
-    return false;
-  };
-
-  const handleClaimCombo = async () => {
-    const result = await claimDailyCombo();
-    if (result.player && result.reward) {
-        showNotification(`${t('combo_collected')} +${formatNumber(result.reward)}`, 'success');
-    } else if (result.error) {
-        showNotification(result.error, 'error');
-    }
-  };
-
-  const handleOpenCoinLootbox = async (boxType: 'coin') => {
-      const result = await openCoinLootbox(boxType);
-      if(result.wonItem) {
-          setPurchaseResult({type: 'lootbox', item: result.wonItem });
+      const result = await claimGlitchCode(code);
+      if (result.player) {
+          showNotification(t('glitch_code_claimed'), 'success');
+          return true;
       } else if (result.error) {
           showNotification(result.error, 'error');
+          return false;
       }
-  };
-  
-  const handlePurchaseStarLootbox = async (boxType: 'star') => {
-      const result = await purchaseLootboxWithStars(boxType);
-      if (result?.error) {
-          showNotification(result.error, 'error');
-      }
-  };
-  
-  const handleSetSkin = async (skinId: string) => {
-      await setSkin(skinId);
-      showNotification(t('selected'), 'success');
+      return false;
   };
 
-  const handleEnergyClick = () => showNotification(t('tooltip_energy'), 'success');
-  const handleSuspicionClick = () => showNotification(t('tooltip_suspicion'), 'success');
+  const handleEnergyTooltip = () => {
+    showNotification(t('tooltip_energy'));
+  };
   
-  if (!isAppReady || !user || !playerState || !config || !isTgReady) {
+  const handleSuspicionTooltip = () => {
+    showNotification(t('tooltip_suspicion'));
+  };
+  
+  if (!isAppReady || !isTgReady || !playerState || !config) {
     return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
   }
   
+  if (activeGlitchEvent) {
+      return <GlitchEffect message={activeGlitchEvent.message[user.language]} code={activeGlitchEvent.code} onClose={handleGlitchEffectClose} />;
+  }
+
+  if (isFinalScene && !showVideo) {
+      return <FinalSystemBreachEffect onComplete={handleFinalSceneComplete} />;
+  }
+  
+  if (showVideo && config.finalVideoUrl) {
+      return <FinalVideoPlayer videoUrl={config.finalVideoUrl} onEnd={() => setShowVideo(false)} />;
+  }
+
   const renderScreen = () => {
     switch (activeScreen) {
       case 'exchange':
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTapWithAudio} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} isMuted={isMuted} toggleMute={toggleMute} handleMetaTap={handleMetaTap} />;
+        return <ExchangeScreen 
+                    playerState={playerState} 
+                    currentLeague={currentLeague} 
+                    onTap={handleTapWithAudio}
+                    user={user}
+                    onClaimCipher={async (cipher) => {
+                        const result = await claimDailyCipher(cipher);
+                        if (result.error) {
+                            showNotification(result.error, 'error');
+                            return false;
+                        } else {
+                            showNotification(t('cipher_solved'), 'success');
+                            return true;
+                        }
+                    }}
+                    config={config}
+                    onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
+                    isTurboActive={isTurboActive}
+                    effectiveMaxEnergy={effectiveMaxEnergy}
+                    effectiveMaxSuspicion={effectiveMaxSuspicion}
+                    onEnergyClick={handleEnergyTooltip}
+                    onSuspicionClick={handleSuspicionTooltip}
+                    isMuted={isMuted}
+                    toggleMute={toggleMute}
+                    handleMetaTap={handleMetaTap}
+                />;
       case 'mine':
-        return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} handleMetaTap={handleMetaTap} />;
-      case 'missions':
-        return <MissionsScreen
-                    tasks={config.tasks}
+        return <MineScreen 
+                    upgrades={allUpgrades} 
+                    balance={playerState.balance} 
+                    onBuyUpgrade={handleBuyUpgrade}
+                    lang={user.language}
                     playerState={playerState}
+                    config={config}
+                    onClaimCombo={async () => {
+                        const result = await claimDailyCombo();
+                        if(result.error) {
+                            showNotification(result.error, 'error');
+                        } else {
+                             showNotification(`${t('combo_collected')} +${formatNumber(result.reward || 0)}`, 'success');
+                        }
+                    }}
+                    uiIcons={config.uiIcons}
+                    handleMetaTap={handleMetaTap}
+                />;
+      case 'missions':
+        return <MissionsScreen 
+                    tasks={config.tasks} 
+                    playerState={playerState} 
                     onClaim={handleClaimTask}
                     lang={user.language}
                     startedTasks={startedTasks}
                     uiIcons={config.uiIcons}
                 />;
-       case 'airdrop':
-        return <AirdropScreen
-                    specialTasks={config.specialTasks}
-                    playerState={playerState}
+      case 'airdrop':
+        return <AirdropScreen 
+                    specialTasks={config.specialTasks} 
+                    playerState={playerState} 
                     onClaim={handleClaimTask}
                     onPurchase={purchaseSpecialTask}
                     user={user}
@@ -1323,88 +1297,66 @@ const MainApp: React.FC = () => {
                     showNotification={showNotification}
                 />;
       case 'profile':
-        return <ProfileScreen
-                    playerState={playerState}
-                    user={user}
-                    config={config}
+        return <ProfileScreen 
+                    playerState={playerState} 
+                    user={user} 
+                    config={config} 
                     onBuyBoost={handleBuyBoost}
-                    onSetSkin={handleSetSkin}
-                    onOpenCoinLootbox={handleOpenCoinLootbox}
-                    onPurchaseStarLootbox={handlePurchaseStarLootbox}
+                    onSetSkin={setSkin}
+                    onOpenCoinLootbox={openCoinLootbox}
+                    onPurchaseStarLootbox={purchaseLootboxWithStars}
                     handleMetaTap={handleMetaTap}
-                    onOpenGlitchCodesModal={() => setIsGlitchCodesModalOpen(true)}
+                    onOpenGlitchCodesModal={handleOpenGlitchCodesModal}
                     showNotification={showNotification}
                     gameApi={gameApi}
                 />;
       default:
-        return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTapWithAudio} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={handleEnergyClick} onSuspicionClick={handleSuspicionClick} isMuted={isMuted} toggleMute={toggleMute} handleMetaTap={handleMetaTap} />;
+        return null;
     }
   };
 
   return (
-    <div className={`h-screen w-screen overflow-hidden flex flex-col prevent-select transition-all duration-300 ${isFullScreen ? 'pt-4' : ''}`}>
-      {isFinalScene && !showVideo && <FinalSystemBreachEffect onComplete={handleFinalSceneComplete} />}
-      {showVideo && config?.finalVideoUrl && <FinalVideoPlayer videoUrl={config.finalVideoUrl} onEnd={() => { setShowVideo(false); setIsFinalScene(false); }} />}
-      
-      {config?.backgroundAudioUrl && (
-        <audio ref={audioRef} src={config.backgroundAudioUrl} loop muted={isMuted} playsInline />
-      )}
-      {isGlitching && <GlitchEffect />}
-      {activeGlitchEvent && <GlitchEffect message={activeGlitchEvent.message[user.language]} code={activeGlitchEvent.code} onClose={handleGlitchEffectClose} />}
-      {systemMessage && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
+    <div className={`h-screen w-screen bg-[var(--bg-color)] flex flex-col overflow-hidden transition-opacity duration-500 ${isAppReady ? 'opacity-100' : 'opacity-0'}`}>
+        {config.backgroundAudioUrl && (
+            <audio ref={audioRef} src={config.backgroundAudioUrl} loop muted={isMuted} playsInline />
+        )}
+        
+        {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
+        {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
+        {secretCodeTask && <SecretCodeModal task={secretCodeTask} onClose={() => setSecretCodeTask(null)} onSubmit={handleSecretCodeSubmit} lang={user.language} />}
+        {isGlitchCodesModalOpen && <GlitchCodesModal isOpen={isGlitchCodesModalOpen} onClose={() => setIsGlitchCodesModalOpen(false)} onSubmit={handleClaimGlitchCode} playerState={playerState} config={config} lang={user.language} />}
+        {systemMessage && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
 
-      <div id="main-content-wrapper" className="flex-grow overflow-hidden relative">
-        {renderScreen()}
-      </div>
-
-      <div className="flex-shrink-0 w-full bg-slate-800/90 border-t border-slate-700 backdrop-blur-sm">
-        <div className="flex justify-around items-start max-w-2xl mx-auto">
-          <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} setActiveScreen={setActiveScreen} />
-          <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} setActiveScreen={setActiveScreen} />
-          <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} setActiveScreen={setActiveScreen} />
-          <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} setActiveScreen={setActiveScreen} />
-          <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} setActiveScreen={setActiveScreen} />
-        </div>
-      </div>
-      
-      <NotificationToast notification={notification} />
-      {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
-      {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
-      {secretCodeTask && <SecretCodeModal 
-        task={secretCodeTask} 
-        onClose={() => setSecretCodeTask(null)} 
-        onSubmit={async (code) => {
-            const taskToComplete = secretCodeTask;
-            setSecretCodeTask(null);
-            if ('isOneTime' in taskToComplete) {
-                processTaskCompletion(taskToComplete, await completeSpecialTask(taskToComplete, code));
-            } else {
-                processTaskCompletion(taskToComplete, await claimTaskReward(taskToComplete as DailyTask, code));
+        <NotificationToast notification={notification} />
+        
+        <main id="main-content-wrapper" className={`flex-grow min-h-0 ${!isFullScreen ? 'pb-[60px]' : ''}`}>
+             {renderScreen()}
+        </main>
+        
+        {!isFullScreen && (
+            <nav className="fixed bottom-0 left-0 right-0 h-[60px] bg-slate-900/80 backdrop-blur-md border-t border-slate-700/50 flex justify-around items-start z-50">
+                <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} setActiveScreen={setActiveScreen} />
+                <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} setActiveScreen={setActiveScreen} />
+                <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} setActiveScreen={setActiveScreen} />
+                <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} setActiveScreen={setActiveScreen} />
+                <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} setActiveScreen={setActiveScreen} />
+            </nav>
+        )}
+        <style>{`
+            @keyframes floatUp {
+                0% { transform: translate(var(--x-offset), 0); opacity: 1; }
+                100% { transform: translate(var(--x-offset), -100px); opacity: 0; }
             }
-        }} 
-        lang={user.language} 
-      />}
-      <GlitchCodesModal isOpen={isGlitchCodesModalOpen} onClose={() => setIsGlitchCodesModalOpen(false)} onSubmit={handleClaimGlitchCode} playerState={playerState} config={config} lang={user.language} />
-
-      <style>{`
-          .prevent-select {
-            -webkit-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-          }
-          @keyframes floatUp {
-            0% { transform: translateY(0) translateX(var(--x-offset)) scale(1); opacity: 1; }
-            100% { transform: translateY(-100px) translateX(var(--x-offset)) scale(0.8); opacity: 0; }
-          }
-      `}</style>
+        `}</style>
     </div>
   );
 };
 
-const App: React.FC = () => (
-  <AuthProvider>
-    <AppContainer />
-  </AuthProvider>
+
+const App = () => (
+    <AuthProvider>
+        <AppContainer />
+    </AuthProvider>
 );
 
 export default App;

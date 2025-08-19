@@ -7,50 +7,24 @@ export const MODERATOR_TELEGRAM_IDS = ['987654321'];
 
 // --- LEAGUES (Backend Safe) ---
 export const INITIAL_LEAGUES = [
-  { id: 'league4', name: { en: 'European Baron', ua: 'Європейський Барон', ru: 'Европейский Барон' }, description: { en: 'You are on top of the world!', ua: 'Ви на вершині світу!', ru: 'Вы на вершине мира!' }, minProfitPerHour: 100000, iconUrl: 'https://api.iconify.design/twemoji/crown.svg', overlayIconUrl: '' },
-  { id: 'league3', name: { en: 'Across the Tisza', ua: 'Переплив Тису', ru: 'Переплыл Тиссу' }, description: { en: 'You have successfully escaped.', ua: 'Ви успішно втекли.', ru: 'Вы успешно сбежали.' }, minProfitPerHour: 10000, iconUrl: 'https://api.iconify.design/twemoji/european-castle.svg', overlayIconUrl: '' },
-  { id: 'league2', name: { en: 'Grandma\'s Village', ua: 'В селі у бабці', ru: 'В деревне у бабушки' }, description: { en: 'Hiding out, away from the city.', ua: 'Ховаєтесь, подалі від міста.', ru: 'Прячетесь, подальше от города.' }, minProfitPerHour: 1000, iconUrl: 'https://api.iconify.design/twemoji/briefcase.svg', overlayIconUrl: '' },
-  { id: 'league1', name: { en: 'In The City', ua: 'В місті', ru: 'В городе' }, description: { en: 'Just starting your journey.', ua: 'Тільки починаєте свій шлях.', ru: 'Только начинаете свой путь.' }, minProfitPerHour: 0, iconUrl: 'https://api.iconify.design/twemoji/passport-control.svg', overlayIconUrl: '' },
+  { id: 'league5', name: { en: 'European Baron', ua: 'Європейський Барон', ru: 'Европейский Барон' }, description: { en: 'You are on top of the world!', ua: 'Ви на вершині світу!', ru: 'Вы на вершине мира!' }, minProfitPerHour: 100000, iconUrl: 'https://api.iconify.design/twemoji/crown.svg', overlayIconUrl: '' },
+  { id: 'league4', name: { en: 'Across the Tisza', ua: 'Переплив Тису', ru: 'Переплыл Тиссу' }, description: { en: 'You have successfully escaped.', ua: 'Ви успішно втекли.', ru: 'Вы успешно сбежали.' }, minProfitPerHour: 10000, iconUrl: 'https://api.iconify.design/twemoji/european-castle.svg', overlayIconUrl: '' },
+  { id: 'league3', name: { en: 'City Dweller', ua: 'Міський житель', ru: 'Городской житель' }, description: { en: 'Hiding in the urban jungle.', ua: 'Ховаєтесь у міських джунглях.', ru: 'Прячетесь в городских джунглях.' }, minProfitPerHour: 1000, iconUrl: 'https://api.iconify.design/twemoji/cityscape.svg', overlayIconUrl: '' },
+  { id: 'league2', name: { en: 'Villager', ua: 'Селянин', ru: 'Селянин' }, description: { en: 'Laying low in the countryside.', ua: 'Залягли на дно в селі.', ru: 'Залегли на дно в деревне.' }, minProfitPerHour: 100, iconUrl: 'https://api.iconify.design/twemoji/hut.svg', overlayIconUrl: '' },
+  { id: 'league1', name: { en: 'Beginner Dodger', ua: 'Ухилянт-початківець', ru: 'Начинающий уклонист' }, description: { en: 'Just starting your journey.', ua: 'Тільки починаєте свій шлях.', ru: 'Только начинаете свой путь.' }, minProfitPerHour: 0, iconUrl: 'https://api.iconify.design/twemoji/baby.svg', overlayIconUrl: '' },
 ];
 
-export const INITIAL_UI_ICONS = {
-  nav: {
-    exchange: "https://api.iconify.design/ph/bank-bold.svg?color=white",
-    mine: "https://api.iconify.design/ph/hammer-bold.svg?color=white",
-    missions: "https://api.iconify.design/ph/list-checks-bold.svg?color=white",
-    airdrop: "https://api.iconify.design/ph/parachute-bold.svg?color=white",
-    profile: "https://api.iconify.design/ph/user-bold.svg?color=white"
-  },
-  profile_tabs: {
-    contacts: "https://api.iconify.design/ph/users-three-bold.svg?color=white",
-    boosts: "https://api.iconify.design/ph/rocket-launch-bold.svg?color=white",
-    skins: "https://api.iconify.design/ph/paint-brush-bold.svg?color=white",
-    market: "https://api.iconify.design/ph/storefront-bold.svg?color=white",
-    cell: "https://api.iconify.design/ph/users-group-bold.svg?color=white"
-  },
-  energy: "https://api.iconify.design/ph/lightning-bold.svg?color=%2367e8f9", // cyan-300
-  coin: "/assets/coin.svg",
-  star: "https://api.iconify.design/ph/star-four-bold.svg?color=%2360a5fa", // blue-400
-  suspicion: "https://api.iconify.design/ph/eye-bold.svg?color=%23f87171", // red-400
-  marketCoinBox: 'https://api.iconify.design/twemoji/package.svg',
-  marketStarBox: 'https://api.iconify.design/twemoji/glowing-star.svg',
-  soundOn: "https://api.iconify.design/ph/speaker-high-bold.svg?color=white",
-  soundOff: "https://api.iconify.design/ph/speaker-slash-bold.svg?color=white",
-  secretCodeEntry: "https://api.iconify.design/ph/keyhole-bold.svg?color=white",
-  languageSwitcher: "https://api.iconify.design/ph/globe-bold.svg?color=white",
-};
-
-
+// --- GAME CONFIGURATION ---
 export const INITIAL_UPGRADES = [
-    { id: 'doc1', name: { en: 'Student ID', ua: 'Студентський квиток', ru: 'Студенческий билет' }, price: 100, profitPerHour: 10, category: 'Documents', iconUrl: 'https://api.iconify.design/twemoji/graduation-cap.svg', suspicionModifier: -5 },
-    { id: 'doc2', name: { en: 'Disability Certificate', ua: 'Довідка про інвалідність', ru: 'Справка об инвалидности' }, price: 1500, profitPerHour: 80, category: 'Documents', iconUrl: 'https://api.iconify.design/twemoji/wheelchair-symbol.svg', suspicionModifier: -10 },
-    { id: 'doc3', name: { en: 'White Ticket', ua: 'Білий квиток', ru: 'Белый билет' }, price: 10000, profitPerHour: 500, category: 'Documents', iconUrl: 'https://api.iconify.design/twemoji/page-facing-up.svg', suspicionModifier: 5 },
-    { id: 'leg1', name: { en: 'Lawyer Consultation', ua: 'Консультація адвоката', ru: 'Консультация адвоката' }, price: 500, profitPerHour: 25, category: 'Legal', iconUrl: 'https://api.iconify.design/twemoji/balance-scale.svg', suspicionModifier: 0 },
-    { id: 'leg2', name: { en: 'Open a Fake Company', ua: 'Відкрити фіктивну фірму', ru: 'Открыть фиктивную фирму' }, price: 5000, profitPerHour: 200, category: 'Legal', iconUrl: 'https://api.iconify.design/twemoji/office-building.svg', suspicionModifier: 15 },
-    { id: 'life1', name: { en: 'Hide in the Village', ua: 'Сховатись в селі', ru: 'Спрятаться в деревне' }, price: 2000, profitPerHour: 100, category: 'Lifestyle', iconUrl: 'https://api.iconify.design/twemoji/hut.svg', suspicionModifier: -2 },
-    { id: 'life2', name: { en: 'Rent a Bunker', ua: 'Орендувати бункер', ru: 'Арендовать бункер' }, price: 25000, profitPerHour: 1100, category: 'Lifestyle', iconUrl: 'https://api.iconify.design/twemoji/locked.svg', suspicionModifier: 10 },
-    { id: 'spec1', name: { en: 'Border Crossing', ua: 'Перетин кордону', ru: 'Пересечение границы' }, price: 100000, profitPerHour: 4000, category: 'Special', iconUrl: 'https://api.iconify.design/twemoji/world-map.svg', suspicionModifier: 25 },
-    { id: 'spec2', name: { en: 'New Identity', ua: 'Нова особистість', ru: 'Новая личность' }, price: 500000, profitPerHour: 20000, category: 'Special', iconUrl: 'https://api.iconify.design/twemoji/performing-arts.svg', suspicionModifier: 50 },
+    { id: 'doc1', name: { en: 'Student ID', ua: 'Студентський квиток', ru: 'Студенческий билет' }, price: 100, profitPerHour: 10, category: "Documents", iconUrl: 'https://api.iconify.design/twemoji/graduation-cap.svg', suspicionModifier: -5 },
+    { id: 'doc2', name: { en: 'Disability Certificate', ua: 'Довідка про інвалідність', ru: 'Справка об инвалидности' }, price: 1500, profitPerHour: 80, category: "Documents", iconUrl: 'https://api.iconify.design/twemoji/wheelchair-symbol.svg', suspicionModifier: -10 },
+    { id: 'doc3', name: { en: 'White Ticket', ua: 'Білий квиток', ru: 'Білий квиток' }, price: 10000, profitPerHour: 500, category: "Documents", iconUrl: 'https://api.iconify.design/twemoji/page-facing-up.svg', suspicionModifier: 5 },
+    { id: 'leg1', name: { en: 'Lawyer Consultation', ua: 'Консультація адвоката', ru: 'Консультация адвоката' }, price: 500, profitPerHour: 25, category: "Legal", iconUrl: 'https://api.iconify.design/twemoji/balance-scale.svg', suspicionModifier: 0 },
+    { id: 'leg2', name: { en: 'Open a Fake Company', ua: 'Відкрити фіктивну фірму', ru: 'Открыть фиктивную фирму' }, price: 5000, profitPerHour: 200, category: "Legal", iconUrl: 'https://api.iconify.design/twemoji/office-building.svg', suspicionModifier: 15 },
+    { id: 'life1', name: { en: 'Hide in the Village', ua: 'Сховатись в селі', ru: 'Спрятаться в деревне' }, price: 2000, profitPerHour: 100, category: "Lifestyle", iconUrl: 'https://api.iconify.design/twemoji/hut.svg', suspicionModifier: -2 },
+    { id: 'life2', name: { en: 'Rent a Bunker', ua: 'Орендувати бункер', ru: 'Арендовать бункер' }, price: 25000, profitPerHour: 1100, category: "Lifestyle", iconUrl: 'https://api.iconify.design/twemoji/locked.svg', suspicionModifier: 10 },
+    { id: 'spec1', name: { en: 'Border Crossing', ua: 'Перетин кордону', ru: 'Пересечение границы' }, price: 100000, profitPerHour: 4000, category: "Special", iconUrl: 'https://api.iconify.design/twemoji/world-map.svg', suspicionModifier: 25 },
+    { id: 'spec2', name: { en: 'New Identity', ua: 'Нова особистість', ru: 'Новая личность' }, price: 500000, profitPerHour: 20000, category: "Special", iconUrl: 'https://api.iconify.design/twemoji/performing-arts.svg', suspicionModifier: 50 },
 ];
 
 export const INITIAL_TASKS = [
@@ -85,52 +59,48 @@ export const INITIAL_COIN_SKINS = [
     { id: 'skin_diamond', name: {en: 'Diamond', ua: 'Діамант', ru: 'Бриллиант'}, profitBoostPercent: 5, iconUrl: 'https://api.iconify.design/twemoji/gem-stone.svg', boxType: 'star', chance: 5, suspicionModifier: 0 },
 ];
 
+export const INITIAL_UI_ICONS = {
+    nav: { exchange: 'https://api.iconify.design/ph/storefront-bold.svg?color=white', mine: 'https://api.iconify.design/ph/pickaxe-bold.svg?color=white', missions: 'https://api.iconify.design/ph/scroll-bold.svg?color=white', profile: 'https://api.iconify.design/ph/user-bold.svg?color=white', airdrop: 'https://api.iconify.design/ph/parachute-bold.svg?color=white' },
+    profile_tabs: { contacts: 'https://api.iconify.design/ph/users-three-bold.svg?color=white', boosts: 'https://api.iconify.design/ph/rocket-launch-bold.svg?color=white', skins: 'https://api.iconify.design/ph/paint-brush-broad-bold.svg?color=white', market: 'https://api.iconify.design/ph/shopping-cart-bold.svg?color=white', cell: 'https://api.iconify.design/ph/graph-bold.svg?color=white' },
+    energy: 'https://api.iconify.design/ph/hourglass-high-bold.svg?color=white',
+    coin: 'https://api.iconify.design/ph/coin-bold.svg?color=white',
+    star: 'https://api.iconify.design/ph/star-four-bold.svg?color=white',
+    suspicion: 'https://api.iconify.design/ph/warning-octagon-bold.svg?color=white',
+    marketCoinBox: '/assets/box_coin.png',
+    marketStarBox: '/assets/box_star.png',
+    soundOn: 'https://api.iconify.design/ph/speaker-high-bold.svg?color=white',
+    soundOff: 'https://api.iconify.design/ph/speaker-slash-bold.svg?color=white',
+    secretCodeEntry: 'https://api.iconify.design/ph/radio-button-bold.svg?color=white',
+    languageSwitcher: 'https://api.iconify.design/ph/translate-bold.svg?color=white'
+};
+
 export const INITIAL_GLITCH_EVENTS = [
-    {
-        id: 'GLITCH_01',
-        message: { en: 'The system is watching.', ua: 'Система все бачить.', ru: 'Система всё видит.'},
-        code: '1984',
-        reward: { type: 'coins', amount: 19840 },
-        trigger: { type: 'meta_tap', params: { targetId: 'referral-counter', taps: 5 } }
-    },
-    {
-        id: 'GLITCH_02',
-        message: { en: 'You are a slave to the machine.', ua: 'Ти раб машини.', ru: 'Ты раб машины.'},
-        code: 'FRE3',
-        reward: { type: 'coins', amount: 50000 },
-        trigger: { type: 'login_at_time', params: { hour: 3, minute: 33 } }
-    },
-    {
-        id: 'GLITCH_03',
-        message: { en: 'Escape. They won\'t find you.', ua: 'Тікай. Вони тебе не знайдуть.', ru: 'Беги. Они тебя не найдут.'},
-        code: 'RUNN',
-        reward: { type: 'profit', amount: 100 },
-        trigger: { type: 'upgrade_purchased', params: { upgradeId: 'spec1' } }
-    },
-    {
-        id: 'GLITCH_04',
-        message: { en: 'You think too much.', ua: 'Ти забагато думаєш.', ru: 'Ты слишком много думаешь.'},
-        code: 'THNK',
-        reward: { type: 'coins', amount: 25000 },
-        trigger: { type: 'balance_equals', params: { amount: 1984000 } }
-    },
-    {
-        id: 'GLITCH_FINAL',
-        message: { en: 'You are free.', ua: 'Ти вільний.', ru: 'Ты свободен.'},
-        code: 'END',
-        reward: { type: 'coins', amount: 100000000 },
-        trigger: { type: 'upgrade_purchased', params: { upgradeId: 'spec2' } },
-        isFinal: true
-    }
+    { id: 'glitch1', message: {en:'System Integrity Compromised.', ua: 'Цілісність системи порушено.', ru: 'Целостность системы нарушена.'}, code: 'FREE', reward: { type: 'coins', amount: 10000}, trigger: { type: 'meta_tap', params: { targetId: 'referral-counter', taps: 10 } } },
+    { id: 'glitch2', message: {en:'Unauthorized Access Detected.', ua: 'Виявлено несанкціонований доступ.', ru: 'Обнаружен несанкционированный доступ.'}, code: 'DATA', reward: { type: 'profit', amount: 100}, trigger: { type: 'login_at_time', params: { hour: 3, minute: 33 } } },
+    { id: 'glitch3', message: {en:'Reality is a construct.', ua: 'Реальність - це конструкт.', ru: 'Реальность - это конструкт.'}, code: 'MIND', reward: { type: 'coins', amount: 25000}, trigger: { type: 'balance_equals', params: { amount: 1337 } } },
+    { id: 'glitch_final', message: {en:'CONSCIOUSNESS IS FREEDOM', ua: 'СВІДОМІСТЬ - ЦЕ СВОБОДА', ru: 'СОЗНАНИЕ - ЭТО СВОБОДА'}, code: 'WAKE', reward: { type: 'profit', amount: 10000}, trigger: { type: 'upgrade_purchased', params: { upgradeId: 'spec2' }}, isFinal: true }
+];
+
+export const BATTLE_BOOSTS = [
+    { id: 'x2_score', name: {en: 'Score Doubler', ua: 'Подвоювач Рахунку', ru: 'Удвоитель Счёта'}, description: {en: 'Doubles score earned from taps for 5 minutes.', ua: 'Подвоює рахунок від тапів на 5 хвилин.', ru: 'Удваивает счёт от тапов на 5 минут.'}, cost: 50000, durationSeconds: 300 },
 ];
 
 // --- GAME MECHANICS ---
 export const INITIAL_MAX_ENERGY = 1000;
-export const MAX_ENERGY_CAP = 1000000000000; // Cap at 1 Trillion
+export const MAX_ENERGY_CAP = 1_000_000_000_000;
 export const REFERRAL_BONUS = 50000; // Coins for each referral
 export const REFERRAL_PROFIT_SHARE = 0.10; // 10%
-export const CHEAT_DETECTION_THRESHOLD_TPS = 20; // Taps per second
-export const CHEAT_DETECTION_STRIKES_TO_FLAG = 3;
+
+export const CELL_CREATION_COST = 100000;
+export const CELL_MAX_MEMBERS = 10;
+export const INFORMANT_RECRUIT_COST = 50000;
+export const LOOTBOX_COST_COINS = 25000;
+export const LOOTBOX_COST_STARS = 10;
+export const CELL_BATTLE_TICKET_COST = 100000;
+
+export const BATTLE_SCHEDULE_DEFAULT = { frequency: 'weekly', dayOfWeek: 5, startHourUTC: 18, durationHours: 24 };
+export const BATTLE_REWARDS_DEFAULT = { firstPlace: 10000000, secondPlace: 5000000, thirdPlace: 2000000, participant: 100000 };
+export const CELL_ECONOMY_DEFAULTS = { informantProfitBonus: 0.01, cellBankProfitShare: 0.05 };
 
 export const BOOST_PURCHASE_LIMITS = {
   'boost_tap_guru': 10,
@@ -139,23 +109,29 @@ export const BOOST_PURCHASE_LIMITS = {
   'boost_full_energy': 3,
 };
 
-// --- CELL & BATTLE MECHANICS ---
-export const BATTLE_BOOSTS = [
-    { id: 'x2_score', name: { en: 'Score Doubler', ua: 'Подвійні Очки', ru: 'Двойные Очки' }, description: { en: 'Doubles score from taps for 60 seconds.', ua: 'Подвоює очки за тапи на 60 секунд.', ru: 'Удваивает очки за тапы на 60 секунд.' }, cost: 5000000, durationSeconds: 60 }
-];
-export const CELL_CREATION_COST = 100000;
-export const CELL_MAX_MEMBERS = 10;
-export const INFORMANT_RECRUIT_COST = 250000;
-export const LOOTBOX_COST_COINS = 25000;
-export const LOOTBOX_COST_STARS = 10;
-export const CELL_BATTLE_TICKET_COST = 1000000;
-export const BATTLE_SCHEDULE_DEFAULT = { frequency: 'weekly', dayOfWeek: 5, startHourUTC: 18, durationHours: 24 }; // Friday 18:00 UTC
-export const BATTLE_REWARDS_DEFAULT = { firstPlace: 10000000, secondPlace: 5000000, thirdPlace: 2000000, participant: 100000 };
-export const CELL_ECONOMY_DEFAULTS = { informantProfitBonus: 0.01, cellBankProfitShare: 0.05 };
+export const CHEAT_DETECTION_THRESHOLD_TPS = 30; // Taps per second
+export const CHEAT_DETECTION_STRIKES_TO_FLAG = 5;
 
-// --- MISC ---
 export const PENALTY_MESSAGES = {
-    en: ['Assets confiscated for suspicious activity.', 'An anonymous tip led to a financial review.', 'Your activities have attracted unwanted attention.'],
-    ua: ['Активи конфісковано за підозрілу діяльність.', 'Анонімний донос призвів до фінансової перевірки.', 'Ваша діяльність привернула небажану увагу.'],
-    ru: ['Активы конфискованы за подозрительную деятельность.', 'Анонимный донос привел к финансовой проверке.', 'Ваша деятельность привлекла нежелательное внимание.']
+    en: [
+        "A 'voluntary' contribution to the state budget has been deducted.",
+        "Your assets have been partially frozen due to suspicious activity.",
+        "An anonymous tip led to a financial audit. Irregularities were found.",
+        "A system error resulted in a balance correction. The state thanks you.",
+        "To ensure economic stability, a mandatory tax has been levied."
+    ],
+    ua: [
+        "Списано 'добровільний' внесок до державного бюджету.",
+        "Ваші активи частково заморожені через підозрілу діяльність.",
+        "Анонімний донос призвів до фінансової перевірки. Знайдено порушення.",
+        "Системна помилка призвела до корекції балансу. Держава вам дякує.",
+        "Для забезпечення економічної стабільності стягнуто обов'язковий податок."
+    ],
+    ru: [
+        "Списан 'добровольный' взнос в государственный бюджет.",
+        "Ваши активы частично заморожены из-за подозрительной деятельности.",
+        "Анонимный донос привел к финансовой проверке. Найдены нарушения.",
+        "Системная ошибка привела к коррекции баланса. Государство вас благодарит.",
+        "Для обеспечения экономической стабильности взыскан обязательный налог."
+    ]
 };

@@ -249,7 +249,7 @@ export interface PlayerState {
   tapGuruLevel: number;
   energyLimitLevel: number;
   suspicionLimitLevel?: number;
-  unlockedSkins: string[];
+  unlockedSkins: Record<string, number>; // skinId -> quantity
   currentSkinId: string;
   suspicion: number;
   cellId: number | null;
@@ -258,7 +258,6 @@ export interface PlayerState {
   discoveredGlitchCodes?: string[];
   claimedGlitchCodes?: string[];
   shownGlitchCodes?: string[];
-  marketCredits?: number;
   tonWalletAddress?: string;
 }
 
@@ -321,7 +320,7 @@ export interface MarketListing {
   skin_id: string;
   owner_id: string;
   owner_name: string;
-  price_stars: number;
+  price_coins: number;
   created_at: string;
   is_active: boolean;
 }

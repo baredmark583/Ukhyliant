@@ -11,8 +11,6 @@ window.LOCALES = {
         'nav_cells': 'Cells',
         'nav_cell_analytics': 'Analytics',
         'nav_cell_config': 'Configuration',
-        'nav_marketplace': 'Marketplace',
-        'nav_withdrawal_requests': 'Withdrawal Requests',
         'nav_configuration': 'Configuration',
         'nav_upgrades': 'Upgrades',
         'nav_daily_tasks': 'Daily Tasks',
@@ -39,7 +37,6 @@ window.LOCALES = {
         'uiIcons': 'UI Icons',
         'leagues': 'Leagues',
         'cellSettings': 'Cell Settings',
-        'withdrawal_requests': 'Withdrawal Requests',
         
         // Buttons & Actions
         'save': 'Save',
@@ -294,24 +291,12 @@ window.LOCALES = {
         'level': 'Level',
         'suspicion': 'Suspicion',
         
-        // Withdrawal Requests
-        'amount_credits': 'Amount (Credits)',
-        'ton_wallet': 'TON Wallet',
-        'status': 'Status',
-        'request_date': 'Request Date',
-        'processed': 'Processed',
-        'status_pending': 'Pending',
-        'status_approved': 'Approved',
-        'status_rejected': 'Rejected',
-        
         // Alerts & Confirmations
         'confirm_delete': 'Are you sure you want to delete this item?',
         'confirm_delete_player': 'Are you sure you want to permanently delete this player? This action cannot be undone.',
         'confirm_reset_daily': 'Are you sure you want to reset daily progress (combo/cipher) for this player?',
         'confirm_reset_progress': 'Are you sure you want to reset all progress for this player? Their balance and upgrades will be wiped.',
         'confirm_broadcast': 'Are you sure you want to send this message to ALL users?',
-        'confirm_approve': 'Are you sure you want to approve this withdrawal? This action is irreversible.',
-        'confirm_reject': 'Are you sure you want to reject this withdrawal? The credits will be returned to the player.',
         'message_text_required': 'Message text cannot be empty.',
         'button_requires_url_and_text': 'To send a button, you must provide both a URL and text.',
         'progress_reset_success': 'Player progress has been reset.',
@@ -322,8 +307,6 @@ window.LOCALES = {
         'balance_updated': 'Balance updated successfully.',
         'save_success': 'Saved successfully!',
         'save_error': 'Error saving data.',
-        'withdrawal_updated': 'Withdrawal request updated successfully.',
-        'withdrawal_update_error': 'Error updating withdrawal request.',
         'loading': 'Loading, please wait...',
         'loading_cheaters': 'Loading cheater list...',
         'no_data': 'No data available.',
@@ -340,8 +323,6 @@ window.LOCALES = {
         'nav_cells': 'Ячейки',
         'nav_cell_analytics': 'Аналитика',
         'nav_cell_config': 'Конфигурация',
-        'nav_marketplace': 'Рынок',
-        'nav_withdrawal_requests': 'Запросы на вывод',
         'nav_configuration': 'Конфигурация',
         'nav_upgrades': 'Улучшения',
         'nav_daily_tasks': 'Ежедн. Задания',
@@ -368,7 +349,6 @@ window.LOCALES = {
         'uiIcons': 'Иконки интерфейса',
         'leagues': 'Лиги',
         'cellSettings': 'Настройки Ячеек',
-        'withdrawal_requests': 'Запросы на вывод',
         
         // Buttons & Actions
         'save': 'Сохранить',
@@ -587,7 +567,7 @@ window.LOCALES = {
         'lootboxCostStars_desc': 'Стоимость в Telegram Stars за открытие одного лутбокса.',
         'cellBattleTicketCost': 'Стоимость билета на битву',
         'cellBattleTicketCost_desc': 'Стоимость в банке ячейки, которую участник платит за один билет на битву.',
-
+        
         // UI Icons
         'icon_group_nav': 'Панель навигации',
         'icon_group_profile_tabs': 'Вкладки профиля',
@@ -623,24 +603,12 @@ window.LOCALES = {
         'level': 'Уровень',
         'suspicion': 'Подозрение',
         
-        // Withdrawal Requests
-        'amount_credits': 'Сумма (Кредиты)',
-        'ton_wallet': 'TON Кошелек',
-        'status': 'Статус',
-        'request_date': 'Дата запроса',
-        'processed': 'Обработано',
-        'status_pending': 'В ожидании',
-        'status_approved': 'Одобрено',
-        'status_rejected': 'Отклонено',
-
         // Alerts & Confirmations
         'confirm_delete': 'Вы уверены, что хотите удалить этот элемент?',
         'confirm_delete_player': 'Вы уверены, что хотите навсегда удалить этого игрока? Это действие необратимо.',
         'confirm_reset_daily': 'Вы уверены, что хотите сбросить дневной прогресс (комбо/шифр) для этого игрока?',
         'confirm_reset_progress': 'Вы уверены, что хотите сбросить весь прогресс этого игрока? Его баланс и улучшения будут обнулены.',
         'confirm_broadcast': 'Вы уверены, что хотите отправить это сообщение ВСЕМ пользователям?',
-        'confirm_approve': 'Вы уверены, что хотите одобрить этот вывод? Это действие необратимо.',
-        'confirm_reject': 'Вы уверены, что хотите отклонить этот вывод? Кредиты будут возвращены игроку.',
         'message_text_required': 'Текст сообщения не может быть пустым.',
         'button_requires_url_and_text': 'Для отправки кнопки необходимо указать URL и текст.',
         'progress_reset_success': 'Прогресс игрока сброшен.',
@@ -651,8 +619,6 @@ window.LOCALES = {
         'balance_updated': 'Баланс успешно обновлен.',
         'save_success': 'Успешно сохранено!',
         'save_error': 'Ошибка при сохранении.',
-        'withdrawal_updated': 'Запрос на вывод успешно обновлен.',
-        'withdrawal_update_error': 'Ошибка при обновлении запроса на вывод.',
         'saving': 'Сохранение...',
         'loading': 'Загрузка, подождите...',
         'loading_cheaters': 'Загрузка списка читеров...',
@@ -670,8 +636,6 @@ window.LOCALES = {
         'nav_cells': 'Осередки',
         'nav_cell_analytics': 'Аналітика',
         'nav_cell_config': 'Конфігурація',
-        'nav_marketplace': 'Ринок',
-        'nav_withdrawal_requests': 'Запити на вивід',
         'nav_configuration': 'Конфігурація',
         'nav_upgrades': 'Покращення',
         'nav_daily_tasks': 'Щоденні Завдання',
@@ -698,7 +662,6 @@ window.LOCALES = {
         'uiIcons': 'Іконки інтерфейсу',
         'leagues': 'Ліги',
         'cellSettings': 'Налаштування Осередків',
-        'withdrawal_requests': 'Запити на вивід',
 
         // Buttons & Actions
         'save': 'Зберегти',
@@ -953,24 +916,12 @@ window.LOCALES = {
         'level': 'Рівень',
         'suspicion': 'Підозра',
         
-        // Withdrawal Requests
-        'amount_credits': 'Сума (Кредити)',
-        'ton_wallet': 'TON Гаманець',
-        'status': 'Статус',
-        'request_date': 'Дата запиту',
-        'processed': 'Оброблено',
-        'status_pending': 'В очікуванні',
-        'status_approved': 'Схвалено',
-        'status_rejected': 'Відхилено',
-        
         // Alerts & Confirmations
         'confirm_delete': 'Ви впевнені, що хочете видалити цей елемент?',
         'confirm_delete_player': 'Ви впевнені, що хочете назавжди видалити цього гравця? Цю дію неможливо скасувати.',
         'confirm_reset_daily': 'Ви впевнені, що хочете скинути денний прогрес (комбо/шифр) для цього гравця?',
         'confirm_reset_progress': 'Ви впевнені, що хочете скинути весь прогрес цього гравця? Його баланс та покращення будуть обнулені.',
         'confirm_broadcast': 'Ви впевнені, що хочете надіслати це повідомлення ВСІМ користувачам?',
-        'confirm_approve': 'Ви впевнені, що хочете схвалити цей вивід? Ця дія є незворотною.',
-        'confirm_reject': 'Ви впевнені, що хочете відхилити цей вивід? Кредити буде повернуто гравцеві.',
         'message_text_required': 'Текст повідомлення не може бути порожнім.',
         'button_requires_url_and_text': 'Для надсилання кнопки необхідно вказати URL та текст.',
         'progress_reset_success': 'Прогрес гравця скинуто.',
@@ -981,8 +932,6 @@ window.LOCALES = {
         'balance_updated': 'Баланс успішно оновлено.',
         'save_success': 'Успішно збережено!',
         'save_error': 'Помилка при збереженні.',
-        'withdrawal_updated': 'Запит на вивід успішно оновлено.',
-        'withdrawal_update_error': 'Помилка при оновленні запиту на вивід.',
         'loading': 'Завантаження, зачекайте...',
         'loading_cheaters': 'Завантаження списку чітерів...',
         'no_data': 'Немає даних.',

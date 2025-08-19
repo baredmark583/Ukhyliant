@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -23,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
         uiIcons: { titleKey: 'nav_ui_icons' },
         boosts: { titleKey: 'nav_boosts', cols: ['id', 'name', 'description', 'costCoins', 'suspicionModifier', 'iconUrl'] },
         cellSettings: { titleKey: 'nav_cell_settings', fields: ['cellCreationCost', 'cellMaxMembers', 'informantRecruitCost', 'lootboxCostCoins', 'lootboxCostStars', 'cellBattleTicketCost'] },
-        withdrawalRequests: { titleKey: 'nav_withdrawal_requests' },
     };
     
     const META_TAP_TARGETS = [
@@ -226,9 +224,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'dailyEvents':
                 renderDailyEvents();
-                break;
-            case 'withdrawalRequests':
-                renderWithdrawals();
                 break;
             case 'cellAnalytics':
                 renderCellAnalytics();
@@ -648,59 +643,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        applyTranslationsToDOM();
-    };
-
-    const renderWithdrawals = async () => {
-        showLoading();
-        const requests = await fetchData('withdrawals') || [];
-        
-        const getStatusBadge = (status) => {
-            switch(status) {
-                case 'approved': return `<span class="badge bg-success-lt">${t('status_approved')}</span>`;
-                case 'rejected': return `<span class="badge bg-danger-lt">${t('status_rejected')}</span>`;
-                default: return `<span class="badge bg-warning-lt">${t('status_pending')}</span>`;
-            }
-        };
-
-        const rows = requests.map(req => `
-            <tr>
-                <td><span class="text-secondary">${req.id}</span></td>
-                <td>${escapeHtml(req.player_name)} <span class="text-secondary">(${req.player_id})</span></td>
-                <td>${formatNumber(req.amount_credits)}</td>
-                <td><code>${escapeHtml(req.ton_wallet)}</code></td>
-                <td>${getStatusBadge(req.status)}</td>
-                <td>${new Date(req.created_at).toLocaleString()}</td>
-                <td>
-                    ${req.status === 'pending' ? `
-                        <button class="btn btn-sm btn-success" data-action="approve-withdrawal" data-id="${req.id}">${t('approve')}</button>
-                        <button class="btn btn-sm btn-danger ms-2" data-action="reject-withdrawal" data-id="${req.id}">${t('reject')}</button>
-                    ` : `<span class="text-secondary">${t('processed')}</span>`}
-                </td>
-            </tr>
-        `).join('');
-
-        tabContainer.innerHTML = `
-            <div class="card">
-                 <div class="card-header"><h3 class="card-title" data-translate="withdrawal_requests"></h3></div>
-                <div class="table-responsive">
-                    <table class="table card-table table-vcenter">
-                         <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>${t('player_name')}</th>
-                                <th>${t('amount_credits')}</th>
-                                <th>${t('ton_wallet')}</th>
-                                <th>${t('status')}</th>
-                                <th>${t('request_date')}</th>
-                                <th>${t('actions')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                </div>
-            </div>
-        `;
         applyTranslationsToDOM();
     };
     
@@ -1480,28 +1422,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     break;
                 }
-                case 'approve-withdrawal':
-                    if (confirm(t('confirm_approve'))) {
-                        const res = await postData(`withdrawals/${id}/update`, { status: 'approved' });
-                        if (res?.success) {
-                            alert(t('withdrawal_updated'));
-                            renderWithdrawals();
-                        } else {
-                            alert(t('withdrawal_update_error'));
-                        }
-                    }
-                    break;
-                case 'reject-withdrawal':
-                    if (confirm(t('confirm_reject'))) {
-                        const res = await postData(`withdrawals/${id}/update`, { status: 'rejected' });
-                        if (res?.success) {
-                            alert(t('withdrawal_updated'));
-                            renderWithdrawals();
-                        } else {
-                            alert(t('withdrawal_update_error'));
-                        }
-                    }
-                    break;
                  case 'force-start-battle': {
                     const startRes = await postData('battle/force-start');
                     if(startRes.ok) {
