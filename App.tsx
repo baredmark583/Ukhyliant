@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
@@ -986,7 +987,6 @@ const MainApp: React.FC = () => {
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
   const [isTgReady, setIsTgReady] = useState(!!window.Telegram?.WebApp?.initData);
-  const [isFullScreen, setIsFullScreen] = useState(window.Telegram?.WebApp?.isExpanded ?? false);
 
   // Glitch event states
   const [isGlitchCodesModalOpen, setIsGlitchCodesModalOpen] = useState(false);
@@ -1025,20 +1025,6 @@ const MainApp: React.FC = () => {
   const handleFinalSceneComplete = useCallback(() => {
     setShowVideo(true);
   }, []);
-
-  useEffect(() => {
-        const tg = window.Telegram?.WebApp;
-        if (!tg) return;
-
-        const handleViewportChange = () => {
-            setIsFullScreen(tg.isExpanded);
-        };
-        
-        tg.onEvent('viewportChanged', handleViewportChange);
-        return () => {
-            tg.offEvent('viewportChanged', handleViewportChange);
-        };
-    }, []);
     
   // Effect to wait for the Telegram Web App script to be ready
   useEffect(() => {
@@ -1329,19 +1315,17 @@ const MainApp: React.FC = () => {
 
         <NotificationToast notification={notification} />
         
-        <main id="main-content-wrapper" className={`flex-grow min-h-0 ${!isFullScreen ? 'pb-[60px]' : ''}`}>
+        <main id="main-content-wrapper" className="flex-grow min-h-0 pb-[60px]">
              {renderScreen()}
         </main>
         
-        {!isFullScreen && (
-            <nav className="fixed bottom-0 left-0 right-0 h-[60px] bg-slate-900/80 backdrop-blur-md border-t border-slate-700/50 flex justify-around items-start z-50">
-                <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} setActiveScreen={setActiveScreen} />
-                <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} setActiveScreen={setActiveScreen} />
-                <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} setActiveScreen={setActiveScreen} />
-                <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} setActiveScreen={setActiveScreen} />
-                <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} setActiveScreen={setActiveScreen} />
-            </nav>
-        )}
+        <nav className="fixed bottom-0 left-0 right-0 h-[60px] bg-slate-900/80 backdrop-blur-md border-t border-slate-700/50 flex justify-around items-start z-50">
+            <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} setActiveScreen={setActiveScreen} />
+            <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} setActiveScreen={setActiveScreen} />
+            <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} setActiveScreen={setActiveScreen} />
+            <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} setActiveScreen={setActiveScreen} />
+            <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} setActiveScreen={setActiveScreen} />
+        </nav>
         <style>{`
             @keyframes floatUp {
                 0% { transform: translate(var(--x-offset), 0); opacity: 1; }
