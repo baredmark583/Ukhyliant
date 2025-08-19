@@ -645,8 +645,11 @@ export const useGame = () => {
                 }
 
                 if(updatedPlayer) setPlayerState(updatedPlayer);
+                
+                // Robust check to prevent UI crash from malformed item data
+                const isValidWonItem = wonItem && wonItem.item && typeof wonItem.item === 'object' && wonItem.item.name && typeof wonItem.item.name === 'object' && 'en' in wonItem.item.name;
 
-                if (wonItem && wonItem.item && typeof wonItem.item === 'object' && wonItem.item.name) {
+                if (isValidWonItem) {
                     setPurchaseResult(wonItem);
                 } else if (wonItem) {
                     console.error("Received a 'wonItem' from server but its structure is invalid.", wonItem);
@@ -816,8 +819,14 @@ export const useGame = () => {
         if (result.player) {
             setPlayerState(result.player);
         }
-        if (result.wonItem) {
-            setPurchaseResult({type: 'lootbox', item: result.wonItem });
+
+        const item = result.wonItem;
+        const isValidItem = item && typeof item === 'object' && item.name && typeof item.name === 'object' && 'en' in item.name;
+
+        if (isValidItem) {
+            setPurchaseResult({type: 'lootbox', item: item });
+        } else if (item) {
+            console.error("Received an invalid item from coin lootbox.", item);
         }
         return result;
     }, [user, setPlayerState, setPurchaseResult]);

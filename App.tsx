@@ -1351,41 +1351,51 @@ const MainApp: React.FC = () => {
       )}
       {isGlitching && <GlitchEffect />}
       {activeGlitchEvent && <GlitchEffect message={activeGlitchEvent.message[user.language]} code={activeGlitchEvent.code} onClose={handleGlitchEffectClose} />}
-      {(systemMessage) && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
+      {systemMessage && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
 
-      {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
-      {secretCodeTask && <SecretCodeModal task={secretCodeTask} lang={user.language} onClose={() => setSecretCodeTask(null)} onSubmit={async (code) => {
-           processTaskCompletion(secretCodeTask, 'isOneTime' in secretCodeTask ? await completeSpecialTask(secretCodeTask, code) : await claimTaskReward(secretCodeTask, code));
-           setSecretCodeTask(null);
-        }} />
-      }
-      {isGlitchCodesModalOpen && <GlitchCodesModal isOpen={isGlitchCodesModalOpen} onClose={() => setIsGlitchCodesModalOpen(false)} onSubmit={handleClaimGlitchCode} playerState={playerState} config={config} lang={user.language} />}
-      {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
-      <NotificationToast notification={notification} />
-      
-      <div id="main-content-wrapper" className={`flex-grow min-h-0 flex flex-col`}>
-        <main className="flex-grow min-h-0 overflow-y-auto">
-            {renderScreen()}
-        </main>
-        <nav className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-t border-slate-700">
-            <div className="grid grid-cols-5 justify-around items-start max-w-xl mx-auto">
-            <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} setActiveScreen={setActiveScreen} />
-            <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} setActiveScreen={setActiveScreen}/>
-            <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} setActiveScreen={setActiveScreen} />
-            <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} setActiveScreen={setActiveScreen}/>
-            <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} setActiveScreen={setActiveScreen}/>
-            </div>
-        </nav>
+      <div id="main-content-wrapper" className="flex-grow overflow-hidden relative">
+        {renderScreen()}
       </div>
 
-       <style>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; } 
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .prevent-select { -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
-        @keyframes floatUp {
-          0% { transform: translateY(0) translateX(var(--x-offset)) scale(1); opacity: 1; }
-          100% { transform: translateY(-60px) translateX(var(--x-offset)) scale(0.8); opacity: 0; }
-        }
+      <div className="flex-shrink-0 w-full bg-slate-800/90 border-t border-slate-700 backdrop-blur-sm">
+        <div className="flex justify-around items-start max-w-2xl mx-auto">
+          <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} setActiveScreen={setActiveScreen} />
+          <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} setActiveScreen={setActiveScreen} />
+          <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} setActiveScreen={setActiveScreen} />
+          <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} setActiveScreen={setActiveScreen} />
+          <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} setActiveScreen={setActiveScreen} />
+        </div>
+      </div>
+      
+      <NotificationToast notification={notification} />
+      {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
+      {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
+      {secretCodeTask && <SecretCodeModal 
+        task={secretCodeTask} 
+        onClose={() => setSecretCodeTask(null)} 
+        onSubmit={async (code) => {
+            const taskToComplete = secretCodeTask;
+            setSecretCodeTask(null);
+            if ('isOneTime' in taskToComplete) {
+                processTaskCompletion(taskToComplete, await completeSpecialTask(taskToComplete, code));
+            } else {
+                processTaskCompletion(taskToComplete, await claimTaskReward(taskToComplete as DailyTask, code));
+            }
+        }} 
+        lang={user.language} 
+      />}
+      <GlitchCodesModal isOpen={isGlitchCodesModalOpen} onClose={() => setIsGlitchCodesModalOpen(false)} onSubmit={handleClaimGlitchCode} playerState={playerState} config={config} lang={user.language} />
+
+      <style>{`
+          .prevent-select {
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+          }
+          @keyframes floatUp {
+            0% { transform: translateY(0) translateX(var(--x-offset)) scale(1); opacity: 1; }
+            100% { transform: translateY(-100px) translateX(var(--x-offset)) scale(0.8); opacity: 0; }
+          }
       `}</style>
     </div>
   );
