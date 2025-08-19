@@ -25,6 +25,7 @@ import {
     CELL_ECONOMY_DEFAULTS,
     PENALTY_MESSAGES,
     BOOST_PURCHASE_LIMITS,
+    BATTLE_BOOSTS,
 } from './constants.js';
 
 const { Pool } = pg;
@@ -209,6 +210,7 @@ export const initializeDb = async () => {
             battle_id INTEGER NOT NULL REFERENCES cell_battles(id) ON DELETE CASCADE,
             cell_id INTEGER NOT NULL REFERENCES cells(id) ON DELETE CASCADE,
             score NUMERIC(30, 4) DEFAULT 0,
+            active_boosts JSONB DEFAULT '{}'::jsonb,
             UNIQUE(battle_id, cell_id)
         );
     `);
@@ -243,6 +245,7 @@ export const initializeDb = async () => {
         await executeQuery(`ALTER TABLE daily_events ADD COLUMN IF NOT EXISTS cipher_reward BIGINT DEFAULT 1000000;`);
         await executeQuery(`ALTER TABLE cell_battles ADD COLUMN IF NOT EXISTS winner_details JSONB;`);
         await executeQuery(`ALTER TABLE cell_battles ADD COLUMN IF NOT EXISTS rewards_distributed BOOLEAN DEFAULT FALSE;`);
+        await executeQuery(`ALTER TABLE cell_battle_participants ADD COLUMN IF NOT EXISTS active_boosts JSONB DEFAULT '{}'::jsonb;`);
         console.log("Columns checked/added to tables.");
     } catch (e) {
          console.error("Could not add new columns.", e.message);
@@ -307,6 +310,7 @@ export const initializeDb = async () => {
             finalVideoUrl: '',
             uiIcons: INITIAL_UI_ICONS,
             socials: initialSocials,
+            battleBoosts: BATTLE_BOOSTS,
             cellCreationCost: CELL_CREATION_COST,
             cellMaxMembers: CELL_MAX_MEMBERS,
             informantRecruitCost: INFORMANT_RECRUIT_COST,
@@ -353,6 +357,7 @@ export const initializeDb = async () => {
         migrateArrayConfig('blackMarketCards', INITIAL_BLACK_MARKET_CARDS);
         migrateArrayConfig('coinSkins', INITIAL_COIN_SKINS);
         migrateArrayConfig('leagues', INITIAL_LEAGUES);
+        migrateArrayConfig('battleBoosts', BATTLE_BOOSTS);
 
         // --- NEW MIGRATION for league overlay icon ---
         if (config.leagues && Array.isArray(config.leagues)) {
@@ -1127,23 +1132,39 @@ export const buyTicketInDb = async (userId, config) => {
 
 export const addTapsToBattle = async (cellId, taps) => {
     if (!cellId || taps <= 0) return;
-
+    const client = await pool.connect();
     try {
-        // Find the active battle ID
-        const battleRes = await executeQuery('SELECT id FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW() LIMIT 1');
+        await client.query('BEGIN');
+        const battleRes = await client.query('SELECT id FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW() LIMIT 1');
         const activeBattleId = battleRes.rows[0]?.id;
 
         if (activeBattleId) {
-            // This is a "fire-and-forget" update. If the cell is not a participant, it does nothing.
-            // This is efficient and prevents errors if a player is tapping but their cell hasn't joined yet.
-            await executeQuery(
-                'UPDATE cell_battle_participants SET score = score + $1 WHERE battle_id = $2 AND cell_id = $3',
-                [taps, activeBattleId, cellId]
+            const participantRes = await client.query(
+                'SELECT active_boosts FROM cell_battle_participants WHERE battle_id = $1 AND cell_id = $2 FOR UPDATE',
+                [activeBattleId, cellId]
             );
+            
+            if (participantRes.rows.length > 0) {
+                const boosts = participantRes.rows[0].active_boosts || {};
+                const scoreBoost = boosts['x2_score'];
+                let scoreToAdd = taps;
+
+                if (scoreBoost && scoreBoost.expiresAt && Number(scoreBoost.expiresAt) > Date.now()) {
+                    scoreToAdd *= 2;
+                }
+                
+                await client.query(
+                    'UPDATE cell_battle_participants SET score = score + $1 WHERE battle_id = $2 AND cell_id = $3',
+                    [scoreToAdd, activeBattleId, cellId]
+                );
+            }
         }
+        await client.query('COMMIT');
     } catch (e) {
+        await client.query('ROLLBACK');
         console.error(`[BATTLE_TAP_ERROR] Failed to add taps for cell ${cellId}:`, e.message);
-        // Don't throw, as this shouldn't crash the main player save loop.
+    } finally {
+        client.release();
     }
 };
 
@@ -2117,12 +2138,20 @@ export const getBattleStatusForCell = async (cellId) => {
     const timeRemaining = Math.floor((new Date(activeBattle.end_time).getTime() - Date.now()) / 1000);
     let isParticipant = false;
     let myScore = 0;
+    let activeBoosts = {};
 
     if (cellId) {
-        const participantRes = await executeQuery('SELECT score FROM cell_battle_participants WHERE battle_id = $1 AND cell_id = $2', [activeBattle.id, cellId]);
+        const participantRes = await executeQuery('SELECT score, active_boosts FROM cell_battle_participants WHERE battle_id = $1 AND cell_id = $2', [activeBattle.id, cellId]);
         if (participantRes.rows.length > 0) {
             isParticipant = true;
             myScore = parseFloat(participantRes.rows[0].score);
+            activeBoosts = participantRes.rows[0].active_boosts || {};
+            // Convert expiresAt to number if it's a string from JSON
+            for (const boostId in activeBoosts) {
+                if (activeBoosts[boostId].expiresAt) {
+                    activeBoosts[boostId].expiresAt = Number(activeBoosts[boostId].expiresAt);
+                }
+            }
         }
     }
 
@@ -2131,6 +2160,53 @@ export const getBattleStatusForCell = async (cellId) => {
         isParticipant: isParticipant,
         battleId: activeBattle.id,
         timeRemaining: Math.max(0, timeRemaining),
-        myScore: myScore
+        myScore: myScore,
+        activeBoosts: activeBoosts
     };
+};
+
+export const activateBattleBoostInDb = async (userId, boostId, config) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const player = (await client.query('SELECT data FROM players WHERE id = $1', [userId])).rows[0]?.data;
+        if (!player || !player.cellId) throw new Error("You must be in a cell.");
+
+        const battleRes = await client.query('SELECT id FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW() LIMIT 1');
+        const activeBattleId = battleRes.rows[0]?.id;
+        if (!activeBattleId) throw new Error("No active battle.");
+        
+        const participantRes = await client.query('SELECT id, active_boosts FROM cell_battle_participants WHERE battle_id = $1 AND cell_id = $2 FOR UPDATE', [activeBattleId, player.cellId]);
+        if (participantRes.rows.length === 0) throw new Error("Your cell is not participating in this battle.");
+        
+        const participant = participantRes.rows[0];
+        const boost = (config.battleBoosts || []).find(b => b.id === boostId);
+        if (!boost) throw new Error("Boost not found.");
+
+        const activeBoost = participant.active_boosts?.[boostId];
+        if (activeBoost && Number(activeBoost.expiresAt) > Date.now()) throw new Error("Boost is already active.");
+
+        const cell = (await client.query('SELECT balance FROM cells WHERE id = $1 FOR UPDATE', [player.cellId])).rows[0];
+        if (Number(cell.balance) < boost.cost) throw new Error("Insufficient funds in cell bank.");
+        
+        await client.query('UPDATE cells SET balance = balance - $1 WHERE id = $2', [boost.cost, player.cellId]);
+        
+        const expiresAt = Date.now() + boost.durationSeconds * 1000;
+        const newBoosts = { ...participant.active_boosts, [boostId]: { expiresAt } };
+
+        await client.query('UPDATE cell_battle_participants SET active_boosts = $1 WHERE id = $2', [newBoosts, participant.id]);
+        
+        await client.query('COMMIT');
+        
+        const newCell = await getCellFromDb(player.cellId, config);
+        const newStatus = await getBattleStatusForCell(player.cellId);
+
+        return { cell: newCell, status: newStatus };
+    } catch(e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
 };

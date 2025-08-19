@@ -183,6 +183,14 @@ export interface UiIcons {
   languageSwitcher: string;
 }
 
+export interface BattleBoost {
+    id: string;
+    name: LocalizedString;
+    description: LocalizedString;
+    cost: number;
+    durationSeconds: number;
+}
+
 export interface GameConfig {
     upgrades: Upgrade[];
     tasks: DailyTask[];
@@ -204,6 +212,7 @@ export interface GameConfig {
     cellBankProfitShare: number;
     lootboxCostCoins: number;
     lootboxCostStars: number;
+    battleBoosts?: BattleBoost[];
     battleSchedule?: {
         frequency: 'weekly' | 'biweekly' | 'monthly';
         dayOfWeek: number; // 0=Sun, 1=Mon...
@@ -296,6 +305,7 @@ export interface BattleStatus {
     battleId: number | null;
     timeRemaining: number; // in seconds
     myScore: number;
+    activeBoosts?: Record<string, { expiresAt: number }>;
 }
 
 export interface BattleLeaderboardEntry {

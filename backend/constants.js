@@ -140,6 +140,9 @@ export const BOOST_PURCHASE_LIMITS = {
 };
 
 // --- CELL & BATTLE MECHANICS ---
+export const BATTLE_BOOSTS = [
+    { id: 'x2_score', name: { en: 'Score Doubler', ua: 'Подвійні Очки', ru: 'Двойные Очки' }, description: { en: 'Doubles score from taps for 60 seconds.', ua: 'Подвоює очки за тапи на 60 секунд.', ru: 'Удваивает очки за тапы на 60 секунд.' }, cost: 5000000, durationSeconds: 60 }
+];
 export const CELL_CREATION_COST = 100000;
 export const CELL_MAX_MEMBERS = 10;
 export const INFORMANT_RECRUIT_COST = 250000;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'https://esm.sh/react';
-import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry, Reward, MarketListing, WithdrawalRequest } from '../types';
+import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry, Reward, MarketListing, WithdrawalRequest, BattleBoost } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
 
 declare global {
@@ -239,7 +239,7 @@ const API = {
     }
   },
 
-  syncAfterPayment: async(userId: string): Promise<{ player: PlayerState, wonItem: any, error?: string }> => {
+  syncAfterPayment: async(userId: string): Promise<{ player: PlayerState, wonItem: {type: 'lootbox' | 'task', item: any}, error?: string }> => {
     if (!API_BASE_URL) return { error: "API URL is not configured.", player: null, wonItem: null };
     const response = await fetch(`${API_BASE_URL}/api/sync-after-payment`, {
         method: 'POST',
@@ -327,6 +327,16 @@ const API = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
+    });
+    return response.json();
+  },
+
+  activateBattleBoost: async(userId: string, boostId: string): Promise<{ status?: BattleStatus, cell?: Cell, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured." };
+    const response = await fetch(`${API_BASE_URL}/api/cell/activate-boost`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, boostId }),
     });
     return response.json();
   },
@@ -421,8 +431,8 @@ interface GameContextType {
     setPlayerState: React.Dispatch<React.SetStateAction<PlayerState | null>>;
     config: GameConfig | null;
     setConfig: React.Dispatch<React.SetStateAction<GameConfig | null>>;
-    purchaseResult: any | null;
-    setPurchaseResult: React.Dispatch<React.SetStateAction<any | null>>;
+    purchaseResult: {type: 'lootbox' | 'task', item: any} | null;
+    setPurchaseResult: React.Dispatch<React.SetStateAction<{type: 'lootbox' | 'task', item: any} | null>>;
 }
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
@@ -435,7 +445,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
     const [isInitializing, setIsInitializing] = useState(true);
     const [isGlitching, setIsGlitching] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [purchaseResult, setPurchaseResult] = useState<any | null>(null);
+    const [purchaseResult, setPurchaseResult] = useState<{type: 'lootbox' | 'task', item: any} | null>(null);
 
     useEffect(() => {
         const init = async () => {
@@ -648,7 +658,7 @@ export const useGame = () => {
                 if(updatedPlayer) setPlayerState(updatedPlayer);
 
                 if (wonItem) {
-                    setPurchaseResult({ type: 'lootbox', item: wonItem });
+                    setPurchaseResult(wonItem);
                 }
                 
             } else {
@@ -885,6 +895,11 @@ export const useGame = () => {
         return await API.joinBattle(user.id);
     }, [user]);
 
+    const activateBattleBoost = useCallback(async (boostId: string) => {
+        if (!user) return { error: "User not found" };
+        return await API.activateBattleBoost(user.id, boostId);
+    }, [user]);
+
     const getBattleLeaderboard = useCallback(() => API.getBattleLeaderboard(), []);
 
     // --- Marketplace & Wallet Logic ---
@@ -963,6 +978,7 @@ export const useGame = () => {
         savePlayerState,
         getBattleStatus,
         joinBattle,
+        activateBattleBoost,
         getBattleLeaderboard,
         listSkinOnMarket,
         fetchMarketListings,

@@ -67,7 +67,8 @@ import {
     requestWithdrawalInDb,
     getWithdrawalRequestsForAdmin,
     updateWithdrawalRequestStatusInDb,
-    getPlayerWithdrawalRequests
+    getPlayerWithdrawalRequests,
+    activateBattleBoostInDb
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
@@ -855,6 +856,17 @@ app.post('/api/battle/join', async (req, res) => {
         const config = await getGameConfig();
         const cell = await getCellFromDb((await getPlayer(userId)).cellId, config);
         res.json({ status, cell });
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+app.post('/api/cell/activate-boost', async (req, res) => {
+    try {
+        const { userId, boostId } = req.body;
+        const config = await getGameConfig();
+        const result = await activateBattleBoostInDb(userId, boostId, config);
+        res.json(result);
     } catch (e) {
         res.status(400).json({ error: e.message });
     }
