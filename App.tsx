@@ -186,12 +186,13 @@ const SkinsContent = ({ user, playerState, config, onSetSkin }: {
             <div className="grid grid-cols-3 gap-4">
                 {unlockedSkins.map(skin => {
                     const isSelected = playerState.currentSkinId === skin.id;
+                    const skinName = skin.name?.[user.language] || skin.id;
                     return (
                         <div key={skin.id} className={`card-glow rounded-xl p-3 flex flex-col items-center text-center transition-all ${isSelected ? 'border-2 border-[var(--accent-color)]' : ''}`}>
                             <div className="w-16 h-16 mb-2 flex items-center justify-center">
-                                <img src={skin.iconUrl} alt={skin.name[user.language]} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
+                                <img src={skin.iconUrl} alt={skinName} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
                             </div>
-                            <p className="text-xs font-bold leading-tight">{skin.name[user.language]}</p>
+                            <p className="text-xs font-bold leading-tight">{skinName}</p>
                             <p className="text-xs text-[var(--accent-color)] mt-1">+{skin.profitBoostPercent}%</p>
                             <button
                                 onClick={() => onSetSkin(skin.id)}
@@ -278,12 +279,13 @@ const BuyTab = ({ user, config, showNotification, gameApi }: {
             {listings.map(listing => {
                 const skin = config.coinSkins.find(s => s.id === listing.skin_id);
                 if (!skin) return null;
+                const skinName = skin.name?.[user.language] || skin.id;
                 return (
                     <div key={listing.id} className="card-glow rounded-xl p-3 flex flex-col items-center text-center">
                         <div className="w-16 h-16 mb-2 flex items-center justify-center">
-                            <img src={skin.iconUrl} alt={skin.name[user.language]} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
+                            <img src={skin.iconUrl} alt={skinName} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
                         </div>
-                        <p className="text-xs font-bold leading-tight flex-grow">{skin.name[user.language]}</p>
+                        <p className="text-xs font-bold leading-tight flex-grow">{skinName}</p>
                         <p className="text-xs text-slate-400 truncate w-full" title={listing.owner_name}>{listing.owner_name}</p>
                         <button
                             onClick={() => handlePurchase(listing.id)}
@@ -335,9 +337,9 @@ const SellTab = ({ user, playerState, config, showNotification, gameApi }: {
                     <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" onClick={e => e.stopPropagation()}>
                         <h2 className="text-xl font-bold text-white mb-4">{t('market_set_price')}</h2>
                          <div className="w-24 h-24 mb-4 bg-slate-900/50 shadow-inner rounded-2xl p-2 flex items-center justify-center">
-                             <img src={sellingSkin.iconUrl} alt={sellingSkin.name[user.language]} className="w-full h-full object-contain" {...(isExternal(sellingSkin.iconUrl) && { crossOrigin: 'anonymous' })} />
+                             <img src={sellingSkin.iconUrl} alt={sellingSkin.name?.[user.language] || sellingSkin.id} className="w-full h-full object-contain" {...(isExternal(sellingSkin.iconUrl) && { crossOrigin: 'anonymous' })} />
                         </div>
-                        <p className="font-bold text-lg mb-4">{sellingSkin.name[user.language]}</p>
+                        <p className="font-bold text-lg mb-4">{sellingSkin.name?.[user.language] || sellingSkin.id}</p>
                         <div className="relative w-full mb-4">
                              <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder={t('market_price_in_stars')} className="w-full input-field text-center pr-8" />
                              <img src={config.uiIcons.star} alt="star" className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2" {...(isExternal(config.uiIcons.star) && { crossOrigin: 'anonymous' })}/>
@@ -348,14 +350,17 @@ const SellTab = ({ user, playerState, config, showNotification, gameApi }: {
             )}
             <p className="text-center text-[var(--text-secondary)] mb-4">{t('market_sell_desc')}</p>
             <div className="grid grid-cols-3 gap-4">
-                {unlockedSkins.map(skin => (
-                    <div key={skin.id} onClick={() => setSellingSkin(skin)} className="card-glow rounded-xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-[var(--accent-color)] border border-transparent">
-                        <div className="w-16 h-16 mb-2 flex items-center justify-center">
-                            <img src={skin.iconUrl} alt={skin.name[user.language]} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
+                {unlockedSkins.map(skin => {
+                    const skinName = skin.name?.[user.language] || skin.id;
+                    return (
+                        <div key={skin.id} onClick={() => setSellingSkin(skin)} className="card-glow rounded-xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-[var(--accent-color)] border border-transparent">
+                            <div className="w-16 h-16 mb-2 flex items-center justify-center">
+                                <img src={skin.iconUrl} alt={skinName} className="w-full h-full object-contain" {...(isExternal(skin.iconUrl) && { crossOrigin: 'anonymous' })} />
+                            </div>
+                            <p className="text-xs font-bold leading-tight">{skinName}</p>
                         </div>
-                        <p className="text-xs font-bold leading-tight">{skin.name[user.language]}</p>
-                    </div>
-                ))}
+                    )
+                })}
                  {unlockedSkins.length === 0 && <p className="col-span-full text-center py-8 text-[var(--text-secondary)]">{t('market_no_skins_to_sell')}</p>}
             </div>
         </>

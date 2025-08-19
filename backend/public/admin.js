@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -8,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeTab = 'dashboard';
     let currentLang = localStorage.getItem('adminLang') || 'ru';
     let charts = {}; // To hold chart instances
+    let lastAiContent = null; // To store the result from the last AI generation
 
     // --- CONFIG META (for dynamic table rendering) ---
     const configMeta = {
@@ -533,7 +535,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${formatNumber(player.profitPerHour)}</td>
                 <td>${player.referrals}</td>
                 <td><span class="flag flag-country-${player.language === 'en' ? 'us' : player.language}"></span> ${player.language}</td>
-                <td><code class="text-secondary">${player.tonWalletAddress ? `${player.tonWalletAddress.slice(0, 6)}...${player.tonWalletAddress.slice(-4)}` : 'N/A'}</code></td>
+                <td>
+                    ${player.tonWalletAddress ? `
+                        <div class="d-flex align-items-center">
+                            <code class="text-secondary me-2" title="${escapeHtml(player.tonWalletAddress)}">${player.tonWalletAddress.slice(0, 6)}...${player.tonWalletAddress.slice(-4)}</code>
+                            <button class="btn btn-sm btn-icon" data-action="copy-wallet" data-wallet="${escapeHtml(player.tonWalletAddress)}" title="${t('copy_wallet_address')}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 8m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" /><path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" /></svg>
+                            </button>
+                        </div>
+                    ` : 'N/A'}
+                </td>
                 <td>
                     <button class="btn btn-sm" data-action="player-details" data-id="${player.id}">${t('details')}</button>
                 </td>
@@ -1291,7 +1302,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = e.target.closest('[data-action]');
             if (!target) return;
             
-            const { action, id, key, index, social } = target.dataset;
+            const { action, id, key, index, social, wallet } = target.dataset;
 
             switch (action) {
                 case 'close-modal':
@@ -1300,6 +1311,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'player-details':
                     renderPlayerDetailsModal(id);
                     break;
+                case 'copy-wallet': {
+                    if (wallet) {
+                        navigator.clipboard.writeText(wallet).then(() => {
+                            const originalIcon = target.innerHTML;
+                            target.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-check" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>`;
+                            setTimeout(() => { target.innerHTML = originalIcon; }, 1500);
+                        }).catch(err => console.error('Failed to copy:', err));
+                    }
+                    break;
+                }
                 case 'add-player-bonus': {
                     const amount = document.getElementById('bonus-amount-input').value;
                     if (amount && !isNaN(amount)) {
@@ -1436,6 +1457,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     target.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${t('generating')}`;
                     const content = await postData('generate-ai-content');
                     if (content && (content.upgrades || content.specialTasks)) {
+                        lastAiContent = content; // Store result
                         renderAiContentModal(content);
                     } else if (content && content.error) {
                          alert(`AI Error: ${content.error}`);
@@ -1444,16 +1466,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     target.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-sparkles" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2z" /><path d="M8 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2z" /><path d="M12 12a5 5 0 0 1 5 5a5 5 0 0 1 5 -5a5 5 0 0 1 -5 -5a5 5 0 0 1 -5 5z" /></svg> ${t('generate_new_content')}`;
                     break;
                 case 'add-ai-item': {
-                    const aiModal = document.getElementById('ai-content-modal');
-                    const items = JSON.parse(aiModal.dataset.items);
-                    const itemToAdd = items[key][index];
-                    
-                    if (!localConfig[key]) localConfig[key] = [];
-                    localConfig[key].push(itemToAdd);
-                    
-                    target.textContent = 'Added!';
-                    target.disabled = true;
-                    alert(t('ai_add_success'));
+                    const itemKey = target.dataset.key;
+                    const itemIndex = parseInt(target.dataset.index, 10);
+                    if (lastAiContent && lastAiContent[itemKey] && lastAiContent[itemKey][itemIndex]) {
+                        const itemToAdd = lastAiContent[itemKey][itemIndex];
+                        if (!localConfig[itemKey]) localConfig[itemKey] = [];
+                        localConfig[itemKey].push(itemToAdd);
+                        alert(t('ai_add_success'));
+                        target.textContent = t('added');
+                        target.disabled = true;
+                    } else {
+                        alert('Could not find AI content to add. Please generate again.');
+                    }
                     break;
                 }
                 case 'approve-withdrawal':
@@ -1468,7 +1492,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     break;
                 case 'reject-withdrawal':
-                     if (confirm(t('confirm_reject'))) {
+                    if (confirm(t('confirm_reject'))) {
                         const res = await postData(`withdrawals/${id}/update`, { status: 'rejected' });
                         if (res?.success) {
                             alert(t('withdrawal_updated'));
@@ -1478,92 +1502,123 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     break;
-                 case 'force-start-battle':
+                 case 'force-start-battle': {
                     const startRes = await postData('battle/force-start');
-                    if(startRes?.ok) { alert('Battle started'); renderCellConfiguration(); }
+                    if(startRes.ok) {
+                        alert(startRes.message || 'Battle started');
+                        renderCellConfiguration();
+                    } else {
+                        alert(startRes.error || 'Failed to start battle');
+                    }
                     break;
-                 case 'force-end-battle':
-                    const endRes = await postData('battle/force-end');
-                    if(endRes?.ok) { alert('Battle ended'); renderCellConfiguration(); }
+                }
+                case 'force-end-battle': {
+                     const endRes = await postData('battle/force-end');
+                    if(endRes.ok) {
+                        alert(endRes.message || 'Battle ended');
+                        renderCellConfiguration();
+                    } else {
+                        alert(endRes.error || 'Failed to end battle');
+                    }
                     break;
+                }
             }
         });
 
-        tabContainer.addEventListener('input', e => {
+        document.body.addEventListener('input', e => {
             const target = e.target;
-            if (target.id === 'player-search') {
+            if (target.matches('#player-search')) {
                 const searchTerm = target.value.toLowerCase();
-                const filtered = allPlayers.filter(p => p.id.includes(searchTerm) || p.name.toLowerCase().includes(searchTerm));
-                renderPlayersTable(filtered);
-            } else if (target.classList.contains('combo-card-select')) {
+                const filteredPlayers = allPlayers.filter(p =>
+                    p.id.includes(searchTerm) || p.name.toLowerCase().includes(searchTerm)
+                );
+                renderPlayersTable(filteredPlayers);
+            } else if (target.matches('#loadingScreenUrl')) {
+                 if (!localConfig) localConfig = {};
+                 localConfig.loadingScreenImageUrl = target.value;
+            } else if (target.matches('#backgroundAudioUrl')) {
+                if (!localConfig) localConfig = {};
+                localConfig.backgroundAudioUrl = target.value;
+            } else if (target.matches('#finalVideoUrl')) {
+                 if (!localConfig) localConfig = {};
+                 localConfig.finalVideoUrl = target.value;
+            } else if (target.matches('#combo-reward-input')) {
+                dailyEvent.combo_reward = parseInt(target.value, 10);
+            } else if (target.matches('#cipher-reward-input')) {
+                dailyEvent.cipher_reward = parseInt(target.value, 10);
+            } else if (target.matches('#cipher-word-input')) {
+                dailyEvent.cipher_word = target.value.toUpperCase();
+            } else if (target.matches('.combo-card-select')) {
                 const index = parseInt(target.dataset.index, 10);
+                if (!dailyEvent.combo_ids) dailyEvent.combo_ids = [];
                 dailyEvent.combo_ids[index] = target.value;
-            } else if (target.id === 'cipher-word-input') {
-                dailyEvent.cipher_word = target.value;
-            } else if (target.id === 'combo-reward-input') {
-                dailyEvent.combo_reward = Number(target.value);
-            } else if (target.id === 'cipher-reward-input') {
-                dailyEvent.cipher_reward = Number(target.value);
-            } else if (target.dataset.configKey) {
-                const key = target.dataset.configKey;
-                localConfig[key] = target.type === 'number' ? Number(target.value) : target.value;
-            } else if (target.dataset.iconKey) {
-                const group = target.dataset.iconGroup;
-                const key = target.dataset.iconKey;
-                if (group === 'profile_tabs') {
-                     localConfig.uiIcons.profile_tabs[key] = target.value;
-                } else if (group === 'nav') {
-                     localConfig.uiIcons.nav[key] = target.value;
-                } else {
-                    localConfig.uiIcons[key] = target.value;
-                }
-            } else if (target.dataset.scheduleKey) {
-                 const key = target.dataset.scheduleKey;
-                 if (!localConfig.battleSchedule) localConfig.battleSchedule = {};
-                 localConfig.battleSchedule[key] = target.type === 'number' ? Number(target.value) : target.value;
-            } else if (target.dataset.rewardKey) {
+            } else if (target.matches('[data-config-key]')) {
+                 const key = target.dataset.configKey;
+                 localConfig[key] = Number(target.value);
+            } else if (target.matches('[data-schedule-key]')) {
+                const key = target.dataset.scheduleKey;
+                if (!localConfig.battleSchedule) localConfig.battleSchedule = {};
+                localConfig.battleSchedule[key] = target.type === 'number' ? Number(target.value) : target.value;
+            } else if (target.matches('[data-reward-key]')) {
                  const key = target.dataset.rewardKey;
                  if (!localConfig.battleRewards) localConfig.battleRewards = {};
                  localConfig.battleRewards[key] = Number(target.value);
-            } else if(target.id === 'loadingScreenUrl') {
-                 localConfig.loadingScreenImageUrl = target.value;
-            } else if(target.id === 'backgroundAudioUrl') {
-                 localConfig.backgroundAudioUrl = target.value;
-            } else if(target.id === 'finalVideoUrl') {
-                localConfig.finalVideoUrl = target.value;
-            }
-        });
+            } else if (target.matches('[data-icon-group]')) {
+                 const group = target.dataset.iconGroup;
+                 const key = target.dataset.iconKey;
+                 if (!localConfig.uiIcons) localConfig.uiIcons = {};
+                 
+                 if (group === 'nav' || group === 'profile_tabs') {
+                     if (!localConfig.uiIcons[group]) localConfig.uiIcons[group] = {};
+                     localConfig.uiIcons[group][key] = target.value;
+                 } else {
+                     localConfig.uiIcons[key] = target.value;
+                 }
+            } else if (target.closest('#config-modal [data-trigger-type-select]')) {
+                // Re-render the params part of the modal
+                const modal = document.getElementById('config-modal');
+                const key = modal.querySelector('[data-action="save-config-item"]').dataset.key;
+                const index = modal.querySelector('[data-action="save-config-item"]').dataset.index;
 
-        modalsContainer.addEventListener('change', e => {
-            const target = e.target;
-            // Handle trigger type change in glitch event modal
-            if (target.dataset.triggerTypeSelect) {
-                const modalBody = target.closest('.modal-body');
-                const key = modalBody.querySelector('[data-action="save-config-item"]').dataset.key;
-                const index = modalBody.querySelector('[data-action="save-config-item"]').dataset.index;
-                const isNew = !index;
-                const item = isNew ? {} : { ...localConfig[key][index] }; // Create a copy
-                item.trigger = { type: target.value, params: {} }; // Reset params on type change
-                
-                // Re-render only the modal content
-                renderConfigModal(key, isNew ? null : index, item);
+                // Grab current values from the form to create a temporary item
+                let tempItem = {};
+                configMeta[key].cols.forEach(col => {
+                    const input = modal.querySelector(`[data-col="${col}"]`);
+                    if (input) {
+                        if (input.dataset.col === 'trigger') {
+                             tempItem[col] = {};
+                             input.querySelectorAll('[data-sub-key]').forEach(subInput => {
+                                 let val = subInput.value;
+                                 if(subInput.tagName === 'SELECT' && (val === 'true' || val === 'false')) val = val === 'true';
+                                 tempItem[col][subInput.dataset.subKey] = subInput.type === 'number' ? Number(val) : val;
+                             });
+                        } else if (typeof (isNew ? {} : (localConfig[key] || [])[parseInt(index,10)])[col] === 'object') {
+                             tempItem[col] = {};
+                             input.querySelectorAll('[data-sub-key]').forEach(subInput => {
+                                let val = subInput.value;
+                                if(subInput.tagName === 'SELECT' && (val === 'true' || val === 'false')) val = val === 'true';
+                                tempItem[col][subInput.dataset.subKey] = subInput.type === 'number' ? Number(val) : val;
+                             });
+                        } else {
+                            let val = input.value;
+                            if(input.tagName === 'SELECT' && (val === 'true' || val === 'false')) val = val === 'true';
+                            tempItem[col] = input.type === 'number' ? Number(val) : val;
+                        }
+                    }
+                });
+                modalsContainer.innerHTML = '';
+                renderConfigModal(key, index === '' ? null : index, tempItem);
             }
         });
     };
-
+    
     // --- INITIALIZATION ---
     const init = async () => {
-        applyTranslationsToDOM(); // Apply initial translations
+        showLoading();
         localConfig = await fetchData('config') || {};
-        const urlHash = window.location.hash.replace('#', '');
-        if (urlHash && (configMeta[urlHash] || ['dashboard', 'players', 'cheaters', 'dailyEvents', 'withdrawalRequests', 'cellAnalytics', 'cellConfiguration'].includes(urlHash))) {
-            activeTab = urlHash;
-        } else {
-            activeTab = 'dashboard';
-        }
-        window.history.replaceState(null, '', `/admin/#${activeTab}`);
-        
-        render();
+        await render(); // Initial render to set up the page structure
+        activeTab = window.location.hash.substring(1) || 'dashboard';
+        await render(); // Render the correct starting tab
         initEventListeners();
     };
 

@@ -88,15 +88,65 @@ const applySuspicion = (player, modifier, lang = 'en') => {
     return player;
 };
 
-const applyReward = (player, reward) => {
-    if (reward.type === 'coins') {
-        player.balance = Number(player.balance || 0) + reward.amount;
-    } else if (reward.type === 'profit') {
-        player.profitPerHour = (player.profitPerHour || 0) + reward.amount;
-        player.tasksProfitPerHour = (player.tasksProfitPerHour || 0) + reward.amount;
+const recalculatePlayerProfitInDb = async (player, config) => {
+    // 1. Calculate base profit from upgrades and permanent tasks
+    let baseProfit = 0;
+    
+    // Profit from upgrades (regular and black market)
+    const allUpgrades = [...(config.upgrades || []), ...(config.blackMarketCards || [])];
+    const upgradesMap = new Map(allUpgrades.map(u => [u.id, u]));
+
+    if (player.upgrades) {
+        for (const upgradeId in player.upgrades) {
+            const level = player.upgrades[upgradeId];
+            const upgrade = upgradesMap.get(upgradeId);
+            if (upgrade) {
+                for (let i = 0; i < level; i++) {
+                    baseProfit += Math.floor(upgrade.profitPerHour * Math.pow(1.07, i));
+                }
+            }
+        }
     }
+
+    // Profit from one-time tasks that grant permanent profit
+    let tasksProfit = 0;
+    const allTasks = [...(config.tasks || []), ...(config.specialTasks || [])];
+    const tasksMap = new Map(allTasks.map(t => [t.id, t]));
+    
+    const completedTaskIds = new Set([...(player.completedDailyTaskIds || []), ...(player.completedSpecialTaskIds || [])]);
+
+    for (const taskId of completedTaskIds) {
+        const task = tasksMap.get(taskId);
+        if (task && task.reward && task.reward.type === 'profit') {
+            tasksProfit += task.reward.amount;
+        }
+    }
+    
+    player.tasksProfitPerHour = tasksProfit;
+    baseProfit += tasksProfit;
+
+    // 2. Calculate total skin bonus percentage from ALL unlocked skins
+    let totalSkinBonusPercent = 0;
+    if (player.unlockedSkins && config.coinSkins) {
+        for (const skinId of player.unlockedSkins) {
+            const skin = config.coinSkins.find(s => s.id === skinId);
+            if (skin && skin.profitBoostPercent) {
+                totalSkinBonusPercent += skin.profitBoostPercent;
+            }
+        }
+    }
+    
+    // 3. Apply skin bonus to base profit
+    const profitWithSkinBonus = baseProfit * (1 + totalSkinBonusPercent / 100);
+
+    // 4. Add referral and cell bonuses (which are calculated separately and stored on the player object)
+    const finalProfit = profitWithSkinBonus + (player.referralProfitPerHour || 0) + (player.cellProfitBonus || 0);
+    
+    player.profitPerHour = finalProfit;
+
     return player;
 };
+
 
 export const initializeDb = async () => {
     // Create tables if they don't exist
@@ -447,6 +497,7 @@ export const recalculateReferralProfit = async (referrerId) => {
             return;
         }
         let referrerPlayer = referrerRes.rows[0].data;
+        const config = await getGameConfig();
 
         // Get all referrals of the referrer
         const referralsRes = await client.query(`SELECT id FROM users WHERE referrer_id = $1`, [referrerId]);
@@ -464,13 +515,10 @@ export const recalculateReferralProfit = async (referrerId) => {
             }
         }
         
-        const newReferralProfit = Math.floor(totalReferralBaseProfit * REFERRAL_PROFIT_SHARE);
-        const oldReferralProfit = referrerPlayer.referralProfitPerHour || 0;
+        referrerPlayer.referralProfitPerHour = Math.floor(totalReferralBaseProfit * REFERRAL_PROFIT_SHARE);
         
-        // Update the referrer's profit
-        referrerPlayer.referralProfitPerHour = newReferralProfit;
-        // Total profit is base profit + new referral profit
-        referrerPlayer.profitPerHour = (referrerPlayer.profitPerHour || 0) - oldReferralProfit + newReferralProfit;
+        // Update the referrer's total profit using the master recalculation function
+        referrerPlayer = await recalculatePlayerProfitInDb(referrerPlayer, config);
 
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [referrerPlayer, referrerId]);
 
@@ -568,12 +616,10 @@ export const completeAndRewardSpecialTask = async (userId, taskId, code) => {
         const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
         if (playerRes.rows.length === 0) throw new Error('Player not found');
         let player = playerRes.rows[0].data;
-        const configRes = await client.query('SELECT value FROM game_config WHERE key = $1', ['default']);
-        const config = configRes.rows[0].value;
+        const config = await getGameConfig();
         const task = config.specialTasks.find(t => t.id === taskId);
         if (!task) throw new Error('Task not found');
         
-        // This check is now only for free tasks, star-paid tasks are pre-unlocked
         if (task.priceStars > 0 && !player.purchasedSpecialTaskIds?.includes(taskId)) {
             throw new Error('Task not purchased');
         }
@@ -584,10 +630,16 @@ export const completeAndRewardSpecialTask = async (userId, taskId, code) => {
             throw new Error("Incorrect secret code.");
         }
         
-        const user = await getUser(userId);
-        player = applyReward(player, task.reward);
-        player = applySuspicion(player, task.suspicionModifier, user.language);
+        if (task.reward.type === 'coins') {
+            player.balance = Number(player.balance || 0) + task.reward.amount;
+        }
+
         player.completedSpecialTaskIds = [...(player.completedSpecialTaskIds || []), taskId];
+        player = await recalculatePlayerProfitInDb(player, config);
+        
+        const user = await getUser(userId);
+        player = applySuspicion(player, task.suspicionModifier, user.language);
+
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
         return updatedPlayerRes.rows[0].data;
@@ -607,21 +659,14 @@ export const claimDailyTaskReward = async (userId, taskId, code) => {
         const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
         if (playerRes.rows.length === 0) throw new Error('Player not found');
         let player = playerRes.rows[0].data;
-        const configRes = await client.query('SELECT value FROM game_config WHERE key = $1', ['default']);
-        if (configRes.rows.length === 0) throw new Error('Game config not found');
-        const config = configRes.rows[0].value;
+        const config = await getGameConfig();
         const task = config.tasks.find(t => t.id === taskId);
         if (!task) throw new Error('Task not found in config');
 
-        // Differentiated completion check
         if (task.type === 'taps') {
-            if (player.completedDailyTaskIds?.includes(taskId)) {
-                throw new Error('Task already completed today.');
-            }
+            if (player.completedDailyTaskIds?.includes(taskId)) throw new Error('Task already completed today.');
         } else {
-            if (player.completedSpecialTaskIds?.includes(taskId)) {
-                throw new Error('Task already completed.');
-            }
+            if (player.completedSpecialTaskIds?.includes(taskId)) throw new Error('Task already completed.');
         }
 
         if (task.type === 'taps' && player.dailyTaps < (task.requiredTaps || 0)) {
@@ -631,17 +676,20 @@ export const claimDailyTaskReward = async (userId, taskId, code) => {
             throw new Error("Incorrect secret code.");
         }
 
-        const user = await getUser(userId);
-        player = applyReward(player, task.reward);
-        player = applySuspicion(player, task.suspicionModifier, user.language);
+        if (task.reward.type === 'coins') {
+            player.balance = Number(player.balance || 0) + task.reward.amount;
+        }
 
-        // Differentiated completion recording
         if (task.type === 'taps') {
             player.completedDailyTaskIds = [...(player.completedDailyTaskIds || []), taskId];
         } else {
-            // Treat as a one-time task, add to the permanent list
             player.completedSpecialTaskIds = [...(player.completedSpecialTaskIds || []), taskId];
         }
+
+        player = await recalculatePlayerProfitInDb(player, config);
+
+        const user = await getUser(userId);
+        player = applySuspicion(player, task.suspicionModifier, user.language);
 
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
@@ -679,8 +727,11 @@ export const claimGlitchCodeInDb = async (userId, code) => {
              player.discoveredGlitchCodes = [...(player.discoveredGlitchCodes || []), event.code];
         }
 
-        player = applyReward(player, event.reward);
+        if (event.reward.type === 'coins') {
+            player.balance = Number(player.balance || 0) + event.reward.amount;
+        }
         player.claimedGlitchCodes = [...(player.claimedGlitchCodes || []), event.code];
+        player = await recalculatePlayerProfitInDb(player, config);
 
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         await client.query('COMMIT');
@@ -882,22 +933,15 @@ const updateCellBankInDb = async (cellId, client, config) => {
 };
 
 const recalculateCellBonusForPlayer = async (player, client, config) => {
-    const oldBonus = player.cellProfitBonus || 0;
-    let newBonus = 0;
+    const informantsRes = await client.query('SELECT COUNT(*) FROM informants WHERE cell_id = $1', [player.cellId]);
+    const informantCount = parseInt(informantsRes.rows[0].count, 10);
     
-    if (player.cellId) {
-        const informantsRes = await client.query('SELECT COUNT(*) FROM informants WHERE cell_id = $1', [player.cellId]);
-        const informantCount = parseInt(informantsRes.rows[0].count, 10);
-        
-        if (informantCount > 0) {
-            const bonusPercent = config.informantProfitBonus ?? CELL_ECONOMY_DEFAULTS.informantProfitBonus;
-            const baseProfit = (player.profitPerHour || 0) - (player.referralProfitPerHour || 0) - oldBonus;
-            newBonus = baseProfit * informantCount * bonusPercent;
-        }
-    }
+    const bonusPercent = config.informantProfitBonus ?? CELL_ECONOMY_DEFAULTS.informantProfitBonus;
+    const baseProfit = (player.profitPerHour || 0) - (player.referralProfitPerHour || 0) - (player.cellProfitBonus || 0);
+    const newBonus = baseProfit * informantCount * bonusPercent;
     
-    player.profitPerHour = (player.profitPerHour || 0) - oldBonus + newBonus;
     player.cellProfitBonus = newBonus;
+    player = await recalculatePlayerProfitInDb(player, config);
     
     return player;
 };
@@ -972,7 +1016,8 @@ export const leaveCellFromDb = async (userId) => {
         const config = await getGameConfig();
 
         player.cellId = null;
-        player = await recalculateCellBonusForPlayer(player, client, config);
+        player.cellProfitBonus = 0;
+        player = await recalculatePlayerProfitInDb(player, config);
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
 
         await client.query('COMMIT');
@@ -1195,10 +1240,8 @@ export const openLootboxInDb = async (userId, boxType, config) => {
             ...config.coinSkins.filter(s => s.boxType === boxType && !(player.unlockedSkins || []).includes(s.id))
         ];
 
-        // Filter out limited skins that have reached their supply cap
         const possibleItems = [];
         for (const item of allPossibleItems) {
-            // Check if the item is a skin and has a limited supply
             if ('profitBoostPercent' in item && item.maxSupply && item.maxSupply > 0) {
                 const supplyCheckRes = await client.query(
                     `SELECT count(*) FROM players WHERE data->'unlockedSkins' @> $1::jsonb`,
@@ -1210,13 +1253,12 @@ export const openLootboxInDb = async (userId, boxType, config) => {
                     possibleItems.push(item);
                 }
             } else {
-                // It's a card or an unlimited skin, add it to the pool
                 possibleItems.push(item);
             }
         }
         
         if (possibleItems.length === 0) {
-            await client.query('COMMIT'); // Commit the cost deduction even if no items are available
+            await client.query('COMMIT');
             throw new Error("No new items available in this lootbox type for you.");
         }
 
@@ -1232,24 +1274,22 @@ export const openLootboxInDb = async (userId, boxType, config) => {
             }
         }
         
-        if (!wonItem) wonItem = possibleItems[possibleItems.length - 1]; // Fallback
+        if (!wonItem) wonItem = possibleItems[possibleItems.length - 1];
 
-        if ('profitPerHour' in wonItem) { // It's a BlackMarketCard
+        if ('profitPerHour' in wonItem) {
             const cardId = wonItem.id;
             const currentLevel = player.upgrades[cardId] || 0;
             player.upgrades[cardId] = currentLevel + 1;
-            const profitGained = Math.floor(wonItem.profitPerHour * Math.pow(1.07, currentLevel));
-            player.profitPerHour = (player.profitPerHour || 0) + profitGained;
-            
-            const userRes = await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId]);
-            const referrerId = userRes.rows[0]?.referrer_id;
-            if (referrerId) {
-                // This is a quick update. A full recalculation should happen on the referrer's next action.
-                await recalculateReferralProfit(referrerId);
-            }
-
-        } else if ('profitBoostPercent' in wonItem) { // It's a CoinSkin
+        } else if ('profitBoostPercent' in wonItem) {
             player.unlockedSkins = [...new Set([...(player.unlockedSkins || []), wonItem.id])];
+        }
+
+        player = await recalculatePlayerProfitInDb(player, config);
+        
+        const userRes = await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId]);
+        const referrerId = userRes.rows[0]?.referrer_id;
+        if (referrerId) {
+            await recalculateReferralProfit(referrerId);
         }
 
         const user = await getUser(userId);
@@ -1276,14 +1316,11 @@ const grantStarLootboxItem = async (userId, config) => {
         if (playerRes.rows.length === 0) throw new Error("Player not found.");
         let player = playerRes.rows[0].data;
 
-        // No cost deduction, as payment is handled by Telegram Stars
-
         const allPossibleItems = [
             ...config.blackMarketCards.filter(c => c.boxType === 'star'),
             ...config.coinSkins.filter(s => s.boxType === 'star' && !(player.unlockedSkins || []).includes(s.id))
         ];
 
-        // Filter out limited skins that have reached their supply cap
         const possibleItems = [];
         for (const item of allPossibleItems) {
             if ('profitBoostPercent' in item && item.maxSupply && item.maxSupply > 0) {
@@ -1301,7 +1338,6 @@ const grantStarLootboxItem = async (userId, config) => {
         }
         
         if (possibleItems.length === 0) {
-            // This is an issue, we should probably refund or notify. For now, just log it.
             console.error(`User ${userId} paid for a star lootbox, but no items were available.`);
             await client.query('COMMIT'); 
             return;
@@ -1319,23 +1355,22 @@ const grantStarLootboxItem = async (userId, config) => {
             }
         }
         
-        if (!wonItem) wonItem = possibleItems[possibleItems.length - 1]; // Fallback
+        if (!wonItem) wonItem = possibleItems[possibleItems.length - 1];
 
-        if ('profitPerHour' in wonItem) { // It's a BlackMarketCard
+        if ('profitPerHour' in wonItem) {
             const cardId = wonItem.id;
             const currentLevel = player.upgrades[cardId] || 0;
             player.upgrades[cardId] = currentLevel + 1;
-            const profitGained = Math.floor(wonItem.profitPerHour * Math.pow(1.07, currentLevel));
-            player.profitPerHour = (player.profitPerHour || 0) + profitGained;
-            
-            const userRes = await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId]);
-            const referrerId = userRes.rows[0]?.referrer_id;
-            if (referrerId) {
-                await recalculateReferralProfit(referrerId);
-            }
-
-        } else if ('profitBoostPercent' in wonItem) { // It's a CoinSkin
+        } else if ('profitBoostPercent' in wonItem) {
             player.unlockedSkins = [...new Set([...(player.unlockedSkins || []), wonItem.id])];
+        }
+        
+        player = await recalculatePlayerProfitInDb(player, config);
+
+        const userRes = await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId]);
+        const referrerId = userRes.rows[0]?.referrer_id;
+        if (referrerId) {
+            await recalculateReferralProfit(referrerId);
         }
 
         const user = await getUser(userId);
@@ -1358,10 +1393,6 @@ const grantStarLootboxItem = async (userId, config) => {
 };
 
 export const processSuccessfulPayment = async (payload, log) => {
-    // Payloads:
-    // Task: task-USERID-TASKID
-    // Lootbox: lootbox-USERID-BOXTYPE (star)
-    // Market: market_purchase-BUYERID-LISTINGID
     const [type, userId, itemId] = payload.split('-');
 
     if (!type || !userId || !itemId) {
@@ -1503,6 +1534,10 @@ export const processMarketPurchaseInDb = async (listingId, buyerId, config) => {
         seller.unlockedSkins = seller.unlockedSkins.filter(id => id !== skinId);
         buyer.unlockedSkins = [...new Set([...(buyer.unlockedSkins || []), skinId])];
 
+        // Recalculate profits for both players
+        seller = await recalculatePlayerProfitInDb(seller, config);
+        buyer = await recalculatePlayerProfitInDb(buyer, config);
+        
         // 2. Add market credits to seller
         seller.marketCredits = (seller.marketCredits || 0) + price;
         
@@ -1828,10 +1863,9 @@ export const buyUpgradeInDb = async (userId, upgradeId, config) => {
         player.balance -= price;
         player.upgrades[upgradeId] = currentLevel + 1;
         
-        const profitGained = Math.floor(upgrade.profitPerHour * Math.pow(1.07, currentLevel));
-        player.profitPerHour = (player.profitPerHour || 0) + profitGained;
-        
         player.dailyUpgrades = [...new Set([...(player.dailyUpgrades || []), upgradeId])];
+        
+        player = await recalculatePlayerProfitInDb(player, config);
 
         const user = await getUser(userId);
         player = applySuspicion(player, upgrade.suspicionModifier, user.language);
