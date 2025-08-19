@@ -100,14 +100,21 @@ const API = {
     }
   },
 
-  createInvoice: async (userId: string, taskId: string): Promise<{ok: boolean, invoiceLink?: string, error?: string}> => {
-    if (!API_BASE_URL) return {ok: false, error: "VITE_API_BASE_URL is not set."};
-    const response = await fetch(`${API_BASE_URL}/api/create-invoice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, taskId }),
-    });
-    return response.json();
+  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox' | 'market_purchase', itemId: string | number): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
+    if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/create-star-invoice`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, payloadType, itemId }),
+        });
+        const data = await response.json();
+        if (!response.ok) return { ok: false, error: data.error || 'Failed to create invoice.' };
+        return { ok: true, invoiceLink: data.invoiceLink };
+    } catch(e) {
+        console.error("Create invoice API error", e);
+        return { ok: false, error: 'Server connection failed.' };
+    }
   },
 
   unlockFreeTask: async (userId: string, taskId: string): Promise<{player: PlayerState, wonItem: any} | null> => {
@@ -222,23 +229,6 @@ const API = {
     }
   },
   
-  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox' | 'market_purchase', itemId: string | number): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
-    if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/create-star-invoice`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, payloadType, itemId }),
-        });
-        const data = await response.json();
-        if (!response.ok) return { ok: false, error: data.error || 'Failed to create invoice.' };
-        return { ok: true, invoiceLink: data.invoiceLink };
-    } catch(e) {
-        console.error("Create invoice API error", e);
-        return { ok: false, error: 'Server connection failed.' };
-    }
-  },
-
   syncAfterPayment: async(userId: string): Promise<{ player: PlayerState, wonItem: {type: 'lootbox' | 'task', item: any}, error?: string }> => {
     if (!API_BASE_URL) return { error: "API URL is not configured.", player: null, wonItem: null };
     const response = await fetch(`${API_BASE_URL}/api/sync-after-payment`, {
@@ -601,7 +591,7 @@ export const useGame = () => {
         }
         prevPenaltyLogLength.current = currentLogLength;
 
-    }, [playerState?.penaltyLog]);
+    }, [playerState?.penaltyLog, user]);
 
     const effectiveMaxEnergy = useMemo(() => {
         if (!playerState) return INITIAL_MAX_ENERGY;
@@ -650,15 +640,16 @@ export const useGame = () => {
                 const { player: updatedPlayer, wonItem, error } = await API.syncAfterPayment(user.id);
 
                 if (error) {
-                    // Handle error case, maybe show a notification
                     console.error("Sync after payment failed:", error);
                     return;
                 }
 
                 if(updatedPlayer) setPlayerState(updatedPlayer);
 
-                if (wonItem) {
+                if (wonItem && wonItem.item && typeof wonItem.item === 'object' && wonItem.item.name) {
                     setPurchaseResult(wonItem);
+                } else if (wonItem) {
+                    console.error("Received a 'wonItem' from server but its structure is invalid.", wonItem);
                 }
                 
             } else {
@@ -825,8 +816,11 @@ export const useGame = () => {
         if (result.player) {
             setPlayerState(result.player);
         }
+        if (result.wonItem) {
+            setPurchaseResult({type: 'lootbox', item: result.wonItem });
+        }
         return result;
-    }, [user, setPlayerState]);
+    }, [user, setPlayerState, setPurchaseResult]);
 
     const purchaseLootboxWithStars = useCallback(async (boxType: 'star') => {
         if (!user) return { error: 'User not found' };
@@ -891,7 +885,7 @@ export const useGame = () => {
     }, [user]);
 
     const joinBattle = useCallback(async () => {
-        if (!user) return { error: "User not found" };
+        if (!user) return { error: 'User not found' };
         return await API.joinBattle(user.id);
     }, [user]);
 
@@ -900,37 +894,44 @@ export const useGame = () => {
         return await API.activateBattleBoost(user.id, boostId);
     }, [user]);
 
-    const getBattleLeaderboard = useCallback(() => API.getBattleLeaderboard(), []);
+    const getBattleLeaderboard = useCallback(async () => {
+        return await API.getBattleLeaderboard();
+    }, []);
 
-    // --- Marketplace & Wallet Logic ---
     const listSkinOnMarket = useCallback(async (skinId: string, price: number) => {
         if (!user) return { error: 'User not found' };
         return await API.listSkinOnMarket(user.id, skinId, price);
     }, [user]);
-    
-    const fetchMarketListings = useCallback(() => API.fetchMarketListings(), []);
+
+    const fetchMarketListings = useCallback(async () => {
+        return await API.fetchMarketListings();
+    }, []);
 
     const purchaseMarketItem = useCallback(async (listingId: number) => {
-         if (!user) return { error: 'User not found' };
+        if (!user) return { error: 'User not found' };
         const result = await API.createStarInvoice(user.id, 'market_purchase', listingId);
         if (result.ok && result.invoiceLink) {
             window.Telegram.WebApp.openInvoice(result.invoiceLink);
             return { success: true };
         }
-        return { error: result.error || 'Failed to start payment.' };
+        return { error: result.error || 'Failed to create payment invoice.' };
     }, [user]);
 
     const connectWallet = useCallback(async (address: string) => {
         if (!user) return { error: 'User not found' };
         const result = await API.connectWallet(user.id, address);
-        if (result.player) setPlayerState(result.player);
+        if (result.player) {
+            setPlayerState(result.player);
+        }
         return result;
     }, [user, setPlayerState]);
 
     const requestWithdrawal = useCallback(async (amount: number) => {
         if (!user) return { error: 'User not found' };
         const result = await API.requestWithdrawal(user.id, amount);
-        if (result.player) setPlayerState(result.player);
+        if (result.player) {
+            setPlayerState(result.player);
+        }
         return result;
     }, [user, setPlayerState]);
 
@@ -939,16 +940,23 @@ export const useGame = () => {
         return await API.fetchMyWithdrawalRequests(user.id);
     }, [user]);
 
-
     return {
         playerState,
-        config,
         setPlayerState,
+        config,
         setConfig,
-        handleTap,
-        buyUpgrade,
+        purchaseResult,
+        setPurchaseResult,
+        isTurboActive,
+        systemMessage,
+        setSystemMessage,
+        effectiveMaxEnergy,
+        effectiveMaxSuspicion,
         allUpgrades,
         currentLeague,
+        savePlayerState,
+        handleTap,
+        buyUpgrade,
         buyBoost,
         claimTaskReward,
         purchaseSpecialTask,
@@ -961,21 +969,12 @@ export const useGame = () => {
         openCoinLootbox,
         purchaseLootboxWithStars,
         setSkin,
-        isTurboActive,
-        effectiveMaxEnergy,
-        effectiveCoinsPerTap,
-        effectiveMaxSuspicion,
         createCell,
         joinCell,
         getMyCell,
         leaveCell,
         recruitInformant,
         buyCellTicket,
-        systemMessage,
-        setSystemMessage,
-        purchaseResult,
-        setPurchaseResult,
-        savePlayerState,
         getBattleStatus,
         joinBattle,
         activateBattleBoost,
@@ -985,10 +984,6 @@ export const useGame = () => {
         purchaseMarketItem,
         connectWallet,
         requestWithdrawal,
-        fetchMyWithdrawalRequests,
-        // Admin functions
-        getCellAnalytics: API.getCellAnalytics,
-        forceStartBattle: API.forceStartBattle,
-        forceEndBattle: API.forceEndBattle,
+        fetchMyWithdrawalRequests
     };
 };

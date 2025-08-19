@@ -212,7 +212,7 @@ export interface GameConfig {
     cellBankProfitShare: number;
     lootboxCostCoins: number;
     lootboxCostStars: number;
-    battleBoosts?: BattleBoost[];
+    battleBoosts: BattleBoost[];
     battleSchedule?: {
         frequency: 'weekly' | 'biweekly' | 'monthly';
         dayOfWeek: number; // 0=Sun, 1=Mon...
@@ -278,6 +278,7 @@ export interface Cell {
     informants: Informant[];
     balance: number;
     ticketCount: number;
+    maxMembers?: number;
 }
 
 export interface Informant {
@@ -305,7 +306,7 @@ export interface BattleStatus {
     battleId: number | null;
     timeRemaining: number; // in seconds
     myScore: number;
-    activeBoosts?: Record<string, { expiresAt: number }>;
+    activeBoosts: Record<string, { expiresAt: number }>;
 }
 
 export interface BattleLeaderboardEntry {
