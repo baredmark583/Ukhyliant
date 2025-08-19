@@ -1,4 +1,4 @@
-import React, { useState } from 'https://esm.sh/react@19.1.1';
+import React, { useState } from 'https://esm.sh/react';
 import { useTranslation } from '../hooks/useGameLogic';
 import { DailyTask, SpecialTask, Language } from '../types';
 

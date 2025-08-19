@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'https://esm.sh/react';
+import React, { useState, useEffect, useCallback } from 'https://esm.sh/react';
 import { PlayerState, GameConfig, GlitchEvent } from '../types';
 
 interface UseGlitchSystemProps {

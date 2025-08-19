@@ -1,4 +1,4 @@
-import React, { useState } from 'https://esm.sh/react@19.1.1';
+import React, { useState } from 'https://esm.sh/react';
 import { Upgrade, UpgradeCategory, Language, PlayerState, GameConfig, UiIcons } from '../types';
 import UpgradeCard from '../components/UpgradeCard';
 import { useTranslation } from '../hooks/useGameLogic';

@@ -196,6 +196,39 @@ app.get('/api/image-proxy', async (req, res) => {
     }
 });
 
+const answerPreCheckoutQuery = async (pre_checkout_query_id, ok, error_message = '') => {
+    const { BOT_TOKEN } = process.env;
+    if (!BOT_TOKEN) {
+        log('error', 'BOT_TOKEN not set, cannot answer pre-checkout query.');
+        return;
+    }
+
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/answerPreCheckoutQuery`;
+    const body = {
+        pre_checkout_query_id,
+        ok,
+    };
+    if (!ok && error_message) {
+        body.error_message = error_message;
+    }
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await response.json();
+        if (!data.ok) {
+            log('error', `Failed to answer pre-checkout query: ${data.description}`);
+        } else {
+            log('info', `Successfully answered pre-checkout query ${pre_checkout_query_id}`);
+        }
+    } catch (error) {
+        log('error', 'Error calling answerPreCheckoutQuery API', error);
+    }
+};
+
 // Telegram Webhook - MUST use raw body parser
 app.post('/api/telegram-webhook', express.json(), async (req, res) => {
     const update = req.body;
