@@ -182,16 +182,16 @@ app.get('/api/image-proxy', async (req, res) => {
         }
         
         const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.startsWith('image/')) {
-            log('warn', `Proxy attempt to non-image content`, { url: decodedUrl, contentType });
-            return res.status(400).send('URL does not point to an image.');
+        if (!contentType || (!contentType.startsWith('image/') && !contentType.startsWith('audio/'))) {
+            log('warn', `Proxy attempt to non-image/audio content`, { url: decodedUrl, contentType });
+            return res.status(400).send('URL does not point to an image or audio file.');
         }
 
         res.setHeader('Content-Type', contentType);
         res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
         
-        // Node's native fetch body is a ReadableStream, which works with pipe.
-        response.body.pipe(res);
+        const dataBuffer = await response.arrayBuffer();
+        res.send(Buffer.from(dataBuffer));
 
     } catch (error) {
         log('error', 'Image proxy error', error);
@@ -563,7 +563,7 @@ const gameActions = {
         // The wonItem is already in the player data, but we extract it for the client response
         return { player: updatedPlayer, wonItem };
     },
-
+    
     'complete-task': async (body, player, config) => { // Handles ONLY special tasks
         const { userId, taskId, code } = body;
         const result = await completeAndRewardSpecialTask(userId, taskId, code);
