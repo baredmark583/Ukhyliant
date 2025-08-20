@@ -68,7 +68,8 @@ import {
     getWithdrawalRequestsForAdmin,
     updateWithdrawalRequestStatusInDb,
     getPlayerWithdrawalRequests,
-    activateBattleBoostInDb
+    activateBattleBoostInDb,
+    purchaseMarketItemWithCoinsInDb
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
@@ -581,7 +582,7 @@ const gameActions = {
 
     'set-skin': async (body, player) => {
         const { skinId, userId } = body;
-        if (!player.unlockedSkins.includes(skinId)) {
+        if (!player.unlockedSkins[skinId] > 0) {
             throw new Error("Skin not unlocked");
         }
         player.currentSkinId = skinId;
@@ -653,17 +654,6 @@ app.post('/api/create-star-invoice', async (req, res) => {
             payload = `lootbox-${userId}-${itemId}`;
             price = config.lootboxCostStars || 0;
             if (price <= 0) return res.status(400).json({ ok: false, error: "Lootbox not for sale." });
-        } else if (payloadType === 'market_purchase') {
-            const listingId = itemId;
-            const listing = await getMarketListingById(listingId);
-            if (!listing || !listing.is_active) return res.status(404).json({ ok: false, error: "Listing not available." });
-            if (listing.owner_id === userId) return res.status(400).json({ ok: false, error: "Cannot buy your own item." });
-            
-            const skin = config.coinSkins.find(s => s.id === listing.skin_id);
-            title = skin ? `Skin: ${skin.name['en']}` : 'Market Item';
-            description = `Purchase from another player.`;
-            payload = `market_purchase-${userId}-${listingId}`;
-            price = listing.price_stars;
         } else {
             return res.status(400).json({ ok: false, error: "Invalid payload type." });
         }
@@ -931,6 +921,22 @@ app.get('/api/market/listings', async (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
+
+app.post('/api/market/purchase-coin', async (req, res) => {
+    try {
+        const { userId, listingId } = req.body;
+        if (!userId || !listingId) {
+            return res.status(400).json({ error: "User ID and Listing ID are required." });
+        }
+        const config = await getGameConfig();
+        const player = await purchaseMarketItemWithCoinsInDb(listingId, userId, config);
+        res.json({ player });
+    } catch(e) {
+        log('error', `Failed to purchase market item with coins`, e);
+        res.status(400).json({ error: e.message });
+    }
+});
+
 
 // --- Wallet API ---
 app.post('/api/wallet/connect', async (req, res) => {

@@ -104,11 +104,29 @@ const CellDetailsView: React.FC<{
     const t = useTranslation();
     const [copied, setCopied] = useState(false);
 
-    const handleCopy = () => {
-        navigator.clipboard.writeText(cell.invite_code);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
+    const handleCopy = useCallback(async () => {
+        try {
+            await navigator.clipboard.writeText(cell.invite_code);
+        } catch (err) {
+            console.warn('Clipboard API failed, using fallback:', err);
+            const textArea = document.createElement('textarea');
+            textArea.value = cell.invite_code;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+            } catch (copyErr) {
+                console.error('Fallback copy command failed:', copyErr);
+            }
+            document.body.removeChild(textArea);
+        } finally {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    }, [cell.invite_code]);
 
     return (
         <div className="w-full space-y-4">

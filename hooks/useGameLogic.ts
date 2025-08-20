@@ -100,7 +100,7 @@ const API = {
     }
   },
 
-  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox' | 'market_purchase', itemId: string | number): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
+  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox', itemId: string | number): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
     if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/create-star-invoice`, {
@@ -337,7 +337,6 @@ const API = {
     return response.json();
   },
   
-  // --- Marketplace & Wallet APIs ---
   listSkinOnMarket: async (userId: string, skinId: string, price: number): Promise<{ error?: string }> => {
     if (!API_BASE_URL) return { error: "API is not configured" };
     const response = await fetch(`${API_BASE_URL}/api/market/list`, {
@@ -354,6 +353,16 @@ const API = {
     if (!response.ok) return null;
     const data = await response.json();
     return data.listings;
+  },
+
+  purchaseMarketItemWithCoins: async (userId: string, listingId: number): Promise<{ player?: PlayerState, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API is not configured" };
+    const response = await fetch(`${API_BASE_URL}/api/market/purchase-coin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, listingId })
+    });
+    return response.json();
   },
 
   connectWallet: async(userId: string, address: string): Promise<{ player?: PlayerState, error?: string }> => {
@@ -382,25 +391,6 @@ const API = {
     if (!response.ok) return null;
     const data = await response.json();
     return data.requests;
-  },
-
-  // Admin APIs
-  getCellAnalytics: async (): Promise<any> => {
-    if (!API_BASE_URL) throw new Error("API URL is not configured.");
-    const response = await fetch(`${API_BASE_URL}/admin/api/cell-analytics`);
-    return response.json();
-  },
-
-  forceStartBattle: async (): Promise<{ ok: boolean, error?: string }> => {
-    if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
-    const response = await fetch(`${API_BASE_URL}/admin/api/battle/force-start`, { method: 'POST' });
-    return response.json();
-  },
-
-  forceEndBattle: async (): Promise<{ ok: boolean, error?: string }> => {
-    if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
-    const response = await fetch(`${API_BASE_URL}/admin/api/battle/force-end`, { method: 'POST' });
-    return response.json();
   },
 };
 
@@ -928,13 +918,17 @@ export const useGame = () => {
 
     const purchaseMarketItem = useCallback(async (listingId: number) => {
         if (!user) return { error: 'User not found' };
-        const result = await API.createStarInvoice(user.id, 'market_purchase', listingId);
-        if (result.ok && result.invoiceLink) {
-            window.Telegram.WebApp.openInvoice(result.invoiceLink);
-            return { success: true };
+        
+        const result = await API.purchaseMarketItemWithCoins(user.id, listingId);
+        
+        if (result.player) {
+            setPlayerState(result.player);
+            if (result.player.lastPurchaseResult) {
+                setPurchaseResult(result.player.lastPurchaseResult);
+            }
         }
-        return { error: result.error || 'Failed to create payment invoice.' };
-    }, [user]);
+        return result;
+    }, [user, setPlayerState, setPurchaseResult]);
 
     const connectWallet = useCallback(async (address: string) => {
         if (!user) return { error: 'User not found' };

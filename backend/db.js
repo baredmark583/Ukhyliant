@@ -1556,7 +1556,7 @@ export const purchaseMarketItemWithCoinsInDb = async (listingId, buyerId, config
         const listing = listingRes.rows[0];
         const { owner_id: sellerId, skin_id: skinId, price_coins: price } = listing;
 
-        if (buyerId === sellerId) throw new Error("Cannot buy your own item.");
+        if (String(buyerId) === String(sellerId)) throw new Error("Cannot buy your own item.");
 
         const sellerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [sellerId]);
         const buyerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [buyerId]);
@@ -1565,19 +1565,24 @@ export const purchaseMarketItemWithCoinsInDb = async (listingId, buyerId, config
         let seller = sellerRes.rows[0].data;
         let buyer = buyerRes.rows[0].data;
 
-        // 1. Check if buyer can afford
         if ((Number(buyer.balance) || 0) < Number(price)) throw new Error("Insufficient coins.");
         
-        // 2. Check if seller still owns skin
-        if (!seller.unlockedSkins?.[skinId] || seller.unlockedSkins[skinId] < 1) throw new Error("Seller no longer owns this skin.");
+        const sellerSkinQuantity = seller.unlockedSkins?.[skinId] || 0;
+        if (sellerSkinQuantity < 1) {
+            await client.query('UPDATE market_listings SET is_active = FALSE WHERE id = $1', [listingId]);
+            await client.query('COMMIT');
+            throw new Error("Seller no longer owns this skin.");
+        }
 
-        // 3. Perform transaction
         buyer.balance = (Number(buyer.balance) || 0) - Number(price);
-        seller.balance = (Number(seller.balance) || 0) + Number(price); // No tax for now
+        seller.balance = (Number(seller.balance) || 0) + Number(price);
 
         seller.unlockedSkins[skinId]--;
         if (seller.unlockedSkins[skinId] <= 0) {
             delete seller.unlockedSkins[skinId];
+            if (seller.currentSkinId === skinId) {
+                seller.currentSkinId = DEFAULT_COIN_SKIN_ID;
+            }
         }
         
         if (!buyer.unlockedSkins || typeof buyer.unlockedSkins !== 'object' || Array.isArray(buyer.unlockedSkins)) {
@@ -1585,23 +1590,20 @@ export const purchaseMarketItemWithCoinsInDb = async (listingId, buyerId, config
         }
         buyer.unlockedSkins[skinId] = (buyer.unlockedSkins[skinId] || 0) + 1;
 
-        // Recalculate profits for both players if skin has a bonus
         seller = await recalculatePlayerProfitInDb(seller, config);
         buyer = await recalculatePlayerProfitInDb(buyer, config);
 
-        // Set last purchase result for buyer for UI feedback
         const skin = config.coinSkins.find(s => s.id === skinId);
-        buyer.lastPurchaseResult = { type: 'lootbox', item: skin }; // Re-use lootbox type for UI modal
+        if (skin) {
+            buyer.lastPurchaseResult = { type: 'lootbox', item: skin };
+        }
 
-        // Deactivate listing
         await client.query('UPDATE market_listings SET is_active = FALSE WHERE id = $1', [listingId]);
         
-        // Save players
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [seller, sellerId]);
         const updatedBuyerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [buyer, buyerId]);
 
         await client.query('COMMIT');
-        console.log(`Market purchase complete: Buyer ${buyerId} bought skin ${skinId} from seller ${sellerId} for ${price} coins.`);
         return updatedBuyerRes.rows[0].data;
     } catch (e) {
         await client.query('ROLLBACK');
