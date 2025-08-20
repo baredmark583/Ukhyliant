@@ -879,12 +879,11 @@ export const claimComboReward = async (userId) => {
         if (!comboIds || !Array.isArray(comboIds) || comboIds.length !== 3) {
             throw new Error('Daily combo is not configured correctly for today.');
         }
+        
+        const comboTokens = player.comboTokens || {};
+        const hasAllTokens = comboIds.every(id => comboTokens[id] && comboTokens[id] > 0);
 
-        const hasUpgradedAllCardsToday = comboIds.every(id => {
-            return player.dailyUpgrades?.includes(id);
-        });
-
-        if (!hasUpgradedAllCardsToday) {
+        if (!hasAllTokens) {
             throw new Error("Найди и прокачай эти карты сегодня, чтобы забрать награду.");
         }
         
@@ -898,10 +897,11 @@ export const claimComboReward = async (userId) => {
         player.balance = Number(player.balance || 0) + rewardAmount;
         player.claimedComboToday = true;
         
-        // After claiming, clear these specific upgrades from the daily list.
-        // This ensures the user must upgrade them again if they appear in a future combo.
-        const comboIdSet = new Set(comboIds);
-        player.dailyUpgrades = (player.dailyUpgrades || []).filter(id => !comboIdSet.has(id));
+        comboIds.forEach(id => {
+            if (player.comboTokens[id]) {
+                player.comboTokens[id] -= 1;
+            }
+        });
         
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         
@@ -1836,6 +1836,7 @@ export const resetPlayerDailyProgress = async (userId, player) => {
     player.claimedComboToday = false;
     player.claimedCipherToday = false;
     player.dailyUpgrades = [];
+    player.comboTokens = {};
     player.dailyBoostPurchases = {};
     player.lastDailyReset = Date.now();
     await savePlayer(userId, player);
@@ -1919,6 +1920,11 @@ export const buyUpgradeInDb = async (userId, upgradeId, config) => {
         player.upgrades[upgradeId] = currentLevel + 1;
         
         player.dailyUpgrades = [...new Set([...(player.dailyUpgrades || []), upgradeId])];
+        
+        if (!player.comboTokens) {
+            player.comboTokens = {};
+        }
+        player.comboTokens[upgradeId] = (player.comboTokens[upgradeId] || 0) + 1;
         
         player = await recalculatePlayerProfitInDb(player, config);
 

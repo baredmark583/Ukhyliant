@@ -228,7 +228,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             
             {/* Clickable Coin Area */}
             <div
-                className="relative cursor-pointer select-none w-full max-w-[224px] aspect-square border-2 border-slate-700/50 rounded-full flex items-center justify-center p-4 my-auto shadow-inner bg-slate-900/50"
+                className="relative cursor-pointer select-none no-context-menu w-full max-w-[224px] aspect-square border-2 border-slate-700/50 rounded-full flex items-center justify-center p-4 my-auto shadow-inner bg-slate-900/50"
                 onMouseDown={handlePressStart}
                 onMouseUp={handlePressEnd}
                 onTouchStart={handlePressStart}

@@ -28,9 +28,11 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
         </div>
       );
   }
+  
+  const comboTokens = playerState.comboTokens || {};
+  const hasToken = (id: string) => (comboTokens[id] || 0) > 0;
 
-  const upgradedCardsToday = playerState.dailyUpgrades || [];
-  const allComboCardsUpgradedToday = combo_ids.every(id => upgradedCardsToday.includes(id));
+  const allComboCardsHaveTokens = combo_ids.every(hasToken);
   const isClaimed = playerState.claimedComboToday;
 
   return (
@@ -42,11 +44,11 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
             </div>
             <div className="flex justify-center items-center space-x-2 flex-grow my-2 sm:my-0">
                 {combo_ids.map((id, index) => {
-                    const isUpgradedToday = upgradedCardsToday.includes(id);
+                    const isReady = hasToken(id);
                     const upgrade = upgrades.find(u => u.id === id);
                     return (
                         <div key={index} className="w-10 h-10 bg-slate-900/50 shadow-inner rounded-lg flex items-center justify-center p-0.5">
-                            {isUpgradedToday && upgrade ? (
+                            {isReady && upgrade ? (
                                 <img src={upgrade.iconUrl} alt={upgrade.name?.[lang]} className="w-full h-full object-contain" />
                             ) : (
                                 <span className="text-2xl text-gray-500 font-display">?</span>
@@ -63,7 +65,7 @@ const DailyComboSection: React.FC<Pick<MineProps, 'playerState' | 'config' | 'on
                 ) : (
                     <button
                         onClick={onClaimCombo}
-                        disabled={!allComboCardsUpgradedToday}
+                        disabled={!allComboCardsHaveTokens}
                         className="w-full py-2 font-bold text-xs text-white interactive-button rounded-lg bg-[var(--accent-color-glow)] text-center disabled:bg-slate-800 disabled:text-slate-500 disabled:border-slate-700"
                     >
                         {t('claim_reward')}
