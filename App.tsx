@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
@@ -28,7 +30,7 @@ type GameApi = ReturnType<typeof useGame>;
 const isExternal = (url: string | undefined) => url && url.startsWith('http');
 
 const formatNumber = (num: number): string => {
-  if (num === null || num === undefined) return '0';
+  if (num === null || num === undefined || isNaN(num)) return '0';
   if (num >= 1_000_000_000_000) return `${(num / 1_000_000_000_000).toFixed(2)}T`;
   if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;

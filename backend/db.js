@@ -219,7 +219,7 @@ export const initializeDb = async () => {
             id SERIAL PRIMARY KEY,
             skin_id VARCHAR(255) NOT NULL,
             owner_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            price_stars INTEGER NOT NULL,
+            price_coins NUMERIC(20, 4) NOT NULL,
             created_at TIMESTAMPTZ DEFAULT NOW(),
             is_active BOOLEAN DEFAULT TRUE
         );
@@ -235,6 +235,18 @@ export const initializeDb = async () => {
         );
     `);
     console.log("Marketplace tables checked/created successfully.");
+
+    // Marketplace table migration from price_stars (INTEGER) to price_coins (NUMERIC)
+    try {
+        await executeQuery(`ALTER TABLE market_listings RENAME COLUMN price_stars TO price_coins;`);
+        await executeQuery(`ALTER TABLE market_listings ALTER COLUMN price_coins TYPE NUMERIC(20, 4);`);
+        console.log("Successfully migrated market_listings from price_stars to price_coins.");
+    } catch(e) {
+        // Ignore errors which indicate migration is not needed (column doesn't exist or already exists)
+        if (!e.message.includes('column "price_stars" does not exist') && !e.message.includes('column "price_coins" already exists')) {
+            console.warn("Could not migrate market_listings table, might be already migrated or a new setup.", e.message);
+        }
+    }
 
 
     // Safely add columns to daily_events table if they don't exist
@@ -1442,11 +1454,6 @@ export const processSuccessfulPayment = async (payload, log) => {
         } else {
              throw new Error(`Unsupported lootbox type in payload: ${boxType}`);
         }
-    } else if (type === 'market_purchase') {
-        const buyerId = userId;
-        const listingId = itemId;
-        log('info', `Processing market purchase for buyer ${buyerId}, listing ${listingId}`);
-        await processMarketPurchaseInDb(listingId, buyerId, config);
     } else {
         throw new Error(`Unknown payload type: ${type}`);
     }
@@ -1458,7 +1465,7 @@ export const getMarketListingById = async (listingId) => {
     return res.rows[0] || null;
 };
 
-export const listSkinForSaleInDb = async (ownerId, skinId, priceStars) => {
+export const listSkinForSaleInDb = async (ownerId, skinId, priceCoins) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -1472,10 +1479,10 @@ export const listSkinForSaleInDb = async (ownerId, skinId, priceStars) => {
         const existingListingRes = await client.query('SELECT id FROM market_listings WHERE owner_id = $1 AND skin_id = $2 AND is_active = TRUE', [ownerId, skinId]);
         if (existingListingRes.rows.length > 0) throw new Error("You have already listed this skin for sale.");
         
-        const price = parseInt(priceStars, 10);
+        const price = Number(priceCoins);
         if (isNaN(price) || price <= 0) throw new Error("Invalid price.");
 
-        const newListingRes = await client.query('INSERT INTO market_listings (owner_id, skin_id, price_stars) VALUES ($1, $2, $3) RETURNING *', [ownerId, skinId, price]);
+        const newListingRes = await client.query('INSERT INTO market_listings (owner_id, skin_id, price_coins) VALUES ($1, $2, $3) RETURNING *', [ownerId, skinId, price]);
         
         await client.query('COMMIT');
         return newListingRes.rows[0];
@@ -1489,7 +1496,7 @@ export const listSkinForSaleInDb = async (ownerId, skinId, priceStars) => {
 
 export const getMarketListingsFromDb = async () => {
     const res = await executeQuery(`
-        SELECT ml.id, ml.skin_id, ml.owner_id, ml.price_stars, u.name as owner_name
+        SELECT ml.id, ml.skin_id, ml.owner_id, ml.price_coins, u.name as owner_name
         FROM market_listings ml
         JOIN users u ON ml.owner_id = u.id
         WHERE ml.is_active = TRUE
@@ -1539,7 +1546,7 @@ export const getPlayerWithdrawalRequests = async (userId) => {
     return res.rows;
 };
 
-export const processMarketPurchaseInDb = async (listingId, buyerId, config) => {
+export const purchaseMarketItemWithCoinsInDb = async (listingId, buyerId, config) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -1547,7 +1554,7 @@ export const processMarketPurchaseInDb = async (listingId, buyerId, config) => {
         const listingRes = await client.query('SELECT * FROM market_listings WHERE id = $1 AND is_active = TRUE FOR UPDATE', [listingId]);
         if (listingRes.rows.length === 0) throw new Error("Listing not found or already sold.");
         const listing = listingRes.rows[0];
-        const { owner_id: sellerId, skin_id: skinId, price_stars: price } = listing;
+        const { owner_id: sellerId, skin_id: skinId, price_coins: price } = listing;
 
         if (buyerId === sellerId) throw new Error("Cannot buy your own item.");
 
@@ -1558,43 +1565,47 @@ export const processMarketPurchaseInDb = async (listingId, buyerId, config) => {
         let seller = sellerRes.rows[0].data;
         let buyer = buyerRes.rows[0].data;
 
-        // 1. Transfer skin
-        if (!seller.unlockedSkins?.[skinId] || seller.unlockedSkins[skinId] < 1) throw new Error("Seller does not own the skin to sell.");
+        // 1. Check if buyer can afford
+        if ((Number(buyer.balance) || 0) < Number(price)) throw new Error("Insufficient coins.");
         
+        // 2. Check if seller still owns skin
+        if (!seller.unlockedSkins?.[skinId] || seller.unlockedSkins[skinId] < 1) throw new Error("Seller no longer owns this skin.");
+
+        // 3. Perform transaction
+        buyer.balance = (Number(buyer.balance) || 0) - Number(price);
+        seller.balance = (Number(seller.balance) || 0) + Number(price); // No tax for now
+
         seller.unlockedSkins[skinId]--;
         if (seller.unlockedSkins[skinId] <= 0) {
             delete seller.unlockedSkins[skinId];
         }
-
+        
         if (!buyer.unlockedSkins || typeof buyer.unlockedSkins !== 'object' || Array.isArray(buyer.unlockedSkins)) {
             buyer.unlockedSkins = {};
         }
         buyer.unlockedSkins[skinId] = (buyer.unlockedSkins[skinId] || 0) + 1;
 
-
-        // Recalculate profits for both players
+        // Recalculate profits for both players if skin has a bonus
         seller = await recalculatePlayerProfitInDb(seller, config);
         buyer = await recalculatePlayerProfitInDb(buyer, config);
-        
-        // 2. Add market credits to seller
-        seller.marketCredits = (seller.marketCredits || 0) + price;
-        
-        // 3. Set last purchase result for buyer
+
+        // Set last purchase result for buyer for UI feedback
         const skin = config.coinSkins.find(s => s.id === skinId);
         buyer.lastPurchaseResult = { type: 'lootbox', item: skin }; // Re-use lootbox type for UI modal
 
-        // 4. Deactivate listing
+        // Deactivate listing
         await client.query('UPDATE market_listings SET is_active = FALSE WHERE id = $1', [listingId]);
         
-        // 5. Save players
+        // Save players
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [seller, sellerId]);
-        await client.query('UPDATE players SET data = $1 WHERE id = $2', [buyer, buyerId]);
+        const updatedBuyerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [buyer, buyerId]);
 
         await client.query('COMMIT');
-        console.log(`Market purchase complete: Buyer ${buyerId} bought skin ${skinId} from seller ${sellerId} for ${price} stars.`);
+        console.log(`Market purchase complete: Buyer ${buyerId} bought skin ${skinId} from seller ${sellerId} for ${price} coins.`);
+        return updatedBuyerRes.rows[0].data;
     } catch (e) {
         await client.query('ROLLBACK');
-        console.error('Market purchase transaction failed', e);
+        console.error('Market purchase (coins) transaction failed', e);
         throw e;
     } finally {
         client.release();

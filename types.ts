@@ -259,6 +259,7 @@ export interface PlayerState {
   claimedGlitchCodes?: string[];
   shownGlitchCodes?: string[];
   tonWalletAddress?: string;
+  lastPurchaseResult?: { type: 'lootbox' | 'task', item: any };
 }
 
 export interface CellMember {
