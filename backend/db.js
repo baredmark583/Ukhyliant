@@ -1824,8 +1824,7 @@ export const getLeaderboardData = async (limit = 100) => {
     return res.rows.map(r => ({...r, profitPerHour: parseFloat(r.profitPerHour)}));
 };
 
-export const resetPlayerDailyProgress = async (userId) => {
-    const player = await getPlayer(userId);
+export const resetPlayerDailyProgress = async (userId, player) => {
     if (!player) return null;
     player.completedDailyTaskIds = [];
     player.dailyTaps = 0;

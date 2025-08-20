@@ -345,7 +345,7 @@ app.post('/api/login', async (req, res) => {
             const todayDate = new Date(now).toDateString();
 
             if (lastResetDate !== todayDate) {
-                player = await resetPlayerDailyProgress(userId); // This saves the state
+                player = await resetPlayerDailyProgress(userId, player);
                 wasReset = true;
             }
 
@@ -609,8 +609,8 @@ app.post('/api/action/:action', async (req, res) => {
         const todayDate = new Date(now).toDateString();
 
         if (lastResetDate !== todayDate) {
-            log('info', `Performing daily reset for user ${userId}`);
-            player = await resetPlayerDailyProgress(userId);
+            log('info', `Performing daily reset for user ${userId} during action.`);
+            player = await resetPlayerDailyProgress(userId, player);
         }
 
         const result = await gameActions[action](req.body, player, config);
@@ -1286,7 +1286,8 @@ app.post('/admin/api/player/:id/update-balance', checkAdminAuth, async (req, res
     res.sendStatus(200);
 });
 app.post('/admin/api/player/:id/reset-daily', checkAdminAuth, async(req, res) => {
-    await resetPlayerDailyProgress(req.params.id);
+    const player = await getPlayer(req.params.id);
+    await resetPlayerDailyProgress(req.params.id, player);
     res.sendStatus(200);
 });
 app.post('/admin/api/player/:id/reset-progress', checkAdminAuth, async(req, res) => {
