@@ -68,14 +68,6 @@ export const SAVE_DEBOUNCE_MS = 1000;
 export const REFERRAL_BONUS = 50000; // Coins for each referral
 export const REFERRAL_PROFIT_SHARE = 0.10; // 10%
 
-export const BOOST_PURCHASE_LIMITS: Record<string, number> = {
-  'boost_tap_guru': 10,
-  'boost_energy_limit': 10,
-  'boost_suspicion_limit': 10,
-  'boost_full_energy': 3,
-};
-export const BOOST_LIMIT_RESET_COST_STARS = 25;
-
 
 // --- TRANSLATIONS ---
 type TranslationKey = 

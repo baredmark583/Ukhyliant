@@ -1,13 +1,5 @@
 
 
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
@@ -482,10 +474,11 @@ interface ProfileScreenProps {
   handleMetaTap: (targetId: string) => void;
   onOpenGlitchCodesModal: () => void;
   showNotification: (message: string, type?: 'success' | 'error') => void;
+  boostLimitResetCostStars: number;
   gameApi: GameApi;
 }
 
-const ProfileScreen = ({ playerState, user, config, onBuyBoost, onResetBoostLimit, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox, handleMetaTap, onOpenGlitchCodesModal, showNotification, gameApi } : ProfileScreenProps) => {
+const ProfileScreen = ({ playerState, user, config, onBuyBoost, onResetBoostLimit, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox, handleMetaTap, onOpenGlitchCodesModal, showNotification, boostLimitResetCostStars, gameApi } : ProfileScreenProps) => {
     const t = useTranslation();
     const [activeTab, setActiveTab] = useState<ProfileTab>('contacts');
 
@@ -517,7 +510,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onResetBoostLimi
             
             <div className="w-full max-w-md flex-grow overflow-y-auto no-scrollbar pt-4 flex justify-center px-4">
                 {activeTab === 'contacts' && <ContactsContent {...tabProps} />}
-                {activeTab === 'boosts' && <BoostScreen playerState={playerState} boosts={config.boosts} onBuyBoost={onBuyBoost} onResetLimit={onResetBoostLimit} lang={user.language} uiIcons={config.uiIcons} />}
+                {activeTab === 'boosts' && <BoostScreen playerState={playerState} boosts={config.boosts} onBuyBoost={onBuyBoost} onResetLimit={onResetBoostLimit} lang={user.language} uiIcons={config.uiIcons} boostLimitResetCostStars={boostLimitResetCostStars} />}
                 {activeTab === 'skins' && <SkinsContent {...tabProps} />}
                 {activeTab === 'market' && <MarketContent {...tabProps} />}
                 {activeTab === 'cell' && <CellScreen />}
@@ -1233,7 +1226,7 @@ const MainApp: React.FC = () => {
       case 'mine': return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={buyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} handleMetaTap={handleMetaTap}/>;
       case 'missions': return <MissionsScreen tasks={config.tasks} playerState={playerState} onClaim={handleTaskClaim} lang={user.language} startedTasks={startedTasks} uiIcons={config.uiIcons} />;
       case 'airdrop': return <AirdropScreen specialTasks={config.specialTasks} playerState={playerState} onClaim={handleTaskClaim} onPurchase={handleTaskPurchase} user={user} startedTasks={startedTasks} uiIcons={config.uiIcons} gameApi={gameApi} showNotification={showNotification} />;
-      case 'profile': return <ProfileScreen playerState={playerState} user={user} config={config} onBuyBoost={handleBuyBoost} onResetBoostLimit={handleResetBoostLimit} onSetSkin={setSkin} onOpenCoinLootbox={handleOpenCoinLootbox} onPurchaseStarLootbox={handlePurchaseStarLootbox} handleMetaTap={handleMetaTap} onOpenGlitchCodesModal={() => setIsGlitchCodesModalOpen(true)} showNotification={showNotification} gameApi={gameApi} />;
+      case 'profile': return <ProfileScreen playerState={playerState} user={user} config={config} onBuyBoost={handleBuyBoost} onResetBoostLimit={handleResetBoostLimit} onSetSkin={setSkin} onOpenCoinLootbox={handleOpenCoinLootbox} onPurchaseStarLootbox={handlePurchaseStarLootbox} handleMetaTap={handleMetaTap} onOpenGlitchCodesModal={() => setIsGlitchCodesModalOpen(true)} showNotification={showNotification} boostLimitResetCostStars={config.boostLimitResetCostStars} gameApi={gameApi} />;
       default: return null;
     }
   }

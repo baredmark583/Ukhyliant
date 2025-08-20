@@ -100,7 +100,7 @@ const API = {
     }
   },
 
-  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox' | 'boost_reset', itemId: string | number): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
+  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox' | 'boost_reset', itemId: string): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
     if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/create-star-invoice`, {

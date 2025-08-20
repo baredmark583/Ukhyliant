@@ -213,6 +213,7 @@ export interface GameConfig {
     lootboxCostCoins: number;
     lootboxCostStars: number;
     battleBoosts: BattleBoost[];
+    boostLimitResetCostStars: number;
     battleSchedule?: {
         frequency: 'weekly' | 'biweekly' | 'monthly';
         dayOfWeek: number; // 0=Sun, 1=Mon...

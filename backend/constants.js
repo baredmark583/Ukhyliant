@@ -108,6 +108,7 @@ export const BOOST_PURCHASE_LIMITS = {
   'boost_suspicion_limit': 10,
   'boost_full_energy': 3,
 };
+export const BOOST_LIMIT_RESET_COST_STARS = 25;
 
 export const CHEAT_DETECTION_THRESHOLD_TPS = 30; // Taps per second
 export const CHEAT_DETECTION_STRIKES_TO_FLAG = 5;

@@ -1,7 +1,6 @@
 import React from 'https://esm.sh/react';
 import { Boost, Language, PlayerState, UiIcons } from '../types';
 import { useTranslation } from '../hooks/useGameLogic';
-import { BOOST_PURCHASE_LIMITS, BOOST_LIMIT_RESET_COST_STARS } from '../constants';
 
 interface BoostProps {
   playerState: PlayerState;
@@ -10,7 +9,15 @@ interface BoostProps {
   onResetLimit: (boost: Boost) => void;
   lang: Language;
   uiIcons: UiIcons;
+  boostLimitResetCostStars: number;
 }
+
+const BOOST_PURCHASE_LIMITS: Record<string, number> = {
+  'boost_tap_guru': 10,
+  'boost_energy_limit': 10,
+  'boost_suspicion_limit': 10,
+  'boost_full_energy': 3,
+};
 
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined || isNaN(num)) return '0';
@@ -23,7 +30,7 @@ const formatNumber = (num: number): string => {
 
 const isExternal = (url: string | undefined) => url && url.startsWith('http');
 
-const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, onResetLimit, lang, uiIcons }) => {
+const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, onResetLimit, lang, uiIcons, boostLimitResetCostStars }) => {
   const t = useTranslation();
   const { balance } = playerState;
 
@@ -77,7 +84,7 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, on
                     className="w-full mt-3 interactive-button rounded-xl px-2 py-2 font-bold text-sm flex items-center justify-center space-x-2 flex-shrink-0 bg-sky-600/50 hover:bg-sky-500/50 border-sky-500 text-white"
                   >
                     <img src={uiIcons.star} alt="star" className="w-5 h-5" {...(isExternal(uiIcons.star) && { crossOrigin: 'anonymous' })}/>
-                    <span>{t('reset_limit_for')} {BOOST_LIMIT_RESET_COST_STARS}</span>
+                    <span>{t('reset_limit_for')} {boostLimitResetCostStars}</span>
                   </button>
                 ) : (
                   <button
