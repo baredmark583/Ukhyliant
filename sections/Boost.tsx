@@ -1,12 +1,13 @@
 import React from 'https://esm.sh/react';
 import { Boost, Language, PlayerState, UiIcons } from '../types';
 import { useTranslation } from '../hooks/useGameLogic';
-import { BOOST_PURCHASE_LIMITS } from '../constants';
+import { BOOST_PURCHASE_LIMITS, BOOST_LIMIT_RESET_COST_STARS } from '../constants';
 
 interface BoostProps {
   playerState: PlayerState;
   boosts: Boost[];
   onBuyBoost: (boost: Boost) => void;
+  onResetLimit: (boost: Boost) => void;
   lang: Language;
   uiIcons: UiIcons;
 }
@@ -22,7 +23,7 @@ const formatNumber = (num: number): string => {
 
 const isExternal = (url: string | undefined) => url && url.startsWith('http');
 
-const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, lang, uiIcons }) => {
+const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, onResetLimit, lang, uiIcons }) => {
   const t = useTranslation();
   const { balance } = playerState;
 
@@ -70,17 +71,27 @@ const BoostScreen: React.FC<BoostProps> = ({ playerState, boosts, onBuyBoost, la
                     )}
                 </div>
 
-                <button
+                {isLimitReached ? (
+                  <button
+                    onClick={() => onResetLimit(boost)}
+                    className="w-full mt-3 interactive-button rounded-xl px-2 py-2 font-bold text-sm flex items-center justify-center space-x-2 flex-shrink-0 bg-sky-600/50 hover:bg-sky-500/50 border-sky-500 text-white"
+                  >
+                    <img src={uiIcons.star} alt="star" className="w-5 h-5" {...(isExternal(uiIcons.star) && { crossOrigin: 'anonymous' })}/>
+                    <span>{t('reset_limit_for')} {BOOST_LIMIT_RESET_COST_STARS}</span>
+                  </button>
+                ) : (
+                  <button
                     onClick={() => onBuyBoost(boost)}
-                    disabled={!canAfford || isLimitReached}
+                    disabled={!canAfford}
                     className="w-full mt-3 interactive-button rounded-xl px-2 py-2 font-bold text-sm flex items-center justify-center space-x-2 flex-shrink-0 disabled:opacity-50"
-                >
-                    <img src={uiIcons.coin} alt="coin" className="w-5 h-5" {...(isExternal(uiIcons.coin) && { crossOrigin: 'anonymous' })}/>
-                    <div className="flex flex-col items-start leading-tight">
-                        <span className="text-xs">{formatNumber(cost)}</span>
-                        {isMultiLevel && <span className="text-xs text-white/70">{t('lvl')} {level}</span>}
-                    </div>
-                </button>
+                  >
+                      <img src={uiIcons.coin} alt="coin" className="w-5 h-5" {...(isExternal(uiIcons.coin) && { crossOrigin: 'anonymous' })}/>
+                      <div className="flex flex-col items-start leading-tight">
+                          <span className="text-xs">{formatNumber(cost)}</span>
+                          {isMultiLevel && <span className="text-xs text-white/70">{t('lvl')} {level}</span>}
+                      </div>
+                  </button>
+                )}
             </div>
           );
         })}

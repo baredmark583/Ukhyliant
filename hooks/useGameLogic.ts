@@ -100,7 +100,7 @@ const API = {
     }
   },
 
-  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox', itemId: string | number): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
+  createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox' | 'boost_reset', itemId: string | number): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
     if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/create-star-invoice`, {
@@ -728,6 +728,16 @@ export const useGame = () => {
         return result;
     }, [user, setPlayerState]);
 
+    const resetBoostLimit = useCallback(async (boost: Boost) => {
+        if (!user) return { error: 'User not found' };
+        const result = await API.createStarInvoice(user.id, 'boost_reset', boost.id);
+        if (result.ok && result.invoiceLink) {
+            window.Telegram.WebApp.openInvoice(result.invoiceLink);
+            return { success: true };
+        }
+        return { error: result.error || 'Failed to create payment invoice.' };
+    }, [user]);
+
     const claimTaskReward = useCallback(async (task: DailyTask, code?: string) => {
         if (!user) return { error: 'User not found' };
         const result = await API.claimDailyTask(user.id, task.id, code);
@@ -971,6 +981,7 @@ export const useGame = () => {
         handleTap,
         buyUpgrade,
         buyBoost,
+        resetBoostLimit,
         claimTaskReward,
         purchaseSpecialTask,
         completeSpecialTask,

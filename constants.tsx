@@ -74,6 +74,7 @@ export const BOOST_PURCHASE_LIMITS: Record<string, number> = {
   'boost_suspicion_limit': 10,
   'boost_full_energy': 3,
 };
+export const BOOST_LIMIT_RESET_COST_STARS = 25;
 
 
 // --- TRANSLATIONS ---
@@ -95,9 +96,10 @@ type TranslationKey =
   | 'your_league' | 'total_players'
   // Notifications
   | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked' | 'market_purchase_success' | 'market_wallet_connected' | 'wallet_disconnected'
+  | 'boost_limit_reset_success' | 'boost_limit_reset_failed'
   // Boosts
   | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased' | 'suspicion_limit'
-  | 'limit_today' | 'limit_reached'
+  | 'limit_today' | 'limit_reached' | 'reset_limit_for'
   // Market & Skins
   | 'market' | 'skins' | 'black_market' | 'black_market_desc' | 'open_for' | 'open'
   | 'lootbox_coin' | 'lootbox_star' | 'profit_from_referrals'
@@ -234,6 +236,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     market_purchase_success: 'Purchase successful!',
     market_wallet_connected: 'Wallet connected!',
     wallet_disconnected: 'Wallet disconnected.',
+    boost_limit_reset_success: 'Boost limit has been reset!',
+    boost_limit_reset_failed: 'Failed to reset boost limit.',
     guru_tapper: 'Guru Tapper',
     energy_limit: 'Energy Limit',
     turbo_mode: 'Turbo Mode',
@@ -242,6 +246,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     boost_purchased: 'Boost purchased!',
     limit_today: 'Limit today:',
     limit_reached: 'Limit reached',
+    reset_limit_for: 'Reset for',
     market: 'Market',
     skins: 'Skins',
     black_market: 'Black Market',
@@ -461,6 +466,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     market_purchase_success: 'Покупка успішна!',
     market_wallet_connected: 'Гаманець підключено!',
     wallet_disconnected: 'Гаманець відключено.',
+    boost_limit_reset_success: 'Ліміт буста скинуто!',
+    boost_limit_reset_failed: 'Не вдалося скинути ліміт буста.',
     guru_tapper: 'Гуру Тапів',
     energy_limit: 'Ліміт Енергії',
     turbo_mode: 'Турбо-режим',
@@ -469,6 +476,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     boost_purchased: 'Буст придбано!',
     limit_today: 'Ліміт сьогодні:',
     limit_reached: 'Ліміт вичерпано',
+    reset_limit_for: 'Скинути за',
     market: 'Ринок',
     skins: 'Скіни',
     black_market: 'Чорний ринок',
@@ -688,6 +696,8 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     market_purchase_success: 'Покупка совершена!',
     market_wallet_connected: 'Кошелёк подключен!',
     wallet_disconnected: 'Кошелёк отключен.',
+    boost_limit_reset_success: 'Лимит буста сброшен!',
+    boost_limit_reset_failed: 'Не удалось сбросить лимит буста.',
     guru_tapper: 'Гуру Тапов',
     energy_limit: 'Лимит Энергии',
     turbo_mode: 'Турбо-режим',
@@ -696,6 +706,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     boost_purchased: 'Буст приобретён!',
     limit_today: 'Лимит сегодня:',
     limit_reached: 'Лимит исчерпан',
+    reset_limit_for: 'Сбросить за',
     market: 'Рынок',
     skins: 'Скины',
     black_market: 'Черный рынок',

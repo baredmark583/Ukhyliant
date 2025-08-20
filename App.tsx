@@ -5,6 +5,9 @@
 
 
 
+
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
@@ -472,6 +475,7 @@ interface ProfileScreenProps {
   user: User;
   config: GameConfig;
   onBuyBoost: (boost: Boost) => void;
+  onResetBoostLimit: (boost: Boost) => void;
   onSetSkin: (skinId: string) => void;
   onOpenCoinLootbox: (boxType: 'coin') => void;
   onPurchaseStarLootbox: (boxType: 'star') => void;
@@ -481,7 +485,7 @@ interface ProfileScreenProps {
   gameApi: GameApi;
 }
 
-const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox, handleMetaTap, onOpenGlitchCodesModal, showNotification, gameApi } : ProfileScreenProps) => {
+const ProfileScreen = ({ playerState, user, config, onBuyBoost, onResetBoostLimit, onSetSkin, onOpenCoinLootbox, onPurchaseStarLootbox, handleMetaTap, onOpenGlitchCodesModal, showNotification, gameApi } : ProfileScreenProps) => {
     const t = useTranslation();
     const [activeTab, setActiveTab] = useState<ProfileTab>('contacts');
 
@@ -513,7 +517,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onSetSkin, onOpe
             
             <div className="w-full max-w-md flex-grow overflow-y-auto no-scrollbar pt-4 flex justify-center px-4">
                 {activeTab === 'contacts' && <ContactsContent {...tabProps} />}
-                {activeTab === 'boosts' && <BoostScreen playerState={playerState} boosts={config.boosts} onBuyBoost={onBuyBoost} lang={user.language} uiIcons={config.uiIcons} />}
+                {activeTab === 'boosts' && <BoostScreen playerState={playerState} boosts={config.boosts} onBuyBoost={onBuyBoost} onResetLimit={onResetBoostLimit} lang={user.language} uiIcons={config.uiIcons} />}
                 {activeTab === 'skins' && <SkinsContent {...tabProps} />}
                 {activeTab === 'market' && <MarketContent {...tabProps} />}
                 {activeTab === 'cell' && <CellScreen />}
@@ -972,7 +976,7 @@ const MainApp: React.FC = () => {
   const gameApi = useGame();
   const { 
       playerState, config, handleTap, buyUpgrade, allUpgrades, currentLeague, 
-      claimTaskReward, buyBoost, purchaseSpecialTask, completeSpecialTask,
+      claimTaskReward, buyBoost, resetBoostLimit, purchaseSpecialTask, completeSpecialTask,
       claimDailyCombo, claimDailyCipher, getLeaderboard, 
       openCoinLootbox, purchaseLootboxWithStars, 
       setSkin,
@@ -1030,323 +1034,250 @@ const MainApp: React.FC = () => {
   const handleFinalSceneComplete = useCallback(() => {
     setShowVideo(true);
   }, []);
+
+  const handleResetBoostLimit = async (boost: Boost) => {
+    const result = await resetBoostLimit(boost);
+    if (result?.error) {
+        showNotification(result.error, 'error');
+    }
+    // Success is handled by the global invoiceClosed event listener
+  };
     
   // Effect to wait for the Telegram Web App script to be ready
   useEffect(() => {
     const checkTgReady = () => {
         if (window.Telegram?.WebApp?.initData) {
             setIsTgReady(true);
-            return true;
+        } else {
+            setTimeout(checkTgReady, 100);
         }
-        return false;
+    };
+    if (!isTgReady) {
+        checkTgReady();
     }
-    
-    if (isTgReady) return;
-    
-    if (checkTgReady()) return;
-
-    const intervalId = setInterval(() => {
-        if (checkTgReady()) {
-            clearInterval(intervalId);
-        }
-    }, 100);
-
-    return () => clearInterval(intervalId);
   }, [isTgReady]);
-
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsAppReady(true), 1500);
-    return () => clearTimeout(timer);
-  }, []);
   
-  const toggleMute = useCallback(() => {
+  // Audio handling
+  useEffect(() => {
+    const audioEl = audioRef.current;
+    if (!audioEl) return;
+    if (!isMuted && config?.backgroundAudioUrl && hasPlayed) {
+        audioEl.play().catch(e => console.error("Audio play failed:", e));
+    } else {
+        audioEl.pause();
+    }
+  }, [isMuted, config?.backgroundAudioUrl, hasPlayed]);
+
+  const toggleMute = () => {
     setIsMuted(prev => {
-        const newMutedState = !prev;
-        localStorage.setItem('isMuted', String(newMutedState));
-        if (audioRef.current) {
-            audioRef.current.muted = newMutedState;
-        }
-        return newMutedState;
+        const newState = !prev;
+        localStorage.setItem('isMuted', String(newState));
+        return newState;
     });
-  }, []);
-
-  const handleTapWithAudio = useCallback(() => {
-      const tapValue = handleTap();
-      if (!hasPlayed && audioRef.current && config?.backgroundAudioUrl) {
-          audioRef.current.play().catch(e => console.error("Audio play failed:", e));
-          setHasPlayed(true);
-      }
-      return tapValue;
-  }, [handleTap, hasPlayed, config?.backgroundAudioUrl]);
-
-  useEffect(() => {
-    if (isGlitching) {
-        const timer = setTimeout(() => {
-            setIsGlitching(false);
-        }, 2000);
-        return () => clearTimeout(timer);
-    }
-  }, [isGlitching, setIsGlitching]);
-
-  const handleBuyUpgrade = async (upgradeId: string) => {
-    const result = await buyUpgrade(upgradeId);
-    if(result) {
-        const upgrade = allUpgrades.find(u => u.id === upgradeId);
-        showNotification(`${upgrade?.name?.[user.language]} Lvl ${result.upgrades[upgradeId]}`);
-    }
   };
+
+  const handleUserInteraction = () => {
+      if(!hasPlayed) setHasPlayed(true);
+  }
+
+  // Effect for setting up and tearing down the app
+  useEffect(() => {
+    if (playerState && config && isTgReady && !isAppReady) {
+        setIsAppReady(true);
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+        if (config.backgroundAudioUrl) {
+            const audio = audioRef.current;
+            if (audio) {
+                audio.src = config.backgroundAudioUrl;
+                audio.loop = true;
+            }
+        }
+    }
+    
+    document.addEventListener('click', handleUserInteraction, { once: true });
+    document.addEventListener('touchstart', handleUserInteraction, { once: true });
+    
+    return () => {
+       document.removeEventListener('click', handleUserInteraction);
+       document.removeEventListener('touchstart', handleUserInteraction);
+    };
+
+  }, [playerState, config, isAppReady, isTgReady]);
   
+  if (!isAppReady || !playerState || !config || !user) {
+    return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
+  }
+
   const handleBuyBoost = async (boost: Boost) => {
     const result = await buyBoost(boost);
-    if (result.player) {
-        showNotification(t('boost_purchased'), 'success');
-        if (boost.id === 'boost_turbo_mode') {
-            setActiveScreen('exchange');
-        }
-    } else if (result.error) {
+    if (result.error) {
         showNotification(result.error, 'error');
+    } else {
+        showNotification(t('boost_purchased'), 'success');
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
     }
   };
 
-  const processTaskCompletion = (task: DailyTask | SpecialTask, result: { player?: PlayerState, error?: string }): boolean => {
-      if (result.player) {
-          window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-          const rewardText = task.reward?.type === 'profit'
-              ? `+${formatNumber(task.reward.amount)}/hr <img src="${config.uiIcons.energy}" class="w-4 h-4 inline-block -mt-1"/>`
-              : `+${formatNumber(task.reward.amount)} <img src="${config.uiIcons.coin}" class="w-4 h-4 inline-block -mt-1"/>`;
-          showNotification(`${task.name?.[user.language]} ${t('task_completed')} <span class="whitespace-nowrap">${rewardText}</span>`, 'success');
-          
-          setStartedTasks(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(task.id);
-              return newSet;
-          });
-          return true;
-      } else if (result.error) {
-          window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-          showNotification(result.error, 'error');
-          return false;
-      }
-      return false;
-  };
-
-  const handleClaimTask = async (task: DailyTask | SpecialTask) => {
-    const isExternalLinkTask = !!task.url;
-    const isTaskStarted = startedTasks.has(task.id);
-
-    if (isExternalLinkTask && !isTaskStarted) {
-        if (task.url.startsWith('https://t.me/')) {
-            window.Telegram.WebApp.openTelegramLink(task.url);
-        } else {
-            window.Telegram.WebApp.openLink(task.url, { try_instant_view: true });
-        }
-        setStartedTasks(prev => new Set(prev).add(task.id));
-        return;
-    }
-
+  const handleTaskClaim = (task: DailyTask | SpecialTask) => {
     if (task.type === 'video_code') {
         setSecretCodeTask(task);
         return;
     }
-    
-    // This is for tap tasks, or for other tasks after they have been started.
-    let result;
-    const isAirdropTask = 'isOneTime' in task;
-
-    if (isAirdropTask) {
-        result = await completeSpecialTask(task as SpecialTask);
-    } else {
-        result = await claimTaskReward(task as DailyTask);
+    if (task.url) {
+        window.Telegram.WebApp.openLink(task.url);
+        setStartedTasks(prev => new Set(prev).add(task.id));
     }
-    processTaskCompletion(task, result);
+    
+    const isSpecial = 'isOneTime' in task;
+
+    const claimAction = isSpecial 
+        ? () => completeSpecialTask(task as SpecialTask)
+        : () => claimTaskReward(task as DailyTask);
+
+    // For tasks without a URL or for tap tasks, claim immediately.
+    // For tasks with a URL, we only claim if it's already started.
+    if (!task.url || startedTasks.has(task.id) || task.type === 'taps') {
+        claimAction().then(result => {
+             if (result.error) {
+                showNotification(result.error, 'error');
+             } else {
+                let rewardText = `+${formatNumber(result.reward?.amount || 0)}`;
+                if (result.reward?.type === 'profit') rewardText += `/hr`;
+                showNotification(`${task.name[user.language]} ${t('task_completed')} (${rewardText})`, 'success');
+                window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+             }
+        });
+    }
+  };
+
+  const handleTaskPurchase = async (task: SpecialTask) => {
+    const result = await purchaseSpecialTask(task);
+    if (result.error) {
+        showNotification(result.error, 'error');
+    }
   };
 
   const handleSecretCodeSubmit = async (code: string) => {
     if (!secretCodeTask) return;
-    const isAirdropTask = 'isOneTime' in secretCodeTask;
-    let result;
-    if (isAirdropTask) {
-        result = await completeSpecialTask(secretCodeTask as SpecialTask, code);
-    } else {
-        result = await claimTaskReward(secretCodeTask as DailyTask, code);
-    }
+    const isSpecial = 'isOneTime' in secretCodeTask;
+     const claimAction = isSpecial 
+        ? () => completeSpecialTask(secretCodeTask as SpecialTask, code)
+        : () => claimTaskReward(secretCodeTask as DailyTask, code);
     
-    const wasSuccessful = processTaskCompletion(secretCodeTask, result);
-    if (wasSuccessful) {
+     const result = await claimAction();
+     if (result.error) {
+        showNotification(result.error, 'error');
+     } else {
+        let rewardText = `+${formatNumber(result.reward?.amount || 0)}`;
+        if (result.reward?.type === 'profit') rewardText += `/hr`;
+        showNotification(`${secretCodeTask.name[user.language]} ${t('task_completed')} (${rewardText})`, 'success');
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         setSecretCodeTask(null);
+     }
+  };
+  
+  const handleClaimCombo = async () => {
+    const result = await claimDailyCombo();
+    if(result.error) {
+        showNotification(result.error, 'error');
+    } else {
+        showNotification(`${t('combo_collected')} (+${formatNumber(result.reward || 0)})`, 'success');
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
     }
   };
   
-  const handleOpenGlitchCodesModal = () => {
-      setIsGlitchCodesModalOpen(true);
-  };
-
-  const handleClaimGlitchCode = async (code: string): Promise<boolean> => {
-      const result = await claimGlitchCode(code);
-      if (result.player) {
-          showNotification(t('glitch_code_claimed'), 'success');
-          return true;
-      } else if (result.error) {
-          showNotification(result.error, 'error');
-          return false;
-      }
+  const handleClaimCipher = async (cipher: string) => {
+    const result = await claimDailyCipher(cipher);
+    if(result.error) {
+      showNotification(result.error, 'error');
       return false;
+    } else {
+      showNotification(`${t('cipher_solved')} (+${formatNumber(result.reward || 0)})`, 'success');
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+      return true;
+    }
+  };
+  
+  const handleGlitchCodeSubmit = async (code: string) => {
+    const result = await claimGlitchCode(code);
+    if(result.error) {
+      showNotification(result.error, 'error');
+      return false;
+    } else {
+      let rewardText = `+${formatNumber(result.reward?.amount || 0)}`;
+      if (result.reward?.type === 'profit') rewardText += `/hr`;
+      showNotification(`${t('glitch_code_claimed')} (${rewardText})`, 'success');
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+      return true;
+    }
   };
 
-  const handleEnergyTooltip = () => {
-    showNotification(t('tooltip_energy'));
+  const handleOpenCoinLootbox = async (boxType: 'coin') => {
+    const result = await openCoinLootbox(boxType);
+    if(result.error) {
+        showNotification(result.error, 'error');
+    }
   };
-  
-  const handleSuspicionTooltip = () => {
-    showNotification(t('tooltip_suspicion'));
-  };
-  
-  if (!isAppReady || !isTgReady || !playerState || !config) {
-    return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
-  }
-  
-  if (isGlitching && !activeGlitchEvent) {
-      return <GlitchEffect onClose={() => setIsGlitching(false)} />;
-  }
-  
-  if (activeGlitchEvent) {
-      return <GlitchEffect message={activeGlitchEvent.message[user.language]} code={activeGlitchEvent.code} onClose={handleGlitchEffectClose} />;
-  }
 
-  if (isFinalScene && !showVideo) {
-      return <FinalSystemBreachEffect onComplete={handleFinalSceneComplete} />;
-  }
-  
-  if (showVideo && config.finalVideoUrl) {
-      return <FinalVideoPlayer videoUrl={config.finalVideoUrl} onEnd={() => setShowVideo(false)} />;
-  }
+  const handlePurchaseStarLootbox = async (boxType: 'star') => {
+    const result = await purchaseLootboxWithStars(boxType);
+     if(result.error) {
+        showNotification(result.error, 'error');
+    }
+  };
 
   const renderScreen = () => {
-    switch (activeScreen) {
-      case 'exchange':
-        return <ExchangeScreen 
-                    playerState={playerState} 
-                    currentLeague={currentLeague} 
-                    onTap={handleTapWithAudio}
-                    user={user}
-                    onClaimCipher={async (cipher) => {
-                        const result = await claimDailyCipher(cipher);
-                        if (result.error) {
-                            showNotification(result.error, 'error');
-                            return false;
-                        } else {
-                            showNotification(t('cipher_solved'), 'success');
-                            return true;
-                        }
-                    }}
-                    config={config}
-                    onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
-                    isTurboActive={isTurboActive}
-                    effectiveMaxEnergy={effectiveMaxEnergy}
-                    effectiveMaxSuspicion={effectiveMaxSuspicion}
-                    onEnergyClick={handleEnergyTooltip}
-                    onSuspicionClick={handleSuspicionTooltip}
-                    isMuted={isMuted}
-                    toggleMute={toggleMute}
-                    handleMetaTap={handleMetaTap}
-                />;
-      case 'mine':
-        return <MineScreen 
-                    upgrades={allUpgrades} 
-                    balance={playerState.balance} 
-                    onBuyUpgrade={handleBuyUpgrade}
-                    lang={user.language}
-                    playerState={playerState}
-                    config={config}
-                    onClaimCombo={async () => {
-                        const result = await claimDailyCombo();
-                        if(result.error) {
-                            showNotification(result.error, 'error');
-                        } else {
-                             showNotification(`${t('combo_collected')} +${formatNumber(result.reward || 0)}`, 'success');
-                        }
-                    }}
-                    uiIcons={config.uiIcons}
-                    handleMetaTap={handleMetaTap}
-                />;
-      case 'missions':
-        return <MissionsScreen 
-                    tasks={config.tasks} 
-                    playerState={playerState} 
-                    onClaim={handleClaimTask}
-                    lang={user.language}
-                    startedTasks={startedTasks}
-                    uiIcons={config.uiIcons}
-                />;
-      case 'airdrop':
-        return <AirdropScreen 
-                    specialTasks={config.specialTasks} 
-                    playerState={playerState} 
-                    onClaim={handleClaimTask}
-                    onPurchase={purchaseSpecialTask}
-                    user={user}
-                    startedTasks={startedTasks}
-                    uiIcons={config.uiIcons}
-                    gameApi={gameApi}
-                    showNotification={showNotification}
-                />;
-      case 'profile':
-        return <ProfileScreen 
-                    playerState={playerState} 
-                    user={user} 
-                    config={config} 
-                    onBuyBoost={handleBuyBoost}
-                    onSetSkin={setSkin}
-                    onOpenCoinLootbox={openCoinLootbox}
-                    onPurchaseStarLootbox={purchaseLootboxWithStars}
-                    handleMetaTap={handleMetaTap}
-                    onOpenGlitchCodesModal={handleOpenGlitchCodesModal}
-                    showNotification={showNotification}
-                    gameApi={gameApi}
-                />;
-      default:
-        return null;
+    switch(activeScreen) {
+      case 'exchange': return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={() => handleBuyBoost({ id: 'boost_full_energy' } as Boost)} onSuspicionClick={() => {}} isMuted={isMuted} toggleMute={toggleMute} handleMetaTap={handleMetaTap} />;
+      case 'mine': return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={buyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} handleMetaTap={handleMetaTap}/>;
+      case 'missions': return <MissionsScreen tasks={config.tasks} playerState={playerState} onClaim={handleTaskClaim} lang={user.language} startedTasks={startedTasks} uiIcons={config.uiIcons} />;
+      case 'airdrop': return <AirdropScreen specialTasks={config.specialTasks} playerState={playerState} onClaim={handleTaskClaim} onPurchase={handleTaskPurchase} user={user} startedTasks={startedTasks} uiIcons={config.uiIcons} gameApi={gameApi} showNotification={showNotification} />;
+      case 'profile': return <ProfileScreen playerState={playerState} user={user} config={config} onBuyBoost={handleBuyBoost} onResetBoostLimit={handleResetBoostLimit} onSetSkin={setSkin} onOpenCoinLootbox={handleOpenCoinLootbox} onPurchaseStarLootbox={handlePurchaseStarLootbox} handleMetaTap={handleMetaTap} onOpenGlitchCodesModal={() => setIsGlitchCodesModalOpen(true)} showNotification={showNotification} gameApi={gameApi} />;
+      default: return null;
     }
-  };
+  }
 
+  if (isGlitching) {
+    return <GlitchEffect onClose={() => setIsGlitching(false)} />;
+  }
+
+  if (activeGlitchEvent) {
+      return <GlitchEffect message={activeGlitchEvent.message[user.language]} code={activeGlitchEvent.code} onClose={handleGlitchEffectClose} />
+  }
+
+  if(isFinalScene && !showVideo) {
+    return <FinalSystemBreachEffect onComplete={handleFinalSceneComplete} />;
+  }
+
+  if(showVideo && config.finalVideoUrl) {
+    return <FinalVideoPlayer videoUrl={config.finalVideoUrl} onEnd={() => setShowVideo(false)} />;
+  }
+  
   return (
-    <div className={`h-screen w-screen bg-[var(--bg-color)] flex flex-col overflow-hidden transition-opacity duration-500 ${isAppReady ? 'opacity-100' : 'opacity-0'}`}>
-        {config.backgroundAudioUrl && (
-            <audio ref={audioRef} src={config.backgroundAudioUrl} loop muted={isMuted} playsInline />
-        )}
-        
-        {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
-        {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
-        {secretCodeTask && <SecretCodeModal task={secretCodeTask} onClose={() => setSecretCodeTask(null)} onSubmit={handleSecretCodeSubmit} lang={user.language} />}
-        {isGlitchCodesModalOpen && <GlitchCodesModal isOpen={isGlitchCodesModalOpen} onClose={() => setIsGlitchCodesModalOpen(false)} onSubmit={handleClaimGlitchCode} playerState={playerState} config={config} lang={user.language} />}
-        {systemMessage && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
-
-        <NotificationToast notification={notification} />
-        
-        <main id="main-content-wrapper" className="flex-grow min-h-0 pb-[60px]">
-             {renderScreen()}
-        </main>
-        
-        <nav className="fixed bottom-0 left-0 right-0 h-[60px] bg-slate-900/80 backdrop-blur-md border-t border-slate-700/50 flex justify-around items-start z-50">
-            <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} setActiveScreen={setActiveScreen} />
-            <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} setActiveScreen={setActiveScreen} />
-            <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} setActiveScreen={setActiveScreen} />
-            <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} setActiveScreen={setActiveScreen} />
-            <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} setActiveScreen={setActiveScreen} />
-        </nav>
-        <style>{`
-            @keyframes floatUp {
-                0% { transform: translate(var(--x-offset), 0); opacity: 1; }
-                100% { transform: translate(var(--x-offset), -100px); opacity: 0; }
-            }
-        `}</style>
+    <div className="h-screen w-screen bg-[var(--bg-color)] flex flex-col fixed inset-0">
+      <div id="main-content-wrapper" className="flex-grow overflow-hidden relative">
+          {renderScreen()}
+      </div>
+      <nav className="flex-shrink-0 bg-slate-800/50 border-t border-[var(--border-color)] flex justify-around items-start">
+        <NavItem screen="exchange" label={t('exchange')} iconUrl={config.uiIcons.nav.exchange} active={activeScreen === 'exchange'} setActiveScreen={setActiveScreen} />
+        <NavItem screen="mine" label={t('mine')} iconUrl={config.uiIcons.nav.mine} active={activeScreen === 'mine'} setActiveScreen={setActiveScreen} />
+        <NavItem screen="missions" label={t('missions')} iconUrl={config.uiIcons.nav.missions} active={activeScreen === 'missions'} setActiveScreen={setActiveScreen} />
+        <NavItem screen="airdrop" label={t('airdrop')} iconUrl={config.uiIcons.nav.airdrop} active={activeScreen === 'airdrop'} setActiveScreen={setActiveScreen} />
+        <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} setActiveScreen={setActiveScreen} />
+      </nav>
+      {notification && <NotificationToast notification={notification} />}
+      {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
+      {secretCodeTask && <SecretCodeModal task={secretCodeTask} onClose={() => setSecretCodeTask(null)} onSubmit={handleSecretCodeSubmit} lang={user.language} />}
+      {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
+      {isGlitchCodesModalOpen && <GlitchCodesModal isOpen={isGlitchCodesModalOpen} onClose={() => setIsGlitchCodesModalOpen(false)} onSubmit={handleGlitchCodeSubmit} playerState={playerState} config={config} lang={user.language} />}
+      {systemMessage && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
+      {config.backgroundAudioUrl && <audio ref={audioRef} />}
     </div>
   );
 };
 
-
-const App = () => (
+const App: React.FC = () => (
     <AuthProvider>
         <AppContainer />
     </AuthProvider>
