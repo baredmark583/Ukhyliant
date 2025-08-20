@@ -1,3 +1,4 @@
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -1391,8 +1392,8 @@ app.post('/admin/api/withdrawals/:id/update', checkAdminAuth, async (req, res) =
 
 // --- Server Initialization ---
 initializeDb().then(() => {
-    app.listen(port, () => {
-        log('info', `Server is running on http://localhost:${port}`);
+    app.listen(port, '0.0.0.0', () => {
+        log('info', `Server listening on port ${port}`);
     });
     // Initial cache update, then update every 15 minutes
     updateSocialStatsCache();

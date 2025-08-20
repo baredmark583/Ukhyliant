@@ -88,7 +88,7 @@ type TranslationKey =
   | 'your_league' | 'total_players'
   // Notifications
   | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked' | 'market_purchase_success' | 'market_wallet_connected' | 'wallet_disconnected'
-  | 'boost_limit_reset_success' | 'boost_limit_reset_failed'
+  | 'boost_limit_reset_success' | 'boost_limit_reset_failed' | 'upgrade_purchased'
   // Boosts
   | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased' | 'suspicion_limit'
   | 'limit_today' | 'limit_reached' | 'reset_limit_for'
@@ -230,6 +230,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     wallet_disconnected: 'Wallet disconnected.',
     boost_limit_reset_success: 'Boost limit has been reset!',
     boost_limit_reset_failed: 'Failed to reset boost limit.',
+    upgrade_purchased: 'Upgrade purchased!',
     guru_tapper: 'Guru Tapper',
     energy_limit: 'Energy Limit',
     turbo_mode: 'Turbo Mode',
@@ -460,6 +461,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     wallet_disconnected: 'Гаманець відключено.',
     boost_limit_reset_success: 'Ліміт буста скинуто!',
     boost_limit_reset_failed: 'Не вдалося скинути ліміт буста.',
+    upgrade_purchased: 'Покращення придбано!',
     guru_tapper: 'Гуру Тапів',
     energy_limit: 'Ліміт Енергії',
     turbo_mode: 'Турбо-режим',
@@ -690,6 +692,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     wallet_disconnected: 'Кошелёк отключен.',
     boost_limit_reset_success: 'Лимит буста сброшен!',
     boost_limit_reset_failed: 'Не удалось сбросить лимит буста.',
+    upgrade_purchased: 'Улучшение приобретено!',
     guru_tapper: 'Гуру Тапов',
     energy_limit: 'Лимит Энергии',
     turbo_mode: 'Турбо-режим',

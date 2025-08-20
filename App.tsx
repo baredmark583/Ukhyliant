@@ -22,7 +22,18 @@ declare const html2canvas: any;
 
 type GameApi = ReturnType<typeof useGame>;
 
+const API_BASE_URL = 'https://ukhyliant-backend.onrender.com';
+
 const isExternal = (url: string | undefined) => url && url.startsWith('http');
+
+const getProxiedUrl = (url: string | undefined): string | undefined => {
+    if (!url || !isExternal(url)) {
+      return url;
+    }
+    // All external URLs are proxied to avoid CORS issues with images and audio.
+    return `${API_BASE_URL}/api/image-proxy?url=${encodeURIComponent(url)}`;
+};
+
 
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined || isNaN(num)) return '0';
@@ -65,7 +76,7 @@ const FinalVideoPlayer: React.FC<{ videoUrl: string, onEnd: () => void }> = ({ v
     
     return (
         <div className="final-video-container">
-            <video ref={videoRef} src={videoUrl} onEnded={onEnd} playsInline autoPlay muted={false} />
+            <video ref={videoRef} src={getProxiedUrl(videoUrl)} onEnded={onEnd} playsInline autoPlay muted={false} crossOrigin="anonymous" />
             <button onClick={onEnd} className="skip-button">{t('skip_video')}</button>
         </div>
     );
@@ -90,10 +101,9 @@ const LoadingScreen: React.FC<{imageUrl?: string}> = ({ imageUrl }) => (
     <div className="h-screen w-screen relative overflow-hidden bg-[var(--bg-color)]">
         {imageUrl ? (
             <img 
-                src={imageUrl} 
+                src={getProxiedUrl(imageUrl)} 
                 alt="Loading..." 
                 className="absolute top-0 left-0 w-full h-full object-cover"
-                {...(isExternal(imageUrl) && { crossOrigin: 'anonymous' })}
             />
         ) : (
             <div className="w-full h-full flex flex-col justify-center items-center p-4">
@@ -1050,16 +1060,29 @@ const MainApp: React.FC = () => {
     }
   }, [isTgReady]);
   
-  // Audio handling
-  useEffect(() => {
-    const audioEl = audioRef.current;
-    if (!audioEl) return;
-    if (!isMuted && config?.backgroundAudioUrl && hasPlayed) {
-        audioEl.play().catch(e => console.error("Audio play failed:", e));
-    } else {
-        audioEl.pause();
-    }
-  }, [isMuted, config?.backgroundAudioUrl, hasPlayed]);
+    // Audio handling
+    useEffect(() => {
+        const audioEl = audioRef.current;
+        if (!audioEl) return;
+        if (config?.backgroundAudioUrl) {
+            const proxiedUrl = getProxiedUrl(config.backgroundAudioUrl);
+            if (proxiedUrl && audioEl.src !== proxiedUrl) {
+                audioEl.src = proxiedUrl;
+                audioEl.loop = true;
+            }
+        }
+    }, [config?.backgroundAudioUrl]);
+
+    useEffect(() => {
+        const audioEl = audioRef.current;
+        if (!audioEl || !config?.backgroundAudioUrl) return;
+
+        if (!isMuted && hasPlayed) {
+            audioEl.play().catch(e => console.error("Audio play failed:", e));
+        } else {
+            audioEl.pause();
+        }
+    }, [isMuted, hasPlayed, config?.backgroundAudioUrl]);
 
   const toggleMute = () => {
     setIsMuted(prev => {
@@ -1079,13 +1102,6 @@ const MainApp: React.FC = () => {
         setIsAppReady(true);
         window.Telegram.WebApp.ready();
         window.Telegram.WebApp.expand();
-        if (config.backgroundAudioUrl) {
-            const audio = audioRef.current;
-            if (audio) {
-                audio.src = config.backgroundAudioUrl;
-                audio.loop = true;
-            }
-        }
     }
     
     document.addEventListener('click', handleUserInteraction, { once: true });
@@ -1104,13 +1120,27 @@ const MainApp: React.FC = () => {
 
   const handleBuyBoost = async (boost: Boost) => {
     const result = await buyBoost(boost);
-    if (result.error) {
-        showNotification(result.error, 'error');
-    } else {
+    if (result.player) {
         showNotification(t('boost_purchased'), 'success');
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        if (boost.id === 'boost_turbo_mode') {
+            setActiveScreen('exchange');
+        }
+    } else {
+        showNotification(result.error, 'error');
     }
   };
+
+  const handleBuyUpgrade = async (upgradeId: string) => {
+      const result = await buyUpgrade(upgradeId);
+      if (result.player) {
+          showNotification(t('upgrade_purchased'), 'success');
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+      } else if (result.error) {
+          showNotification(result.error, 'error');
+      }
+  };
+
 
   const handleTaskClaim = (task: DailyTask | SpecialTask) => {
     if (task.type === 'video_code') {
@@ -1223,7 +1253,7 @@ const MainApp: React.FC = () => {
   const renderScreen = () => {
     switch(activeScreen) {
       case 'exchange': return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={() => handleBuyBoost({ id: 'boost_full_energy' } as Boost)} onSuspicionClick={() => {}} isMuted={isMuted} toggleMute={toggleMute} handleMetaTap={handleMetaTap} />;
-      case 'mine': return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={buyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} handleMetaTap={handleMetaTap}/>;
+      case 'mine': return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} handleMetaTap={handleMetaTap}/>;
       case 'missions': return <MissionsScreen tasks={config.tasks} playerState={playerState} onClaim={handleTaskClaim} lang={user.language} startedTasks={startedTasks} uiIcons={config.uiIcons} />;
       case 'airdrop': return <AirdropScreen specialTasks={config.specialTasks} playerState={playerState} onClaim={handleTaskClaim} onPurchase={handleTaskPurchase} user={user} startedTasks={startedTasks} uiIcons={config.uiIcons} gameApi={gameApi} showNotification={showNotification} />;
       case 'profile': return <ProfileScreen playerState={playerState} user={user} config={config} onBuyBoost={handleBuyBoost} onResetBoostLimit={handleResetBoostLimit} onSetSkin={setSkin} onOpenCoinLootbox={handleOpenCoinLootbox} onPurchaseStarLootbox={handlePurchaseStarLootbox} handleMetaTap={handleMetaTap} onOpenGlitchCodesModal={() => setIsGlitchCodesModalOpen(true)} showNotification={showNotification} boostLimitResetCostStars={config.boostLimitResetCostStars} gameApi={gameApi} />;
@@ -1265,7 +1295,7 @@ const MainApp: React.FC = () => {
       {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
       {isGlitchCodesModalOpen && <GlitchCodesModal isOpen={isGlitchCodesModalOpen} onClose={() => setIsGlitchCodesModalOpen(false)} onSubmit={handleGlitchCodeSubmit} playerState={playerState} config={config} lang={user.language} />}
       {systemMessage && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
-      {config.backgroundAudioUrl && <audio ref={audioRef} />}
+      {config.backgroundAudioUrl && <audio ref={audioRef} crossOrigin="anonymous" />}
     </div>
   );
 };

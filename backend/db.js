@@ -1,3 +1,4 @@
+
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -26,6 +27,7 @@ import {
     PENALTY_MESSAGES,
     BOOST_PURCHASE_LIMITS,
     BATTLE_BOOSTS,
+    BOOST_LIMIT_RESET_COST_STARS,
 } from './constants.js';
 
 const { Pool } = pg;
@@ -366,6 +368,7 @@ export const initializeDb = async () => {
             battleRewards: BATTLE_REWARDS_DEFAULT,
             informantProfitBonus: CELL_ECONOMY_DEFAULTS.informantProfitBonus,
             cellBankProfitShare: CELL_ECONOMY_DEFAULTS.cellBankProfitShare,
+            boostLimitResetCostStars: BOOST_LIMIT_RESET_COST_STARS,
         };
         await saveConfig(initialConfig);
         console.log("Initial game config seeded to the database.");
@@ -485,6 +488,7 @@ export const initializeDb = async () => {
         checkSingleProp('battleRewards', BATTLE_REWARDS_DEFAULT);
         checkSingleProp('informantProfitBonus', CELL_ECONOMY_DEFAULTS.informantProfitBonus);
         checkSingleProp('cellBankProfitShare', CELL_ECONOMY_DEFAULTS.cellBankProfitShare);
+        checkSingleProp('boostLimitResetCostStars', BOOST_LIMIT_RESET_COST_STARS);
         
         // Special object properties
         if (!config.socials) { config.socials = initialSocials; needsUpdate = true; }
@@ -1829,134 +1833,122 @@ export const getLeaderboardData = async (limit = 100) => {
     return res.rows.map(r => ({...r, profitPerHour: parseFloat(r.profitPerHour)}));
 };
 
+export const getPlayerDetails = async (userId) => {
+    const user = await getUser(userId);
+    const player = await getPlayer(userId);
+    if (!user || !player) return null;
+    return { ...user, ...player };
+};
+
+export const updatePlayerBalance = async (userId, amount) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error("Player not found.");
+        const player = playerRes.rows[0].data;
+        player.adminBonus = (Number(player.adminBonus) || 0) + Number(amount);
+        player.forceSync = true;
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
+        await client.query('COMMIT');
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const getCheaters = async () => {
+    const res = await executeQuery("SELECT id, data->>'name' as name FROM players WHERE (data->>'isCheater')::boolean = true");
+    const usersRes = await executeQuery('SELECT id, name FROM users');
+    const usersMap = new Map(usersRes.rows.map(u => [u.id, u.name]));
+    return res.rows.map(r => ({ id: r.id, name: usersMap.get(r.id) || 'N/A' }));
+};
+
+export const resetPlayerProgress = async (userId) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
+        if (playerRes.rows.length === 0) throw new Error("Player not found.");
+        let player = playerRes.rows[0].data;
+        player.balance = 0;
+        player.profitPerHour = 0;
+        player.upgrades = {};
+        player.isCheater = false;
+        player.cheatStrikes = 0;
+        player.cheatLog = [];
+        player.forceSync = true; // Flag for client to resync
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
+        await client.query('COMMIT');
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
 export const resetPlayerDailyProgress = async (userId, player) => {
-    if (!player) return null;
+    player.lastDailyReset = Date.now();
     player.completedDailyTaskIds = [];
     player.dailyTaps = 0;
     player.claimedComboToday = false;
     player.claimedCipherToday = false;
     player.dailyUpgrades = [];
-    player.comboTokens = {};
     player.dailyBoostPurchases = {};
-    player.lastDailyReset = Date.now();
+    player.comboTokens = {};
+    
     await savePlayer(userId, player);
+    
     return player;
 };
 
-export const getPlayerDetails = async (userId) => {
-    const user = await getUser(userId);
-    const player = await getPlayer(userId);
-    return {
-        id: user.id,
-        name: user.name,
-        balance: player.balance,
-        upgrades: player.upgrades,
-        cheatLog: player.cheatLog,
-        suspicion: player.suspicion,
-    };
-};
-
-export const updatePlayerBalance = async (userId, amount) => {
-    const player = await getPlayer(userId);
-    if (!player) return;
-    player.adminBonus = (player.adminBonus || 0) + Number(amount);
-    await savePlayer(userId, player);
-};
-
-export const getCheaters = async () => {
-    const res = await executeQuery(`
-        SELECT u.id, u.name 
-        FROM users u JOIN players p ON u.id = p.id 
-        WHERE p.data->>'isCheater' = 'true'
-    `);
-    return res.rows;
-};
-
-export const resetPlayerProgress = async (userId) => {
-    const player = await getPlayer(userId);
-    if (!player) return;
-    player.balance = 0;
-    player.profitPerHour = 0;
-    player.tasksProfitPerHour = 0;
-    player.upgrades = {};
-    player.tapGuruLevel = 0;
-    player.energyLimitLevel = 0;
-    player.suspicionLimitLevel = 0;
-    player.coinsPerTap = 1;
-    player.unlockedSkins = { [DEFAULT_COIN_SKIN_ID]: 1 };
-    player.currentSkinId = DEFAULT_COIN_SKIN_ID;
-    player.suspicion = 0;
-    player.isCheater = false;
-    player.cheatStrikes = 0;
-    player.cheatLog = [];
-    player.forceSync = true; // Flag for client to resync
-    await savePlayer(userId, player);
-};
-
-export const getAllUserIds = async () => {
-    const res = await executeQuery('SELECT id FROM users');
-    return res.rows.map(r => r.id);
-};
 
 export const buyUpgradeInDb = async (userId, upgradeId, config) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-
         const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
-        if (!playerRes.rows.length) throw new Error('Player not found');
+        if (playerRes.rows.length === 0) throw new Error('Player not found.');
         let player = playerRes.rows[0].data;
 
         const allUpgrades = [...(config.upgrades || []), ...(config.blackMarketCards || [])];
         const upgrade = allUpgrades.find(u => u.id === upgradeId);
-        if (!upgrade) throw new Error('Upgrade not found');
-
+        if (!upgrade) throw new Error('Upgrade not found.');
+        
         const currentLevel = player.upgrades[upgradeId] || 0;
-        const price = Math.floor(upgrade.price * Math.pow(1.15, currentLevel));
-
-        if (player.balance < price) throw new Error('Not enough coins');
-
-        player.balance -= price;
+        const price = Math.floor((upgrade.price || 0) * Math.pow(1.15, currentLevel));
+        
+        if (Number(player.balance || 0) < price) throw new Error('Not enough coins.');
+        
+        player.balance = Number(player.balance || 0) - price;
         player.upgrades[upgradeId] = currentLevel + 1;
         
-        player.dailyUpgrades = [...new Set([...(player.dailyUpgrades || []), upgradeId])];
-        
-        if (!player.comboTokens) {
-            player.comboTokens = {};
-        }
-        player.comboTokens[upgradeId] = (player.comboTokens[upgradeId] || 0) + 1;
-        
-        player = await recalculatePlayerProfitInDb(player, config);
-
         const user = await getUser(userId);
         player = applySuspicion(player, upgrade.suspicionModifier, user.language);
         
-        // --- Server-side Glitch Trigger on Purchase ---
-        const glitchEvent = (config.glitchEvents || []).find(e => 
-            e.trigger?.type === 'upgrade_purchased' && e.trigger?.params?.upgradeId === upgradeId
-        );
-
-        if (glitchEvent) {
-            const codeStr = String(glitchEvent.code).toUpperCase();
-            const alreadyDiscovered = (player.discoveredGlitchCodes || []).map(c => String(c).toUpperCase()).includes(codeStr);
-            const alreadyClaimed = (player.claimedGlitchCodes || []).map(c => String(c).toUpperCase()).includes(codeStr);
-            
-            if (!alreadyDiscovered && !alreadyClaimed) {
-                player.discoveredGlitchCodes = [...(player.discoveredGlitchCodes || []), glitchEvent.code];
-                console.log(`[INFO] Triggered upgrade glitch '${glitchEvent.code}' for user ${userId}`);
-            }
+        if (config.dailyEvent && (config.dailyEvent.combo_ids || []).includes(upgradeId)) {
+            if (!player.comboTokens) player.comboTokens = {};
+            player.comboTokens[upgradeId] = (player.comboTokens[upgradeId] || 0) + 1;
         }
+
+        player = await recalculatePlayerProfitInDb(player, config);
+        
+        const userRes = await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId]);
+        const referrerId = userRes.rows[0]?.referrer_id;
         
         await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         
-        const referrerId = (await client.query('SELECT referrer_id FROM users WHERE id = $1', [userId])).rows[0]?.referrer_id;
+        await client.query('COMMIT');
+        
         if (referrerId) {
             await recalculateReferralProfit(referrerId);
         }
 
-        await client.query('COMMIT');
         return player;
-    } catch (e) {
+    } catch(e) {
         await client.query('ROLLBACK');
         throw e;
     } finally {
@@ -1968,63 +1960,58 @@ export const buyBoostInDb = async (userId, boostId, config) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        
         const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
-        if (!playerRes.rows.length) throw new Error('Player not found');
+        if (playerRes.rows.length === 0) throw new Error('Player not found.');
         let player = playerRes.rows[0].data;
-        
+
         const boost = config.boosts.find(b => b.id === boostId);
-        if (!boost) throw new Error('Boost not found');
-
-        const limit = BOOST_PURCHASE_LIMITS[boostId];
-        const purchasesToday = player.dailyBoostPurchases?.[boostId] || 0;
-
-        if (limit !== undefined && purchasesToday >= limit) {
-            throw new Error('Daily purchase limit reached.');
-        }
-
+        if (!boost) throw new Error('Boost not found.');
+        
         let cost = boost.costCoins;
-        if (boost.id === 'boost_tap_guru') {
-            cost = Math.floor(boost.costCoins * Math.pow(1.5, player.tapGuruLevel || 0));
-        } else if (boost.id === 'boost_energy_limit') {
-            cost = Math.floor(boost.costCoins * Math.pow(1.8, player.energyLimitLevel || 0));
-        } else if (boost.id === 'boost_suspicion_limit') {
-             cost = Math.floor(boost.costCoins * Math.pow(2.0, player.suspicionLimitLevel || 0));
+        let isMultiLevel = false;
+
+        if (boostId === 'boost_tap_guru') {
+            const level = player.tapGuruLevel || 0;
+            cost = Math.floor(boost.costCoins * Math.pow(1.5, level));
+            isMultiLevel = true;
+        } else if (boostId === 'boost_energy_limit') {
+            const level = player.energyLimitLevel || 0;
+            cost = Math.floor(boost.costCoins * Math.pow(1.8, level));
+            isMultiLevel = true;
+        } else if (boostId === 'boost_suspicion_limit') {
+            const level = player.suspicionLimitLevel || 0;
+            cost = Math.floor(boost.costCoins * Math.pow(2.0, level));
+            isMultiLevel = true;
         }
         
-        if (player.balance < cost) throw new Error('Not enough coins');
-        player.balance -= cost;
-
+        if (Number(player.balance || 0) < cost) throw new Error('Not enough coins.');
+        
+        const limit = BOOST_PURCHASE_LIMITS[boostId];
         if (limit !== undefined) {
-            if (!player.dailyBoostPurchases) player.dailyBoostPurchases = {};
-            player.dailyBoostPurchases[boostId] = purchasesToday + 1;
+             const purchasesToday = player.dailyBoostPurchases?.[boostId] || 0;
+             if (purchasesToday >= limit) throw new Error('Boost purchase limit reached for today.');
+             if (!player.dailyBoostPurchases) player.dailyBoostPurchases = {};
+             player.dailyBoostPurchases[boostId] = purchasesToday + 1;
         }
+        
+        player.balance = Number(player.balance || 0) - cost;
 
-        switch(boost.id) {
-            case 'boost_full_energy':
-                const maxEnergy = INITIAL_MAX_ENERGY * Math.pow(2, player.energyLimitLevel || 0);
-                player.energy = Math.min(maxEnergy, MAX_ENERGY_CAP);
-                break;
-            case 'boost_tap_guru':
-                player.tapGuruLevel = (player.tapGuruLevel || 0) + 1;
-                break;
-            case 'boost_energy_limit':
-                player.energyLimitLevel = (player.energyLimitLevel || 0) + 1;
-                break;
-             case 'boost_suspicion_limit':
-                player.suspicionLimitLevel = (player.suspicionLimitLevel || 0) + 1;
-                break;
+        if (isMultiLevel) {
+            if (boostId === 'boost_tap_guru') player.tapGuruLevel = (player.tapGuruLevel || 0) + 1;
+            if (boostId === 'boost_energy_limit') player.energyLimitLevel = (player.energyLimitLevel || 0) + 1;
+            if (boostId === 'boost_suspicion_limit') player.suspicionLimitLevel = (player.suspicionLimitLevel || 0) + 1;
+        } else if (boostId === 'boost_full_energy') {
+            const maxEnergy = INITIAL_MAX_ENERGY * Math.pow(2, player.energyLimitLevel || 0);
+            player.energy = Math.min(maxEnergy, 1_000_000_000_000);
         }
 
         const user = await getUser(userId);
         player = applySuspicion(player, boost.suspicionModifier, user.language);
-
-        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
         await client.query('COMMIT');
         return player;
-
-    } catch (e) {
+    } catch(e) {
         await client.query('ROLLBACK');
         throw e;
     } finally {
@@ -2032,177 +2019,84 @@ export const buyBoostInDb = async (userId, boostId, config) => {
     }
 };
 
-// --- BATTLE LOGIC ---
-const endBattle = async (battleId, config) => {
-    console.log(`Ending battle ${battleId}...`);
+export const checkAndManageBattles = async (config) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        const now = new Date();
+        const activeBattleRes = await client.query('SELECT * FROM cell_battles WHERE start_time <= NOW() AND end_time > NOW() ORDER BY start_time DESC LIMIT 1');
+        const activeBattle = activeBattleRes.rows[0];
 
-        const leaderboardRes = await client.query(
-            `SELECT cell_id, score FROM cell_battle_participants WHERE battle_id = $1 ORDER BY score DESC`,
-            [battleId]
-        );
-        const leaderboard = leaderboardRes.rows;
-        
-        if (leaderboard.length === 0) {
-            await client.query(`UPDATE cell_battles SET winner_details = '{"message": "No participants"}' WHERE id = $1`, [battleId]);
-            await client.query('COMMIT');
-            return;
-        }
+        // 1. Process Finished Battles
+        const finishedBattlesRes = await client.query('SELECT * FROM cell_battles WHERE end_time <= NOW() AND rewards_distributed = FALSE');
+        for (const battle of finishedBattlesRes.rows) {
+            const leaderboardRes = await client.query(`
+                SELECT cbp.cell_id, c.name, cbp.score
+                FROM cell_battle_participants cbp JOIN cells c ON cbp.cell_id = c.id
+                WHERE cbp.battle_id = $1 ORDER BY score DESC
+            `, [battle.id]);
 
-        const rewards = config.battleRewards;
-        const winnerDetails = {
-            firstPlace: leaderboard[0] ? { cell_id: leaderboard[0].cell_id, score: leaderboard[0].score } : null,
-            secondPlace: leaderboard[1] ? { cell_id: leaderboard[1].cell_id, score: leaderboard[1].score } : null,
-            thirdPlace: leaderboard[2] ? { cell_id: leaderboard[2].cell_id, score: leaderboard[2].score } : null,
-        };
-        
-        for (const [index, entry] of leaderboard.entries()) {
-            let rewardAmount = 0;
-            if (index === 0) rewardAmount = rewards.firstPlace;
-            else if (index === 1) rewardAmount = rewards.secondPlace;
-            else if (index === 2) rewardAmount = rewards.thirdPlace;
-            else rewardAmount = rewards.participant;
+            const leaderboard = leaderboardRes.rows;
+            const winnerDetails = {
+                firstPlace: leaderboard[0] || null,
+                secondPlace: leaderboard[1] || null,
+                thirdPlace: leaderboard[2] || null,
+            };
 
-            const membersRes = await client.query(`SELECT id FROM players WHERE (data->>'cellId')::int = $1`, [entry.cell_id]);
-            if (membersRes.rows.length > 0) {
-                const rewardPerMember = Math.floor(rewardAmount / membersRes.rows.length);
-                const memberIds = membersRes.rows.map(r => r.id);
-                await client.query(
-                    `UPDATE players SET data = data || jsonb_build_object('balance', (data->>'balance')::numeric + $1) WHERE id = ANY($2::text[])`,
-                    [rewardPerMember, memberIds]
-                );
+            const rewards = config.battleRewards;
+            if (rewards) {
+                if (winnerDetails.firstPlace) await client.query('UPDATE cells SET balance = balance + $1 WHERE id = $2', [rewards.firstPlace, winnerDetails.firstPlace.cell_id]);
+                if (winnerDetails.secondPlace) await client.query('UPDATE cells SET balance = balance + $1 WHERE id = $2', [rewards.secondPlace, winnerDetails.secondPlace.cell_id]);
+                if (winnerDetails.thirdPlace) await client.query('UPDATE cells SET balance = balance + $1 WHERE id = $2', [rewards.thirdPlace, winnerDetails.thirdPlace.cell_id]);
+                
+                // Participant rewards
+                for(const entry of leaderboard) {
+                    await client.query('UPDATE cells SET balance = balance + $1 WHERE id = $2', [rewards.participant, entry.cell_id]);
+                }
             }
+
+            await client.query('UPDATE cell_battles SET winner_details = $1, rewards_distributed = TRUE WHERE id = $2', [winnerDetails, battle.id]);
+        }
+        
+        // 2. Start New Battles
+        if (!activeBattle) {
+            // This would check against schedule in a real app. For now, rely on manual start.
         }
 
-        await client.query('UPDATE cell_battles SET winner_details = $1, rewards_distributed = TRUE WHERE id = $2', [winnerDetails, battleId]);
-        
         await client.query('COMMIT');
-        console.log(`Battle ${battleId} ended successfully. Rewards distributed.`);
     } catch (e) {
         await client.query('ROLLBACK');
-        console.error(`Failed to end battle ${battleId}`, e);
+        console.error("Error in checkAndManageBattles:", e);
     } finally {
         client.release();
     }
 };
 
-const startNewBattle = async (config) => {
-    const { startHourUTC, durationHours } = config.battleSchedule;
-    const now = new Date();
-    const startTime = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), startHourUTC, 0, 0));
-    const endTime = new Date(startTime.getTime() + durationHours * 60 * 60 * 1000);
-    
-    await executeQuery(
-        'INSERT INTO cell_battles (start_time, end_time) VALUES ($1, $2)',
-        [startTime, endTime]
-    );
-    console.log(`New battle started. Ends at ${endTime.toISOString()}`);
-};
-
-export const checkAndManageBattles = async (config) => {
-    // End any battles that have finished but not yet processed rewards
-    const endedBattleRes = await executeQuery(`SELECT * FROM cell_battles WHERE end_time <= NOW() AND rewards_distributed = FALSE`);
-    for (const battle of endedBattleRes.rows) {
-        await endBattle(battle.id, config);
-    }
-
-    // Check if there's already an active battle
-    const activeBattleRes = await executeQuery(`SELECT * FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW()`);
-    if (activeBattleRes.rows.length > 0) {
-        return; // A battle is active, do nothing more.
-    }
-    
-    const schedule = config.battleSchedule;
-    if (!schedule) {
-        // Use a simple log function if one is not passed
-        const log = (level, msg) => console.log(`[${level.toUpperCase()}] ${msg}`);
-        log('info', "No battle schedule configured. Skipping new battle start.");
-        return;
-    }
-
-    const now = new Date();
-    const currentDayUTC = now.getUTCDay();
-    const currentHourUTC = now.getUTCHours();
-
-    // Check if it's the right day and hour to potentially start a battle
-    if (currentDayUTC !== schedule.dayOfWeek || currentHourUTC !== schedule.startHourUTC) {
-        return;
-    }
-    
-    // Check the last battle's start time to prevent re-triggering within the same hour
-    const lastBattleRes = await executeQuery('SELECT start_time FROM cell_battles ORDER BY start_time DESC LIMIT 1');
-    if (lastBattleRes.rows.length > 0) {
-        const lastStartTime = new Date(lastBattleRes.rows[0].start_time);
-        const hoursSinceLastStart = (now.getTime() - lastStartTime.getTime()) / (1000 * 60 * 60);
-        
-        // If the last battle started less than 23 hours ago, don't start a new one.
-        // This prevents starting a new battle every minute during the scheduled hour.
-        if (hoursSinceLastStart < 23) {
-            return;
-        }
-    }
-    
-    // All checks passed, start a new battle
-    await startNewBattle(config);
-};
-
-export const forceStartBattle = async (config) => {
-    const activeBattleRes = await executeQuery(`SELECT * FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW()`);
-    if (activeBattleRes.rows.length > 0) {
-        throw new Error("A battle is already active.");
-    }
-    await startNewBattle(config);
-    return { success: true };
-};
-
-export const forceEndBattle = async (config) => {
-    const activeBattleRes = await executeQuery(`SELECT id FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW()`);
-    if (activeBattleRes.rows.length === 0) {
-        throw new Error("No active battle to end.");
-    }
-    const battleId = activeBattleRes.rows[0].id;
-    await endBattle(battleId, config);
-    return { success: true };
-};
-
 export const getBattleStatusForCell = async (cellId) => {
-    const battleRes = await executeQuery('SELECT id, end_time FROM cell_battles WHERE start_time <= NOW() AND end_time > NOW() ORDER BY start_time DESC LIMIT 1');
+    const battleRes = await executeQuery('SELECT * FROM cell_battles WHERE start_time <= NOW() AND end_time > NOW() ORDER BY start_time DESC LIMIT 1');
     const activeBattle = battleRes.rows[0];
 
     if (!activeBattle) {
-        return { isActive: false, isParticipant: false, battleId: null, timeRemaining: 0, myScore: 0 };
+        return { isActive: false, isParticipant: false, battleId: null, timeRemaining: 0, myScore: 0, activeBoosts: {} };
     }
-
+    
     const timeRemaining = Math.floor((new Date(activeBattle.end_time).getTime() - Date.now()) / 1000);
-    let isParticipant = false;
-    let myScore = 0;
-    let activeBoosts = {};
-
+    
     if (cellId) {
         const participantRes = await executeQuery('SELECT score, active_boosts FROM cell_battle_participants WHERE battle_id = $1 AND cell_id = $2', [activeBattle.id, cellId]);
-        if (participantRes.rows.length > 0) {
-            isParticipant = true;
-            myScore = parseFloat(participantRes.rows[0].score);
-            activeBoosts = participantRes.rows[0].active_boosts || {};
-            // Convert expiresAt to number if it's a string from JSON
-            for (const boostId in activeBoosts) {
-                if (activeBoosts[boostId].expiresAt) {
-                    activeBoosts[boostId].expiresAt = Number(activeBoosts[boostId].expiresAt);
-                }
-            }
-        }
+        const participant = participantRes.rows[0];
+        
+        return {
+            isActive: true,
+            isParticipant: !!participant,
+            battleId: activeBattle.id,
+            timeRemaining,
+            myScore: parseFloat(participant?.score || '0'),
+            activeBoosts: participant?.active_boosts || {}
+        };
     }
-
-    return {
-        isActive: true,
-        isParticipant: isParticipant,
-        battleId: activeBattle.id,
-        timeRemaining: Math.max(0, timeRemaining),
-        myScore: myScore,
-        activeBoosts: activeBoosts
-    };
+    
+    return { isActive: true, isParticipant: false, battleId: activeBattle.id, timeRemaining, myScore: 0, activeBoosts: {} };
 };
 
 export const activateBattleBoostInDb = async (userId, boostId, config) => {
@@ -2211,42 +2105,63 @@ export const activateBattleBoostInDb = async (userId, boostId, config) => {
         await client.query('BEGIN');
 
         const player = (await client.query('SELECT data FROM players WHERE id = $1', [userId])).rows[0]?.data;
-        if (!player || !player.cellId) throw new Error("You must be in a cell.");
-
+        if (!player || !player.cellId) throw new Error("Must be in a cell.");
+        
         const battleRes = await client.query('SELECT id FROM cell_battles WHERE end_time > NOW() AND start_time <= NOW() LIMIT 1');
         const activeBattleId = battleRes.rows[0]?.id;
         if (!activeBattleId) throw new Error("No active battle.");
         
         const participantRes = await client.query('SELECT id, active_boosts FROM cell_battle_participants WHERE battle_id = $1 AND cell_id = $2 FOR UPDATE', [activeBattleId, player.cellId]);
-        if (participantRes.rows.length === 0) throw new Error("Your cell is not participating in this battle.");
-        
-        const participant = participantRes.rows[0];
+        if (participantRes.rows.length === 0) throw new Error("Your cell is not in this battle.");
+        let participant = participantRes.rows[0];
+
         const boost = (config.battleBoosts || []).find(b => b.id === boostId);
         if (!boost) throw new Error("Boost not found.");
-
-        const activeBoost = participant.active_boosts?.[boostId];
-        if (activeBoost && Number(activeBoost.expiresAt) > Date.now()) throw new Error("Boost is already active.");
-
+        
         const cell = (await client.query('SELECT balance FROM cells WHERE id = $1 FOR UPDATE', [player.cellId])).rows[0];
-        if (Number(cell.balance) < boost.cost) throw new Error("Insufficient funds in cell bank.");
+        if (parseFloat(cell.balance) < boost.cost) throw new Error("Insufficient cell bank funds.");
         
         await client.query('UPDATE cells SET balance = balance - $1 WHERE id = $2', [boost.cost, player.cellId]);
         
-        const expiresAt = Date.now() + boost.durationSeconds * 1000;
-        const newBoosts = { ...participant.active_boosts, [boostId]: { expiresAt } };
-
-        await client.query('UPDATE cell_battle_participants SET active_boosts = $1 WHERE id = $2', [newBoosts, participant.id]);
+        let activeBoosts = participant.active_boosts || {};
+        activeBoosts[boostId] = { expiresAt: Date.now() + boost.durationSeconds * 1000 };
+        
+        await client.query('UPDATE cell_battle_participants SET active_boosts = $1 WHERE id = $2', [activeBoosts, participant.id]);
         
         await client.query('COMMIT');
         
-        const newCell = await getCellFromDb(player.cellId, config);
-        const newStatus = await getBattleStatusForCell(player.cellId);
+        const freshStatus = await getBattleStatusForCell(player.cellId);
+        const freshCell = await getCellFromDb(player.cellId, config);
 
-        return { cell: newCell, status: newStatus };
+        return { status: freshStatus, cell: freshCell };
     } catch(e) {
         await client.query('ROLLBACK');
         throw e;
     } finally {
         client.release();
     }
+};
+
+export const forceStartBattle = async (config) => {
+    const activeBattleRes = await executeQuery('SELECT id FROM cell_battles WHERE end_time > NOW()');
+    if (activeBattleRes.rows.length > 0) throw new Error("A battle is already active.");
+    
+    const durationHours = config.battleSchedule?.durationHours || 24;
+    const startTime = new Date();
+    const endTime = new Date(startTime.getTime() + durationHours * 60 * 60 * 1000);
+    
+    await executeQuery('INSERT INTO cell_battles (start_time, end_time) VALUES ($1, $2)', [startTime, endTime]);
+};
+
+export const forceEndBattle = async (config) => {
+     const activeBattleRes = await executeQuery('SELECT id FROM cell_battles WHERE end_time > NOW()');
+     if (activeBattleRes.rows.length === 0) throw new Error("No active battle to end.");
+     
+     await executeQuery('UPDATE cell_battles SET end_time = NOW() WHERE end_time > NOW()');
+     await checkAndManageBattles(config); // Immediately process results
+};
+
+export const getAllUserIds = async () => {
+    const res = await executeQuery('SELECT id FROM users');
+    return res.rows.map(r => r.id);
 };
