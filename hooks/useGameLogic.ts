@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'https://esm.sh/react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry, Reward, MarketListing, WithdrawalRequest, BattleBoost } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -430,7 +428,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 
 // --- MAIN APP PROVIDER ---
-export const AuthProvider = ({ children }: { children: React.ReactNode }): React.ReactElement => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [playerState, setPlayerState] = useState<PlayerState | null>(null);
     const [config, setConfig] = useState<GameConfig | null>(null);
@@ -488,10 +486,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
     };
 
     if (error && !isInitializing) {
-        return (
-            <div className="h-screen w-screen bg-gray-900 flex flex-col justify-center items-center p-4 text-white text-center">
-                {`Error: ${error}`}
-            </div>
+        return React.createElement(
+            'div',
+            { className: "h-screen w-screen bg-gray-900 flex flex-col justify-center items-center p-4 text-white text-center" },
+            `Error: ${error}`
         );
     }
 
@@ -513,12 +511,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
         setPurchaseResult,
     };
     
-    return (
-        <AuthContext.Provider value={authContextValue}>
-            <GameContext.Provider value={gameContextValue}>
-                {children}
-            </GameContext.Provider>
-        </AuthContext.Provider>
+    return React.createElement(
+        AuthContext.Provider,
+        { value: authContextValue },
+        React.createElement(
+            GameContext.Provider,
+            { value: gameContextValue },
+            children
+        )
     );
 };
 
