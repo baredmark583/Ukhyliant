@@ -898,6 +898,11 @@ export const claimComboReward = async (userId) => {
         player.balance = Number(player.balance || 0) + rewardAmount;
         player.claimedComboToday = true;
         
+        // After claiming, clear these specific upgrades from the daily list.
+        // This ensures the user must upgrade them again if they appear in a future combo.
+        const comboIdSet = new Set(comboIds);
+        player.dailyUpgrades = (player.dailyUpgrades || []).filter(id => !comboIdSet.has(id));
+        
         const updatedRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
         
         await client.query('COMMIT');
