@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
@@ -1199,6 +1200,10 @@ const MainApp: React.FC = () => {
   
   if (!isAppReady || !isTgReady || !playerState || !config) {
     return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
+  }
+  
+  if (isGlitching && !activeGlitchEvent) {
+      return <GlitchEffect onClose={() => setIsGlitching(false)} />;
   }
   
   if (activeGlitchEvent) {

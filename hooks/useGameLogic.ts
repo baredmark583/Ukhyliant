@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'https://esm.sh/react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry, Reward, MarketListing, WithdrawalRequest, BattleBoost } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -488,7 +487,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
     };
 
     if (error && !isInitializing) {
-        return React.createElement('div', { className: 'h-screen w-screen bg-gray-900 flex flex-col justify-center items-center p-4 text-white text-center', children: `Error: ${error}` });
+        return (
+            <div className="h-screen w-screen bg-gray-900 flex flex-col justify-center items-center p-4 text-white text-center">
+                {`Error: ${error}`}
+            </div>
+        );
     }
 
     const authContextValue: AuthContextType = {
@@ -509,10 +512,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): React
         setPurchaseResult,
     };
     
-    return React.createElement(AuthContext.Provider, {
-        value: authContextValue,
-        children: React.createElement(GameContext.Provider, { value: gameContextValue, children: children })
-    });
+    return (
+        <AuthContext.Provider value={authContextValue}>
+            <GameContext.Provider value={gameContextValue}>
+                {children}
+            </GameContext.Provider>
+        </AuthContext.Provider>
+    );
 };
 
 // --- HOOKS TO USE CONTEXTS ---

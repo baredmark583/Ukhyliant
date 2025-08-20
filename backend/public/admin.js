@@ -55,8 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const getLocalizedText = (data) => {
-        if (typeof data === 'object' && data !== null && data.hasOwnProperty('en')) {
-            return escapeHtml(data[currentLang] || data['en']);
+        if (typeof data === 'object' && data !== null && (data.hasOwnProperty('en') || data.hasOwnProperty('ru') || data.hasOwnProperty('ua'))) {
+            return escapeHtml(data[currentLang] || data['en'] || '');
         }
         return escapeHtml(data);
     };
@@ -864,6 +864,45 @@ document.addEventListener('DOMContentLoaded', () => {
         applyTranslationsToDOM();
     };
     
+    const formatCellContent = (value, colKey) => {
+        if (value === null || value === undefined) return '';
+
+        // Handle specific object types by key
+        if (typeof value === 'object') {
+            if (colKey === 'reward' && value.type && value.amount !== undefined) {
+                const typeText = t('reward_type_' + value.type) || value.type;
+                return `${formatNumber(value.amount)} (${typeText})`;
+            }
+            if (colKey === 'trigger' && value.type && value.params) {
+                let paramsStr = Object.entries(value.params).map(([k, v]) => `${k}: ${v}`).join(', ');
+                return `<span class="d-block text-nowrap"><strong>${value.type}</strong></span><small class="text-secondary">${paramsStr}</small>`;
+            }
+            // Handle localized strings (name, description, message)
+            if (value.hasOwnProperty('en') || value.hasOwnProperty('ru') || value.hasOwnProperty('ua')) {
+                return getLocalizedText(value); // This already escapes
+            }
+            // Fallback for other objects
+            return `<code class="text-secondary" style="white-space: normal; word-break: break-all;">${escapeHtml(JSON.stringify(value))}</code>`;
+        }
+        
+        // Handle booleans
+        if (typeof value === 'boolean') {
+            return value ? `<span class="badge bg-success-lt">${t('yes')}</span>` : ``;
+        }
+
+        // Handle images
+        const colLower = colKey.toLowerCase();
+        if ((colLower.includes('iconurl') || colLower.includes('imageurl')) && typeof value === 'string' && value) {
+            // A simple check to prevent breaking on non-urls
+            if (value.startsWith('http') || value.startsWith('/')) {
+                 return `<img src="${escapeHtml(value)}" alt="icon" style="width: 40px; height: 40px; object-fit: contain; background: #333; border-radius: 4px; padding: 2px;">`;
+            }
+        }
+        
+        // Default for strings, numbers
+        return escapeHtml(value);
+    };
+
     const renderConfigTable = (key) => {
         const { titleKey, cols } = configMeta[key];
         const items = localConfig[key] || [];
@@ -871,14 +910,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tableHeaders = cols.map(col => `<th>${t(col)}</th>`).join('') + `<th>${t('actions')}</th>`;
         const tableRows = items.map((item, index) => `
             <tr>
-                ${cols.map(col => {
-                    const value = item[col];
-                    const colLower = col.toLowerCase();
-                    if ((colLower.includes('iconurl') || colLower.includes('imageurl')) && typeof value === 'string' && value) {
-                        return `<td><img src="${escapeHtml(value)}" alt="icon" style="width: 40px; height: 40px; object-fit: contain; background: #333; border-radius: 4px; padding: 2px;"></td>`;
-                    }
-                    return `<td>${getLocalizedText(value)}</td>`;
-                }).join('')}
+                ${cols.map(col => `<td>${formatCellContent(item[col], col)}</td>`).join('')}
                 <td>
                     <button class="btn btn-sm" data-action="edit-config" data-key="${key}" data-index="${index}">${t('edit')}</button>
                     <button class="btn btn-sm btn-danger ms-2" data-action="delete-config" data-key="${key}" data-index="${index}">${t('delete')}</button>

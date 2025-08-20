@@ -126,19 +126,17 @@ const recalculatePlayerProfitInDb = async (player, config) => {
     player.tasksProfitPerHour = tasksProfit;
     baseProfit += tasksProfit;
 
-    // 2. Calculate total skin bonus percentage from ALL unlocked skins
-    let totalSkinBonusPercent = 0;
-    if (player.unlockedSkins && config.coinSkins) {
-        for (const skinId of player.unlockedSkins) {
-            const skin = config.coinSkins.find(s => s.id === skinId);
-            if (skin && skin.profitBoostPercent) {
-                totalSkinBonusPercent += skin.profitBoostPercent;
-            }
+    // 2. Calculate bonus from the CURRENTLY EQUIPPED skin
+    let skinBonusPercent = 0;
+    if (player.currentSkinId && config.coinSkins) {
+        const currentSkin = config.coinSkins.find(s => s.id === player.currentSkinId);
+        if (currentSkin) {
+            skinBonusPercent = currentSkin.profitBoostPercent || 0;
         }
     }
     
     // 3. Apply skin bonus to base profit
-    const profitWithSkinBonus = baseProfit * (1 + totalSkinBonusPercent / 100);
+    const profitWithSkinBonus = baseProfit * (1 + skinBonusPercent / 100);
 
     // 4. Add referral and cell bonuses (which are calculated separately and stored on the player object)
     const finalProfit = profitWithSkinBonus + (player.referralProfitPerHour || 0) + (player.cellProfitBonus || 0);
@@ -283,6 +281,41 @@ export const initializeDb = async () => {
         console.log("Player data migrated for market features.");
     } catch (e) {
         console.error("Could not migrate player data for market features.", e.message);
+    }
+
+    // --- NEW MIGRATION: Convert unlockedSkins from array to object ---
+    try {
+        const playersToMigrateRes = await executeQuery(`SELECT id, data FROM players WHERE jsonb_typeof(data->'unlockedSkins') = 'array'`);
+        if (playersToMigrateRes.rows.length > 0) {
+            console.log(`Migrating ${playersToMigrateRes.rows.length} players' unlockedSkins from array to object...`);
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                for (const row of playersToMigrateRes.rows) {
+                    const player = row.data;
+                    const skinsArray = player.unlockedSkins || [];
+                    const skinsObject = {};
+                    skinsArray.forEach(skinId => {
+                        skinsObject[skinId] = (skinsObject[skinId] || 0) + 1;
+                    });
+                    // Ensure default skin exists if it was somehow missing
+                    if (!skinsObject[DEFAULT_COIN_SKIN_ID]) {
+                        skinsObject[DEFAULT_COIN_SKIN_ID] = 1;
+                    }
+                    player.unlockedSkins = skinsObject;
+                    await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, row.id]);
+                }
+                await client.query('COMMIT');
+                console.log("Migration of unlockedSkins completed.");
+            } catch (e) {
+                await client.query('ROLLBACK');
+                console.error("Error during unlockedSkins migration transaction:", e);
+            } finally {
+                client.release();
+            }
+        }
+    } catch(e) {
+        console.error("Could not migrate unlockedSkins from array to object.", e.message);
     }
 
 
@@ -1256,28 +1289,11 @@ export const openLootboxInDb = async (userId, boxType, config) => {
         if (currentBalance < cost) throw new Error("Not enough coins.");
         player.balance = currentBalance - cost;
 
-        const allPossibleItems = [
+        const possibleItems = [
             ...config.blackMarketCards.filter(c => c.boxType === boxType),
-            ...config.coinSkins.filter(s => s.boxType === boxType && !(player.unlockedSkins || []).includes(s.id))
+            ...config.coinSkins.filter(s => s.boxType === boxType)
         ];
 
-        const possibleItems = [];
-        for (const item of allPossibleItems) {
-            if ('profitBoostPercent' in item && item.maxSupply && item.maxSupply > 0) {
-                const supplyCheckRes = await client.query(
-                    `SELECT count(*) FROM players WHERE data->'unlockedSkins' @> $1::jsonb`,
-                    [JSON.stringify(item.id)]
-                );
-                const circulatingSupply = parseInt(supplyCheckRes.rows[0].count, 10);
-                
-                if (circulatingSupply < item.maxSupply) {
-                    possibleItems.push(item);
-                }
-            } else {
-                possibleItems.push(item);
-            }
-        }
-        
         if (possibleItems.length === 0) {
             await client.query('COMMIT');
             throw new Error("No new items available in this lootbox type for you.");
@@ -1297,12 +1313,16 @@ export const openLootboxInDb = async (userId, boxType, config) => {
         
         if (!wonItem) wonItem = possibleItems[possibleItems.length - 1];
 
-        if ('profitPerHour' in wonItem) {
+        if ('profitPerHour' in wonItem) { // It's a BlackMarketCard
             const cardId = wonItem.id;
             const currentLevel = player.upgrades[cardId] || 0;
             player.upgrades[cardId] = currentLevel + 1;
-        } else if ('profitBoostPercent' in wonItem) {
-            player.unlockedSkins = [...new Set([...(player.unlockedSkins || []), wonItem.id])];
+        } else if ('profitBoostPercent' in wonItem) { // It's a CoinSkin
+            if (!player.unlockedSkins || typeof player.unlockedSkins !== 'object' || Array.isArray(player.unlockedSkins)) {
+                player.unlockedSkins = {}; // Sanitize if it's not a valid object
+            }
+            const currentQty = player.unlockedSkins[wonItem.id] || 0;
+            player.unlockedSkins[wonItem.id] = currentQty + 1;
         }
 
         player = await recalculatePlayerProfitInDb(player, config);
@@ -1337,26 +1357,10 @@ const grantStarLootboxItem = async (userId, config) => {
         if (playerRes.rows.length === 0) throw new Error("Player not found.");
         let player = playerRes.rows[0].data;
 
-        const allPossibleItems = [
+        const possibleItems = [
             ...config.blackMarketCards.filter(c => c.boxType === 'star'),
-            ...config.coinSkins.filter(s => s.boxType === 'star' && !(player.unlockedSkins || []).includes(s.id))
+            ...config.coinSkins.filter(s => s.boxType === 'star')
         ];
-
-        const possibleItems = [];
-        for (const item of allPossibleItems) {
-            if ('profitBoostPercent' in item && item.maxSupply && item.maxSupply > 0) {
-                const supplyCheckRes = await client.query(
-                    `SELECT count(*) FROM players WHERE data->'unlockedSkins' @> $1::jsonb`,
-                    [JSON.stringify(item.id)]
-                );
-                const circulatingSupply = parseInt(supplyCheckRes.rows[0].count, 10);
-                if (circulatingSupply < item.maxSupply) {
-                    possibleItems.push(item);
-                }
-            } else {
-                possibleItems.push(item);
-            }
-        }
         
         if (possibleItems.length === 0) {
             console.error(`User ${userId} paid for a star lootbox, but no items were available.`);
@@ -1383,7 +1387,11 @@ const grantStarLootboxItem = async (userId, config) => {
             const currentLevel = player.upgrades[cardId] || 0;
             player.upgrades[cardId] = currentLevel + 1;
         } else if ('profitBoostPercent' in wonItem) {
-            player.unlockedSkins = [...new Set([...(player.unlockedSkins || []), wonItem.id])];
+             if (!player.unlockedSkins || typeof player.unlockedSkins !== 'object' || Array.isArray(player.unlockedSkins)) {
+                player.unlockedSkins = {}; // Sanitize
+            }
+            const currentQty = player.unlockedSkins[wonItem.id] || 0;
+            player.unlockedSkins[wonItem.id] = currentQty + 1;
         }
         
         player = await recalculatePlayerProfitInDb(player, config);
@@ -1458,7 +1466,7 @@ export const listSkinForSaleInDb = async (ownerId, skinId, priceStars) => {
         if (playerRes.rows.length === 0) throw new Error("Player not found.");
         const player = playerRes.rows[0].data;
 
-        if (!player.unlockedSkins?.includes(skinId)) throw new Error("You do not own this skin.");
+        if (!player.unlockedSkins?.[skinId] || player.unlockedSkins[skinId] < 1) throw new Error("You do not own this skin.");
         if (skinId === DEFAULT_COIN_SKIN_ID) throw new Error("Cannot sell the default skin.");
 
         const existingListingRes = await client.query('SELECT id FROM market_listings WHERE owner_id = $1 AND skin_id = $2 AND is_active = TRUE', [ownerId, skinId]);
@@ -1551,9 +1559,18 @@ export const processMarketPurchaseInDb = async (listingId, buyerId, config) => {
         let buyer = buyerRes.rows[0].data;
 
         // 1. Transfer skin
-        if (!seller.unlockedSkins?.includes(skinId)) throw new Error("Seller does not own the skin to sell.");
-        seller.unlockedSkins = seller.unlockedSkins.filter(id => id !== skinId);
-        buyer.unlockedSkins = [...new Set([...(buyer.unlockedSkins || []), skinId])];
+        if (!seller.unlockedSkins?.[skinId] || seller.unlockedSkins[skinId] < 1) throw new Error("Seller does not own the skin to sell.");
+        
+        seller.unlockedSkins[skinId]--;
+        if (seller.unlockedSkins[skinId] <= 0) {
+            delete seller.unlockedSkins[skinId];
+        }
+
+        if (!buyer.unlockedSkins || typeof buyer.unlockedSkins !== 'object' || Array.isArray(buyer.unlockedSkins)) {
+            buyer.unlockedSkins = {};
+        }
+        buyer.unlockedSkins[skinId] = (buyer.unlockedSkins[skinId] || 0) + 1;
+
 
         // Recalculate profits for both players
         seller = await recalculatePlayerProfitInDb(seller, config);
@@ -1848,7 +1865,7 @@ export const resetPlayerProgress = async (userId) => {
     player.energyLimitLevel = 0;
     player.suspicionLimitLevel = 0;
     player.coinsPerTap = 1;
-    player.unlockedSkins = [DEFAULT_COIN_SKIN_ID];
+    player.unlockedSkins = { [DEFAULT_COIN_SKIN_ID]: 1 };
     player.currentSkinId = DEFAULT_COIN_SKIN_ID;
     player.suspicion = 0;
     player.isCheater = false;
