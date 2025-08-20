@@ -1,4 +1,5 @@
 
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -164,38 +165,48 @@ app.get('/api/image-proxy', async (req, res) => {
 
     try {
         const decodedUrl = decodeURIComponent(url);
-        const parsedUrl = new URL(decodedUrl);
+        log('info', `[PROXY] Attempting to fetch: ${decodedUrl}`);
 
-        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-             return res.status(400).send('Invalid protocol.');
-        }
-
-        const response = await fetch(decodedUrl, { 
-            headers: { 
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' 
-            } 
+        const response = await fetch(decodedUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
         });
 
         if (!response.ok) {
-            log('warn', `Proxy failed to fetch ${decodedUrl}`, { status: response.status, statusText: response.statusText });
+            log('warn', `[PROXY] Fetch failed for ${decodedUrl}`, { status: response.status, statusText: response.statusText });
             return res.status(response.status).send(response.statusText);
         }
-        
+
         const contentType = response.headers.get('content-type');
         if (!contentType || (!contentType.startsWith('image/') && !contentType.startsWith('audio/'))) {
-            log('warn', `Proxy attempt to non-image/audio content`, { url: decodedUrl, contentType });
+            log('warn', `[PROXY] Attempt to proxy non-image/audio content`, { url: decodedUrl, contentType });
             return res.status(400).send('URL does not point to an image or audio file.');
         }
 
         res.setHeader('Content-Type', contentType);
         res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
         
-        const dataBuffer = await response.arrayBuffer();
-        res.send(Buffer.from(dataBuffer));
+        if (!response.body) {
+             log('warn', `[PROXY] Response for ${decodedUrl} has no body.`);
+             return res.end();
+        }
+        
+        // Correctly pipe the Web Stream to Node.js Response Stream
+        const reader = response.body.getReader();
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+                break;
+            }
+            res.write(value);
+        }
+        res.end();
+        log('info', `[PROXY] Successfully streamed ${decodedUrl}`);
 
     } catch (error) {
-        log('error', 'Image proxy error', error);
-        res.status(500).send('Error fetching the image.');
+        log('error', `[PROXY] CRASHED for url: ${req.query.url}`, error);
+        res.status(500).send('Error fetching via proxy.');
     }
 });
 

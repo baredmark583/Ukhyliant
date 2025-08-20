@@ -646,8 +646,7 @@ export const useGame = () => {
 
                 if(updatedPlayer) setPlayerState(updatedPlayer);
                 
-                // Robust check to prevent UI crash from malformed item data
-                const isValidWonItem = wonItem && wonItem.item && typeof wonItem.item === 'object' && wonItem.item.name && typeof wonItem.item.name === 'object' && 'en' in wonItem.item.name;
+                const isValidWonItem = wonItem && wonItem.item && typeof wonItem.item === 'object' && Object.keys(wonItem.item).length > 0;
 
                 if (isValidWonItem) {
                     setPurchaseResult(wonItem);
@@ -831,7 +830,7 @@ export const useGame = () => {
         }
 
         const item = result.wonItem;
-        const isValidItem = item && typeof item === 'object' && item.name && typeof item.name === 'object' && 'en' in item.name;
+        const isValidItem = item && typeof item === 'object' && Object.keys(item).length > 0;
 
         if (isValidItem) {
             setPurchaseResult({type: 'lootbox', item: item });

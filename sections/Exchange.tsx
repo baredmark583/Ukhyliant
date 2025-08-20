@@ -48,12 +48,13 @@ interface ClickFx {
 
 const isExternal = (url: string | undefined) => url && url.startsWith('http');
 
+const API_BASE_URL = 'https://ukhyliant-backend.onrender.com';
+
 const getProxiedUrl = (url: string | undefined): string | undefined => {
     if (!url || !isExternal(url)) {
       return url;
     }
-    // All external URLs are proxied to avoid CORS issues.
-    return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+    return `${API_BASE_URL}/api/image-proxy?url=${encodeURIComponent(url)}`;
 };
 
 const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, onTap, user, onClaimCipher, config, onOpenLeaderboard, isTurboActive, effectiveMaxEnergy, effectiveMaxSuspicion, onEnergyClick, onSuspicionClick, isMuted, toggleMute, handleMetaTap }) => {
