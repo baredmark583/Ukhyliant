@@ -1060,29 +1060,36 @@ const MainApp: React.FC = () => {
     }
   }, [isTgReady]);
   
-    // Audio handling
+    // Refactored Audio Handling Effect
     useEffect(() => {
         const audioEl = audioRef.current;
-        if (!audioEl) return;
-        if (config?.backgroundAudioUrl) {
-            const proxiedUrl = getProxiedUrl(config.backgroundAudioUrl);
-            if (proxiedUrl && audioEl.src !== proxiedUrl) {
-                audioEl.src = proxiedUrl;
-                audioEl.loop = true;
+        if (!audioEl || !config?.backgroundAudioUrl) {
+            audioEl?.pause();
+            return;
+        }
+
+        const proxiedUrl = getProxiedUrl(config.backgroundAudioUrl);
+        if (proxiedUrl && audioEl.src !== proxiedUrl) {
+            audioEl.src = proxiedUrl;
+            audioEl.loop = true;
+        }
+
+        if (isMuted) {
+            audioEl.pause();
+        } else {
+            const playPromise = audioEl.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    if (!hasPlayed) {
+                        console.log("Autoplay was prevented. Audio will start on user interaction.");
+                    } else {
+                        console.error("Audio play failed even after interaction:", error);
+                    }
+                });
             }
         }
-    }, [config?.backgroundAudioUrl]);
+    }, [config?.backgroundAudioUrl, isMuted, hasPlayed]);
 
-    useEffect(() => {
-        const audioEl = audioRef.current;
-        if (!audioEl || !config?.backgroundAudioUrl) return;
-
-        if (!isMuted && hasPlayed) {
-            audioEl.play().catch(e => console.error("Audio play failed:", e));
-        } else {
-            audioEl.pause();
-        }
-    }, [isMuted, hasPlayed, config?.backgroundAudioUrl]);
 
   const toggleMute = () => {
     setIsMuted(prev => {

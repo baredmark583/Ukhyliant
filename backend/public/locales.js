@@ -255,6 +255,8 @@ window.LOCALES = {
         'lootboxCostStars_desc': 'The cost in Telegram Stars for opening one star-based lootbox.',
         'cellBattleTicketCost': 'Battle Ticket Cost',
         'cellBattleTicketCost_desc': 'The cost in the cell bank for a member to buy one battle ticket.',
+        'boostLimitResetCostStars': 'Boost Limit Reset Cost (Stars)',
+        'boostLimitResetCostStars_desc': 'The cost in Telegram Stars for a player to reset their daily purchase limit for a specific boost.',
         
         // UI Icons
         'icon_group_nav': 'Navigation Bar',
@@ -567,6 +569,8 @@ window.LOCALES = {
         'lootboxCostStars_desc': 'Стоимость в Telegram Stars за открытие одного лутбокса.',
         'cellBattleTicketCost': 'Стоимость билета на битву',
         'cellBattleTicketCost_desc': 'Стоимость в банке ячейки, которую участник платит за один билет на битву.',
+        'boostLimitResetCostStars': 'Стоимость сброса лимита буста (звёзды)',
+        'boostLimitResetCostStars_desc': 'Стоимость в Telegram Stars, которую игрок платит, чтобы сбросить свой дневной лимит на покупку определенного буста.',
         
         // UI Icons
         'icon_group_nav': 'Панель навигации',
@@ -880,6 +884,8 @@ window.LOCALES = {
         'lootboxCostStars_desc': 'Вартість у Telegram Stars за відкриття одного лутбоксу.',
         'cellBattleTicketCost': 'Вартість квитка на битву',
         'cellBattleTicketCost_desc': 'Вартість у банку осередку, яку учасник платить за один квиток на битву.',
+        'boostLimitResetCostStars': 'Вартість скидання ліміту буста (зірки)',
+        'boostLimitResetCostStars_desc': 'Вартість у Telegram Stars, яку гравець платить, щоб скинути свій денний ліміт на покупку певного буста.',
         
         // UI Icons
         'icon_group_nav': 'Панель навігації',
