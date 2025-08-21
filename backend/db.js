@@ -1,4 +1,3 @@
-
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -352,7 +351,7 @@ export const initializeDb = async () => {
             coinSkins: INITIAL_COIN_SKINS,
             leagues: INITIAL_LEAGUES,
             glitchEvents: INITIAL_GLITCH_EVENTS,
-            loadingScreenImageUrl: '',
+            loadingScreenImageUrl: 'https://i.imgur.com/GkG1YhP.jpeg',
             backgroundAudioUrl: '',
             finalVideoUrl: '',
             uiIcons: INITIAL_UI_ICONS,
@@ -475,7 +474,7 @@ export const initializeDb = async () => {
             }
         };
         
-        checkSingleProp('loadingScreenImageUrl', '');
+        checkSingleProp('loadingScreenImageUrl', 'https://i.imgur.com/GkG1YhP.jpeg');
         checkSingleProp('backgroundAudioUrl', '');
         checkSingleProp('finalVideoUrl', '');
         checkSingleProp('cellCreationCost', CELL_CREATION_COST);
@@ -1117,6 +1116,7 @@ export const getCellFromDb = async (cellId, config) => {
             ...cell,
             balance: parseFloat(cell.balance),
             ticketCount: parseInt(cell.ticket_count, 10),
+            maxMembers: config.cellMaxMembers,
         };
     } catch(e) {
         await client.query('ROLLBACK');

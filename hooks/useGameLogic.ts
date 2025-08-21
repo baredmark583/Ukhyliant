@@ -704,15 +704,18 @@ export const useGame = () => {
     }, [playerState, setPlayerState, effectiveCoinsPerTap, isTurboActive]);
 
 
-    const buyUpgrade = useCallback(async (upgradeId: string) => {
-        if (!user) return null;
+    const buyUpgrade = useCallback(async (upgradeId: string): Promise<{ player?: PlayerState, error?: string }> => {
+        if (!user) return { error: 'User not authenticated' };
+        
         const result = await API.buyUpgrade(user.id, upgradeId);
+
         if (result.player) {
             setPlayerState(result.player);
-            return result.player;
         }
-        return null;
+
+        return result;
     }, [user, setPlayerState]);
+
 
     const buyBoost = useCallback(async (boost: Boost) => {
         if (!user) return { error: 'User not found' };
