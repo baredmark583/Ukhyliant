@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
@@ -999,6 +1000,7 @@ const MainApp: React.FC = () => {
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
   const [isTgReady, setIsTgReady] = useState(!!window.Telegram?.WebApp?.initData);
+  const [minLoadTimePassed, setMinLoadTimePassed] = useState(false);
 
   // Glitch event states
   const [isGlitchCodesModalOpen, setIsGlitchCodesModalOpen] = useState(false);
@@ -1102,6 +1104,15 @@ const MainApp: React.FC = () => {
   const handleUserInteraction = () => {
       if(!hasPlayed) setHasPlayed(true);
   }
+  
+  // Effect for minimum loading screen time
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMinLoadTimePassed(true);
+    }, 3000); // 3 seconds
+    return () => clearTimeout(timer);
+  }, []);
+
 
   // Effect for setting up and tearing down the app
   useEffect(() => {
@@ -1121,7 +1132,7 @@ const MainApp: React.FC = () => {
 
   }, [playerState, config, isAppReady, isTgReady]);
   
-  if (!isAppReady || !playerState || !config || !user) {
+  if (!isAppReady || !playerState || !config || !user || !minLoadTimePassed) {
     return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
   }
 
