@@ -8,6 +8,7 @@ interface UpgradeCardProps {
   balance: number;
   lang: Language;
   uiIcons: UiIcons;
+  isPurchasing?: boolean;
 }
 
 const formatNumber = (num: number): string => {
@@ -21,7 +22,7 @@ const formatNumber = (num: number): string => {
 
 const isExternal = (url: string | undefined) => url && url.startsWith('http');
 
-const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang, uiIcons }) => {
+const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang, uiIcons, isPurchasing }) => {
   const t = useTranslation();
   const canAfford = balance >= upgrade.price;
   const suspicionMod = upgrade.suspicionModifier;
@@ -34,10 +35,10 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
 
   return (
     <button
-      onClick={() => onBuy(upgrade.id)}
-      disabled={!canAfford}
+      onClick={() => !isPurchasing && onBuy(upgrade.id)}
+      disabled={!canAfford || isPurchasing}
       className={`w-full h-52 p-2 card-glow bg-slate-800/50 hover:bg-slate-800 rounded-2xl flex flex-col justify-between items-center text-center transition-all duration-200 ${
-        !canAfford ? 'opacity-50 cursor-not-allowed hover:bg-slate-800/50' : ''
+        !canAfford || isPurchasing ? 'opacity-50 cursor-not-allowed hover:bg-slate-800/50' : ''
       }`}
     >
       {/* Top section: Icon, Name, Level */}
@@ -63,9 +64,15 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({ upgrade, onBuy, balance, lang
                 </span>
             )}
         </div>
-        <div className="flex items-center justify-center space-x-1.5 w-full bg-slate-900/70 rounded-lg py-1.5 mt-2 shadow-inner">
-          <img src={uiIcons.coin} alt="coin" className="w-4 h-4" {...(isExternal(uiIcons.coin) && { crossOrigin: 'anonymous' })}/>
-          <span className="text-white font-bold text-responsive-base">{formatNumber(upgrade.price)}</span>
+        <div className="flex items-center justify-center space-x-1.5 w-full bg-slate-900/70 rounded-lg py-1.5 mt-2 shadow-inner h-[28px]">
+          {isPurchasing ? (
+            <div className="spinner-border spinner-border-sm text-white" role="status"></div>
+          ) : (
+            <>
+              <img src={uiIcons.coin} alt="coin" className="w-4 h-4" {...(isExternal(uiIcons.coin) && { crossOrigin: 'anonymous' })}/>
+              <span className="text-white font-bold text-responsive-base">{formatNumber(upgrade.price)}</span>
+            </>
+          )}
         </div>
       </div>
     </button>

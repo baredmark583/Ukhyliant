@@ -83,11 +83,19 @@ const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang
   const categories = Object.values(UpgradeCategory);
   const firstCategoryWithUpgrades = categories.find(c => upgrades.some(u => u.category === c)) || categories[0];
   const [activeCategory, setActiveCategory] = useState<UpgradeCategory>(firstCategoryWithUpgrades);
+  const [purchasingId, setPurchasingId] = useState<string | null>(null);
 
   const getUpgradesByCategory = (category: UpgradeCategory) => {
     return upgrades.filter(u => u.category === category);
   };
   
+  const handleBuy = async (id: string) => {
+      if (purchasingId) return; // Prevent double-clicks while processing
+      setPurchasingId(id);
+      await onBuyUpgrade(id);
+      setPurchasingId(null);
+  };
+
   return (
     <div className="flex flex-col h-full text-white pt-4 px-4">
       <h1 className="text-3xl font-display text-center mb-4 flex-shrink-0 cursor-pointer" onClick={() => handleMetaTap('mine-title')}>{t('mine_upgrades')}</h1>
@@ -132,9 +140,10 @@ const MineScreen: React.FC<MineProps> = ({ upgrades, balance, onBuyUpgrade, lang
                         <UpgradeCard
                             upgrade={upgrade}
                             balance={balance}
-                            onBuy={onBuyUpgrade}
+                            onBuy={handleBuy}
                             lang={lang}
                             uiIcons={uiIcons}
+                            isPurchasing={purchasingId === upgrade.id}
                         />
                     </div>
                 ))}

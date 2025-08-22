@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
@@ -85,7 +86,32 @@ const FinalVideoPlayer: React.FC<{ videoUrl: string, onEnd: () => void }> = ({ v
 
 
 const AppContainer: React.FC = () => {
-    const { user, isInitializing } = useAuth();
+    const { user, isInitializing } = useAuth();    
+    const [minLoadTimePassed, setMinLoadTimePassed] = useState(false);
+    const [hasPlayed, setHasPlayed] = useState(false);
+
+    // Effect for minimum loading screen time
+    useEffect(() => {
+        const timer = setTimeout(() => {
+        setMinLoadTimePassed(true);
+        }, 3000); // 3 seconds
+        return () => clearTimeout(timer);
+    }, []);
+
+    const handleUserInteraction = useCallback(() => {
+      if(!hasPlayed) setHasPlayed(true);
+    }, [hasPlayed]);
+
+    // Effect for capturing first user interaction for audio autoplay
+    useEffect(() => {
+        document.addEventListener('click', handleUserInteraction, { once: true });
+        document.addEventListener('touchstart', handleUserInteraction, { once: true });
+        
+        return () => {
+           document.removeEventListener('click', handleUserInteraction);
+           document.removeEventListener('touchstart', handleUserInteraction);
+        };
+    }, [handleUserInteraction]);
     
     if (isInitializing) {
         return <div className="h-screen w-screen" />;
@@ -95,7 +121,7 @@ const AppContainer: React.FC = () => {
         return <NotInTelegramScreen />;
     }
 
-    return <MainApp />;
+    return <MainApp minLoadTimePassed={minLoadTimePassed} hasPlayed={hasPlayed} />;
 };
 
 const LoadingScreen: React.FC<{imageUrl?: string}> = ({ imageUrl }) => (
@@ -975,7 +1001,10 @@ const NavItem = ({ screen, label, iconUrl, active, setActiveScreen }: { screen: 
 );
 
 
-const MainApp: React.FC = () => {
+const MainApp: React.FC<{
+  minLoadTimePassed: boolean;
+  hasPlayed: boolean;
+}> = ({ minLoadTimePassed, hasPlayed }) => {
   const { user, isGlitching, setIsGlitching } = useAuth();
   const gameApi = useGame();
   const { 
@@ -1000,7 +1029,6 @@ const MainApp: React.FC = () => {
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
   const [isTgReady, setIsTgReady] = useState(!!window.Telegram?.WebApp?.initData);
-  const [minLoadTimePassed, setMinLoadTimePassed] = useState(false);
 
   // Glitch event states
   const [isGlitchCodesModalOpen, setIsGlitchCodesModalOpen] = useState(false);
@@ -1019,7 +1047,6 @@ const MainApp: React.FC = () => {
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('isMuted') === 'true';
   });
-  const [hasPlayed, setHasPlayed] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const showNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
@@ -1101,33 +1128,12 @@ const MainApp: React.FC = () => {
     });
   };
 
-  const handleUserInteraction = () => {
-      if(!hasPlayed) setHasPlayed(true);
-  }
-  
-  // Effect for minimum loading screen time
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMinLoadTimePassed(true);
-    }, 3000); // 3 seconds
-    return () => clearTimeout(timer);
-  }, []);
-
-
   // Effect for setting up and tearing down the app
   useEffect(() => {
     if (playerState && config && isTgReady && !isAppReady) {
         setIsAppReady(true);
         window.Telegram.WebApp.ready();
         window.Telegram.WebApp.expand();
-    }
-    
-    document.addEventListener('click', handleUserInteraction, { once: true });
-    document.addEventListener('touchstart', handleUserInteraction, { once: true });
-    
-    return () => {
-       document.removeEventListener('click', handleUserInteraction);
-       document.removeEventListener('touchstart', handleUserInteraction);
     };
 
   }, [playerState, config, isAppReady, isTgReady]);
@@ -1270,7 +1276,7 @@ const MainApp: React.FC = () => {
 
   const renderScreen = () => {
     switch(activeScreen) {
-      case 'exchange': return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={() => handleBuyBoost({ id: 'boost_full_energy' } as Boost)} onSuspicionClick={() => {}} isMuted={isMuted} toggleMute={toggleMute} handleMetaTap={handleMetaTap} />;
+      case 'exchange': return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={() => showNotification(t('tooltip_energy'), 'success')} onSuspicionClick={() => showNotification(t('tooltip_suspicion'), 'success')} isMuted={isMuted} toggleMute={toggleMute} handleMetaTap={handleMetaTap} />;
       case 'mine': return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} handleMetaTap={handleMetaTap}/>;
       case 'missions': return <MissionsScreen tasks={config.tasks} playerState={playerState} onClaim={handleTaskClaim} lang={user.language} startedTasks={startedTasks} uiIcons={config.uiIcons} />;
       case 'airdrop': return <AirdropScreen specialTasks={config.specialTasks} playerState={playerState} onClaim={handleTaskClaim} onPurchase={handleTaskPurchase} user={user} startedTasks={startedTasks} uiIcons={config.uiIcons} gameApi={gameApi} showNotification={showNotification} />;
