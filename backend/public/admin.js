@@ -222,6 +222,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'cheaters':
                 renderCheaters();
                 break;
+            case 'videoModeration':
+                renderVideoModeration();
+                break;
             case 'dailyEvents':
                 renderDailyEvents();
                 break;
@@ -580,6 +583,61 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </tr>
                             `).join('') : `<tr><td colspan="3" class="text-center text-secondary">${t('no_cheaters_found')}</td></tr>`}
                         </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        applyTranslationsToDOM();
+    };
+
+    const renderVideoModeration = async () => {
+        showLoading('loading_submissions');
+        const submissions = await fetchData('video-submissions');
+
+        const getStatusBadge = (status) => {
+            switch (status) {
+                case 'pending': return `<span class="badge bg-yellow-lt">${t('status_pending')}</span>`;
+                case 'approved': return `<span class="badge bg-green-lt">${t('status_approved')}</span>`;
+                case 'rejected': return `<span class="badge bg-red-lt">${t('status_rejected')}</span>`;
+                default: return status;
+            }
+        };
+
+        const tableRows = submissions && submissions.length > 0
+            ? submissions.map(sub => `
+                <tr>
+                    <td>${escapeHtml(sub.player_name)}</td>
+                    <td><a href="${escapeHtml(sub.video_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(sub.video_url)}</a></td>
+                    <td>${getStatusBadge(sub.status)}</td>
+                    <td>${new Date(sub.submitted_at).toLocaleString()}</td>
+                    <td>${sub.status === 'approved' ? formatNumber(sub.reward_amount) : 'N/A'}</td>
+                    <td>
+                        ${sub.status === 'pending' ? `
+                            <button class="btn btn-sm btn-success" data-action="approve-video" data-id="${sub.id}">${t('approve')}</button>
+                            <button class="btn btn-sm btn-danger ms-2" data-action="reject-video" data-id="${sub.id}">${t('reject')}</button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('')
+            : `<tr><td colspan="6" class="text-center text-secondary">${t('no_submissions')}</td></tr>`;
+
+        tabContainer.innerHTML = `
+            <div class="card">
+                <div class="card-header"><h3 class="card-title" data-translate="video_moderation"></h3></div>
+                <div class="card-body"><p class="text-secondary" data-translate="video_moderation_desc"></p></div>
+                <div class="table-responsive">
+                    <table class="table card-table table-vcenter">
+                        <thead>
+                            <tr>
+                                <th>${t('player_name')}</th>
+                                <th>${t('video_url')}</th>
+                                <th>${t('status')}</th>
+                                <th>${t('submitted_at')}</th>
+                                <th>${t('reward_amount')}</th>
+                                <th>${t('actions')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
                     </table>
                 </div>
             </div>
@@ -1161,11 +1219,36 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     };
 
+    const renderApproveVideoModal = (submissionId) => {
+        const modalHtml = `
+            <div class="modal fade show" style="display: block;" tabindex="-1" id="approve-video-modal">
+                <div class="modal-dialog modal-sm modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header"><h5 class="modal-title">${t('approve_submission')}</h5><button type="button" class="btn-close" data-action="close-modal"></button></div>
+                        <div class="modal-body">
+                            <label class="form-label">${t('reward_amount')}</label>
+                            <input type="number" id="reward-amount-input" class="form-control" value="1000000">
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn me-auto" data-action="close-modal">${t('cancel')}</button>
+                            <button type="button" class="btn btn-success" data-action="confirm-approve-video" data-id="${submissionId}">${t('approve')}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        modalsContainer.innerHTML = modalHtml;
+        const modalEl = document.getElementById('approve-video-modal');
+        const modalInstance = new bootstrap.Modal(modalEl);
+        modalInstance.show();
+        modalEl.addEventListener('hidden.bs.modal', () => modalsContainer.innerHTML = '');
+    };
+
     const init = async () => {
         showLoading();
         localConfig = await fetchData('config') || {};
         const hash = window.location.hash.slice(1);
-        if (configMeta[hash] || ['players', 'cheaters', 'dailyEvents', 'cellAnalytics', 'cellConfiguration'].includes(hash)) {
+        if (configMeta[hash] || ['players', 'cheaters', 'dailyEvents', 'cellAnalytics', 'cellConfiguration', 'videoModeration'].includes(hash)) {
             activeTab = hash;
         }
         render();
@@ -1298,6 +1381,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     await postData('battle/force-end');
                     render();
                     break;
+                case 'approve-video':
+                    renderApproveVideoModal(id);
+                    break;
+                case 'reject-video':
+                    if (confirm(t('confirm_reject_submission'))) {
+                        await postData(`video-submissions/${id}/reject`);
+                        renderVideoModeration();
+                    }
+                    break;
+                case 'confirm-approve-video': {
+                    const amountInput = document.getElementById('reward-amount-input');
+                    const rewardAmount = Number(amountInput.value);
+                    if (rewardAmount > 0) {
+                        await postData(`video-submissions/${id}/approve`, { rewardAmount });
+                        bootstrap.Modal.getInstance(document.getElementById('approve-video-modal'))?.hide();
+                        renderVideoModeration();
+                    } else {
+                        alert('Reward amount must be a positive number.');
+                    }
+                    break;
+                }
             }
         });
 
