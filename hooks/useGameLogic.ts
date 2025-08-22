@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'https://esm.sh/react';
-import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry, Reward, MarketListing, WithdrawalRequest, BattleBoost } from '../types';
+import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry, Reward, MarketListing, WithdrawalRequest, BattleBoost, VideoSubmission } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
 
 declare global {
@@ -391,6 +391,24 @@ const API = {
     if (!response.ok) return null;
     const data = await response.json();
     return data.requests;
+  },
+
+  submitVideoForReview: async (userId: string, url: string): Promise<{ submission?: any, error?: string }> => {
+    if (!API_BASE_URL) return { error: "API URL is not configured." };
+    const response = await fetch(`${API_BASE_URL}/api/video/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, url })
+    });
+    return response.json();
+  },
+  
+  getMyVideoSubmissions: async (userId: string): Promise<VideoSubmission[] | null> => {
+    if (!API_BASE_URL) return null;
+    const response = await fetch(`${API_BASE_URL}/api/video/my-submissions?userId=${userId}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.submissions;
   },
 };
 
@@ -965,6 +983,16 @@ export const useGame = () => {
         return await API.fetchMyWithdrawalRequests(user.id);
     }, [user]);
 
+    const submitVideoForReview = useCallback(async (url: string) => {
+        if (!user) return { error: 'User not found' };
+        return await API.submitVideoForReview(user.id, url);
+    }, [user]);
+
+    const getMyVideoSubmissions = useCallback(async () => {
+        if (!user) return null;
+        return await API.getMyVideoSubmissions(user.id);
+    }, [user]);
+
     return {
         playerState,
         setPlayerState,
@@ -1010,6 +1038,8 @@ export const useGame = () => {
         purchaseMarketItem,
         connectWallet,
         requestWithdrawal,
-        fetchMyWithdrawalRequests
+        fetchMyWithdrawalRequests,
+        submitVideoForReview,
+        getMyVideoSubmissions,
     };
 };

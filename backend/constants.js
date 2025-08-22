@@ -61,7 +61,7 @@ export const INITIAL_COIN_SKINS = [
 
 export const INITIAL_UI_ICONS = {
     nav: { exchange: 'https://api.iconify.design/ph/storefront-bold.svg?color=white', mine: 'https://api.iconify.design/ph/pickaxe-bold.svg?color=white', missions: 'https://api.iconify.design/ph/scroll-bold.svg?color=white', profile: 'https://api.iconify.design/ph/user-bold.svg?color=white', airdrop: 'https://api.iconify.design/ph/parachute-bold.svg?color=white' },
-    profile_tabs: { contacts: 'https://api.iconify.design/ph/users-three-bold.svg?color=white', boosts: 'https://api.iconify.design/ph/rocket-launch-bold.svg?color=white', skins: 'https://api.iconify.design/ph/paint-brush-broad-bold.svg?color=white', market: 'https://api.iconify.design/ph/shopping-cart-bold.svg?color=white', cell: 'https://api.iconify.design/ph/graph-bold.svg?color=white' },
+    profile_tabs: { contacts: 'https://api.iconify.design/ph/users-three-bold.svg?color=white', boosts: 'https://api.iconify.design/ph/rocket-launch-bold.svg?color=white', skins: 'https://api.iconify.design/ph/paint-brush-broad-bold.svg?color=white', market: 'https://api.iconify.design/ph/shopping-cart-bold.svg?color=white', cell: 'https://api.iconify.design/ph/graph-bold.svg?color=white', content: 'https://api.iconify.design/ph/play-circle-bold.svg?color=white' },
     energy: 'https://api.iconify.design/ph/hourglass-high-bold.svg?color=white',
     coin: 'https://api.iconify.design/ph/coin-bold.svg?color=white',
     star: 'https://api.iconify.design/ph/star-four-bold.svg?color=white',
@@ -83,6 +83,11 @@ export const INITIAL_GLITCH_EVENTS = [
 
 export const BATTLE_BOOSTS = [
     { id: 'x2_score', name: {en: 'Score Doubler', ua: 'Подвоювач Рахунку', ru: 'Удвоитель Счёта'}, description: {en: 'Doubles score earned from taps for 5 minutes.', ua: 'Подвоює рахунок від тапів на 5 хвилин.', ru: 'Удваивает счёт от тапов на 5 минут.'}, cost: 50000, durationSeconds: 300 },
+];
+
+export const INITIAL_VIDEO_REWARD_TIERS = [
+  { id: 1, viewsRequired: 1000, rewardCoins: 1000000 },
+  { id: 2, viewsRequired: 5000, rewardCoins: 7000000 },
 ];
 
 // --- GAME MECHANICS ---

@@ -73,7 +73,7 @@ export const REFERRAL_PROFIT_SHARE = 0.10; // 10%
 type TranslationKey = 
   | 'exchange' | 'mine' | 'friends' | 'boosts' | 'tasks' | 'admin' | 'player' | 'league'
   | 'missions' | 'profile' | 'airdrop'
-  | 'sub_daily' | 'sub_airdrop' | 'sub_contacts' | 'sub_boosts' | 'sub_disguise' | 'sub_market' | 'sub_cell'
+  | 'sub_daily' | 'sub_airdrop' | 'sub_contacts' | 'sub_boosts' | 'sub_disguise' | 'sub_market' | 'sub_cell' | 'sub_content'
   | 'profit_per_hour' | 'energy' | 'mine_upgrades' | 'lvl'
   | 'get' | 'level' | 'price' | 'profit' | 'category' | 'icon' | 'actions' | 'save'
   | 'add_new_upgrade' | 'edit_upgrades' | 'edit_tasks' | 'task_name' | 'reward_coins'
@@ -88,7 +88,7 @@ type TranslationKey =
   | 'your_league' | 'total_players'
   // Notifications
   | 'task_completed' | 'combo_collected' | 'cipher_solved' | 'task_unlocked' | 'market_purchase_success' | 'market_wallet_connected' | 'wallet_disconnected'
-  | 'boost_limit_reset_success' | 'boost_limit_reset_failed' | 'upgrade_purchased'
+  | 'boost_limit_reset_success' | 'boost_limit_reset_failed' | 'upgrade_purchased' | 'content_submission_success' | 'content_submission_error_url' | 'content_submission_error_cooldown'
   // Boosts
   | 'guru_tapper' | 'energy_limit' | 'turbo_mode' | 'full_energy' | 'boost_purchased' | 'suspicion_limit'
   | 'limit_today' | 'limit_reached' | 'reset_limit_for'
@@ -134,6 +134,10 @@ type TranslationKey =
   | 'schedule_time_utc' | 'schedule_duration_hours'
   // Tooltips
   | 'tooltip_energy' | 'tooltip_suspicion'
+  // Video Content
+  | 'content_rewards_title' | 'content_rewards_desc' | 'content_submit_title' | 'content_submit_placeholder' | 'content_submit_button'
+  | 'content_history_title' | 'content_status_pending' | 'content_status_approved' | 'content_status_rejected' | 'content_reward_for_views'
+  | 'content_no_submissions'
   // Generic
   | 'loading' | 'cancel'
   | 'why_not_state_language';
@@ -153,6 +157,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     sub_disguise: 'Disguise',
     sub_market: 'Market',
     sub_cell: 'Cell',
+    sub_content: 'Content',
     friends: 'Contacts',
     boosts: 'Boosts',
     tasks: 'Tasks',
@@ -231,6 +236,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     boost_limit_reset_success: 'Boost limit has been reset!',
     boost_limit_reset_failed: 'Failed to reset boost limit.',
     upgrade_purchased: 'Upgrade purchased!',
+    content_submission_success: 'Video submitted for review!',
+    content_submission_error_url: 'Please enter a valid URL.',
+    content_submission_error_cooldown: 'You can submit a video once per hour.',
     guru_tapper: 'Guru Tapper',
     energy_limit: 'Energy Limit',
     turbo_mode: 'Turbo Mode',
@@ -369,6 +377,17 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     schedule_duration_hours: 'Duration (Hours)',
     tooltip_energy: 'This is your tappable coin pool. Each tap spends coins from here.',
     tooltip_suspicion: 'This grows with illegal activities. If it fills up, your assets will be confiscated!',
+    content_rewards_title: 'Rewards for Content',
+    content_rewards_desc: 'Publish a video about the game and get rewarded based on views!',
+    content_submit_title: 'Submit your video',
+    content_submit_placeholder: 'https://youtube.com/watch?v=...',
+    content_submit_button: 'Submit for Review',
+    content_history_title: 'Your Submissions',
+    content_status_pending: 'In Review',
+    content_status_approved: 'Approved',
+    content_status_rejected: 'Rejected',
+    content_reward_for_views: 'views',
+    content_no_submissions: 'You have not submitted any videos yet.',
     why_not_state_language: 'Is there a reason you are not using the state language? The system is watching.'
   },
   ua: {
@@ -384,6 +403,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     sub_disguise: 'Маскування',
     sub_market: 'Ринок',
     sub_cell: 'Осередок',
+    sub_content: 'Контент',
     friends: 'Контакти',
     boosts: 'Бусти',
     tasks: 'Завдання',
@@ -462,6 +482,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     boost_limit_reset_success: 'Ліміт буста скинуто!',
     boost_limit_reset_failed: 'Не вдалося скинути ліміт буста.',
     upgrade_purchased: 'Покращення придбано!',
+    content_submission_success: 'Відео надіслано на перевірку!',
+    content_submission_error_url: 'Будь ласка, введіть коректне посилання.',
+    content_submission_error_cooldown: 'Надсилати відео можна раз на годину.',
     guru_tapper: 'Гуру Тапів',
     energy_limit: 'Ліміт Енергії',
     turbo_mode: 'Турбо-режим',
@@ -600,6 +623,17 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     schedule_duration_hours: 'Тривалість (години)',
     tooltip_energy: 'Це ваш запас монет для тапів. Кожен тап витрачає монети звідси.',
     tooltip_suspicion: 'Рівень підозри зростає від незаконних дій. Якщо він заповниться, ваші активи конфіскують!',
+    content_rewards_title: 'Нагороди за контент',
+    content_rewards_desc: 'Опублікуйте відео про гру та отримайте нагороду в залежності від переглядів!',
+    content_submit_title: 'Надіслати ваше відео',
+    content_submit_placeholder: 'https://youtube.com/watch?v=...',
+    content_submit_button: 'Надіслати на перевірку',
+    content_history_title: 'Ваші заявки',
+    content_status_pending: 'На перевірці',
+    content_status_approved: 'Схвалено',
+    content_status_rejected: 'Відхилено',
+    content_reward_for_views: 'переглядів',
+    content_no_submissions: 'Ви ще не надсилали жодного відео.',
     why_not_state_language: 'Чому не державною? Система все бачить.'
   },
   ru: {
@@ -615,6 +649,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     sub_disguise: 'Маскировка',
     sub_market: 'Рынок',
     sub_cell: 'Ячейка',
+    sub_content: 'Контент',
     friends: 'Контакты',
     boosts: 'Бусты',
     tasks: 'Задания',
@@ -693,6 +728,9 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     boost_limit_reset_success: 'Лимит буста сброшен!',
     boost_limit_reset_failed: 'Не удалось сбросить лимит буста.',
     upgrade_purchased: 'Улучшение приобретено!',
+    content_submission_success: 'Видео отправлено на проверку!',
+    content_submission_error_url: 'Пожалуйста, введите корректную ссылку.',
+    content_submission_error_cooldown: 'Отправлять видео можно раз в час.',
     guru_tapper: 'Гуру Тапов',
     energy_limit: 'Лимит Энергии',
     turbo_mode: 'Турбо-режим',
@@ -831,6 +869,17 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     schedule_duration_hours: 'Длительность (часы)',
     tooltip_energy: 'Это ваш запас монет для тапов. Каждый тап тратит монеты отсюда.',
     tooltip_suspicion: 'Уровень подозрения растет от незаконных действий. Если он заполнится, ваши активы конфискуют!',
+    content_rewards_title: 'Награды за контент',
+    content_rewards_desc: 'Опубликуйте видео об игре и получите награду в зависимости от просмотров!',
+    content_submit_title: 'Отправить ваше видео',
+    content_submit_placeholder: 'https://youtube.com/watch?v=...',
+    content_submit_button: 'Отправить на проверку',
+    content_history_title: 'Ваши заявки',
+    content_status_pending: 'На проверке',
+    content_status_approved: 'Одобрено',
+    content_status_rejected: 'Отклонено',
+    content_reward_for_views: 'просмотров',
+    content_no_submissions: 'Вы еще не отправляли ни одного видео.',
     why_not_state_language: 'Почему не на государственном языке? Система всё видит.'
   },
 };

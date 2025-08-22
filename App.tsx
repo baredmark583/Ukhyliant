@@ -1,7 +1,5 @@
 
 
-
-
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
@@ -11,13 +9,13 @@ import MineScreen from './sections/Mine';
 import BoostScreen from './sections/Boost';
 import CellScreen from './sections/Cell';
 import { REFERRAL_BONUS, TELEGRAM_BOT_NAME, MINI_APP_NAME } from './constants';
-import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League, UiIcons, Cell, GlitchEvent, MarketListing } from './types';
+import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, PlayerState, User, Boost, CoinSkin, League, UiIcons, Cell, GlitchEvent, MarketListing, VideoSubmission, VideoSubmissionStatus } from './types';
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
 import FinalSystemBreachEffect from './FinalSystemBreachEffect';
 
 type Screen = 'exchange' | 'mine' | 'missions' | 'airdrop' | 'profile';
-type ProfileTab = 'contacts' | 'boosts' | 'skins' | 'market' | 'cell';
+type ProfileTab = 'contacts' | 'boosts' | 'skins' | 'market' | 'cell' | 'content';
 
 // Add html2canvas to the global scope for TypeScript
 declare const html2canvas: any;
@@ -499,6 +497,104 @@ const MarketContent = (props: {
     );
 };
 
+const ContentScreen = ({ config, gameApi, showNotification }: { config: GameConfig, gameApi: GameApi, showNotification: (message: string, type?: 'success' | 'error') => void }) => {
+    const t = useTranslation();
+    const [url, setUrl] = useState('');
+    const [submissions, setSubmissions] = useState<VideoSubmission[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchSubmissions = useCallback(() => {
+        gameApi.getMyVideoSubmissions().then(data => {
+            setSubmissions(data || []);
+            setLoading(false);
+        });
+    }, [gameApi]);
+
+    useEffect(() => {
+        fetchSubmissions();
+    }, [fetchSubmissions]);
+
+    const handleSubmit = async () => {
+        if (!url.trim() || !url.startsWith('http')) {
+            showNotification(t('content_submission_error_url'), 'error');
+            return;
+        }
+        const result = await gameApi.submitVideoForReview(url);
+        if (result?.error) {
+            showNotification(t(result.error as any, result.error), 'error');
+        } else {
+            showNotification(t('content_submission_success'), 'success');
+            setUrl('');
+            fetchSubmissions(); // Refresh list
+        }
+    };
+
+    const tiers = config.videoRewardTiers || [];
+
+    const getStatusText = (status: VideoSubmissionStatus) => {
+        switch (status) {
+            case 'pending': return t('content_status_pending');
+            case 'approved': return t('content_status_approved');
+            case 'rejected': return t('content_status_rejected');
+            default: return status;
+        }
+    };
+
+    return (
+        <div className="w-full max-w-md space-y-4">
+            <div className="card-glow p-4 rounded-xl text-center">
+                <h2 className="text-xl font-bold">{t('content_rewards_title')}</h2>
+                <p className="text-sm text-[var(--text-secondary)] mt-1">{t('content_rewards_desc')}</p>
+                <div className="mt-4 space-y-2 text-left">
+                    {tiers.map(tier => (
+                        <div key={tier.id} className="bg-slate-900/50 shadow-inner rounded-lg p-2 flex justify-between items-center">
+                            <span className="font-bold">{formatNumber(tier.viewsRequired)} {t('content_reward_for_views')}</span>
+                            <span className="text-[var(--accent-color)] font-bold flex items-center space-x-1">
+                                <span>+{formatNumber(tier.rewardCoins)}</span>
+                                <img src={config.uiIcons.coin} alt="coin" className="w-4 h-4" />
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="card-glow p-4 rounded-xl">
+                <h3 className="text-lg font-bold mb-2">{t('content_submit_title')}</h3>
+                <input 
+                    type="url" 
+                    value={url} 
+                    onChange={e => setUrl(e.target.value)}
+                    placeholder={t('content_submit_placeholder')}
+                    className="input-field w-full mb-3"
+                />
+                <button onClick={handleSubmit} className="w-full interactive-button text-white font-bold py-3 px-4 text-lg rounded-lg">
+                    {t('content_submit_button')}
+                </button>
+            </div>
+
+            <div className="card-glow p-4 rounded-xl">
+                <h3 className="text-lg font-bold mb-2">{t('content_history_title')}</h3>
+                {loading ? <p className="text-center text-sm text-[var(--text-secondary)]">{t('loading')}...</p> : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {submissions.length > 0 ? submissions.map(sub => (
+                             <div key={sub.id} className="bg-slate-900/50 shadow-inner rounded-lg p-2 flex justify-between items-center text-sm">
+                                <a href={sub.video_url} target="_blank" rel="noopener noreferrer" className="truncate text-blue-400 hover:underline flex-1 pr-2">{sub.video_url}</a>
+                                <span className={`font-bold ${
+                                    sub.status === 'approved' ? 'text-green-400' :
+                                    sub.status === 'rejected' ? 'text-red-400' : 'text-yellow-400'
+                                }`}>
+                                    {getStatusText(sub.status)}
+                                    {sub.status === 'approved' && sub.reward_amount && ` (+${formatNumber(sub.reward_amount)})`}
+                                </span>
+                             </div>
+                        )) : <p className="text-center text-sm text-[var(--text-secondary)]">{t('content_no_submissions')}</p>}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 interface ProfileScreenProps {
   playerState: PlayerState;
   user: User;
@@ -542,6 +638,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onResetBoostLimi
                     <ProfileTabButton label={t('sub_disguise')} iconUrl={config.uiIcons.profile_tabs.skins} isActive={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
                     <ProfileTabButton label={t('sub_market')} iconUrl={config.uiIcons.profile_tabs.market} isActive={activeTab === 'market'} onClick={() => setActiveTab('market')} />
                     <ProfileTabButton label={t('sub_cell')} iconUrl={config.uiIcons.profile_tabs.cell} isActive={activeTab === 'cell'} onClick={() => setActiveTab('cell')} />
+                     <ProfileTabButton label={t('sub_content')} iconUrl={config.uiIcons.profile_tabs.content} isActive={activeTab === 'content'} onClick={() => setActiveTab('content')} />
                 </div>
             </div>
             
@@ -551,6 +648,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onResetBoostLimi
                 {activeTab === 'skins' && <SkinsContent {...tabProps} />}
                 {activeTab === 'market' && <MarketContent {...tabProps} />}
                 {activeTab === 'cell' && <CellScreen />}
+                {activeTab === 'content' && <ContentScreen config={config} gameApi={gameApi} showNotification={showNotification} />}
             </div>
         </div>
     );

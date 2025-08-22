@@ -170,6 +170,7 @@ export interface UiIcons {
     skins: string;
     market: string;
     cell: string;
+    content: string;
   };
   energy: string;
   coin: string;
@@ -189,6 +190,12 @@ export interface BattleBoost {
     description: LocalizedString;
     cost: number;
     durationSeconds: number;
+}
+
+export interface VideoRewardTier {
+    id: number;
+    viewsRequired: number;
+    rewardCoins: number;
 }
 
 export interface GameConfig {
@@ -214,6 +221,7 @@ export interface GameConfig {
     lootboxCostStars: number;
     battleBoosts: BattleBoost[];
     boostLimitResetCostStars: number;
+    videoRewardTiers?: VideoRewardTier[];
     battleSchedule?: {
         frequency: 'weekly' | 'biweekly' | 'monthly';
         dayOfWeek: number; // 0=Sun, 1=Mon...
@@ -337,4 +345,22 @@ export interface WithdrawalRequest {
   status: WithdrawalStatus;
   created_at: string;
   processed_at?: string;
+}
+
+export interface VideoRewardTier {
+    id: number;
+    viewsRequired: number;
+    rewardCoins: number;
+}
+
+export type VideoSubmissionStatus = 'pending' | 'approved' | 'rejected';
+
+export interface VideoSubmission {
+    id: number;
+    player_id: string;
+    video_url: string;
+    status: VideoSubmissionStatus;
+    submitted_at: string;
+    reviewed_at?: string;
+    reward_amount?: number;
 }

@@ -71,7 +71,12 @@ import {
     updateWithdrawalRequestStatusInDb,
     getPlayerWithdrawalRequests,
     activateBattleBoostInDb,
-    purchaseMarketItemWithCoinsInDb
+    purchaseMarketItemWithCoinsInDb,
+    submitVideoForReviewDb,
+    getPlayerSubmissionsDb,
+    getAdminSubmissionsDb,
+    approveSubmissionDb,
+    rejectSubmissionDb
 } from './db.js';
 import { 
     ADMIN_TELEGRAM_ID, MODERATOR_TELEGRAM_IDS, INITIAL_MAX_ENERGY,
@@ -336,7 +341,7 @@ app.post('/api/login', async (req, res) => {
                 tapGuruLevel: 0,
                 energyLimitLevel: 0,
                 suspicionLimitLevel: 0,
-                unlockedSkins: [DEFAULT_COIN_SKIN_ID],
+                unlockedSkins: { [DEFAULT_COIN_SKIN_ID]: 1 },
                 currentSkinId: DEFAULT_COIN_SKIN_ID,
                 suspicion: 0,
                 cellId: null,
@@ -987,6 +992,35 @@ app.get('/api/wallet/my-requests', async (req, res) => {
     }
 });
 
+// --- Video Submission API ---
+app.post('/api/video/submit', async (req, res) => {
+    try {
+        const { userId, url } = req.body;
+        if (!userId || !url) {
+            return res.status(400).json({ error: 'User ID and URL are required.' });
+        }
+        const submission = await submitVideoForReviewDb(userId, url);
+        res.status(201).json({ submission });
+    } catch (e) {
+        log('error', 'Failed to submit video', e);
+        res.status(400).json({ error: e.message });
+    }
+});
+
+app.get('/api/video/my-submissions', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required.' });
+        }
+        const submissions = await getPlayerSubmissionsDb(userId);
+        res.json({ submissions });
+    } catch (e) {
+        log('error', 'Failed to fetch player submissions', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 
 // --- Admin Panel API (protected by middleware) ---
 app.post('/admin/login', (req, res) => {
@@ -1325,91 +1359,67 @@ app.get('/admin/api/player-locations', checkAdminAuth, async (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
-app.get('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
-    const today = new Date().toISOString().split('T')[0];
-    res.json(await getDailyEvent(today));
-});
+app.get('/admin/api/daily-events', checkAdminAuth, async (req, res) => res.json(await getDailyEvent(new Date().toISOString().split('T')[0])));
 app.post('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
-    const today = new Date().toISOString().split('T')[0];
     const { combo_ids, cipher_word, combo_reward, cipher_reward } = req.body;
+    const today = new Date().toISOString().split('T')[0];
     await saveDailyEvent(today, combo_ids, cipher_word, combo_reward, cipher_reward);
     res.sendStatus(200);
 });
-
-app.get('/admin/api/cell-analytics', checkAdminAuth, async (req, res) => {
-    try {
-        const analytics = await getCellAnalytics();
-        res.json(analytics);
-    } catch(e) {
-        log('error', 'Failed to get cell analytics', e);
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.post('/admin/api/battle/force-start', checkAdminAuth, async (req, res) => {
-    try {
-        const config = await getGameConfig();
-        await forceStartBattle(config);
-        res.json({ ok: true, message: 'Battle started successfully.'});
-    } catch(e) {
-        log('error', 'Failed to force start battle', e);
-        res.status(400).json({ ok: false, error: e.message });
-    }
-});
-
-app.post('/admin/api/battle/force-end', checkAdminAuth, async (req, res) => {
-    try {
-        const config = await getGameConfig();
-        await forceEndBattle(config);
-        res.json({ ok: true, message: 'Battle ended successfully.'});
-    } catch(e) {
-        log('error', 'Failed to force end battle', e);
-        res.status(400).json({ ok: false, error: e.message });
-    }
-});
-
+app.get('/admin/api/cell-analytics', checkAdminAuth, async (req, res) => res.json(await getCellAnalytics()));
 app.get('/admin/api/battle/status', checkAdminAuth, async(req, res) => {
-    try {
-        const status = await getBattleStatusForCell(null); // Get global status
-        res.json({ status });
-    } catch(e) {
-        log('error', 'Failed to get global battle status', e);
-        res.status(500).json({ error: e.message });
-    }
+    const status = await getBattleStatusForCell(null); // Get global status
+    res.json({ status });
+});
+app.post('/admin/api/battle/force-start', checkAdminAuth, async(req, res) => {
+    await forceStartBattle(await getGameConfig());
+    res.sendStatus(200);
+});
+app.post('/admin/api/battle/force-end', checkAdminAuth, async(req, res) => {
+    await forceEndBattle(await getGameConfig());
+    res.sendStatus(200);
 });
 
-app.get('/admin/api/withdrawals', checkAdminAuth, async (req, res) => {
-    try {
-        const requests = await getWithdrawalRequestsForAdmin();
-        res.json(requests);
-    } catch (e) {
-        log('error', 'Failed to get withdrawal requests for admin', e);
-        res.status(500).json({ error: e.message });
-    }
+app.get('/admin/api/withdrawal-requests', checkAdminAuth, async (req, res) => {
+    const requests = await getWithdrawalRequestsForAdmin();
+    res.json(requests);
+});
+app.post('/admin/api/withdrawal-requests/:id/approve', checkAdminAuth, async (req, res) => {
+    await updateWithdrawalRequestStatusInDb(req.params.id, 'approved');
+    res.sendStatus(200);
+});
+app.post('/admin/api/withdrawal-requests/:id/reject', checkAdminAuth, async (req, res) => {
+    await updateWithdrawalRequestStatusInDb(req.params.id, 'rejected');
+    res.sendStatus(200);
 });
 
-app.post('/admin/api/withdrawals/:id/update', checkAdminAuth, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { status } = req.body;
-        const result = await updateWithdrawalRequestStatusInDb(id, status);
-        res.json(result);
-    } catch (e) {
-        log('error', `Failed to update withdrawal request ${req.params.id}`, e);
-        res.status(400).json({ error: e.message });
-    }
+app.get('/admin/api/video-submissions', checkAdminAuth, async (req, res) => {
+    const submissions = await getAdminSubmissionsDb();
+    res.json(submissions);
 });
 
+app.post('/admin/api/video-submissions/:id/approve', checkAdminAuth, async (req, res) => {
+    const { rewardAmount } = req.body;
+    if (!rewardAmount || isNaN(Number(rewardAmount))) {
+        return res.status(400).json({ error: 'Reward amount is required.' });
+    }
+    await approveSubmissionDb(req.params.id, Number(rewardAmount));
+    res.sendStatus(200);
+});
 
-// --- Server Initialization ---
+app.post('/admin/api/video-submissions/:id/reject', checkAdminAuth, async (req, res) => {
+    await rejectSubmissionDb(req.params.id);
+    res.sendStatus(200);
+});
+
+// --- Server Startup ---
 initializeDb().then(() => {
-    app.listen(port, '0.0.0.0', () => {
+    app.listen(port, () => {
         log('info', `Server listening on port ${port}`);
+        // Start battle check cron job
+        setInterval(() => checkAndManageBattles(getGameConfig()), 60 * 1000); // Check every minute
     });
-    // Initial cache update, then update every 15 minutes
-    updateSocialStatsCache();
-    setInterval(updateSocialStatsCache, 15 * 60 * 1000);
-}).catch(error => {
-    log('error', 'Failed to initialize database', error);
+}).catch(e => {
+    log('error', "Database initialization failed, server not started.", e);
     process.exit(1);
 });
