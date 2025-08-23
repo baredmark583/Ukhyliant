@@ -1,3 +1,4 @@
+
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -484,6 +485,45 @@ export const initializeDb = async () => {
             }
              migrateArrayConfig('glitchEvents', INITIAL_GLITCH_EVENTS);
         }
+        
+        // --- NEW MIGRATION for uiIcons object ---
+        if (config.uiIcons) {
+            let iconsUpdated = false;
+            // Iterate over top-level groups in INITIAL_UI_ICONS (e.g., 'nav', 'profile_tabs')
+            for (const groupKey in INITIAL_UI_ICONS) {
+                // If the group is an object (like 'nav' or 'profile_tabs')
+                if (typeof INITIAL_UI_ICONS[groupKey] === 'object' && INITIAL_UI_ICONS[groupKey] !== null) {
+                    // If the group doesn't exist in the DB config, add the whole group
+                    if (!config.uiIcons[groupKey]) {
+                        config.uiIcons[groupKey] = INITIAL_UI_ICONS[groupKey];
+                        iconsUpdated = true;
+                    } else {
+                        // If the group exists, iterate over its keys (e.g., 'exchange', 'mine')
+                        for (const iconKey in INITIAL_UI_ICONS[groupKey]) {
+                            // If a specific icon key is missing in the DB config, add it
+                            if (config.uiIcons[groupKey][iconKey] === undefined) {
+                                config.uiIcons[groupKey][iconKey] = INITIAL_UI_ICONS[groupKey][iconKey];
+                                iconsUpdated = true;
+                            }
+                        }
+                    }
+                } else {
+                    // For root-level properties in uiIcons (if any)
+                    if (config.uiIcons[groupKey] === undefined) {
+                        config.uiIcons[groupKey] = INITIAL_UI_ICONS[groupKey];
+                        iconsUpdated = true;
+                    }
+                }
+            }
+            if (iconsUpdated) {
+                console.log("Migrated: Added missing keys to uiIcons config.");
+                needsUpdate = true;
+            }
+        } else {
+             config.uiIcons = INITIAL_UI_ICONS; 
+             needsUpdate = true;
+        }
+
 
         // Migrate all non-array (single value) properties
         const checkSingleProp = (key, initialValue) => {
@@ -510,7 +550,6 @@ export const initializeDb = async () => {
         
         // Special object properties
         if (!config.socials) { config.socials = initialSocials; needsUpdate = true; }
-        if (!config.uiIcons) { config.uiIcons = INITIAL_UI_ICONS; needsUpdate = true; }
 
         if (needsUpdate) {
             await saveConfig(config);
