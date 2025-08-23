@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const escapeHtml = (unsafe) => {
         if (unsafe === null || unsafe === undefined) return '';
         if (typeof unsafe !== 'string' && typeof unsafe !== 'number') return JSON.stringify(unsafe);
-        return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&quot;").replace(/'/g, "&#039;");
     };
 
     const formatNumber = (num) => {
@@ -340,7 +340,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="card">
                 <div class="card-header"><h3 class="card-title" data-translate="ai_content_generation">AI Content Generation</h3></div>
                 <div class="card-body">
-                    <p class="text-secondary" data-translate="ai_generate_desc">Use AI to generate new thematic upgrades and tasks based on the game's context.</p>
+                    <p class="text-secondary" data-translate="ai_generate_desc_v2">Enter a prompt to generate any type of game content (upgrades, tasks, boosts, etc.). The AI will attempt to create balanced and thematic items based on your request.</p>
+                    <div class="mb-3">
+                        <label class="form-label" data-translate="ai_prompt">Prompt</label>
+                        <textarea id="ai-custom-prompt" class="form-control" rows="4" placeholder="${t('ai_prompt_placeholder')}"></textarea>
+                    </div>
                     <button class="btn btn-primary w-100" data-action="generate-ai-content">
                         <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-sparkles" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2z" /><path d="M8 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2z" /><path d="M12 12a5 5 0 0 1 5 5a5 5 0 0 1 5 -5a5 5 0 0 1 -5 -5a5 5 0 0 1 -5 5z" /></svg>
                         <span data-translate="generate_new_content">Generate New Content</span>
@@ -1303,6 +1307,64 @@ document.addEventListener('DOMContentLoaded', () => {
         modalInstance.show();
         modalEl.addEventListener('hidden.bs.modal', () => modalsContainer.innerHTML = '');
     };
+    
+    const renderAiContentModal = (content) => {
+        let contentHtml = '';
+        const contentKeys = Object.keys(content).filter(k => Array.isArray(content[k]) && content[k].length > 0);
+        
+        if (contentKeys.length === 0) {
+            contentHtml = `<p class="text-secondary">${t('ai_no_content_generated')}</p>`;
+        } else {
+            contentKeys.forEach(key => {
+                const items = content[key];
+                const titleKey = configMeta[key]?.titleKey || `generated_${key}`; // Fallback title
+                contentHtml += `<h4 class="mt-4 mb-2 font-display">${t(titleKey)} (${items.length})</h4>`;
+                
+                const tableHeaders = configMeta[key] ? configMeta[key].cols.map(col => `<th>${t(col)}</th>`).join('') : '';
+                const tableRows = items.map(item => {
+                    const rowCells = configMeta[key] 
+                        ? configMeta[key].cols.map(col => `<td>${formatCellContent(item[col], col)}</td>`).join('')
+                        : `<td>${escapeHtml(JSON.stringify(item))}</td>`; // Fallback for unknown types
+                    return `<tr>${rowCells}</tr>`;
+                }).join('');
+                
+                contentHtml += `
+                    <div class="table-responsive">
+                        <table class="table card-table table-vcenter">
+                            <thead><tr>${tableHeaders}</tr></thead>
+                            <tbody>${tableRows}</tbody>
+                        </table>
+                    </div>`;
+            });
+        }
+        
+        const modalHtml = `
+            <div class="modal fade show" style="display: block;" tabindex="-1" id="ai-content-modal">
+                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${t('ai_generated_content')}</h5>
+                            <button type="button" class="btn-close" data-action="close-modal"></button>
+                        </div>
+                        <div class="modal-body">${contentHtml}</div>
+                        <div class="modal-footer">
+                             <button type="button" class="btn me-auto" data-action="close-modal">${t('close')}</button>
+                            ${contentKeys.length > 0 ? `<button type="button" class="btn btn-success" data-action="add-ai-content">${t('add_to_game')}</button>` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+            
+        modalsContainer.innerHTML = modalHtml;
+        const modalEl = document.getElementById('ai-content-modal');
+        const modalInstance = new bootstrap.Modal(modalEl);
+        modalInstance.show();
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            modalsContainer.innerHTML = '';
+            lastAiContent = null;
+        });
+        applyTranslationsToDOM();
+    };
 
     const init = async () => {
         showLoading();
@@ -1474,6 +1536,52 @@ document.addEventListener('DOMContentLoaded', () => {
                         renderWithdrawalRequests();
                     }
                     break;
+                case 'generate-ai-content': {
+                    const button = actionTarget;
+                    button.disabled = true;
+                    button.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status"></span> ${t('generating')}`;
+                    
+                    const customPrompt = document.getElementById('ai-custom-prompt').value;
+                    
+                    try {
+                        const result = await postData('generate-ai-content', { customPrompt });
+                        if (result) {
+                            lastAiContent = result;
+                            renderAiContentModal(result);
+                        } else {
+                            alert(t('ai_generation_failed'));
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert(t('ai_generation_failed'));
+                    } finally {
+                        button.disabled = false;
+                        button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-sparkles" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2z" /><path d="M8 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2z" /><path d="M12 12a5 5 0 0 1 5 5a5 5 0 0 1 5 -5a5 5 0 0 1 -5 -5a5 5 0 0 1 -5 5z" /></svg> <span data-translate="generate_new_content">${t('generate_new_content')}</span>`;
+                    }
+                    break;
+                }
+                case 'add-ai-content': {
+                    if (!lastAiContent) return;
+                    
+                    Object.keys(lastAiContent).forEach(key => {
+                        if (Array.isArray(lastAiContent[key]) && lastAiContent[key].length > 0) {
+                            if (!localConfig[key]) {
+                                localConfig[key] = [];
+                            }
+                            localConfig[key].push(...lastAiContent[key]);
+                        }
+                    });
+                    
+                    alert(t('ai_add_success'));
+                    bootstrap.Modal.getInstance(document.getElementById('ai-content-modal'))?.hide();
+                    
+                    const firstKey = Object.keys(lastAiContent).find(k => Array.isArray(lastAiContent[k]) && lastAiContent[k].length > 0);
+                    if(firstKey && configMeta[firstKey]) {
+                        activeTab = firstKey;
+                        render();
+                    }
+                    break;
+                }
             }
         });
 

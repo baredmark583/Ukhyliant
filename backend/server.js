@@ -1154,6 +1154,9 @@ app.post('/admin/api/generate-ai-content', checkAdminAuth, async (req, res) => {
     }
 
     try {
+        const { customPrompt } = req.body;
+            
+        // --- Define Schemas ---
         const localizedStringSchema = {
             type: Type.OBJECT,
             properties: {
@@ -1203,32 +1206,119 @@ app.post('/admin/api/generate-ai-content', checkAdminAuth, async (req, res) => {
             },
              required: ["id", "name", "description", "type", "url", "reward", "priceStars", "isOneTime", "imageUrl", "suspicionModifier"]
         };
-
-        const responseSchema = {
+        
+        const taskSchema = {
             type: Type.OBJECT,
             properties: {
-                upgrades: { type: Type.ARRAY, items: upgradeSchema },
-                specialTasks: { type: Type.ARRAY, items: specialTaskSchema }
+                id: { type: Type.STRING, description: "Unique ID, e.g., 'ai_task_1'" },
+                name: localizedStringSchema,
+                type: { type: Type.STRING, enum: ['taps', 'telegram_join', 'video_watch', 'video_code', 'youtube_subscribe', 'twitter_follow', 'instagram_follow'] },
+                reward: rewardSchema,
+                requiredTaps: { type: Type.INTEGER, nullable: true },
+                suspicionModifier: { type: Type.INTEGER },
+                url: { type: Type.STRING, nullable: true },
+                secretCode: { type: Type.STRING, nullable: true },
+                imageUrl: { type: Type.STRING, description: "A valid URL from api.iconify.design", nullable: true },
             },
-            required: ["upgrades", "specialTasks"]
+            required: ["id", "name", "type", "reward", "suspicionModifier"]
         };
 
-        const prompt = `You are a game designer for a satirical clicker game called 'Ukhyliant Clicker'. The game is set in a dystopian society, heavily inspired by Orwell's '1984', but with a modern Ukrainian context of war and mobilization. The player is a 'draft dodger' (ухилянт) trying to survive and profit. Your task is to generate new in-game content that is dark, humorous, and satirical.
+        const boostSchema = {
+            type: Type.OBJECT,
+            properties: {
+                id: { type: Type.STRING, description: "Unique ID, e.g., 'ai_bst_1'" },
+                name: localizedStringSchema,
+                description: localizedStringSchema,
+                costCoins: { type: Type.INTEGER },
+                suspicionModifier: { type: Type.INTEGER },
+                iconUrl: { type: Type.STRING, description: "A valid URL from api.iconify.design" },
+            },
+            required: ["id", "name", "description", "costCoins", "suspicionModifier", "iconUrl"]
+        };
 
-Generate exactly 5 new 'Upgrade' cards and 5 new 'Airdrop' (SpecialTask) tasks.
+        const blackMarketCardSchema = {
+            type: Type.OBJECT,
+            properties: {
+                id: { type: Type.STRING, description: "Unique ID, e.g., 'ai_bmc_1'" },
+                name: localizedStringSchema,
+                profitPerHour: { type: Type.INTEGER },
+                chance: { type: Type.INTEGER },
+                boxType: { type: Type.STRING, enum: ['coin', 'star'] },
+                suspicionModifier: { type: Type.INTEGER },
+                iconUrl: { type: Type.STRING, description: "A valid URL from api.iconify.design" },
+            },
+            required: ["id", "name", "profitPerHour", "chance", "boxType", "suspicionModifier", "iconUrl"]
+        };
+
+        const coinSkinSchema = {
+            type: Type.OBJECT,
+            properties: {
+                id: { type: Type.STRING, description: "Unique ID, e.g., 'ai_skn_1'" },
+                name: localizedStringSchema,
+                profitBoostPercent: { type: Type.INTEGER },
+                chance: { type: Type.INTEGER },
+                boxType: { type: Type.STRING, enum: ['coin', 'star', 'direct'] },
+                suspicionModifier: { type: Type.INTEGER },
+                maxSupply: { type: Type.INTEGER, nullable: true, description: "Maximum number of this skin available. Use null for infinite." },
+                iconUrl: { type: Type.STRING, description: "A valid URL for the skin image" },
+            },
+            required: ["id", "name", "profitBoostPercent", "chance", "boxType", "suspicionModifier", "iconUrl"]
+        };
+
+        const triggerSchema = {
+            type: Type.OBJECT,
+            description: "Describes what triggers the event. Use one of the allowed types and its corresponding parameters.",
+            properties: {
+                type: { type: Type.STRING, enum: ['meta_tap', 'login_at_time', 'balance_equals', 'upgrade_purchased'] },
+                params: { type: Type.OBJECT, description: "Parameters for the trigger type. E.g., for 'meta_tap', use { 'targetId': '...', 'taps': 10 }." }
+            },
+            required: ["type", "params"]
+        };
+
+        const glitchEventSchema = {
+            type: Type.OBJECT,
+            properties: {
+                id: { type: Type.STRING, description: "Unique ID, e.g., 'ai_glt_1'" },
+                message: localizedStringSchema,
+                code: { type: Type.STRING, description: "A 4-character uppercase code." },
+                reward: rewardSchema,
+                trigger: triggerSchema,
+                isFinal: { type: Type.BOOLEAN, nullable: true },
+            },
+             required: ["id", "message", "code", "reward", "trigger"]
+        };
+
+        const finalResponseSchema = {
+            type: Type.OBJECT,
+            properties: {
+                upgrades: { type: Type.ARRAY, items: upgradeSchema, nullable: true },
+                tasks: { type: Type.ARRAY, items: taskSchema, nullable: true },
+                specialTasks: { type: Type.ARRAY, items: specialTaskSchema, nullable: true },
+                boosts: { type: Type.ARRAY, items: boostSchema, nullable: true },
+                blackMarketCards: { type: Type.ARRAY, items: blackMarketCardSchema, nullable: true },
+                coinSkins: { type: Type.ARRAY, items: coinSkinSchema, nullable: true },
+                glitchEvents: { type: Type.ARRAY, items: glitchEventSchema, nullable: true },
+            },
+        };
+
+        const systemInstruction = `You are a game designer for a satirical clicker game called 'Ukhyliant Clicker'. The game is set in a dystopian society, heavily inspired by Orwell's '1984', but with a modern Ukrainian context of war and mobilization. The player is a 'draft dodger' (ухилянт) trying to survive and profit. Your task is to generate new in-game content that is dark, humorous, and satirical based on the user's prompt.
 - The content should reflect the absurd and grim reality of dodging the draft, dealing with bureaucracy, finding loopholes, and navigating a surveillance state.
 - Balance the game by making prices and profits reasonable but escalating.
 - For 'iconUrl' and 'imageUrl', provide a valid URL from api.iconify.design that thematically fits the item.
-- For 'id', create a short, unique string like 'ai_upg_x' or 'ai_tsk_x'.
-- Provide all localizable strings ('name', 'description') in English (en), Ukrainian (ua), and Russian (ru).
-- 'isOneTime' for tasks must always be true.`;
+- For 'id', create a short, unique string with a prefix indicating the type (e.g., 'ai_upg_1', 'ai_tsk_1').
+- Provide all localizable strings ('name', 'description', 'message') in English (en), Ukrainian (ua), and Russian (ru).
+- The generated content must strictly adhere to the provided JSON schema. Only generate properties that are part of the schema.
+- If the user's prompt is empty or too generic, generate a diverse set of 2-3 items for each of the following categories: upgrades, daily tasks, airdrop tasks, and boosts.`;
+
+        const userPrompt = customPrompt || "The user did not provide a prompt. Generate a diverse starter pack of content.";
 
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: prompt,
+            contents: userPrompt,
             config: {
+                systemInstruction,
                 responseMimeType: "application/json",
-                responseSchema: responseSchema
+                responseSchema: finalResponseSchema,
             }
         });
         
