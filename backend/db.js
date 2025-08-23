@@ -94,18 +94,17 @@ const applySuspicion = (player, modifier, lang = 'en') => {
 };
 
 const recalculatePlayerProfitInDb = async (player, config) => {
-    // 1. Calculate base profit from upgrades and permanent tasks
     let baseProfit = 0;
     
-    // Profit from upgrades (regular and black market)
+    // Profit from upgrades
     const allUpgrades = [...(config.upgrades || []), ...(config.blackMarketCards || [])];
     const upgradesMap = new Map(allUpgrades.map(u => [u.id, u]));
 
     if (player.upgrades) {
         for (const upgradeId in player.upgrades) {
-            const level = player.upgrades[upgradeId];
+            const level = player.upgrades[upgradeId] || 0;
             const upgrade = upgradesMap.get(upgradeId);
-            if (upgrade) {
+            if (upgrade && upgrade.profitPerHour) {
                 for (let i = 0; i < level; i++) {
                     baseProfit += Math.floor(upgrade.profitPerHour * Math.pow(1.07, i));
                 }
@@ -113,24 +112,36 @@ const recalculatePlayerProfitInDb = async (player, config) => {
         }
     }
 
-    // Profit from one-time tasks that grant permanent profit
+    // Profit from tasks
     let tasksProfit = 0;
     const allTasks = [...(config.tasks || []), ...(config.specialTasks || [])];
     const tasksMap = new Map(allTasks.map(t => [t.id, t]));
-    
     const completedTaskIds = new Set([...(player.completedDailyTaskIds || []), ...(player.completedSpecialTaskIds || [])]);
 
     for (const taskId of completedTaskIds) {
         const task = tasksMap.get(taskId);
-        if (task && task.reward && task.reward.type === 'profit') {
-            tasksProfit += task.reward.amount;
+        if (task?.reward?.type === 'profit') {
+            tasksProfit += (Number(task.reward.amount) || 0);
         }
     }
     
     player.tasksProfitPerHour = tasksProfit;
     baseProfit += tasksProfit;
 
-    // 2. Calculate bonus from the CURRENTLY EQUIPPED skin
+    // Profit from claimed glitch codes
+    let glitchProfit = 0;
+    if (config.glitchEvents && Array.isArray(player.claimedGlitchCodes)) {
+        const glitchesMap = new Map(config.glitchEvents.map(g => [String(g.code).toUpperCase(), g]));
+        for (const code of player.claimedGlitchCodes) {
+            const event = glitchesMap.get(String(code).toUpperCase());
+            if (event?.reward?.type === 'profit') {
+                glitchProfit += (Number(event.reward.amount) || 0);
+            }
+        }
+    }
+    baseProfit += glitchProfit;
+    
+    // Skin bonus
     let skinBonusPercent = 0;
     if (player.currentSkinId && config.coinSkins) {
         const currentSkin = config.coinSkins.find(s => s.id === player.currentSkinId);
@@ -139,13 +150,12 @@ const recalculatePlayerProfitInDb = async (player, config) => {
         }
     }
     
-    // 3. Apply skin bonus to base profit
-    const profitWithSkinBonus = baseProfit * (1 + skinBonusPercent / 100);
+    const profitWithSkinBonus = (baseProfit || 0) * (1 + (skinBonusPercent / 100));
 
-    // 4. Add referral and cell bonuses (which are calculated separately and stored on the player object)
-    const finalProfit = profitWithSkinBonus + (player.referralProfitPerHour || 0) + (player.cellProfitBonus || 0);
+    // Final profit with robust NaN checking to prevent state corruption
+    const finalProfit = (profitWithSkinBonus || 0) + (player.referralProfitPerHour || 0) + (player.cellProfitBonus || 0);
     
-    player.profitPerHour = finalProfit;
+    player.profitPerHour = isNaN(finalProfit) ? 0 : finalProfit;
 
     return player;
 };
@@ -306,7 +316,7 @@ export const initializeDb = async () => {
             UPDATE players
             SET data = jsonb_set(
                 jsonb_set(data, '{marketCredits}', '0', true),
-                '{tonWalletAddress}', '""', true
+                jsonb_set(data, '{tonWalletAddress}', '""', true
             )
             WHERE data->>'marketCredits' IS NULL OR data->>'tonWalletAddress' IS NULL;
         `);
@@ -834,9 +844,13 @@ export const claimGlitchCodeInDb = async (userId, code) => {
         }
 
         if (event.reward.type === 'coins') {
-            player.balance = Number(player.balance || 0) + event.reward.amount;
+            player.balance = (Number(player.balance) || 0) + (Number(event.reward.amount) || 0);
         }
-        player.claimedGlitchCodes = [...(player.claimedGlitchCodes || []), event.code];
+        
+        const claimedCodes = new Set(player.claimedGlitchCodes || []);
+        claimedCodes.add(event.code);
+        player.claimedGlitchCodes = Array.from(claimedCodes);
+        
         player = await recalculatePlayerProfitInDb(player, config);
 
         const updatedPlayerRes = await client.query('UPDATE players SET data = $1 WHERE id = $2 RETURNING data', [player, userId]);
