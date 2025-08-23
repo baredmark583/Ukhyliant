@@ -918,6 +918,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderUiIconsConfig = () => {
         const renderGroup = (groupKey, iconsObject) => {
             const fields = Object.entries(iconsObject).map(([key, value]) => {
+                if (value === undefined) return ''; // Skip rendering if the key doesn't exist
                 const escapedValue = escapeHtml(value);
                 const uniqueId = `icon-preview-${groupKey}-${key}`;
                 return `
@@ -953,7 +954,7 @@ document.addEventListener('DOMContentLoaded', () => {
             marketCoinBox: generalIcons.marketCoinBox, marketStarBox: generalIcons.marketStarBox,
         };
         const generalGroup = {
-            soundOn: generalIcons.soundOn, soundOff: generalIcons.soundOff, secretCodeEntry: generalIcons.secretCodeEntry, languageSwitcher: generalIcons.languageSwitcher,
+            soundOn: generalIcons.soundOn, soundOff: generalIcons.soundOff, secretCodeEntry: generalIcons.secretCodeEntry, languageSwitcher: generalIcons.languageSwitcher, wallet: generalIcons.wallet,
         };
         
         const gameplayHtml = renderGroup('gameplay', gameplayGroup);

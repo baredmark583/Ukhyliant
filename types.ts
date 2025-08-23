@@ -182,6 +182,7 @@ export interface UiIcons {
   soundOff: string;
   secretCodeEntry: string;
   languageSwitcher: string;
+  wallet: string;
 }
 
 export interface BattleBoost {

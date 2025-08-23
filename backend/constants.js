@@ -71,7 +71,8 @@ export const INITIAL_UI_ICONS = {
     soundOn: 'https://api.iconify.design/ph/speaker-high-bold.svg?color=white',
     soundOff: 'https://api.iconify.design/ph/speaker-slash-bold.svg?color=white',
     secretCodeEntry: 'https://api.iconify.design/ph/radio-button-bold.svg?color=white',
-    languageSwitcher: 'https://api.iconify.design/ph/translate-bold.svg?color=white'
+    languageSwitcher: 'https://api.iconify.design/ph/translate-bold.svg?color=white',
+    wallet: 'https://api.iconify.design/ph/wallet-bold.svg?color=white'
 };
 
 export const INITIAL_GLITCH_EVENTS = [

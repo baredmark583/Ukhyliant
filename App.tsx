@@ -151,7 +151,7 @@ const NotInTelegramScreen: React.FC = () => (
 const ProfileTabButton = ({ label, iconUrl, isActive, onClick }: { label: string, iconUrl: string, isActive: boolean, onClick: () => void }) => (
     <button
         onClick={onClick}
-        className={`flex-1 flex flex-col items-center justify-center p-1 rounded-lg transition-colors duration-200 group aspect-square ${
+        className={`flex flex-col items-center justify-center p-1 rounded-lg transition-colors duration-200 group aspect-square ${
             isActive ? 'bg-slate-900 shadow-inner' : 'hover:bg-slate-700/50'
         }`}
     >
@@ -632,7 +632,7 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onResetBoostLimi
         <div className="flex flex-col h-full text-white items-center">
             <div className="w-full max-w-md sticky top-0 bg-[var(--bg-color)] pt-4 px-4 z-10">
                 <h1 className="text-3xl font-display text-center mb-4 cursor-pointer" onClick={() => handleMetaTap('profile-title')}>{t('profile')}</h1>
-                <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 flex flex-nowrap justify-around items-center gap-1 border border-slate-700">
+                <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 grid grid-cols-6 gap-1 border border-slate-700">
                     <ProfileTabButton label={t('sub_contacts')} iconUrl={config.uiIcons.profile_tabs.contacts} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
                     <ProfileTabButton label={t('sub_boosts')} iconUrl={config.uiIcons.profile_tabs.boosts} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
                     <ProfileTabButton label={t('sub_disguise')} iconUrl={config.uiIcons.profile_tabs.skins} isActive={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
@@ -791,7 +791,8 @@ const WalletConnector: React.FC<{
     playerState: PlayerState;
     gameApi: GameApi;
     showNotification: (message: string, type?: 'success' | 'error') => void;
-}> = ({ playerState, gameApi, showNotification }) => {
+    config: GameConfig;
+}> = ({ playerState, gameApi, showNotification, config }) => {
     const t = useTranslation();
     const wallet = useTonWallet();
     const [tonConnectUI] = useTonConnectUI();
@@ -832,7 +833,7 @@ const WalletConnector: React.FC<{
         <div className="card-glow bg-blue-900/30 border border-blue-500/50 rounded-2xl p-3 flex flex-col items-center space-y-3">
             <div className="flex items-start space-x-3 w-full">
                 <div className="bg-slate-900/50 shadow-inner rounded-lg p-1 w-14 h-14 flex-shrink-0">
-                    <img src="https://api.iconify.design/ph/wallet-bold.svg?color=white" alt="wallet" className="w-full h-full object-contain" />
+                    <img src={config.uiIcons.wallet} alt="wallet" className="w-full h-full object-contain" {...(isExternal(config.uiIcons.wallet) && { crossOrigin: 'anonymous' })}/>
                 </div>
                 <div className="flex-grow min-w-0">
                     <p className="text-white font-semibold">{t('connect_your_ton_wallet')}</p>
@@ -877,7 +878,8 @@ const AirdropScreen: React.FC<{
     uiIcons: UiIcons;
     gameApi: GameApi;
     showNotification: (message: string, type?: 'success' | 'error') => void;
-}> = ({ specialTasks, playerState, onClaim, onPurchase, user, startedTasks, uiIcons, gameApi, showNotification }) => {
+    config: GameConfig;
+}> = ({ specialTasks, playerState, onClaim, onPurchase, user, startedTasks, uiIcons, gameApi, showNotification, config }) => {
     const t = useTranslation();
     return (
         <div className="flex flex-col h-full text-white pt-4 px-4">
@@ -889,6 +891,7 @@ const AirdropScreen: React.FC<{
                         playerState={playerState}
                         gameApi={gameApi}
                         showNotification={showNotification}
+                        config={config}
                     />
                     {specialTasks.map(task => (
                        <div key={task.id}>
@@ -1377,7 +1380,7 @@ const MainApp: React.FC<{
       case 'exchange': return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={() => showNotification(t('tooltip_energy'), 'success')} onSuspicionClick={() => showNotification(t('tooltip_suspicion'), 'success')} isMuted={isMuted} toggleMute={toggleMute} handleMetaTap={handleMetaTap} />;
       case 'mine': return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} handleMetaTap={handleMetaTap}/>;
       case 'missions': return <MissionsScreen tasks={config.tasks} playerState={playerState} onClaim={handleTaskClaim} lang={user.language} startedTasks={startedTasks} uiIcons={config.uiIcons} />;
-      case 'airdrop': return <AirdropScreen specialTasks={config.specialTasks} playerState={playerState} onClaim={handleTaskClaim} onPurchase={handleTaskPurchase} user={user} startedTasks={startedTasks} uiIcons={config.uiIcons} gameApi={gameApi} showNotification={showNotification} />;
+      case 'airdrop': return <AirdropScreen specialTasks={config.specialTasks} playerState={playerState} onClaim={handleTaskClaim} onPurchase={handleTaskPurchase} user={user} startedTasks={startedTasks} uiIcons={config.uiIcons} gameApi={gameApi} showNotification={showNotification} config={config} />;
       case 'profile': return <ProfileScreen playerState={playerState} user={user} config={config} onBuyBoost={handleBuyBoost} onResetBoostLimit={handleResetBoostLimit} onSetSkin={setSkin} onOpenCoinLootbox={handleOpenCoinLootbox} onPurchaseStarLootbox={handlePurchaseStarLootbox} handleMetaTap={handleMetaTap} onOpenGlitchCodesModal={() => setIsGlitchCodesModalOpen(true)} showNotification={showNotification} boostLimitResetCostStars={config.boostLimitResetCostStars} gameApi={gameApi} />;
       default: return null;
     }
