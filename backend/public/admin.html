@@ -243,13 +243,17 @@
                             <span class="nav-link-title" data-translate="nav_cheaters">Cheaters</span>
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link tab-button" href="#videoModeration" data-tab="videoModeration" data-title-key="nav_video_moderation">
-                             <span class="nav-link-icon d-md-none d-lg-inline-block">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-video" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 10l4.553 -2.276a1 1 0 0 1 1.447 .894v6.764a1 1 0 0 1 -1.447 .894l-4.553 -2.276v-4z" /><path d="M3 6m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" /></svg>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#navbar-moderation" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="false">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-shield-check" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -5.154a12 12 0 0 0 8.5 5.154a12 12 0 0 1 -2.428 10.47" /><path d="M15 19l2 2l4 -4" /></svg>
                             </span>
-                            <span class="nav-link-title" data-translate="nav_video_moderation">Video Moderation</span>
+                            <span class="nav-link-title" data-translate="nav_moderation">Moderation</span>
                         </a>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item tab-button" href="#videoModeration" data-tab="videoModeration" data-title-key="nav_video_moderation" data-translate="nav_video_moderation">Video Moderation</a>
+                            <a class="dropdown-item tab-button" href="#withdrawalRequests" data-tab="withdrawalRequests" data-title-key="nav_withdrawal_requests" data-translate="nav_withdrawal_requests">Withdrawal Requests</a>
+                        </div>
                     </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#navbar-events" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="false">

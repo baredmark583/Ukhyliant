@@ -4,7 +4,9 @@ window.LOCALES = {
         'nav_dashboard': 'Dashboard',
         'nav_players': 'Players',
         'nav_cheaters': 'Cheaters',
+        'nav_moderation': 'Moderation',
         'nav_video_moderation': 'Video Moderation',
+        'nav_withdrawal_requests': 'Withdrawal Requests',
         'nav_game_events': 'Game Events',
         'nav_daily_events': 'Daily Events',
         'nav_special_tasks': 'Special Tasks',
@@ -28,6 +30,7 @@ window.LOCALES = {
         'players': 'Players',
         'cheaters': 'Cheaters',
         'videoModeration': 'Video Moderation',
+        'withdrawalRequests': 'Withdrawal Requests',
         'dailyEvents': 'Daily Events',
         'upgrades': 'Upgrades',
         'tasks': 'Daily Tasks',
@@ -118,6 +121,15 @@ window.LOCALES = {
         'status_rejected': 'Rejected',
         'no_submissions': 'No submissions found.',
         'loading_submissions': 'Loading submissions...',
+
+        // Withdrawal Requests
+        'withdrawal_requests_desc': 'Review and process player withdrawal requests.',
+        'wallet_address': 'Wallet Address',
+        'requested_at': 'Requested At',
+        'processed_at': 'Processed At',
+        'no_withdrawal_requests': 'No withdrawal requests found.',
+        'confirm_approve_withdrawal': 'Are you sure you want to mark this withdrawal as APPROVED? You must process the payment manually.',
+        'confirm_reject_withdrawal': 'Are you sure you want to REJECT this withdrawal request?',
 
         // Socials Edit Modal
         'edit_youtube_settings': 'Edit YouTube Settings',
@@ -302,6 +314,7 @@ window.LOCALES = {
         'icon_profile_tabs_skins': 'Skins Tab Icon',
         'icon_profile_tabs_market': 'Market Tab Icon',
         'icon_profile_tabs_cell': 'Cell Tab Icon',
+        'icon_profile_tabs_content': 'Content Tab Icon',
 
         // Player Details Modal
         'player_details': 'Player Details',
@@ -336,7 +349,9 @@ window.LOCALES = {
         'nav_dashboard': 'Дашборд',
         'nav_players': 'Игроки',
         'nav_cheaters': 'Читеры',
+        'nav_moderation': 'Модерация',
         'nav_video_moderation': 'Модерация Видео',
+        'nav_withdrawal_requests': 'Запросы на вывод',
         'nav_game_events': 'События игры',
         'nav_daily_events': 'Ежедневные события',
         'nav_special_tasks': 'Спец. Задания',
@@ -360,6 +375,7 @@ window.LOCALES = {
         'players': 'Игроки',
         'cheaters': 'Читеры',
         'videoModeration': 'Модерация Видео',
+        'withdrawalRequests': 'Запросы на вывод',
         'dailyEvents': 'Ежедневные События',
         'upgrades': 'Улучшения',
         'tasks': 'Ежедневные Задания',
@@ -450,6 +466,15 @@ window.LOCALES = {
         'status_rejected': 'Отклонено',
         'no_submissions': 'Заявок не найдено.',
         'loading_submissions': 'Загрузка заявок...',
+        
+        // Withdrawal Requests
+        'withdrawal_requests_desc': 'Просмотр и обработка запросов игроков на вывод средств.',
+        'wallet_address': 'Адрес кошелька',
+        'requested_at': 'Дата запроса',
+        'processed_at': 'Дата обработки',
+        'no_withdrawal_requests': 'Запросов на вывод не найдено.',
+        'confirm_approve_withdrawal': 'Вы уверены, что хотите пометить этот вывод как ОДОБРЕННЫЙ? Вы должны обработать платеж вручную.',
+        'confirm_reject_withdrawal': 'Вы уверены, что хотите ОТКЛОНИТЬ этот запрос на вывод?',
 
         // Socials Edit Modal
         'edit_youtube_settings': 'Настройки YouTube',
@@ -634,6 +659,7 @@ window.LOCALES = {
         'icon_profile_tabs_skins': 'Иконка вкладки "Скины"',
         'icon_profile_tabs_market': 'Иконка вкладки "Рынок"',
         'icon_profile_tabs_cell': 'Иконка вкладки "Ячейка"',
+        'icon_profile_tabs_content': 'Иконка вкладки "Контент"',
         
         // Player Details Modal
         'player_details': 'Детали игрока',
@@ -669,7 +695,9 @@ window.LOCALES = {
         'nav_dashboard': 'Дашборд',
         'nav_players': 'Гравці',
         'nav_cheaters': 'Чітери',
+        'nav_moderation': 'Модерація',
         'nav_video_moderation': 'Модерація Відео',
+        'nav_withdrawal_requests': 'Запити на виведення',
         'nav_game_events': 'Ігрові події',
         'nav_daily_events': 'Щоденні події',
         'nav_special_tasks': 'Спец. Завдання',
@@ -693,6 +721,7 @@ window.LOCALES = {
         'players': 'Гравці',
         'cheaters': 'Чітери',
         'videoModeration': 'Модерація Відео',
+        'withdrawalRequests': 'Запити на виведення',
         'dailyEvents': 'Щоденні Події',
         'upgrades': 'Покращення',
         'tasks': 'Щоденні Завдання',
@@ -783,6 +812,15 @@ window.LOCALES = {
         'status_rejected': 'Відхилено',
         'no_submissions': 'Заявок не знайдено.',
         'loading_submissions': 'Завантаження заявок...',
+        
+        // Withdrawal Requests
+        'withdrawal_requests_desc': 'Перегляд та обробка запитів гравців на виведення коштів.',
+        'wallet_address': 'Адреса гаманця',
+        'requested_at': 'Дата запиту',
+        'processed_at': 'Дата обробки',
+        'no_withdrawal_requests': 'Запитів на виведення не знайдено.',
+        'confirm_approve_withdrawal': 'Ви впевнені, що хочете позначити цей вивід як СХВАЛЕНИЙ? Ви повинні обробити платіж вручну.',
+        'confirm_reject_withdrawal': 'Ви впевнені, що хочете ВІДХИЛИТИ цей запит на виведення?',
 
         // Socials Edit Modal
         'edit_youtube_settings': 'Налаштування YouTube',
@@ -967,6 +1005,7 @@ window.LOCALES = {
         'icon_profile_tabs_skins': 'Іконка вкладки "Скіни"',
         'icon_profile_tabs_market': 'Іконка вкладки "Ринок"',
         'icon_profile_tabs_cell': 'Іконка вкладки "Осередок"',
+        'icon_profile_tabs_content': 'Іконка вкладки "Контент"',
         
         // Player Details Modal
         'player_details': 'Деталі гравця',

@@ -225,6 +225,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'videoModeration':
                 renderVideoModeration();
                 break;
+            case 'withdrawalRequests':
+                renderWithdrawalRequests();
+                break;
             case 'dailyEvents':
                 renderDailyEvents();
                 break;
@@ -635,6 +638,61 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <th>${t('submitted_at')}</th>
                                 <th>${t('reward_amount')}</th>
                                 <th>${t('actions')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        applyTranslationsToDOM();
+    };
+
+    const renderWithdrawalRequests = async () => {
+        showLoading('loading');
+        const requests = await fetchData('withdrawal-requests');
+
+        const getStatusBadge = (status) => {
+            switch (status) {
+                case 'pending': return `<span class="badge bg-yellow-lt">${t('status_pending')}</span>`;
+                case 'approved': return `<span class="badge bg-green-lt">${t('status_approved')}</span>`;
+                case 'rejected': return `<span class="badge bg-red-lt">${t('status_rejected')}</span>`;
+                default: return status;
+            }
+        };
+
+        const tableRows = requests && requests.length > 0
+            ? requests.map(req => `
+                <tr>
+                    <td>${escapeHtml(req.player_name)}</td>
+                    <td><code class="text-secondary" title="${escapeHtml(req.ton_wallet)}">${escapeHtml(req.ton_wallet)}</code></td>
+                    <td>${formatNumber(req.amount_credits)}</td>
+                    <td>${getStatusBadge(req.status)}</td>
+                    <td>${new Date(req.created_at).toLocaleString()}</td>
+                    <td>
+                        ${req.status === 'pending' ? `
+                            <button class="btn btn-sm btn-success" data-action="approve-withdrawal" data-id="${req.id}">${t('approve')}</button>
+                            <button class="btn btn-sm btn-danger ms-2" data-action="reject-withdrawal" data-id="${req.id}">${t('reject')}</button>
+                        ` : (req.processed_at ? new Date(req.processed_at).toLocaleString() : '')}
+                    </td>
+                </tr>
+            `).join('')
+            : `<tr><td colspan="6" class="text-center text-secondary">${t('no_withdrawal_requests')}</td></tr>`;
+
+        tabContainer.innerHTML = `
+            <div class="card">
+                <div class="card-header"><h3 class="card-title" data-translate="withdrawal_requests"></h3></div>
+                <div class="card-body"><p class="text-secondary" data-translate="withdrawal_requests_desc"></p></div>
+                <div class="table-responsive">
+                    <table class="table card-table table-vcenter">
+                        <thead>
+                            <tr>
+                                <th>${t('player_name')}</th>
+                                <th>${t('wallet_address')}</th>
+                                <th>${t('amount')}</th>
+                                <th>${t('status')}</th>
+                                <th>${t('requested_at')}</th>
+                                <th>${t('actions')} / ${t('processed_at')}</th>
                             </tr>
                         </thead>
                         <tbody>${tableRows}</tbody>
@@ -1248,7 +1306,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoading();
         localConfig = await fetchData('config') || {};
         const hash = window.location.hash.slice(1);
-        if (configMeta[hash] || ['players', 'cheaters', 'dailyEvents', 'cellAnalytics', 'cellConfiguration', 'videoModeration'].includes(hash)) {
+        if (configMeta[hash] || ['players', 'cheaters', 'dailyEvents', 'cellAnalytics', 'cellConfiguration', 'videoModeration', 'withdrawalRequests'].includes(hash)) {
             activeTab = hash;
         }
         render();
@@ -1402,6 +1460,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     break;
                 }
+                case 'approve-withdrawal':
+                    if (confirm(t('confirm_approve_withdrawal'))) {
+                        await postData(`withdrawal-requests/${id}/approve`);
+                        renderWithdrawalRequests();
+                    }
+                    break;
+                case 'reject-withdrawal':
+                    if (confirm(t('confirm_reject_withdrawal'))) {
+                        await postData(`withdrawal-requests/${id}/reject`);
+                        renderWithdrawalRequests();
+                    }
+                    break;
             }
         });
 
