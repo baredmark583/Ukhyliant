@@ -2181,7 +2181,7 @@ export const getDashboardStats = async () => {
         SELECT
             (SELECT COUNT(*) FROM users) as "totalPlayers",
             (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '24 hours') as "newPlayersToday",
-            (SELECT jsonb_object_agg(upgrade_id, purchase_count) FROM (
+            (SELECT jsonb_agg(popular) FROM (
                 SELECT
                     t.key as upgrade_id,
                     COUNT(*) as purchase_count
