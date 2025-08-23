@@ -417,3 +417,15 @@ body {
   height: 1rem;
   border-width: 0.2em;
 }
+
+/* --- Floating Tap Value Animation --- */
+@keyframes floatUp {
+  0% {
+    transform: translateY(0) scale(1) translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-80px) scale(0.8) translateX(var(--x-offset));
+    opacity: 0;
+  }
+}
