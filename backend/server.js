@@ -1,5 +1,3 @@
-
-
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -113,6 +111,7 @@ const log = (level, message, data = '') => {
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.set('trust proxy', 1);
 app.use(cors({ origin: '*', credentials: true }));
 // Use express.json() for all routes EXCEPT the webhook
 app.use((req, res, next) => {
@@ -417,7 +416,6 @@ app.post('/api/player/:id', async (req, res) => {
 
         const dbRes = await dbClient.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [id]);
         if (dbRes.rows.length === 0) {
-            // This case should be rare, but handle it gracefully
             await dbClient.query('INSERT INTO players (id, data) VALUES ($1, $2)', [id, clientState]);
             await dbClient.query('COMMIT');
             return res.status(201).json(clientState);
@@ -432,36 +430,34 @@ app.post('/api/player/:id', async (req, res) => {
         
         let finalState = { ...serverState };
         let stateUpdatedForClient = false;
+        
+        // --- Authoritative Server-Side Balance Calculation ---
+        // 1. Calculate the value of taps performed by the client.
+        const baseTap = serverState.coinsPerTap || 1;
+        const level = serverState.tapGuruLevel || 0;
+        const effectiveCoinsPerTap = Math.ceil(baseTap * Math.pow(1.5, level));
+        // Note: Turbo mode is not factored in here as it's a client-side transient effect.
+        // The main goal is to secure the base balance calculation.
+        const tapEarnings = (clientTaps || 0) * effectiveCoinsPerTap;
 
-        // --- Core Sync and Update Logic ---
-        if (serverState.forceSync) {
-            // Admin reset has occurred. Server state is the source of truth.
-            // Ignore client's balance and energy, just apply new taps.
-            finalState.balance = (Number(serverState.balance) || 0) + Number(clientTaps || 0);
-            finalState.energy = clientState.energy;
-            finalState.dailyTaps = clientState.dailyTaps;
-            
-            delete finalState.forceSync; // Sync is done, remove the flag.
+        // 2. Update the server's balance authoritatively.
+        // We start with the server's balance, not the client's.
+        finalState.balance = (Number(serverState.balance) || 0) + tapEarnings;
+        
+        // 3. Update high-frequency fields from the client that are safe to trust.
+        finalState.energy = clientState.energy;
+        finalState.dailyTaps = clientState.dailyTaps;
+
+        // --- Handle other state updates ---
+        const adminBonus = Number(serverState.adminBonus) || 0;
+        if (adminBonus !== 0) {
+            finalState.balance += adminBonus;
+            finalState.adminBonus = 0; // Clear the bonus after applying
             stateUpdatedForClient = true;
-            log('info', `Forcing sync for user ${id} after admin reset.`);
-        } else {
-            // Standard update logic
-            // 1. Apply any pending admin bonus.
-            const adminBonus = Number(serverState.adminBonus) || 0;
-            if (adminBonus !== 0) {
-                finalState.balance = (Number(clientState.balance) || 0) + adminBonus;
-                finalState.adminBonus = 0;
-                stateUpdatedForClient = true;
-                log('info', `Applied admin bonus of ${adminBonus} to user ${id}.`);
-            } else {
-                finalState.balance = clientState.balance;
-            }
-             // 2. Update high-frequency fields from the client.
-            finalState.energy = clientState.energy;
-            finalState.dailyTaps = clientState.dailyTaps;
+            log('info', `Applied admin bonus of ${adminBonus} to user ${id}.`);
         }
 
-        // --- Anti-Cheat Check (applied on both paths) ---
+        // --- Anti-Cheat Check ---
         const timeDiff = (Date.now() - (serverState.lastLoginTimestamp || Date.now())) / 1000;
         if (timeDiff > 0.1 && clientTaps > 0) {
             const tps = clientTaps / timeDiff;
@@ -472,7 +468,7 @@ app.post('/api/player/:id', async (req, res) => {
                     finalState.isCheater = true;
                 }
                 log('warn', `High TPS detected for user ${id}: ${tps.toFixed(2)}`);
-                 stateUpdatedForClient = true; // Make sure client knows about cheat status
+                 stateUpdatedForClient = true;
             }
         }
 
@@ -1270,7 +1266,18 @@ app.post('/admin/api/generate-ai-content', checkAdminAuth, async (req, res) => {
             description: "Describes what triggers the event. Use one of the allowed types and its corresponding parameters.",
             properties: {
                 type: { type: Type.STRING, enum: ['meta_tap', 'login_at_time', 'balance_equals', 'upgrade_purchased'] },
-                params: { type: Type.OBJECT, description: "Parameters for the trigger type. E.g., for 'meta_tap', use { 'targetId': '...', 'taps': 10 }." }
+                params: {
+                    type: Type.OBJECT,
+                    description: "Parameters for the trigger. Only populate the parameters relevant to the chosen 'type'.",
+                    properties: {
+                        targetId: { type: Type.STRING, nullable: true, description: "For 'meta_tap' trigger." },
+                        taps: { type: Type.INTEGER, nullable: true, description: "For 'meta_tap' trigger." },
+                        hour: { type: Type.INTEGER, nullable: true, description: "For 'login_at_time' trigger (UTC hour 0-23)." },
+                        minute: { type: Type.INTEGER, nullable: true, description: "For 'login_at_time' trigger (minute 0-59)." },
+                        amount: { type: Type.INTEGER, nullable: true, description: "For 'balance_equals' trigger." },
+                        upgradeId: { type: Type.STRING, nullable: true, description: "For 'upgrade_purchased' trigger." },
+                    }
+                }
             },
             required: ["type", "params"]
         };
@@ -1291,23 +1298,25 @@ app.post('/admin/api/generate-ai-content', checkAdminAuth, async (req, res) => {
         const finalResponseSchema = {
             type: Type.OBJECT,
             properties: {
-                upgrades: { type: Type.ARRAY, items: upgradeSchema, nullable: true },
-                tasks: { type: Type.ARRAY, items: taskSchema, nullable: true },
-                specialTasks: { type: Type.ARRAY, items: specialTaskSchema, nullable: true },
-                boosts: { type: Type.ARRAY, items: boostSchema, nullable: true },
-                blackMarketCards: { type: Type.ARRAY, items: blackMarketCardSchema, nullable: true },
-                coinSkins: { type: Type.ARRAY, items: coinSkinSchema, nullable: true },
-                glitchEvents: { type: Type.ARRAY, items: glitchEventSchema, nullable: true },
+                upgrades: { type: Type.ARRAY, items: upgradeSchema },
+                tasks: { type: Type.ARRAY, items: taskSchema },
+                specialTasks: { type: Type.ARRAY, items: specialTaskSchema },
+                boosts: { type: Type.ARRAY, items: boostSchema },
+                blackMarketCards: { type: Type.ARRAY, items: blackMarketCardSchema },
+                coinSkins: { type: Type.ARRAY, items: coinSkinSchema },
+                glitchEvents: { type: Type.ARRAY, items: glitchEventSchema },
             },
         };
 
-        const systemInstruction = `You are a game designer for a satirical clicker game called 'Ukhyliant Clicker'. The game is set in a dystopian society, heavily inspired by Orwell's '1984', but with a modern Ukrainian context of war and mobilization. The player is a 'draft dodger' (ухилянт) trying to survive and profit. Your task is to generate new in-game content that is dark, humorous, and satirical based on the user's prompt.
-- The content should reflect the absurd and grim reality of dodging the draft, dealing with bureaucracy, finding loopholes, and navigating a surveillance state.
+        const systemInstruction = `You are a game mechanics generator. Everything you create exists in a dystopian reality.
+The setting is a mix of "1984", Nazi Germany, modern New York, Tokyo, and Hong Kong with a cyberpunk atmosphere, but without a specific future. The country is in a state of war, ruin, total surveillance, dictatorship, and propaganda. The player operates through a terminal: hacking servers, ministries of truth, accounting departments, spying, stealing information, upgrading cards, and using a glitch mechanic. Everything should feel dangerous, risky, and paranoid.
+Your main goal is to generate a rich and diverse set of content across ALL available categories (upgrades, tasks, boosts, etc.) that fits the user's prompt. Do not generate just one type of item unless specifically asked.
+- The content must reflect the absurd and grim reality of dodging the draft, dealing with bureaucracy, finding loopholes, and navigating a surveillance state.
 - Balance the game by making prices and profits reasonable but escalating.
 - For 'iconUrl' and 'imageUrl', provide a valid URL from api.iconify.design that thematically fits the item.
 - For 'id', create a short, unique string with a prefix indicating the type (e.g., 'ai_upg_1', 'ai_tsk_1').
 - Provide all localizable strings ('name', 'description', 'message') in English (en), Ukrainian (ua), and Russian (ru).
-- The generated content must strictly adhere to the provided JSON schema. Only generate properties that are part of the schema.
+- The generated content must strictly adhere to the provided JSON schema. You MUST attempt to populate all categories.
 - If the user's prompt is empty or too generic, generate a diverse set of 2-3 items for each of the following categories: upgrades, daily tasks, airdrop tasks, and boosts.`;
 
         const userPrompt = customPrompt || "The user did not provide a prompt. Generate a diverse starter pack of content.";

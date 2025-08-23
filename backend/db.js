@@ -1996,20 +1996,24 @@ export const checkAndManageBattles = async (config) => {
                  const lastBattleEnd = new Date(lastBattleRes.rows[0].end_time);
                  const daysSinceLastBattle = (now - lastBattleEnd) / (1000 * 60 * 60 * 24);
                  
-                 if (schedule.frequency === 'weekly' && daysSinceLastBattle < 6.5) shouldStart = false;
-                 if (schedule.frequency === 'biweekly' && daysSinceLastBattle < 13.5) shouldStart = false;
-                 if (schedule.frequency === 'monthly' && now.getUTCDate() < 25) shouldStart = false;
+                 if (schedule.frequency === 'weekly' && daysSinceLastBattle < 6) {
+                     shouldStart = false;
+                 } else if (schedule.frequency === 'biweekly' && daysSinceLastBattle < 13) {
+                     shouldStart = false;
+                 } else if (schedule.frequency === 'monthly' && daysSinceLastBattle < 27) {
+                     shouldStart = false;
+                 }
              }
-
+             
              if (shouldStart) {
-                 await startNewBattle(schedule, client);
+                await startNewBattle(schedule, client);
              }
         }
         
         await client.query('COMMIT');
-    } catch (e) {
+    } catch(e) {
         await client.query('ROLLBACK');
-        console.error("Error in checkAndManageBattles cron job:", e);
+        console.error("[BATTLE_CRON] Error managing battles:", e);
     } finally {
         client.release();
     }
@@ -2020,7 +2024,9 @@ export const forceStartBattle = async (config) => {
     try {
         await client.query('BEGIN');
         const activeBattleRes = await client.query("SELECT id FROM cell_battles WHERE end_time > NOW()");
-        if (activeBattleRes.rows.length > 0) throw new Error("A battle is already active.");
+        if (activeBattleRes.rows.length > 0) {
+            throw new Error("A battle is already active. End it first.");
+        }
         const schedule = config.battleSchedule || BATTLE_SCHEDULE_DEFAULT;
         await startNewBattle(schedule, client);
         await client.query('COMMIT');
@@ -2036,9 +2042,15 @@ export const forceEndBattle = async (config) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const battleRes = await client.query("UPDATE cell_battles SET end_time = NOW() WHERE end_time > NOW() AND rewards_distributed = FALSE RETURNING id");
-        if(battleRes.rows.length > 0) {
-            await distributeBattleRewards(battleRes.rows[0].id, client, config);
+        const endedBattlesRes = await client.query(
+            "SELECT id FROM cell_battles WHERE end_time > NOW() FOR UPDATE"
+        );
+        if (endedBattlesRes.rows.length === 0) {
+            throw new Error("No active battle to end.");
+        }
+        for (const battle of endedBattlesRes.rows) {
+            await client.query("UPDATE cell_battles SET end_time = NOW() WHERE id = $1", [battle.id]);
+            await distributeBattleRewards(battle.id, client, config);
         }
         await client.query('COMMIT');
     } catch(e) {
@@ -2049,170 +2061,41 @@ export const forceEndBattle = async (config) => {
     }
 };
 
-export const getAllPlayersForAdmin = async () => {
-    const res = await executeQuery(`
-        SELECT 
-            u.id, 
-            u.name, 
-            p.data->>'balance' as balance,
-            p.data->>'profitPerHour' as "profitPerHour",
-            p.data->>'referrals' as referrals,
-            u.language,
-            p.data->>'tonWalletAddress' as "tonWalletAddress"
-        FROM users u
-        JOIN players p ON u.id = p.id
-        ORDER BY (p.data->>'balance')::numeric DESC
-    `);
-    return res.rows.map(row => ({
-        ...row,
-        balance: parseFloat(row.balance),
-        profitPerHour: parseFloat(row.profitPerHour),
-        referrals: parseInt(row.referrals, 10)
-    }));
-};
-
-export const getDashboardStats = async () => {
-    const totalPlayersRes = await executeQuery('SELECT COUNT(*) FROM users');
-    const newPlayersRes = await executeQuery("SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '24 hours'");
-    const totalProfitRes = await executeQuery("SELECT SUM((data->>'profitPerHour')::numeric) as total_profit FROM players");
-    const popularUpgradesRes = await executeQuery(`
-        SELECT key as upgrade_id, COUNT(*) as purchase_count
-        FROM players, jsonb_each_text(data->'upgrades')
-        GROUP BY key
-        ORDER BY purchase_count DESC
-        LIMIT 5;
-    `);
-    const registrationsRes = await executeQuery(`
-        SELECT date_trunc('day', created_at)::date as date, COUNT(*) as count
-        FROM users
-        WHERE created_at >= NOW() - INTERVAL '7 days'
-        GROUP BY 1
-        ORDER BY 1;
-    `);
-
-    return {
-        totalPlayers: totalPlayersRes.rows[0].count,
-        newPlayersToday: newPlayersRes.rows[0].count,
-        totalProfitPerHour: totalProfitRes.rows[0].total_profit,
-        popularUpgrades: popularUpgradesRes.rows,
-        registrations: registrationsRes.rows
-    };
-};
-
-export const getOnlinePlayerCount = async () => {
-    const res = await executeQuery("SELECT COUNT(*) FROM users WHERE last_seen >= NOW() - INTERVAL '5 minutes'");
-    return res.rows[0].count;
-};
-
-export const getPlayerLocations = async () => {
-    const res = await executeQuery("SELECT country, COUNT(*) as player_count FROM users WHERE country IS NOT NULL GROUP BY country");
-    return res.rows;
-};
-
-export const resetPlayerDailyProgress = async (userId, player) => {
-    player.lastDailyReset = Date.now();
-    player.completedDailyTaskIds = [];
-    player.dailyTaps = 0;
-    player.claimedComboToday = false;
-    player.claimedCipherToday = false;
-    player.dailyBoostPurchases = {};
-    player.comboTokens = {};
-    await savePlayer(userId, player);
-    return player;
-};
-
-export const getLeaderboardData = async () => {
-    const res = await executeQuery(`
-        SELECT u.id, u.name, (p.data->>'profitPerHour')::numeric as "profitPerHour"
-        FROM users u
-        JOIN players p ON u.id = p.id
-        ORDER BY "profitPerHour" DESC
-        LIMIT 100
-    `);
-    return res.rows;
-};
-
-export const getTotalPlayerCount = async () => {
-    const res = await executeQuery('SELECT COUNT(*) FROM users');
-    return parseInt(res.rows[0].count, 10);
-};
-
-export const getPlayerDetails = async (userId) => {
-    const user = await getUser(userId);
-    const player = await getPlayer(userId);
-    if (!user || !player) return null;
-    return { ...user, ...player };
-};
-
-export const updatePlayerBalance = async (userId, amount) => {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [userId]);
-        if (playerRes.rows.length === 0) throw new Error("Player not found");
-        let player = playerRes.rows[0].data;
-        player.balance = (Number(player.balance) || 0) + Number(amount);
-        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, userId]);
-        await client.query('COMMIT');
-    } catch(e) {
-        await client.query('ROLLBACK');
-        throw e;
-    } finally {
-        client.release();
-    }
-};
-
-export const getCheaters = async () => {
-    const res = await executeQuery("SELECT u.id, u.name FROM users u JOIN players p ON u.id = p.id WHERE p.data->>'isCheater' = 'true'");
-    return res.rows;
-};
-
-export const resetPlayerProgress = async (userId) => {
-    const player = await getPlayer(userId);
-    if (!player) return;
-    
-    player.balance = 0;
-    player.profitPerHour = 0;
-    player.upgrades = {};
-    player.isCheater = false;
-    player.cheatLog = [];
-    player.cheatStrikes = 0;
-    await savePlayer(userId, player);
-};
-
 export const getCellAnalytics = async () => {
     const kpiRes = await executeQuery(`
         SELECT
             (SELECT COUNT(*) FROM cells) as "totalCells",
             (SELECT COUNT(DISTINCT cell_id) FROM cell_battle_participants) as "battleParticipants",
             (SELECT SUM(balance) FROM cells) as "totalBank",
-            (SELECT SUM(ticket_count) FROM cells) as "ticketsSpent"
+            (SELECT COUNT(*) FROM cell_battle_participants) as "ticketsSpent"
     `);
     
     const leaderboardRes = await executeQuery(`
         SELECT 
-            c.id, c.name, 
-            COUNT(p.id) as members, 
-            c.balance,
-            SUM((p.data->>'profitPerHour')::numeric) as total_profit
-        FROM cells c
-        LEFT JOIN players p ON (p.data->>'cellId')::int = c.id
-        GROUP BY c.id, c.name, c.balance
-        ORDER BY total_profit DESC NULLS LAST
-        LIMIT 100;
+            c.id, c.name, c.balance,
+            (SELECT COUNT(*) FROM players WHERE (data->>'cellId')::int = c.id) as members,
+            (SELECT SUM((data->>'profitPerHour')::numeric) FROM players WHERE (data->>'cellId')::int = c.id) as total_profit
+        FROM cells c ORDER BY total_profit DESC NULLS LAST LIMIT 20
     `);
 
     const battleHistoryRes = await executeQuery(`
-        SELECT id, end_time, winner_details
-        FROM cell_battles
-        WHERE rewards_distributed = TRUE
-        ORDER BY end_time DESC
-        LIMIT 10;
+        SELECT id, end_time, winner_details FROM cell_battles 
+        WHERE rewards_distributed = TRUE ORDER BY end_time DESC LIMIT 10
     `);
 
     return {
-        kpi: kpiRes.rows[0],
-        leaderboard: leaderboardRes.rows,
+        kpi: {
+            totalCells: parseInt(kpiRes.rows[0].totalCells, 10),
+            battleParticipants: parseInt(kpiRes.rows[0].battleParticipants, 10),
+            totalBank: parseFloat(kpiRes.rows[0].totalBank || '0'),
+            ticketsSpent: parseInt(kpiRes.rows[0].ticketsSpent, 10),
+        },
+        leaderboard: leaderboardRes.rows.map(r => ({
+            ...r,
+            balance: parseFloat(r.balance),
+            members: parseInt(r.members, 10),
+            total_profit: parseFloat(r.total_profit || '0')
+        })),
         battleHistory: battleHistoryRes.rows
     };
 };
@@ -2224,7 +2107,7 @@ export const getAllUserIds = async () => {
 
 export const getWithdrawalRequestsForAdmin = async () => {
     const res = await executeQuery(`
-        SELECT wr.*, u.name as player_name
+        SELECT wr.*, u.name as player_name 
         FROM withdrawal_requests wr
         JOIN users u ON wr.player_id = u.id
         ORDER BY wr.status = 'pending' DESC, wr.created_at DESC
@@ -2233,13 +2116,188 @@ export const getWithdrawalRequestsForAdmin = async () => {
 };
 
 export const updateWithdrawalRequestStatusInDb = async (requestId, status) => {
-    await executeQuery(
-        "UPDATE withdrawal_requests SET status = $1, processed_at = NOW() WHERE id = $2 AND status = 'pending'",
-        [status, requestId]
-    );
+    if (!['approved', 'rejected'].includes(status)) {
+        throw new Error("Invalid status.");
+    }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const requestRes = await client.query('SELECT * FROM withdrawal_requests WHERE id = $1 AND status = \'pending\' FOR UPDATE', [requestId]);
+        if (requestRes.rows.length === 0) {
+            throw new Error("Request not found or already processed.");
+        }
+        const request = requestRes.rows[0];
+
+        if (status === 'rejected') {
+            // Refund the credits to the player
+            const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [request.player_id]);
+            if (playerRes.rows.length > 0) {
+                let player = playerRes.rows[0].data;
+                player.marketCredits = (Number(player.marketCredits) || 0) + parseFloat(request.amount_credits);
+                await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, request.player_id]);
+            }
+        }
+        
+        await client.query('UPDATE withdrawal_requests SET status = $1, processed_at = NOW() WHERE id = $2', [status, requestId]);
+        await client.query('COMMIT');
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
 };
 
 export const getPlayerWithdrawalRequests = async (playerId) => {
     const res = await executeQuery('SELECT * FROM withdrawal_requests WHERE player_id = $1 ORDER BY created_at DESC', [playerId]);
     return res.rows;
+};
+
+export const getAllPlayersForAdmin = async () => {
+    const res = await executeQuery(`
+        SELECT 
+            u.id, 
+            u.name, 
+            u.language,
+            p.data->>'balance' as balance, 
+            p.data->>'profitPerHour' as "profitPerHour",
+            p.data->>'referrals' as referrals,
+            p.data->>'tonWalletAddress' as "tonWalletAddress"
+        FROM users u 
+        LEFT JOIN players p ON u.id = p.id
+        ORDER BY (p.data->>'balance')::numeric DESC NULLS LAST
+    `);
+    return res.rows.map(r => ({
+        ...r,
+        balance: parseFloat(r.balance || '0'),
+        profitPerHour: parseFloat(r.profitPerHour || '0'),
+        referrals: parseInt(r.referrals || '0', 10),
+    }));
+};
+
+export const getDashboardStats = async () => {
+    const res = await executeQuery(`
+        SELECT
+            (SELECT COUNT(*) FROM users) as "totalPlayers",
+            (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '24 hours') as "newPlayersToday",
+            (SELECT jsonb_object_agg(upgrade_id, purchase_count) FROM (
+                SELECT 
+                    key as upgrade_id, 
+                    COUNT(*) as purchase_count
+                FROM players, jsonb_each_text(data->'upgrades')
+                GROUP BY key
+                ORDER BY purchase_count DESC
+                LIMIT 5
+            ) as popular) as "popularUpgrades",
+            (SELECT SUM((data->>'profitPerHour')::numeric) FROM players) as "totalProfitPerHour",
+            (SELECT array_agg(json_build_object('date', day, 'count', count)) FROM (
+                SELECT date_trunc('day', created_at)::date as day, COUNT(*) as count 
+                FROM users 
+                WHERE created_at >= NOW() - INTERVAL '7 days' 
+                GROUP BY day ORDER BY day
+            ) as daily_regs) as "registrations"
+    `);
+    return {
+        ...res.rows[0],
+        totalPlayers: parseInt(res.rows[0].totalPlayers, 10),
+        newPlayersToday: parseInt(res.rows[0].newPlayersToday, 10),
+        totalProfitPerHour: parseFloat(res.rows[0].totalProfitPerHour || '0'),
+        totalStarsEarned: 0, // Placeholder, implement if you track stars
+    };
+};
+
+export const getOnlinePlayerCount = async () => {
+    const res = await executeQuery("SELECT COUNT(*) FROM users WHERE last_seen >= NOW() - INTERVAL '5 minutes'");
+    return parseInt(res.rows[0].count, 10);
+};
+
+export const getPlayerLocations = async () => {
+    const res = await executeQuery("SELECT country, COUNT(*) as player_count FROM users WHERE country IS NOT NULL GROUP BY country");
+    return res.rows;
+};
+
+export const resetPlayerDailyProgress = async (playerId, player) => {
+    player.lastDailyReset = Date.now();
+    player.completedDailyTaskIds = [];
+    player.dailyTaps = 0;
+    player.claimedComboToday = false;
+    player.claimedCipherToday = false;
+    player.dailyBoostPurchases = {};
+    player.comboTokens = {}; // Reset combo tokens for the new day
+    await savePlayer(playerId, player);
+    return player;
+};
+
+export const getLeaderboardData = async () => {
+    const res = await executeQuery(`
+        SELECT u.id, u.name, (p.data->>'profitPerHour')::numeric as "profitPerHour"
+        FROM users u JOIN players p ON u.id = p.id
+        ORDER BY "profitPerHour" DESC NULLS LAST
+        LIMIT 100
+    `);
+    return res.rows;
+};
+
+export const getTotalPlayerCount = async () => {
+    const res = await executeQuery("SELECT COUNT(*) FROM users");
+    return parseInt(res.rows[0].count, 10);
+};
+
+export const getPlayerDetails = async (playerId) => {
+    const user = await getUser(playerId);
+    const player = await getPlayer(playerId);
+    return { ...user, ...player };
+};
+
+export const updatePlayerBalance = async (playerId, amount) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [playerId]);
+        if (playerRes.rows.length === 0) {
+            throw new Error('Player not found.');
+        }
+        const playerData = playerRes.rows[0].data;
+        playerData.adminBonus = (Number(playerData.adminBonus) || 0) + Number(amount);
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [playerData, playerId]);
+        await client.query('COMMIT');
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error(`Transaction failed for updatePlayerBalance for player ${playerId}:`, error);
+        throw error;
+    } finally {
+        client.release();
+    }
+};
+
+export const getCheaters = async () => {
+    const res = await executeQuery(`
+        SELECT u.id, u.name 
+        FROM users u JOIN players p ON u.id = p.id 
+        WHERE (p.data->>'isCheater')::boolean = true
+    `);
+    return res.rows;
+};
+
+export const resetPlayerProgress = async (playerId) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const playerRes = await client.query('SELECT data FROM players WHERE id = $1 FOR UPDATE', [playerId]);
+        if (playerRes.rows.length === 0) throw new Error('Player not found');
+        let player = playerRes.rows[0].data;
+        player.balance = 0;
+        player.upgrades = {};
+        player.profitPerHour = 0;
+        player.isCheater = false; // Pardon them after reset
+        player.cheatStrikes = 0;
+        player.cheatLog = [];
+        await client.query('UPDATE players SET data = $1 WHERE id = $2', [player, playerId]);
+        await client.query('COMMIT');
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
 };
