@@ -4,6 +4,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
@@ -663,12 +665,12 @@ const TaskCard = ({ task, playerState, onClaim, onPurchase, lang, startedTasks, 
 
     let isCompleted;
     if (isAirdropTask) {
-        isCompleted = playerState.completedSpecialTaskIds.includes(task.id);
+        isCompleted = (playerState.completedSpecialTaskIds || []).includes(task.id);
     } else {
-        isCompleted = playerState.completedDailyTaskIds.includes(task.id);
+        isCompleted = (playerState.completedDailyTaskIds || []).includes(task.id);
     }
     
-    const isPurchased = isAirdropTask ? playerState.purchasedSpecialTaskIds.includes(task.id) : true;
+    const isPurchased = isAirdropTask ? (playerState.purchasedSpecialTaskIds || []).includes(task.id) : true;
     const isStarted = startedTasks.has(task.id);
 
     let progressDisplay: string | null = null;
