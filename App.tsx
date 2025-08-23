@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
@@ -87,16 +89,7 @@ const FinalVideoPlayer: React.FC<{ videoUrl: string, onEnd: () => void }> = ({ v
 
 const AppContainer: React.FC = () => {
     const { user, isInitializing } = useAuth();    
-    const [minLoadTimePassed, setMinLoadTimePassed] = useState(false);
     const [hasPlayed, setHasPlayed] = useState(false);
-
-    // Effect for minimum loading screen time
-    useEffect(() => {
-        const timer = setTimeout(() => {
-        setMinLoadTimePassed(true);
-        }, 3000); // 3 seconds
-        return () => clearTimeout(timer);
-    }, []);
 
     const handleUserInteraction = useCallback(() => {
       if(!hasPlayed) setHasPlayed(true);
@@ -121,7 +114,7 @@ const AppContainer: React.FC = () => {
         return <NotInTelegramScreen />;
     }
 
-    return <MainApp minLoadTimePassed={minLoadTimePassed} hasPlayed={hasPlayed} />;
+    return <MainApp hasPlayed={hasPlayed} />;
 };
 
 const LoadingScreen: React.FC<{imageUrl?: string}> = ({ imageUrl }) => (
@@ -1074,11 +1067,52 @@ const NavItem = ({ screen, label, iconUrl, active, setActiveScreen }: { screen: 
     </button>
 );
 
+const HackerLoadingScreen: React.FC = () => {
+    const [lines, setLines] = useState<string[]>([]);
+    const lineContent = [
+      "Booting Ukhyliant OS...",
+      "Initializing connection...",
+      "Bypassing central monitoring...",
+      "Network security protocols: DEACTIVATED",
+      "Connecting to main server...",
+      "Authenticating credentials...",
+      "ACCESS GRANTED.",
+      "Loading user dossier...",
+      "Finalizing interface...",
+      "Welcome, agent."
+    ];
+  
+    useEffect(() => {
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i < lineContent.length) {
+          setLines(prev => [...prev, lineContent[i]]);
+          i++;
+        } else {
+          clearInterval(interval);
+        }
+      }, 450);
+  
+      return () => clearInterval(interval);
+    }, []);
+  
+    return (
+      <div className="h-screen w-screen bg-black text-green-400 font-mono p-4 flex flex-col justify-end overflow-hidden">
+        <div>
+          {lines.map((line, index) => (
+            <p key={index} className="text-sm whitespace-nowrap">
+              &gt; {line}
+            </p>
+          ))}
+          <div className="w-2 h-4 bg-green-400 animate-pulse ml-2 inline-block"></div>
+        </div>
+      </div>
+    );
+  };
 
 const MainApp: React.FC<{
-  minLoadTimePassed: boolean;
   hasPlayed: boolean;
-}> = ({ minLoadTimePassed, hasPlayed }) => {
+}> = ({ hasPlayed }) => {
   const { user, isGlitching, setIsGlitching } = useAuth();
   const gameApi = useGame();
   const { 
@@ -1103,6 +1137,7 @@ const MainApp: React.FC<{
   const [secretCodeTask, setSecretCodeTask] = useState<DailyTask | SpecialTask | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
   const [isTgReady, setIsTgReady] = useState(!!window.Telegram?.WebApp?.initData);
+  const [loadingStage, setLoadingStage] = useState<'initialImage' | 'hackerTerminal' | 'done'>('initialImage');
 
   // Glitch event states
   const [isGlitchCodesModalOpen, setIsGlitchCodesModalOpen] = useState(false);
@@ -1211,9 +1246,34 @@ const MainApp: React.FC<{
     };
 
   }, [playerState, config, isAppReady, isTgReady]);
+
+  useEffect(() => {
+    // This effect manages the visual stages of the loading sequence.
+    const imageTimer = setTimeout(() => {
+      if (loadingStage === 'initialImage') {
+        setLoadingStage('hackerTerminal');
+      }
+    }, 2000); // Show image for 2 seconds
+
+    const hackerTimer = setTimeout(() => {
+      if (loadingStage !== 'done') {
+        setLoadingStage('done');
+      }
+    }, 7000); // Total min loading time is 2s + 5s = 7 seconds
+
+    return () => {
+      clearTimeout(imageTimer);
+      clearTimeout(hackerTimer);
+    };
+  }, [loadingStage]);
   
-  if (!isAppReady || !playerState || !config || !user || !minLoadTimePassed) {
-    return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
+  const isDataReady = isAppReady && playerState && config && user;
+
+  if (!isDataReady || loadingStage !== 'done') {
+      if (loadingStage === 'initialImage') {
+        return <LoadingScreen imageUrl={config?.loadingScreenImageUrl} />;
+      }
+      return <HackerLoadingScreen />;
   }
 
   const handleBuyBoost = async (boost: Boost) => {

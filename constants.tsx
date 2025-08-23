@@ -111,7 +111,7 @@ type TranslationKey =
   | 'total_cell_profit' | 'invite_code' | 'copy' | 'confirm_leave_cell'
   | 'cell_bank' | 'cell_tickets' | 'buy_ticket'
   // Informants
-  | 'recruit_informant' | 'informants' | 'no_informants_recruited' | 'informant_dossier' | 'recruit' | 'recruiting'
+  | 'recruit_informant' | 'recruit_informant_desc' | 'informants' | 'no_informants_recruited' | 'informant_dossier' | 'recruit' | 'recruiting'
   // Big Brother
   | 'big_brother_is_watching' | 'penalty_title' | 'penalty_close'
   // Glitch Codes
@@ -300,6 +300,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     cell_tickets: 'Battle Tickets',
     buy_ticket: 'Buy Ticket',
     recruit_informant: 'Recruit Informant',
+    recruit_informant_desc: 'Recruit a mysterious AI informant to gain a permanent profit bonus for your entire cell.',
     informants: 'Informants',
     no_informants_recruited: 'No informants recruited yet.',
     informant_dossier: 'Informant Dossier',
@@ -546,6 +547,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     cell_tickets: 'Квитки на битву',
     buy_ticket: 'Купити квиток',
     recruit_informant: 'Завербувати інформатора',
+    recruit_informant_desc: 'Завербуйте таємничого ШІ-інформатора, щоб отримати постійний бонус до прибутку для всього вашого осередку.',
     informants: 'Інформатори',
     no_informants_recruited: 'Ще не завербовано жодного інформатора.',
     informant_dossier: 'Досьє інформатора',
@@ -792,6 +794,7 @@ export const TRANSLATIONS: Record<string, Record<TranslationKey, string>> = {
     cell_tickets: 'Билеты на битву',
     buy_ticket: 'Купить билет',
     recruit_informant: 'Завербовать информатора',
+    recruit_informant_desc: 'Завербуйте таинственного ИИ-информатора, чтобы получить постоянный бонус к прибыли для всей вашей ячейки.',
     informants: 'Информаторы',
     no_informants_recruited: 'Ещё не завербовано ни одного информатора.',
     informant_dossier: 'Досье информатора',
