@@ -1,4 +1,5 @@
 
+
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -2181,12 +2182,18 @@ export const getDashboardStats = async () => {
             (SELECT COUNT(*) FROM users) as "totalPlayers",
             (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '24 hours') as "newPlayersToday",
             (SELECT jsonb_object_agg(upgrade_id, purchase_count) FROM (
-                SELECT 
-                    key as upgrade_id, 
+                SELECT
+                    t.key as upgrade_id,
                     COUNT(*) as purchase_count
-                FROM players, jsonb_each_text(data->'upgrades')
-                GROUP BY key
-                ORDER BY purchase_count DESC
+                FROM
+                    players p,
+                    LATERAL jsonb_each_text(p.data->'upgrades') as t
+                WHERE
+                    jsonb_typeof(p.data->'upgrades') = 'object'
+                GROUP BY
+                    t.key
+                ORDER BY
+                    purchase_count DESC
                 LIMIT 5
             ) as popular) as "popularUpgrades",
             (SELECT SUM((data->>'profitPerHour')::numeric) FROM players) as "totalProfitPerHour",
