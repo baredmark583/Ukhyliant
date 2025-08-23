@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
         glitchEvents: { titleKey: 'nav_glitch_events', cols: ['id', 'message', 'code', 'reward', 'trigger', 'isFinal'] },
         blackMarketCards: { titleKey: 'nav_market_cards', cols: ['id', 'name', 'profitPerHour', 'chance', 'boxType', 'suspicionModifier', 'iconUrl'] },
         coinSkins: { titleKey: 'nav_coin_skins', cols: ['id', 'name', 'profitBoostPercent', 'chance', 'boxType', 'suspicionModifier', 'maxSupply', 'iconUrl'] },
+        videoRewardTiers: { titleKey: 'nav_video_rewards', cols: ['viewsRequired', 'rewardCoins'] },
         uiIcons: { titleKey: 'nav_ui_icons' },
         boosts: { titleKey: 'nav_boosts', cols: ['id', 'name', 'description', 'costCoins', 'suspicionModifier', 'iconUrl'] },
         cellSettings: { titleKey: 'nav_cell_settings', fields: ['cellCreationCost', 'cellMaxMembers', 'informantRecruitCost', 'lootboxCostCoins', 'lootboxCostStars', 'cellBattleTicketCost', 'boostLimitResetCostStars'] },
@@ -1210,7 +1211,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // Default input
             else {
-                const inputType = (typeof value === 'number' || ['price', 'profitPerHour', 'chance', 'costCoins', 'suspicionModifier', 'maxSupply'].includes(col)) ? 'number' : 'text';
+                const inputType = (typeof value === 'number' || ['price', 'profitPerHour', 'chance', 'costCoins', 'suspicionModifier', 'maxSupply', 'viewsRequired', 'rewardCoins'].includes(col)) ? 'number' : 'text';
                 inputHtml = `<input type="${inputType}" class="form-control" data-col="${col}" value="${escapeHtml(value || '')}">`;
             }
 

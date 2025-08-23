@@ -1,5 +1,6 @@
 
 
+
 window.LOCALES = {
     'en': {
         // Nav
@@ -25,6 +26,7 @@ window.LOCALES = {
         'nav_cell_settings': 'Cell Settings',
         'nav_ui_icons': 'UI Icons',
         'nav_leagues': 'Leagues',
+        'nav_video_rewards': 'Video Rewards',
         'logout': 'Logout',
 
         // Titles
@@ -44,6 +46,7 @@ window.LOCALES = {
         'uiIcons': 'UI Icons',
         'leagues': 'Leagues',
         'cellSettings': 'Cell Settings',
+        'videoRewardTiers': 'Video Reward Tiers',
         
         // Buttons & Actions
         'save': 'Save',
@@ -212,6 +215,8 @@ window.LOCALES = {
         'target_name_balance_display': 'Balance Display (Main Screen)',
         'target_name_mine_title': 'Mine Screen Title',
         'target_name_profile_title': 'Profile Screen Title',
+        'viewsRequired': 'Views Required',
+        'rewardCoins': 'Reward (Coins)',
 
         // Generic
         'save_success': 'All changes saved successfully!',
@@ -302,6 +307,7 @@ window.LOCALES = {
         'nav_cell_settings': 'Налаштування Осередків',
         'nav_ui_icons': 'Іконки Інтерфейсу',
         'nav_leagues': 'Ліги',
+        'nav_video_rewards': 'Нагороди за Відео',
         'logout': 'Вийти',
 
         // Titles
@@ -321,6 +327,7 @@ window.LOCALES = {
         'uiIcons': 'Іконки Інтерфейсу',
         'leagues': 'Ліги',
         'cellSettings': 'Налаштування Осередків',
+        'videoRewardTiers': 'Рівні нагород за відео',
         
         // Buttons & Actions
         'save': 'Зберегти',
@@ -489,6 +496,8 @@ window.LOCALES = {
         'target_name_balance_display': 'Відображення балансу (Головний екран)',
         'target_name_mine_title': 'Заголовок екрану Майнінгу',
         'target_name_profile_title': 'Заголовок екрану Досьє',
+        'viewsRequired': 'Необхідно переглядів',
+        'rewardCoins': 'Нагорода (Монети)',
 
         // Generic
         'save_success': 'Всі зміни успішно збережено!',
@@ -579,6 +588,7 @@ window.LOCALES = {
         'nav_cell_settings': 'Настройки Ячеек',
         'nav_ui_icons': 'Иконки Интерфейса',
         'nav_leagues': 'Лиги',
+        'nav_video_rewards': 'Награды за Видео',
         'logout': 'Выйти',
 
         // Titles
@@ -598,6 +608,7 @@ window.LOCALES = {
         'uiIcons': 'Иконки Интерфейса',
         'leagues': 'Лиги',
         'cellSettings': 'Настройки Ячеек',
+        'videoRewardTiers': 'Уровни наград за видео',
 
         // Buttons & Actions
         'save': 'Сохранить',
@@ -766,6 +777,8 @@ window.LOCALES = {
         'target_name_balance_display': 'Отображение баланса (Главный экран)',
         'target_name_mine_title': 'Заголовок экрана Майнинга',
         'target_name_profile_title': 'Заголовок экрана Досье',
+        'viewsRequired': 'Требуется просмотров',
+        'rewardCoins': 'Награда (Монеты)',
 
         // Generic
         'save_success': 'Все изменения успешно сохранены!',
