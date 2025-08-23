@@ -460,9 +460,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Render map
         const mapEl = document.getElementById('map-world');
-        if (mapEl && window.jsVectorMap) {
+        if (mapEl && window.jsVectorMap && playerLocations) {
             const mapData = playerLocations.reduce((acc, loc) => {
-                acc[loc.country.toUpperCase()] = loc.player_count;
+                if(loc.country) { // Ensure country code is not null
+                    acc[loc.country.toUpperCase()] = loc.player_count;
+                }
                 return acc;
             }, {});
             
@@ -482,8 +484,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }]
                 },
                 onRegionTooltipShow(event, tooltip, code) {
+                    const count = mapData[code] || 0;
                     tooltip.text(
-                        `${tooltip.text()} (${(mapData[code] || 0).toLocaleString()} players)`,
+                        `${tooltip.text()} (${count.toLocaleString()} ${t('players')})`,
                         true,
                     );
                 },

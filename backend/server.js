@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import { GoogleGenAI, Type } from '@google/genai';
 import connectPgSimple from 'connect-pg-simple';
 import geoip from 'geoip-lite';
+import { exec } from 'child_process';
 import { 
     pool,
     initializeDb, 
@@ -105,6 +106,26 @@ const log = (level, message, data = '') => {
         if (data) console.log(formattedMessage, data);
         else console.log(formattedMessage);
     }
+};
+
+// --- GeoIP Database Update ---
+const updateGeoIpData = () => {
+    log('info', 'Starting GeoIP database update...');
+    // Use npx to run the update script from geoip-lite package
+    const command = 'npx geoip-lite-update-db';
+    
+    exec(command, (error, stdout, stderr) => {
+        if (error) {
+            log('error', `GeoIP update failed: ${error.message}`);
+            return;
+        }
+        if (stderr) {
+            log('warn', `GeoIP update stderr: ${stderr}`);
+        }
+        log('info', `GeoIP database updated successfully: ${stdout}`);
+        // Reload data after update
+        geoip.reloadDataSync();
+    });
 };
 
 
@@ -294,7 +315,7 @@ app.post('/api/login', async (req, res) => {
         const userName = `${tgUser.first_name || ''} ${tgUser.last_name || ''}`.trim();
         const lang = tgUser.language_code || 'en';
         
-        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        const ip = req.headers['x-forwarded-for']?.split(',').shift() || req.socket.remoteAddress;
         const geo = geoip.lookup(ip);
 
         let user = await getUser(userId);
@@ -1513,6 +1534,11 @@ app.post('/admin/api/video-submissions/:id/reject', checkAdminAuth, async (req, 
 
 // --- Server Startup ---
 initializeDb().then(() => {
+    // Run the update once on startup
+    updateGeoIpData();
+    // Schedule the update to run every 7 days
+    setInterval(updateGeoIpData, 7 * 24 * 60 * 60 * 1000);
+    
     app.listen(port, () => {
         log('info', `Server listening on port ${port}`);
         // Start battle check cron job
