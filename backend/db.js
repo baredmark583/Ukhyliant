@@ -152,10 +152,14 @@ const recalculatePlayerProfitInDb = async (player, config) => {
     
     const profitWithSkinBonus = (baseProfit || 0) * (1 + (skinBonusPercent / 100));
 
-    // Final profit with robust NaN checking to prevent state corruption
-    const finalProfit = (profitWithSkinBonus || 0) + (player.referralProfitPerHour || 0) + (player.cellProfitBonus || 0);
+    // Final profit with robust NaN checking to prevent state corruption.
+    // Ensure every component is a valid number before summing.
+    const p1 = Number(profitWithSkinBonus);
+    const p2 = Number(player.referralProfitPerHour);
+    const p3 = Number(player.cellProfitBonus);
+    const finalProfit = (isNaN(p1) ? 0 : p1) + (isNaN(p2) ? 0 : p2) + (isNaN(p3) ? 0 : p3);
     
-    player.profitPerHour = isNaN(finalProfit) ? 0 : finalProfit;
+    player.profitPerHour = finalProfit;
 
     return player;
 };

@@ -6,6 +6,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
