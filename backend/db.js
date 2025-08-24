@@ -44,12 +44,12 @@ const executeQuery = async (query, params) => {
     try {
         const result = await client.query(query, params);
         const duration = Date.now() - start;
-        // console.log('[DB_QUERY]', { 
-        //     query: query.replace(/\s\s+/g, ' ').trim(), 
-        //     params: params, 
-        //     duration: `${duration}ms`, 
-        //     rows: result.rowCount 
-        // });
+        console.log('[DB_QUERY]', { 
+            query: query.replace(/\s\s+/g, ' ').trim(), 
+            params: params, 
+            duration: `${duration}ms`, 
+            rows: result.rowCount 
+        });
         return result;
     } catch (error) {
         const duration = Date.now() - start;

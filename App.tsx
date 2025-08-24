@@ -8,6 +8,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
@@ -21,6 +23,7 @@ import { DailyTask, GameConfig, Language, LeaderboardPlayer, SpecialTask, Player
 import NotificationToast from './components/NotificationToast';
 import SecretCodeModal from './components/SecretCodeModal';
 import FinalSystemBreachEffect from './FinalSystemBreachEffect';
+import { logger } from './hooks/logger';
 
 type Screen = 'exchange' | 'mine' | 'missions' | 'profile';
 type ProfileTab = 'contacts' | 'boosts' | 'skins' | 'market' | 'cell' | 'content';
@@ -171,6 +174,7 @@ const ContactsContent = ({ user, playerState, config, handleMetaTap, onOpenGlitc
     const t = useTranslation();
     const [copied, setCopied] = useState(false);
     const handleCopyReferral = () => {
+        logger.action('COPY_REFERRAL_LINK');
         const referralLink = `https://t.me/${TELEGRAM_BOT_NAME}/${MINI_APP_NAME}?startapp=${user.id}`;
         navigator.clipboard.writeText(referralLink);
         setCopied(true);
@@ -627,17 +631,22 @@ const ProfileScreen = ({ playerState, user, config, onBuyBoost, onResetBoostLimi
         gameApi,
     };
 
+    const handleSetActiveTab = (tab: ProfileTab) => {
+        logger.action('PROFILE_TAB_CHANGE', { from: activeTab, to: tab });
+        setActiveTab(tab);
+    }
+
     return (
         <div className="flex flex-col h-full text-white items-center">
             <div className="w-full max-w-md sticky top-0 bg-[var(--bg-color)] pt-4 px-4 z-10">
                 <h1 className="text-3xl font-display text-center mb-4 cursor-pointer" onClick={() => handleMetaTap('profile-title')}>{t('profile')}</h1>
                 <div className="bg-slate-800/50 shadow-inner rounded-xl p-1 grid grid-cols-6 gap-1 border border-slate-700">
-                    <ProfileTabButton label={t('sub_contacts')} iconUrl={config.uiIcons.profile_tabs.contacts} isActive={activeTab === 'contacts'} onClick={() => setActiveTab('contacts')} />
-                    <ProfileTabButton label={t('sub_boosts')} iconUrl={config.uiIcons.profile_tabs.boosts} isActive={activeTab === 'boosts'} onClick={() => setActiveTab('boosts')} />
-                    <ProfileTabButton label={t('sub_disguise')} iconUrl={config.uiIcons.profile_tabs.skins} isActive={activeTab === 'skins'} onClick={() => setActiveTab('skins')} />
-                    <ProfileTabButton label={t('sub_market')} iconUrl={config.uiIcons.profile_tabs.market} isActive={activeTab === 'market'} onClick={() => setActiveTab('market')} />
-                    <ProfileTabButton label={t('sub_cell')} iconUrl={config.uiIcons.profile_tabs.cell} isActive={activeTab === 'cell'} onClick={() => setActiveTab('cell')} />
-                     <ProfileTabButton label={t('sub_content')} iconUrl={config.uiIcons.profile_tabs.content} isActive={activeTab === 'content'} onClick={() => setActiveTab('content')} />
+                    <ProfileTabButton label={t('sub_contacts')} iconUrl={config.uiIcons.profile_tabs.contacts} isActive={activeTab === 'contacts'} onClick={() => handleSetActiveTab('contacts')} />
+                    <ProfileTabButton label={t('sub_boosts')} iconUrl={config.uiIcons.profile_tabs.boosts} isActive={activeTab === 'boosts'} onClick={() => handleSetActiveTab('boosts')} />
+                    <ProfileTabButton label={t('sub_disguise')} iconUrl={config.uiIcons.profile_tabs.skins} isActive={activeTab === 'skins'} onClick={() => handleSetActiveTab('skins')} />
+                    <ProfileTabButton label={t('sub_market')} iconUrl={config.uiIcons.profile_tabs.market} isActive={activeTab === 'market'} onClick={() => handleSetActiveTab('market')} />
+                    <ProfileTabButton label={t('sub_cell')} iconUrl={config.uiIcons.profile_tabs.cell} isActive={activeTab === 'cell'} onClick={() => handleSetActiveTab('cell')} />
+                     <ProfileTabButton label={t('sub_content')} iconUrl={config.uiIcons.profile_tabs.content} isActive={activeTab === 'content'} onClick={() => handleSetActiveTab('content')} />
                 </div>
             </div>
             
@@ -776,6 +785,7 @@ const WalletConnector: React.FC<{
         return tonConnectUI.onStatusChange(wallet => {
             if (!wallet) {
                 if (playerState.tonWalletAddress && user) {
+                    logger.action('WALLET_DISCONNECTED');
                     gameApi.connectWallet('').then(() => {
                         showNotification(t('wallet_disconnected'), 'success');
                     });
@@ -1133,7 +1143,7 @@ const MainApp: React.FC<{
       savePlayerState
   } = gameApi;
   
-  const [activeScreen, setActiveScreen] = React.useState<Screen>('exchange');
+  const [activeScreen, _setActiveScreen] = React.useState<Screen>('exchange');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const t = useTranslation();
@@ -1161,6 +1171,11 @@ const MainApp: React.FC<{
     return localStorage.getItem('isMuted') === 'true';
   });
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  const setActiveScreen = (screen: Screen) => {
+    logger.action('SCREEN_CHANGE', { from: activeScreen, to: screen });
+    _setActiveScreen(screen);
+  }
 
   const showNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
@@ -1223,9 +1238,9 @@ const MainApp: React.FC<{
             if (playPromise !== undefined) {
                 playPromise.catch(error => {
                     if (!hasPlayed) {
-                        console.log("Autoplay was prevented. Audio will start on user interaction.");
+                        logger.warn("Autoplay was prevented. Audio will start on user interaction.");
                     } else {
-                        console.error("Audio play failed even after interaction:", error);
+                        logger.error("Audio play failed even after interaction:", error);
                     }
                 });
             }
@@ -1236,6 +1251,7 @@ const MainApp: React.FC<{
   const toggleMute = () => {
     setIsMuted(prev => {
         const newState = !prev;
+        logger.action('TOGGLE_MUTE', { muted: newState });
         localStorage.setItem('isMuted', String(newState));
         return newState;
     });
@@ -1244,6 +1260,7 @@ const MainApp: React.FC<{
   // Effect for setting up and tearing down the app
   useEffect(() => {
     if (playerState && config && isTgReady && !isAppReady) {
+        logger.info('App is ready to be displayed.');
         setIsAppReady(true);
         window.Telegram.WebApp.ready();
         window.Telegram.WebApp.expand();
@@ -1286,6 +1303,7 @@ const MainApp: React.FC<{
         showNotification(t('boost_purchased'), 'success');
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         if (boost.id === 'boost_turbo_mode') {
+            logger.action('TURBO_MODE_ACTIVATED');
             setActiveScreen('exchange');
         }
     } else {
@@ -1306,10 +1324,12 @@ const MainApp: React.FC<{
 
   const handleTaskClaim = (task: DailyTask | SpecialTask) => {
     if (task.type === 'video_code') {
+        logger.action('MODAL_OPEN', { name: 'SecretCode', taskId: task.id });
         setSecretCodeTask(task);
         return;
     }
     if (task.url) {
+        logger.action('OPEN_EXTERNAL_LINK', { url: task.url, taskId: task.id });
         window.Telegram.WebApp.openLink(task.url);
         setStartedTasks(prev => new Set(prev).add(task.id));
     }
@@ -1412,10 +1432,10 @@ const MainApp: React.FC<{
 
   const renderScreen = () => {
     switch(activeScreen) {
-      case 'exchange': return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => setIsLeaderboardOpen(true)} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={() => showNotification(t('tooltip_energy'), 'success')} onSuspicionClick={() => showNotification(t('tooltip_suspicion'), 'success')} isMuted={isMuted} toggleMute={toggleMute} handleMetaTap={handleMetaTap} />;
+      case 'exchange': return <ExchangeScreen playerState={playerState} currentLeague={currentLeague} onTap={handleTap} user={user} onClaimCipher={handleClaimCipher} config={config} onOpenLeaderboard={() => { logger.action('MODAL_OPEN', { name: 'Leaderboard' }); setIsLeaderboardOpen(true); }} isTurboActive={isTurboActive} effectiveMaxEnergy={effectiveMaxEnergy} effectiveMaxSuspicion={effectiveMaxSuspicion} onEnergyClick={() => showNotification(t('tooltip_energy'), 'success')} onSuspicionClick={() => showNotification(t('tooltip_suspicion'), 'success')} isMuted={isMuted} toggleMute={toggleMute} handleMetaTap={handleMetaTap} />;
       case 'mine': return <MineScreen upgrades={allUpgrades} balance={playerState.balance} onBuyUpgrade={handleBuyUpgrade} lang={user.language} playerState={playerState} config={config} onClaimCombo={handleClaimCombo} uiIcons={config.uiIcons} handleMetaTap={handleMetaTap}/>;
       case 'missions': return <UnifiedMissionsScreen tasks={config.tasks} specialTasks={config.specialTasks} playerState={playerState} onClaim={handleTaskClaim} onPurchase={handleTaskPurchase} user={user} startedTasks={startedTasks} uiIcons={config.uiIcons} gameApi={gameApi} showNotification={showNotification} config={config} />;
-      case 'profile': return <ProfileScreen playerState={playerState} user={user} config={config} onBuyBoost={handleBuyBoost} onResetBoostLimit={handleResetBoostLimit} onSetSkin={setSkin} onOpenCoinLootbox={handleOpenCoinLootbox} onPurchaseStarLootbox={handlePurchaseStarLootbox} handleMetaTap={handleMetaTap} onOpenGlitchCodesModal={() => setIsGlitchCodesModalOpen(true)} showNotification={showNotification} boostLimitResetCostStars={config.boostLimitResetCostStars} gameApi={gameApi} />;
+      case 'profile': return <ProfileScreen playerState={playerState} user={user} config={config} onBuyBoost={handleBuyBoost} onResetBoostLimit={handleResetBoostLimit} onSetSkin={setSkin} onOpenCoinLootbox={handleOpenCoinLootbox} onPurchaseStarLootbox={handlePurchaseStarLootbox} handleMetaTap={handleMetaTap} onOpenGlitchCodesModal={() => { logger.action('MODAL_OPEN', { name: 'GlitchCodes' }); setIsGlitchCodesModalOpen(true); }} showNotification={showNotification} boostLimitResetCostStars={config.boostLimitResetCostStars} gameApi={gameApi} />;
       default: return null;
     }
   }
@@ -1448,11 +1468,11 @@ const MainApp: React.FC<{
         <NavItem screen="profile" label={t('profile')} iconUrl={config.uiIcons.nav.profile} active={activeScreen === 'profile'} setActiveScreen={setActiveScreen} />
       </nav>
       {notification && <NotificationToast notification={notification} />}
-      {isLeaderboardOpen && <LeaderboardScreen onClose={() => setIsLeaderboardOpen(false)} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
-      {secretCodeTask && <SecretCodeModal task={secretCodeTask} onClose={() => setSecretCodeTask(null)} onSubmit={handleSecretCodeSubmit} lang={user.language} />}
-      {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => setPurchaseResult(null)} lang={user.language} uiIcons={config.uiIcons} />}
-      {isGlitchCodesModalOpen && <GlitchCodesModal isOpen={isGlitchCodesModalOpen} onClose={() => setIsGlitchCodesModalOpen(false)} onSubmit={handleGlitchCodeSubmit} playerState={playerState} config={config} lang={user.language} />}
-      {systemMessage && <PenaltyModal message={systemMessage} onClose={() => setSystemMessage('')} />}
+      {isLeaderboardOpen && <LeaderboardScreen onClose={() => { logger.action('MODAL_CLOSE', { name: 'Leaderboard' }); setIsLeaderboardOpen(false); }} getLeaderboard={getLeaderboard} user={user} currentLeague={currentLeague} />}
+      {secretCodeTask && <SecretCodeModal task={secretCodeTask} onClose={() => { logger.action('MODAL_CLOSE', { name: 'SecretCode' }); setSecretCodeTask(null); }} onSubmit={handleSecretCodeSubmit} lang={user.language} />}
+      {purchaseResult && <PurchaseResultModal result={purchaseResult} onClose={() => { logger.action('MODAL_CLOSE', { name: 'PurchaseResult' }); setPurchaseResult(null); }} lang={user.language} uiIcons={config.uiIcons} />}
+      {isGlitchCodesModalOpen && <GlitchCodesModal isOpen={isGlitchCodesModalOpen} onClose={() => { logger.action('MODAL_CLOSE', { name: 'GlitchCodes' }); setIsGlitchCodesModalOpen(false); }} onSubmit={handleGlitchCodeSubmit} playerState={playerState} config={config} lang={user.language} />}
+      {systemMessage && <PenaltyModal message={systemMessage} onClose={() => { logger.action('MODAL_CLOSE', { name: 'Penalty' }); setSystemMessage(''); }} />}
       {config.backgroundAudioUrl && <audio ref={audioRef} crossOrigin="anonymous" />}
     </div>
   );

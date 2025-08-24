@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'https://esm.sh/react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry, Reward, MarketListing, WithdrawalRequest, BattleBoost, VideoSubmission } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
+import { logger } from './logger';
 
 declare global {
   interface Window {
@@ -14,34 +16,58 @@ const API_BASE_URL = 'https://ukhyliant-backend.onrender.com';
 
 const API = {
   login: async (tgUser: any, startParam: string | null): Promise<{ user: User, player: PlayerState, config: GameConfig } | null> => {
+    logger.action('LOGIN_START', { tgUserId: tgUser?.id, startParam });
     if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
-    const response = await fetch(`${API_BASE_URL}/api/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tgUser, startParam }),
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Login failed');
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tgUser, startParam }),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          logger.error('Login API failed', { status: response.status, error: errorData });
+          throw new Error(errorData.error || 'Login failed');
+        }
+        const data = await response.json();
+        logger.action('LOGIN_SUCCESS', { userId: data.user.id });
+        return data;
+    } catch (err) {
+        logger.error('Login API call crashed', { message: (err as Error).message });
+        throw err;
     }
-    return response.json();
   },
 
   savePlayerState: async (userId: string, state: PlayerState, taps: number): Promise<PlayerState | null> => {
+     logger.action('SAVE_STATE_START', { userId, taps });
      if (!API_BASE_URL) return null;
-     const response = await fetch(`${API_BASE_URL}/api/player/${userId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state, taps })
-     });
-     // If the server sends back an updated state, parse and return it.
-     if (response.ok && response.headers.get('Content-Type')?.includes('application/json')) {
-         return response.json();
+     try {
+         const response = await fetch(`${API_BASE_URL}/api/player/${userId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ state, taps })
+         });
+         if (response.ok) {
+             if (response.headers.get('Content-Type')?.includes('application/json')) {
+                 const updatedState = await response.json();
+                 logger.action('SAVE_STATE_SUCCESS', { userId, serverStateUpdated: true });
+                 return updatedState;
+             } else {
+                 logger.action('SAVE_STATE_SUCCESS', { userId, serverStateUpdated: false });
+                 return null;
+             }
+         } else {
+            logger.error('Save state API failed', { status: response.status });
+            return null;
+         }
+     } catch (err) {
+         logger.error('Save state API crashed', { message: (err as Error).message });
+         return null;
      }
-     return null; // Otherwise, return null
   },
 
   updateUserLanguage: async (userId: string, lang: Language): Promise<void> => {
+      logger.action('UPDATE_LANGUAGE', { userId, lang });
       if (!API_BASE_URL) return;
       await fetch(`${API_BASE_URL}/api/user/${userId}/language`, {
           method: 'POST',
@@ -51,6 +77,7 @@ const API = {
   },
   
   buyUpgrade: async (userId: string, upgradeId: string): Promise<{player?: PlayerState, error?: string}> => {
+    logger.action('API_BUY_UPGRADE', { userId, upgradeId });
     if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
     const response = await fetch(`${API_BASE_URL}/api/action/buy-upgrade`, {
       method: 'POST',
@@ -58,11 +85,16 @@ const API = {
       body: JSON.stringify({ userId, upgradeId }),
     });
     const data = await response.json();
-    if (!response.ok) return { error: data.error || 'Failed to buy upgrade.' };
+    if (!response.ok) {
+        logger.error('API_BUY_UPGRADE_FAILED', { error: data.error });
+        return { error: data.error || 'Failed to buy upgrade.' };
+    }
+    logger.info('API_BUY_UPGRADE_SUCCESS', { newBalance: data.player?.balance });
     return data;
   },
   
   buyBoost: async (userId: string, boostId: string): Promise<{player?: PlayerState, error?: string}> => {
+    logger.action('API_BUY_BOOST', { userId, boostId });
     if (!API_BASE_URL) return { error: "VITE_API_BASE_URL is not set." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/action/buy-boost`, {
@@ -72,16 +104,19 @@ const API = {
         });
         const data = await response.json();
         if (!response.ok) {
+            logger.error('API_BUY_BOOST_FAILED', { error: data.error });
             return { error: data.error || 'Failed to buy boost.' };
         }
+        logger.info('API_BUY_BOOST_SUCCESS', { newBalance: data.player?.balance });
         return data;
     } catch(e) {
-        console.error('Buy boost API call failed', e);
+        logger.error('Buy boost API call failed', e);
         return { error: 'Server connection failed while buying boost.' };
     }
   },
 
   claimDailyTask: async (userId: string, taskId: string, code?: string): Promise<{player?: PlayerState, error?: string}> => {
+    logger.action('API_CLAIM_TASK', { userId, taskId, code });
     if (!API_BASE_URL) return { error: "VITE_API_BASE_URL is not set." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/action/claim-task`, {
@@ -91,16 +126,19 @@ const API = {
         });
         const data = await response.json();
         if (!response.ok) {
+            logger.error('API_CLAIM_TASK_FAILED', { error: data.error });
             return { error: data.error || 'Failed to claim task.' };
         }
+        logger.info('API_CLAIM_TASK_SUCCESS', { taskId });
         return data;
     } catch (e) {
-        console.error('Claim task API call failed', e);
+        logger.error('Claim task API call failed', e);
         return { error: 'Server connection failed while claiming task.' };
     }
   },
 
   createStarInvoice: async(userId: string, payloadType: 'task' | 'lootbox' | 'boost_reset', itemId: string): Promise<{ ok: boolean, invoiceLink?: string, error?: string}> => {
+    logger.action('API_CREATE_INVOICE', { userId, payloadType, itemId });
     if (!API_BASE_URL) return { ok: false, error: "API URL is not configured." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/create-star-invoice`, {
@@ -109,15 +147,20 @@ const API = {
             body: JSON.stringify({ userId, payloadType, itemId }),
         });
         const data = await response.json();
-        if (!response.ok) return { ok: false, error: data.error || 'Failed to create invoice.' };
+        if (!response.ok) {
+            logger.error('API_CREATE_INVOICE_FAILED', { error: data.error });
+            return { ok: false, error: data.error || 'Failed to create invoice.' };
+        }
+        logger.info('API_CREATE_INVOICE_SUCCESS');
         return { ok: true, invoiceLink: data.invoiceLink };
     } catch(e) {
-        console.error("Create invoice API error", e);
+        logger.error("Create invoice API error", e);
         return { ok: false, error: 'Server connection failed.' };
     }
   },
 
   unlockFreeTask: async (userId: string, taskId: string): Promise<{player: PlayerState, wonItem: any} | null> => {
+    logger.action('API_UNLOCK_FREE_TASK', { userId, taskId });
     if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
     const response = await fetch(`${API_BASE_URL}/api/action/unlock-free-task`, {
         method: 'POST',
@@ -129,6 +172,7 @@ const API = {
   },
   
   completeSpecialTask: async (userId: string, taskId: string, code?: string): Promise<{player?: PlayerState, error?: string}> => {
+    logger.action('API_COMPLETE_SPECIAL_TASK', { userId, taskId, code });
     if (!API_BASE_URL) throw new Error("VITE_API_BASE_URL is not set.");
     const response = await fetch(`${API_BASE_URL}/api/action/complete-task`, {
         method: 'POST',
@@ -140,6 +184,7 @@ const API = {
   },
 
   claimCombo: async (userId: string): Promise<{player?: PlayerState, reward?: number, error?: string}> => {
+    logger.action('API_CLAIM_COMBO', { userId });
     if (!API_BASE_URL) return { error: "VITE_API_BASE_URL is not set." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/action/claim-combo`, {
@@ -149,16 +194,19 @@ const API = {
         });
         const data = await response.json();
         if (!response.ok) {
+            logger.error('API_CLAIM_COMBO_FAILED', { error: data.error });
             return { error: data.error || 'Failed to claim combo reward.' };
         }
+        logger.info('API_CLAIM_COMBO_SUCCESS', { reward: data.reward });
         return data;
     } catch (e) {
-        console.error('Claim combo API call failed', e);
+        logger.error('Claim combo API call failed', e);
         return { error: 'Не удалось подключиться к серверу для получения награды.' };
     }
   },
 
   claimCipher: async (userId: string, cipher: string): Promise<{player?: PlayerState, reward?: number, error?: string}> => {
+    logger.action('API_CLAIM_CIPHER', { userId, cipher });
     if (!API_BASE_URL) return { error: 'VITE_API_BASE_URL is not set.'};
     try {
         const response = await fetch(`${API_BASE_URL}/api/action/claim-cipher`, {
@@ -168,16 +216,19 @@ const API = {
         });
         const data = await response.json();
         if (!response.ok) {
+            logger.error('API_CLAIM_CIPHER_FAILED', { error: data.error });
             return { error: data.error || 'Incorrect cipher or already claimed.' };
         }
+        logger.info('API_CLAIM_CIPHER_SUCCESS', { reward: data.reward });
         return data;
     } catch (e) {
-         console.error('Claim cipher API call failed', e);
+         logger.error('Claim cipher API call failed', e);
          return { error: 'Не удалось подключиться к серверу для проверки шифра.' };
     }
   },
 
   claimGlitchCode: async (userId: string, code: string): Promise<{player?: PlayerState, reward?: Reward, error?: string}> => {
+    logger.action('API_CLAIM_GLITCH', { userId, code });
     if (!API_BASE_URL) return { error: 'VITE_API_BASE_URL is not set.'};
     const response = await fetch(`${API_BASE_URL}/api/action/claim-glitch-code`, {
         method: 'POST',
@@ -186,12 +237,15 @@ const API = {
     });
     const data = await response.json();
     if (!response.ok) {
+        logger.error('API_CLAIM_GLITCH_FAILED', { error: data.error });
         return { error: data.error || 'Failed to claim code.' };
     }
+    logger.info('API_CLAIM_GLITCH_SUCCESS', { reward: data.reward });
     return data;
   },
 
   markGlitchShown: async (userId: string, code: string): Promise<{player?: PlayerState, error?: string}> => {
+    logger.action('API_MARK_GLITCH_SHOWN', { userId, code });
     if (!API_BASE_URL) return { error: "VITE_API_BASE_URL is not set." };
     const response = await fetch(`${API_BASE_URL}/api/action/mark-glitch-shown`, {
         method: 'POST',
@@ -200,9 +254,11 @@ const API = {
     });
     if (!response.ok) {
         const data = await response.json();
+        logger.error('API_MARK_GLITCH_SHOWN_FAILED', { error: data.error });
         return { error: data.error || 'Failed to mark glitch as shown.' };
     }
-    return { player: await response.json() };
+    const responseData = await response.json();
+    return responseData;
   },
 
   getLeaderboard: async (): Promise<{topPlayers: LeaderboardPlayer[], totalPlayers: number} | null> => {
@@ -213,6 +269,7 @@ const API = {
   },
   
   openLootbox: async (userId: string, boxType: BoxType): Promise<{ player?: PlayerState, wonItem?: any, error?: string }> => {
+    logger.action('API_OPEN_LOOTBOX', { userId, boxType });
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     try {
         const response = await fetch(`${API_BASE_URL}/api/action/open-lootbox`, {
@@ -221,15 +278,20 @@ const API = {
             body: JSON.stringify({ userId, boxType }),
         });
         const data = await response.json();
-        if (!response.ok) return { error: data.error || 'Failed to open lootbox.' };
+        if (!response.ok) {
+            logger.error('API_OPEN_LOOTBOX_FAILED', { error: data.error });
+            return { error: data.error || 'Failed to open lootbox.' };
+        }
+        logger.info('API_OPEN_LOOTBOX_SUCCESS', { wonItem: data.wonItem });
         return data;
     } catch(e) {
-        console.error("Lootbox API error", e);
+        logger.error("Lootbox API error", e);
         return { error: 'Server connection failed.' };
     }
   },
   
   syncAfterPayment: async(userId: string): Promise<{ player: PlayerState, wonItem: {type: 'lootbox' | 'task', item: any}, error?: string }> => {
+    logger.action('API_SYNC_AFTER_PAYMENT', { userId });
     if (!API_BASE_URL) return { error: "API URL is not configured.", player: null, wonItem: null };
     const response = await fetch(`${API_BASE_URL}/api/sync-after-payment`, {
         method: 'POST',
@@ -240,6 +302,7 @@ const API = {
   },
 
   setSkin: async(userId: string, skinId: string): Promise<{ player?: PlayerState, error?: string }> => {
+    logger.action('API_SET_SKIN', { userId, skinId });
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/action/set-skin`, {
         method: 'POST',
@@ -250,6 +313,7 @@ const API = {
   },
 
   createCell: async(userId: string, name: string): Promise<{ player?: PlayerState, cell?: Cell, error?: string }> => {
+    logger.action('API_CREATE_CELL', { userId, name });
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/cell/create`, {
       method: 'POST',
@@ -260,6 +324,7 @@ const API = {
   },
 
   joinCell: async(userId: string, inviteCode: string): Promise<{ player?: PlayerState, cell?: Cell, error?: string }> => {
+    logger.action('API_JOIN_CELL', { userId, inviteCode });
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/cell/join`, {
       method: 'POST',
@@ -276,6 +341,7 @@ const API = {
   },
 
   leaveCell: async(userId: string): Promise<{ player?: PlayerState, error?: string }> => {
+    logger.action('API_LEAVE_CELL', { userId });
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/cell/leave`, {
       method: 'POST',
@@ -286,6 +352,7 @@ const API = {
   },
 
   recruitInformant: async(userId: string): Promise<{ player?: PlayerState, informant?: any, error?: string }> => {
+    logger.action('API_RECRUIT_INFORMANT', { userId });
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/informant/recruit`, {
       method: 'POST',
@@ -296,6 +363,7 @@ const API = {
   },
 
   buyCellTicket: async(userId: string): Promise<{ cell?: Cell, error?: string }> => {
+    logger.action('API_BUY_CELL_TICKET', { userId });
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/cell/buy-ticket`, {
       method: 'POST',
@@ -312,6 +380,7 @@ const API = {
   },
 
   joinBattle: async(userId: string): Promise<{ status?: BattleStatus, cell?: Cell, error?: string }> => {
+    logger.action('API_JOIN_BATTLE', { userId });
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/battle/join`, {
         method: 'POST',
@@ -322,6 +391,7 @@ const API = {
   },
 
   activateBattleBoost: async(userId: string, boostId: string): Promise<{ status?: BattleStatus, cell?: Cell, error?: string }> => {
+    logger.action('API_ACTIVATE_BATTLE_BOOST', { userId, boostId });
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/cell/activate-boost`, {
         method: 'POST',
@@ -338,6 +408,7 @@ const API = {
   },
   
   listSkinOnMarket: async (userId: string, skinId: string, price: number): Promise<{ error?: string }> => {
+    logger.action('API_LIST_SKIN', { userId, skinId, price });
     if (!API_BASE_URL) return { error: "API is not configured" };
     const response = await fetch(`${API_BASE_URL}/api/market/list`, {
         method: 'POST',
@@ -356,6 +427,7 @@ const API = {
   },
 
   purchaseMarketItemWithCoins: async (userId: string, listingId: number): Promise<{ player?: PlayerState, error?: string }> => {
+    logger.action('API_PURCHASE_SKIN', { userId, listingId });
     if (!API_BASE_URL) return { error: "API is not configured" };
     const response = await fetch(`${API_BASE_URL}/api/market/purchase-coin`, {
         method: 'POST',
@@ -366,6 +438,7 @@ const API = {
   },
 
   connectWallet: async(userId: string, address: string): Promise<{ player?: PlayerState, error?: string }> => {
+    logger.action('API_CONNECT_WALLET', { userId, address });
     if (!API_BASE_URL) return { error: "API is not configured" };
     const response = await fetch(`${API_BASE_URL}/api/wallet/connect`, {
         method: 'POST',
@@ -376,6 +449,7 @@ const API = {
   },
 
   requestWithdrawal: async(userId: string, amount: number): Promise<{ player?: PlayerState, error?: string }> => {
+    logger.action('API_REQUEST_WITHDRAWAL', { userId, amount });
     if (!API_BASE_URL) return { error: "API is not configured" };
     const response = await fetch(`${API_BASE_URL}/api/wallet/request-withdrawal`, {
         method: 'POST',
@@ -394,6 +468,7 @@ const API = {
   },
 
   submitVideoForReview: async (userId: string, url: string): Promise<{ submission?: any, error?: string }> => {
+    logger.action('API_SUBMIT_VIDEO', { userId, url });
     if (!API_BASE_URL) return { error: "API URL is not configured." };
     const response = await fetch(`${API_BASE_URL}/api/video/submit`, {
         method: 'POST',
@@ -448,6 +523,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         const init = async () => {
             try {
+                logger.info('App initialization started.');
                 if (!window.Telegram?.WebApp?.initData) {
                     throw new Error("Not inside Telegram or initData is missing.");
                 }
@@ -463,11 +539,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setUser(loginData.user);
                     setPlayerState(loginData.player);
                     setConfig(loginData.config);
+                    logger.info('Initialization successful', { userId: loginData.user.id });
                 } else {
                     throw new Error("Failed to get complete login data from backend.");
                 }
             } catch (err: any) {
-                console.error("Initialization failed:", err);
+                logger.error("Initialization failed:", { message: err.message });
                 setError(err.message || "An unknown error occurred.");
             } finally {
                 setIsInitializing(false);
@@ -478,6 +555,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const switchLanguage = async (lang: Language) => {
         if (user) {
+            logger.action('SWITCH_LANGUAGE', { from: user.language, to: lang });
             if (lang === 'ua' && user.language !== 'ua') {
                 setIsGlitching(true);
             }
@@ -487,6 +565,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const logout = () => {
+        logger.action('LOGOUT');
         setUser(null);
         setPlayerState(null);
         setConfig(null);
@@ -581,6 +660,7 @@ export const useGame = () => {
 
     const savePlayerState = useCallback(async (stateToSave: PlayerState, taps: number = 0) => {
         if (!user) return null;
+        logger.action('SAVE_STATE_MANUAL', { taps, state: stateToSave });
         const updatedState = await API.savePlayerState(user.id, stateToSave, taps);
         if (updatedState) {
             setPlayerState(updatedState);
@@ -604,6 +684,7 @@ export const useGame = () => {
             // New penalty detected
             const newPenalty = playerState.penaltyLog[currentLogLength - 1];
             if (newPenalty.message) {
+                logger.warn('PENALTY_RECEIVED', { penalty: newPenalty });
                 setSystemMessage(newPenalty.message);
             }
         }
@@ -652,13 +733,14 @@ export const useGame = () => {
     // Listener for successful payments
     useEffect(() => {
         const handleInvoiceClosed = async (event: {slug: string, status: 'paid' | 'cancelled' | 'failed' | 'pending'}) => {
+            logger.action('INVOICE_CLOSED', event);
             if (event.status === 'paid') {
                 if(!user) return;
                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 const { player: updatedPlayer, wonItem, error } = await API.syncAfterPayment(user.id);
 
                 if (error) {
-                    console.error("Sync after payment failed:", error);
+                    logger.error("Sync after payment failed:", error);
                     return;
                 }
 
@@ -667,9 +749,10 @@ export const useGame = () => {
                 const isValidWonItem = wonItem && wonItem.item && typeof wonItem.item === 'object' && Object.keys(wonItem.item).length > 0;
 
                 if (isValidWonItem) {
+                    logger.info('Payment success, item received', { wonItem });
                     setPurchaseResult(wonItem);
                 } else if (wonItem) {
-                    console.error("Received a 'wonItem' from server but its structure is invalid.", wonItem);
+                    logger.warn("Received a 'wonItem' from server but its structure is invalid.", wonItem);
                 }
                 
             } else {
@@ -711,6 +794,7 @@ export const useGame = () => {
         const tapValue = effectiveCoinsPerTap * (isTurboActive ? 5 : 1);
         if (!playerState || playerState.energy < tapValue) return 0;
         
+        logger.action('TAP', { value: tapValue });
         tapsSinceLastSave.current += 1;
         setPlayerState(p => p ? {
             ...p,
@@ -725,6 +809,7 @@ export const useGame = () => {
     const buyUpgrade = useCallback(async (upgradeId: string): Promise<{ player?: PlayerState, error?: string }> => {
         if (!user) return { error: 'User not authenticated' };
         
+        logger.action('BUY_UPGRADE', { upgradeId });
         const result = await API.buyUpgrade(user.id, upgradeId);
 
         if (result.player) {
@@ -737,6 +822,7 @@ export const useGame = () => {
 
     const buyBoost = useCallback(async (boost: Boost) => {
         if (!user) return { error: 'User not found' };
+        logger.action('BUY_BOOST', { boostId: boost.id });
         const result = await API.buyBoost(user.id, boost.id);
         if (result.player) {
             setPlayerState(result.player);
@@ -750,6 +836,7 @@ export const useGame = () => {
 
     const resetBoostLimit = useCallback(async (boost: Boost) => {
         if (!user) return { error: 'User not found' };
+        logger.action('RESET_BOOST_LIMIT', { boostId: boost.id });
         const result = await API.createStarInvoice(user.id, 'boost_reset', boost.id);
         if (result.ok && result.invoiceLink) {
             window.Telegram.WebApp.openInvoice(result.invoiceLink);
@@ -760,6 +847,7 @@ export const useGame = () => {
 
     const claimTaskReward = useCallback(async (task: DailyTask, code?: string) => {
         if (!user) return { error: 'User not found' };
+        logger.action('CLAIM_TASK', { taskId: task.id, hasCode: !!code });
         const result = await API.claimDailyTask(user.id, task.id, code);
         if (result.player) {
             setPlayerState(result.player);
@@ -769,6 +857,7 @@ export const useGame = () => {
     
     const purchaseSpecialTask = useCallback(async (task: SpecialTask) => {
         if (!user) return { error: 'User not found' };
+        logger.action('PURCHASE_SPECIAL_TASK', { taskId: task.id, price: task.priceStars });
         
         if (task.priceStars > 0) {
             const result = await API.createStarInvoice(user.id, 'task', task.id);
@@ -792,6 +881,7 @@ export const useGame = () => {
 
     const completeSpecialTask = useCallback(async (task: SpecialTask, code?: string) => {
         if (!user) return { error: "User not found" };
+        logger.action('COMPLETE_SPECIAL_TASK', { taskId: task.id, hasCode: !!code });
         const result = await API.completeSpecialTask(user.id, task.id, code);
         if (result.player) {
             setPlayerState(result.player);
@@ -801,6 +891,7 @@ export const useGame = () => {
     
     const claimDailyCombo = useCallback(async () => {
         if (!user) return { error: 'User not found' };
+        logger.action('CLAIM_COMBO');
         const result = await API.claimCombo(user.id);
         if(result.player) setPlayerState(result.player);
         return result;
@@ -808,6 +899,7 @@ export const useGame = () => {
     
     const claimDailyCipher = useCallback(async (cipher: string) => {
         if (!user) return { error: 'User not found' };
+        logger.action('CLAIM_CIPHER', { cipher });
         const result = await API.claimCipher(user.id, cipher);
         if(result.player) setPlayerState(result.player);
         return result;
@@ -815,6 +907,7 @@ export const useGame = () => {
 
     const claimGlitchCode = useCallback(async (code: string) => {
         if (!user) return { error: 'User not found' };
+        logger.action('CLAIM_GLITCH_CODE', { code });
         const result = await API.claimGlitchCode(user.id, code);
         if(result.player) setPlayerState(result.player);
         return result;
@@ -823,6 +916,7 @@ export const useGame = () => {
     const markGlitchAsShown = useCallback(async (code: string) => {
         if (!user) return;
         
+        logger.action('MARK_GLITCH_SHOWN', { code });
         // Optimistic update
         setPlayerState(p => {
             if (!p) return null;
@@ -836,7 +930,7 @@ export const useGame = () => {
         if (result.player) {
             setPlayerState(result.player);
         } else if (result.error) {
-            console.error("Failed to mark glitch as shown on server:", result.error);
+            logger.error("Failed to mark glitch as shown on server:", result.error);
             // Optional: Add logic here to roll back the optimistic update if needed
         }
     }, [user, setPlayerState]);
@@ -845,6 +939,7 @@ export const useGame = () => {
     
     const openCoinLootbox = useCallback(async (boxType: 'coin') => {
         if (!user) return { error: 'User not found' };
+        logger.action('OPEN_COIN_LOOTBOX', { boxType });
         const result = await API.openLootbox(user.id, boxType);
         if (result.player) {
             setPlayerState(result.player);
@@ -856,13 +951,14 @@ export const useGame = () => {
         if (isValidItem) {
             setPurchaseResult({type: 'lootbox', item: item });
         } else if (item) {
-            console.error("Received an invalid item from coin lootbox.", item);
+            logger.warn("Received an invalid item from coin lootbox.", item);
         }
         return result;
     }, [user, setPlayerState, setPurchaseResult]);
 
     const purchaseLootboxWithStars = useCallback(async (boxType: 'star') => {
         if (!user) return { error: 'User not found' };
+        logger.action('PURCHASE_STAR_LOOTBOX', { boxType });
         const result = await API.createStarInvoice(user.id, 'lootbox', boxType);
         if (result.ok && result.invoiceLink) {
              // The global 'invoiceClosed' event listener will handle the success case.
@@ -874,6 +970,7 @@ export const useGame = () => {
 
     const setSkin = useCallback(async (skinId: string) => {
         if (!user) return;
+        logger.action('SET_SKIN', { skinId });
         const result = await API.setSkin(user.id, skinId);
         if (result.player) {
             setPlayerState(result.player);
@@ -882,6 +979,7 @@ export const useGame = () => {
 
     const createCell = useCallback(async (name: string) => {
         if (!user) return { error: 'User not found' };
+        logger.action('CREATE_CELL', { name });
         const result = await API.createCell(user.id, name);
         if (result.player) setPlayerState(result.player);
         return result;
@@ -889,6 +987,7 @@ export const useGame = () => {
 
     const joinCell = useCallback(async (inviteCode: string) => {
         if (!user) return { error: 'User not found' };
+        logger.action('JOIN_CELL', { inviteCode });
         const result = await API.joinCell(user.id, inviteCode);
         if (result.player) setPlayerState(result.player);
         return result;
@@ -901,6 +1000,7 @@ export const useGame = () => {
 
     const leaveCell = useCallback(async () => {
         if (!user) return { error: 'User not found' };
+        logger.action('LEAVE_CELL');
         const result = await API.leaveCell(user.id);
         if (result.player) setPlayerState(result.player);
         return result;
@@ -908,6 +1008,7 @@ export const useGame = () => {
 
      const recruitInformant = useCallback(async () => {
         if (!user) return { error: 'User not found' };
+        logger.action('RECRUIT_INFORMANT');
         const result = await API.recruitInformant(user.id);
         if (result.player) setPlayerState(result.player);
         return result;
@@ -915,6 +1016,7 @@ export const useGame = () => {
     
      const buyCellTicket = useCallback(async () => {
         if (!user) return { error: 'User not found' };
+        logger.action('BUY_CELL_TICKET');
         return await API.buyCellTicket(user.id);
     }, [user]);
 
@@ -925,11 +1027,13 @@ export const useGame = () => {
 
     const joinBattle = useCallback(async () => {
         if (!user) return { error: 'User not found' };
+        logger.action('JOIN_BATTLE');
         return await API.joinBattle(user.id);
     }, [user]);
 
     const activateBattleBoost = useCallback(async (boostId: string) => {
         if (!user) return { error: "User not found" };
+        logger.action('ACTIVATE_BATTLE_BOOST', { boostId });
         return await API.activateBattleBoost(user.id, boostId);
     }, [user]);
 
@@ -939,6 +1043,7 @@ export const useGame = () => {
 
     const listSkinOnMarket = useCallback(async (skinId: string, price: number) => {
         if (!user) return { error: 'User not found' };
+        logger.action('LIST_SKIN', { skinId, price });
         return await API.listSkinOnMarket(user.id, skinId, price);
     }, [user]);
 
@@ -948,6 +1053,7 @@ export const useGame = () => {
 
     const purchaseMarketItem = useCallback(async (listingId: number) => {
         if (!user) return { error: 'User not found' };
+        logger.action('PURCHASE_SKIN', { listingId });
         
         const result = await API.purchaseMarketItemWithCoins(user.id, listingId);
         
@@ -962,6 +1068,7 @@ export const useGame = () => {
 
     const connectWallet = useCallback(async (address: string) => {
         if (!user) return { error: 'User not found' };
+        logger.action('CONNECT_WALLET', { address });
         const result = await API.connectWallet(user.id, address);
         if (result.player) {
             setPlayerState(result.player);
@@ -971,6 +1078,7 @@ export const useGame = () => {
 
     const requestWithdrawal = useCallback(async (amount: number) => {
         if (!user) return { error: 'User not found' };
+        logger.action('REQUEST_WITHDRAWAL', { amount });
         const result = await API.requestWithdrawal(user.id, amount);
         if (result.player) {
             setPlayerState(result.player);
@@ -985,6 +1093,7 @@ export const useGame = () => {
 
     const submitVideoForReview = useCallback(async (url: string) => {
         if (!user) return { error: 'User not found' };
+        logger.action('SUBMIT_VIDEO', { url });
         return await API.submitVideoForReview(user.id, url);
     }, [user]);
 

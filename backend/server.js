@@ -95,16 +95,29 @@ if (!ai) {
     console.warn("GEMINI_API_KEY for Gemini is not set. AI features will be disabled.");
 }
 
-// --- Simple Logger ---
-const log = (level, message, data = '') => {
+// --- Enhanced Logger ---
+const log = (level, message, data) => {
     const timestamp = new Date().toISOString();
     const formattedMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
-    if (level === 'error') {
-        if (data) console.error(formattedMessage, data);
-        else console.error(formattedMessage);
+
+    // Deep copy and sanitize data to avoid logging sensitive info like Telegram hash
+    let logData;
+    if (data !== undefined) {
+        try {
+            logData = JSON.parse(JSON.stringify(data));
+            if (logData?.tgUser?.hash) logData.tgUser.hash = '[REDACTED]';
+            if (logData?.body?.tgUser?.hash) logData.body.tgUser.hash = '[REDACTED]';
+        } catch (e) {
+            logData = '[[Circular Reference or Unserializable]]';
+        }
+    }
+
+    const logFn = level === 'error' ? console.error : console.log;
+
+    if (logData !== undefined) {
+        logFn(formattedMessage, logData);
     } else {
-        if (data) console.log(formattedMessage, data);
-        else console.log(formattedMessage);
+        logFn(formattedMessage);
     }
 };
 
@@ -137,7 +150,7 @@ app.use(cors({ origin: '*', credentials: true }));
 // Use express.json() for all routes EXCEPT the webhook
 app.use((req, res, next) => {
     if (req.path === '/api/telegram-webhook') {
-        next();
+        express.json()(req, res, next);
     } else {
         express.json()(req, res, next);
     }
@@ -269,8 +282,9 @@ const answerPreCheckoutQuery = async (pre_checkout_query_id, ok, error_message =
 };
 
 // Telegram Webhook - MUST use raw body parser
-app.post('/api/telegram-webhook', express.json(), async (req, res) => {
+app.post('/api/telegram-webhook', async (req, res) => {
     const update = req.body;
+    log('info', '[WEBHOOK_RECEIVED]', { update });
 
     // Handle pre-checkout query
     if (update.pre_checkout_query) {
@@ -303,6 +317,7 @@ app.post('/api/telegram-webhook', express.json(), async (req, res) => {
 app.post('/api/login', async (req, res) => {
     try {
         const { tgUser, startParam } = req.body;
+        log('info', '[ACTION:LOGIN]', { tgUser, startParam });
         if (!tgUser || !tgUser.id) {
             return res.status(400).json({ error: 'Invalid Telegram user data.' });
         }
@@ -430,6 +445,7 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/player/:id', async (req, res) => {
     const { id } = req.params;
     const { state: clientState, taps: clientTaps } = req.body;
+    log('info', `[ACTION:SAVE_STATE] User: ${id}`, { taps: clientTaps, state: clientState });
     const dbClient = await pool.connect();
 
     try {
@@ -534,6 +550,7 @@ app.post('/api/user/:id/language', async (req, res) => {
     try {
         const { id } = req.params;
         const { language } = req.body;
+        log('info', `[ACTION:SET_LANG] User: ${id}`, { language });
         await updateUserLanguage(id, language);
         res.sendStatus(200);
     } catch (error) {
@@ -626,6 +643,7 @@ const gameActions = {
 app.post('/api/action/:action', async (req, res) => {
     const { action } = req.params;
     const { userId } = req.body;
+    log('info', `[GAME_ACTION] ${action}`, { userId, body: req.body });
     
     try {
         if (!gameActions[action]) {
@@ -646,17 +664,19 @@ app.post('/api/action/:action', async (req, res) => {
         }
 
         const result = await gameActions[action](req.body, player, config);
+        log('info', `[GAME_ACTION_SUCCESS] ${action}`, { userId, result });
         
         res.json(result);
 
     } catch (error) {
-        log('error', `Action ${action} for user ${userId} failed`, error);
+        log('error', `Action ${action} for user ${userId} failed`, { message: error.message, stack: error.stack });
         res.status(400).json({ error: error.message });
     }
 });
 
 app.post('/api/create-star-invoice', async (req, res) => {
     const { userId, payloadType, itemId } = req.body;
+    log('info', '[ACTION:CREATE_INVOICE]', { userId, payloadType, itemId });
     const { BOT_TOKEN } = process.env;
 
     if (!BOT_TOKEN) {
@@ -721,6 +741,7 @@ app.post('/api/create-star-invoice', async (req, res) => {
 
 app.post('/api/sync-after-payment', async (req, res) => {
     const { userId } = req.body;
+    log('info', '[ACTION:SYNC_PAYMENT]', { userId });
     const dbClient = await pool.connect();
     try {
         await dbClient.query('BEGIN');
@@ -736,6 +757,7 @@ app.post('/api/sync-after-payment', async (req, res) => {
         }
         
         await dbClient.query('COMMIT');
+        log('info', `[SYNC_PAYMENT_SUCCESS] User: ${userId}`, { player, wonItem });
         res.json({ player, wonItem });
 
     } catch(e) {
@@ -753,6 +775,7 @@ app.post('/api/sync-after-payment', async (req, res) => {
 app.post('/api/cell/create', async (req, res) => {
     try {
         const { userId, name } = req.body;
+        log('info', `[CELL_ACTION] Create`, { userId, name });
         const config = await getGameConfig();
         const result = await createCellInDb(userId, name, config.cellCreationCost);
         res.json(result);
@@ -764,6 +787,7 @@ app.post('/api/cell/create', async (req, res) => {
 app.post('/api/cell/join', async (req, res) => {
     try {
         const { userId, inviteCode } = req.body;
+        log('info', `[CELL_ACTION] Join`, { userId, inviteCode });
         const config = await getGameConfig();
         const result = await joinCellInDb(userId, inviteCode, config);
         res.json(result);
@@ -775,6 +799,7 @@ app.post('/api/cell/join', async (req, res) => {
 app.post('/api/cell/leave', async (req, res) => {
      try {
         const { userId } = req.body;
+        log('info', `[CELL_ACTION] Leave`, { userId });
         const result = await leaveCellFromDb(userId);
         res.json(result);
     } catch(e) {
@@ -785,6 +810,7 @@ app.post('/api/cell/leave', async (req, res) => {
 app.post('/api/cell/buy-ticket', async (req, res) => {
     try {
         const { userId } = req.body;
+        log('info', `[CELL_ACTION] Buy Ticket`, { userId });
         const config = await getGameConfig();
         const result = await buyTicketInDb(userId, config);
         res.json({ cell: result });
@@ -814,6 +840,7 @@ app.post('/api/informant/recruit', async (req, res) => {
     
     try {
         const { userId } = req.body;
+        log('info', `[CELL_ACTION] Recruit Informant`, { userId });
         const config = await getGameConfig();
         
         const response = await ai.models.generateContent({
@@ -874,6 +901,7 @@ app.get('/api/battle/status', async (req, res) => {
 app.post('/api/battle/join', async (req, res) => {
     try {
         const { userId } = req.body;
+        log('info', `[BATTLE_ACTION] Join`, { userId });
         const status = await joinActiveBattle(userId);
         const config = await getGameConfig();
         const cell = await getCellFromDb((await getPlayer(userId)).cellId, config);
@@ -886,6 +914,7 @@ app.post('/api/battle/join', async (req, res) => {
 app.post('/api/cell/activate-boost', async (req, res) => {
     try {
         const { userId, boostId } = req.body;
+        log('info', `[BATTLE_ACTION] Activate Boost`, { userId, boostId });
         const config = await getGameConfig();
         const result = await activateBattleBoostInDb(userId, boostId, config);
         res.json(result);
@@ -936,6 +965,7 @@ app.get('/api/leaderboard', async (req, res) => {
 app.post('/api/market/list', async (req, res) => {
     try {
         const { userId, skinId, priceStars } = req.body;
+        log('info', `[MARKET_ACTION] List Skin`, { userId, skinId, price: priceStars });
         const listing = await listSkinForSaleInDb(userId, skinId, priceStars);
         res.status(201).json({ listing });
     } catch (e) {
@@ -957,6 +987,7 @@ app.get('/api/market/listings', async (req, res) => {
 app.post('/api/market/purchase-coin', async (req, res) => {
     try {
         const { userId, listingId } = req.body;
+        log('info', `[MARKET_ACTION] Purchase Skin`, { userId, listingId });
         if (!userId || !listingId) {
             return res.status(400).json({ error: "User ID and Listing ID are required." });
         }
@@ -974,6 +1005,7 @@ app.post('/api/market/purchase-coin', async (req, res) => {
 app.post('/api/wallet/connect', async (req, res) => {
     try {
         const { userId, walletAddress } = req.body;
+        log('info', `[WALLET_ACTION] Connect`, { userId, walletAddress });
         const player = await connectTonWalletInDb(userId, walletAddress);
         res.json({ player });
     } catch (e) {
@@ -985,6 +1017,7 @@ app.post('/api/wallet/connect', async (req, res) => {
 app.post('/api/wallet/request-withdrawal', async (req, res) => {
     try {
         const { userId, amountCredits } = req.body;
+        log('info', `[WALLET_ACTION] Request Withdrawal`, { userId, amountCredits });
         const player = await requestWithdrawalInDb(userId, amountCredits);
         res.json({ player });
     } catch (e) {
@@ -1011,6 +1044,7 @@ app.get('/api/wallet/my-requests', async (req, res) => {
 app.post('/api/video/submit', async (req, res) => {
     try {
         const { userId, url } = req.body;
+        log('info', `[VIDEO_ACTION] Submit`, { userId, url });
         if (!userId || !url) {
             return res.status(400).json({ error: 'User ID and URL are required.' });
         }
@@ -1040,6 +1074,7 @@ app.get('/api/video/my-submissions', async (req, res) => {
 // --- Admin Panel API (protected by middleware) ---
 app.post('/admin/login', (req, res) => {
     const { password } = req.body;
+    log('info', `[ADMIN_ACTION] Login attempt`);
     if (password === process.env.ADMIN_PASSWORD) {
         req.session.isAdmin = true;
         res.redirect('/admin/');
@@ -1049,6 +1084,7 @@ app.post('/admin/login', (req, res) => {
 });
 
 app.get('/admin/logout', (req, res) => {
+    log('info', `[ADMIN_ACTION] Logout`);
     req.session.destroy(() => {
         res.redirect('/admin/login.html');
     });
@@ -1131,6 +1167,7 @@ app.post('/admin/api/translate-text', checkAdminAuth, async (req, res) => {
     }
     try {
         const { text, targetLangs } = req.body;
+        log('info', `[ADMIN_ACTION] Translate Text`, { text, targetLangs });
         if (!text || !targetLangs || !Array.isArray(targetLangs)) {
             return res.status(400).json({ error: "Invalid request body" });
         }
@@ -1170,6 +1207,7 @@ app.post('/admin/api/generate-ai-content', checkAdminAuth, async (req, res) => {
 
     try {
         const { customPrompt } = req.body;
+        log('info', `[ADMIN_ACTION] Generate AI Content`, { customPrompt });
             
         // --- Define Schemas ---
         const localizedStringSchema = {
@@ -1358,6 +1396,7 @@ app.get('/admin/api/config', (req, res) => {
 
 app.post('/admin/api/config', async (req, res) => {
     try {
+        log('info', `[ADMIN_ACTION] Save Config`, { config: req.body.config });
         await saveConfig(req.body.config);
         res.sendStatus(200);
     } catch (error) {
@@ -1378,6 +1417,7 @@ app.get('/admin/api/players', async (req, res) => {
 
 app.delete('/admin/api/player/:id', async (req, res) => {
     try {
+        log('info', `[ADMIN_ACTION] Delete Player`, { userId: req.params.id });
         await deletePlayer(req.params.id);
         res.sendStatus(200);
     } catch (error) {
@@ -1394,6 +1434,7 @@ app.get('/admin/api/daily-events', async (req, res) => {
 
 app.post('/admin/api/daily-events', async (req, res) => {
     const { combo_ids, cipher_word, combo_reward, cipher_reward } = req.body;
+    log('info', `[ADMIN_ACTION] Save Daily Events`, { combo_ids, cipher_word });
     const today = new Date().toISOString().split('T')[0];
     await saveDailyEvent(today, combo_ids, cipher_word, combo_reward, cipher_reward);
     res.sendStatus(200);
@@ -1427,12 +1468,14 @@ app.get('/admin/api/player/:id/details', async (req, res) => {
 });
 
 app.post('/admin/api/player/:id/update-balance', async (req, res) => {
+    log('info', `[ADMIN_ACTION] Update Balance`, { userId: req.params.id, amount: req.body.amount });
     await updatePlayerBalance(req.params.id, req.body.amount);
     res.sendStatus(200);
 });
 
 app.post('/admin/api/player/:id/reset-daily', async(req, res) => {
     const player = await getPlayer(req.params.id);
+    log('info', `[ADMIN_ACTION] Reset Daily Progress`, { userId: req.params.id });
     if(player) {
         await resetPlayerDailyProgress(req.params.id, player);
     }
@@ -1445,12 +1488,14 @@ app.get('/admin/api/cheaters', async (req, res) => {
 });
 
 app.post('/admin/api/player/:id/reset-progress', async (req, res) => {
+    log('info', `[ADMIN_ACTION] Reset Progress`, { userId: req.params.id });
     await resetPlayerProgress(req.params.id);
     res.sendStatus(200);
 });
 
 app.post('/admin/api/socials', async (req, res) => {
     try {
+        log('info', `[ADMIN_ACTION] Save Socials`, { socials: req.body });
         const config = await getGameConfig();
         config.socials = { ...config.socials, ...req.body };
         await saveConfig(config);
@@ -1470,6 +1515,7 @@ app.post('/admin/api/broadcast', async (req, res) => {
     }
 
     const { text, imageUrl, buttonUrl, buttonText } = req.body;
+    log('info', `[ADMIN_ACTION] Broadcast Message`, { text, imageUrl, buttonUrl, buttonText });
     const userIds = await getAllUserIds();
     let successCount = 0;
     let failCount = 0;
@@ -1535,6 +1581,7 @@ app.get('/admin/api/battle/status', async (req, res) => {
 
 app.post('/admin/api/battle/force-start', async (req, res) => {
     try {
+        log('info', `[ADMIN_ACTION] Force Start Battle`);
         const config = await getGameConfig();
         await forceStartBattle(config);
         res.sendStatus(200);
@@ -1544,6 +1591,7 @@ app.post('/admin/api/battle/force-start', async (req, res) => {
 });
 app.post('/admin/api/battle/force-end', async (req, res) => {
     try {
+        log('info', `[ADMIN_ACTION] Force End Battle`);
         const config = await getGameConfig();
         await forceEndBattle(config);
         res.sendStatus(200);
@@ -1571,6 +1619,7 @@ app.get('/admin/api/withdrawal-requests', async (req, res) => {
 
 app.post('/admin/api/withdrawal-requests/:id/approve', async (req, res) => {
     try {
+        log('info', `[ADMIN_ACTION] Approve Withdrawal`, { id: req.params.id });
         await updateWithdrawalRequestStatusInDb(req.params.id, 'approved');
         res.sendStatus(200);
     } catch (e) {
@@ -1580,6 +1629,7 @@ app.post('/admin/api/withdrawal-requests/:id/approve', async (req, res) => {
 
 app.post('/admin/api/withdrawal-requests/:id/reject', async (req, res) => {
      try {
+        log('info', `[ADMIN_ACTION] Reject Withdrawal`, { id: req.params.id });
         await updateWithdrawalRequestStatusInDb(req.params.id, 'rejected');
         res.sendStatus(200);
     } catch (e) {
@@ -1599,6 +1649,7 @@ app.get('/admin/api/video-submissions', async (req, res) => {
 app.post('/admin/api/video-submissions/:id/approve', async (req, res) => {
     try {
         const { rewardAmount } = req.body;
+        log('info', `[ADMIN_ACTION] Approve Video`, { id: req.params.id, rewardAmount });
         if (!rewardAmount || rewardAmount <= 0) {
             return res.status(400).json({ error: 'Invalid reward amount.' });
         }
@@ -1611,6 +1662,7 @@ app.post('/admin/api/video-submissions/:id/approve', async (req, res) => {
 
 app.post('/admin/api/video-submissions/:id/reject', async (req, res) => {
     try {
+        log('info', `[ADMIN_ACTION] Reject Video`, { id: req.params.id });
         await rejectSubmissionDb(req.params.id);
         res.sendStatus(200);
     } catch (e) {
