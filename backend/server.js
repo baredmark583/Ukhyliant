@@ -444,51 +444,44 @@ app.post('/api/player/:id', async (req, res) => {
         
         let serverState = dbRes.rows[0].data;
         
-        // Add taps to battle score if applicable
         if (serverState.cellId && clientTaps > 0) {
             await addTapsToBattle(serverState.cellId, clientTaps);
         }
         
-        let finalState = { ...serverState };
+        // Use the client's state as the primary source of truth, as it's the most recent.
+        // Then, merge/recalculate critical server-side values to prevent exploits or data loss from race conditions.
+        let finalState = { ...clientState };
         let stateUpdatedForClient = false;
-        
-        // --- Authoritative Server-Side Balance Calculation ---
-        // 1. Calculate the value of taps performed by the client.
+
+        // --- Authoritative Server Recalculations & Merges ---
+
+        // BALANCE: Is recalculated based on server's last known balance + new taps.
+        const serverBalance = Number(serverState.balance) || 0;
         const baseTap = serverState.coinsPerTap || 1;
         const level = serverState.tapGuruLevel || 0;
         const effectiveCoinsPerTap = Math.ceil(baseTap * Math.pow(1.5, level));
-        // Note: Turbo mode is not factored in here as it's a client-side transient effect.
-        // The main goal is to secure the base balance calculation.
         const tapEarnings = (clientTaps || 0) * effectiveCoinsPerTap;
-
-        // 2. Update the server's balance authoritatively.
-        // We start with the server's balance, not the client's.
-        finalState.balance = (Number(serverState.balance) || 0) + tapEarnings;
+        finalState.balance = serverBalance + tapEarnings;
         
-        // 3. Update high-frequency fields from the client that are safe to trust.
-        finalState.energy = clientState.energy;
-        finalState.dailyTaps = clientState.dailyTaps;
+        // MERGE ARRAYS: Use a Set union to combine server and client arrays.
+        // This prevents a stale client from erasing recently added items (like a discovered glitch code).
+        const mergeArrays = (key) => {
+            const serverArr = Array.isArray(serverState[key]) ? serverState[key] : [];
+            const clientArr = Array.isArray(clientState[key]) ? clientState[key] : [];
+            const mergedSet = new Set([...serverArr, ...clientArr].map(c => String(c)));
+            const mergedArr = Array.from(mergedSet);
+            
+            if (mergedArr.length > clientArr.length) {
+                stateUpdatedForClient = true;
+            }
+            finalState[key] = mergedArr;
+        };
 
-        // Merge discovered codes from client, as client-side triggers are valid.
-        const serverDiscovered = new Set(serverState.discoveredGlitchCodes || []);
-        const clientDiscovered = new Set(clientState.discoveredGlitchCodes || []);
-        if (clientDiscovered.size > serverDiscovered.size) {
-            const allDiscovered = Array.from(new Set([...serverDiscovered, ...clientDiscovered]));
-            finalState.discoveredGlitchCodes = allDiscovered;
-            // If the client discovered a new code, we should send the updated state back to confirm.
-            stateUpdatedForClient = true;
-        }
+        mergeArrays('discoveredGlitchCodes');
+        mergeArrays('claimedGlitchCodes');
+        mergeArrays('shownGlitchCodes');
 
-        // --- Handle other state updates ---
-        const adminBonus = Number(serverState.adminBonus) || 0;
-        if (adminBonus !== 0) {
-            finalState.balance += adminBonus;
-            finalState.adminBonus = 0; // Clear the bonus after applying
-            stateUpdatedForClient = true;
-            log('info', `Applied admin bonus of ${adminBonus} to user ${id}.`);
-        }
-
-        // --- Anti-Cheat Check ---
+        // ANTI-CHEAT & GLITCH TRIGGERS
         const timeDiff = (Date.now() - (serverState.lastLoginTimestamp || Date.now())) / 1000;
         if (timeDiff > 0.1 && clientTaps > 0) {
             const tps = clientTaps / timeDiff;
@@ -499,20 +492,17 @@ app.post('/api/player/:id', async (req, res) => {
                     finalState.isCheater = true;
                 }
                 log('warn', `High TPS detected for user ${id}: ${tps.toFixed(2)}`);
-                 stateUpdatedForClient = true;
+                stateUpdatedForClient = true;
             }
         }
-
-        // --- Server-side Glitch Trigger for Balance ---
+        
         const config = await getGameConfig();
         if (config.glitchEvents) {
             for (const event of config.glitchEvents) {
-                if (event.trigger?.type === 'balance_equals') {
+                if (event.trigger?.type === 'balance_equals' && (Number(finalState.balance) || 0) >= event.trigger.params.amount) {
                     const alreadyDiscovered = finalState.discoveredGlitchCodes?.includes(event.code);
-                    const alreadyClaimed = finalState.claimedGlitchCodes?.includes(event.code);
-
-                    if (!alreadyDiscovered && !alreadyClaimed && (Number(finalState.balance) || 0) >= event.trigger.params.amount) {
-                         finalState.discoveredGlitchCodes = [...(finalState.discoveredGlitchCodes || []), event.code];
+                    if (!alreadyDiscovered) {
+                         finalState.discoveredGlitchCodes.push(event.code);
                          stateUpdatedForClient = true;
                          log('info', `Triggered balance glitch '${event.code}' for user ${id}`);
                     }
@@ -520,10 +510,8 @@ app.post('/api/player/:id', async (req, res) => {
             }
         }
         
-        // Always update the timestamp
         finalState.lastLoginTimestamp = Date.now();
         
-        // --- Save and Respond ---
         await dbClient.query('UPDATE players SET data = $1 WHERE id = $2', [finalState, id]);
         await dbClient.query('COMMIT');
         
@@ -1336,225 +1324,323 @@ app.post('/admin/api/generate-ai-content', checkAdminAuth, async (req, res) => {
                 blackMarketCards: { type: Type.ARRAY, items: blackMarketCardSchema },
                 coinSkins: { type: Type.ARRAY, items: coinSkinSchema },
                 glitchEvents: { type: Type.ARRAY, items: glitchEventSchema },
-            },
+            }
         };
 
-        const systemInstruction = `You are a game mechanics generator. Everything you create exists in a dystopian reality.
-The setting is a mix of "1984", Nazi Germany, modern New York, Tokyo, and Hong Kong with a cyberpunk atmosphere, but without a specific future. The country is in a state of war, ruin, total surveillance, dictatorship, and propaganda. The player operates through a terminal: hacking servers, ministries of truth, accounting departments, spying, stealing information, upgrading cards, and using a glitch mechanic. Everything should feel dangerous, risky, and paranoid.
-Your main goal is to generate a rich and diverse set of content across ALL available categories (upgrades, tasks, boosts, etc.) that fits the user's prompt. Do not generate just one type of item unless specifically asked.
-- The content must reflect the absurd and grim reality of dodging the draft, dealing with bureaucracy, finding loopholes, and navigating a surveillance state.
-- Balance the game by making prices and profits reasonable but escalating.
-- For 'iconUrl' and 'imageUrl', provide a valid URL from api.iconify.design that thematically fits the item.
-- For 'id', create a short, unique string with a prefix indicating the type (e.g., 'ai_upg_1', 'ai_tsk_1').
-- Provide all localizable strings ('name', 'description', 'message') in English (en), Ukrainian (ua), and Russian (ru).
-- The generated content must strictly adhere to the provided JSON schema. You MUST attempt to populate all categories.
-- If the user's prompt is empty or too generic, generate a diverse set of 2-3 items for each of the following categories: upgrades, daily tasks, airdrop tasks, and boosts.`;
-
-        const userPrompt = customPrompt || "The user did not provide a prompt. Generate a diverse starter pack of content.";
-
+        const fullPrompt = `You are a game designer for a Telegram clicker game called "Ukhyliant" about a draft dodger in a dystopian state. The tone is dark humor. Generate new game content based on this user prompt: "${customPrompt}". Only generate content for the categories mentioned or implied in the prompt. Ensure all generated items have unique IDs, are balanced, and fit the theme. All icon/image URLs must come from api.iconify.design. Translate all user-facing strings (name, description, message) into English (en), Ukrainian (ua), and Russian (ru).`;
+        
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: userPrompt,
+            contents: fullPrompt,
             config: {
-                systemInstruction,
                 responseMimeType: "application/json",
                 responseSchema: finalResponseSchema,
-            }
+            },
         });
-        
+
         const jsonText = response.text.trim();
         const generatedContent = JSON.parse(jsonText);
         res.json(generatedContent);
-
+        
     } catch (e) {
         log('error', "AI content generation failed", e);
-        res.status(500).json({ error: "Failed to generate content with AI. " + e.message });
+        res.status(500).json({ error: "Failed to generate content. Check the server console." });
     }
 });
 
-app.post('/admin/api/broadcast-message', checkAdminAuth, async (req, res) => {
-    const { text, imageUrl, buttonUrl, buttonText } = req.body;
-    const { BOT_TOKEN } = process.env;
 
-    if (!text || !BOT_TOKEN) {
-        return res.status(400).json({ error: 'Text and Bot Token are required.' });
-    }
+// All other admin API routes need to be protected
+app.use('/admin/api', checkAdminAuth);
 
+app.get('/admin/api/config', (req, res) => {
+    getGameConfig().then(config => res.json(config));
+});
+
+app.post('/admin/api/config', async (req, res) => {
     try {
-        const userIds = await getAllUserIds();
-        
-        // Respond to admin immediately
-        res.json({ message: `Broadcast started for ${userIds.length} users.` });
-
-        // Perform the broadcast in the background
-        (async () => {
-            let reply_markup = undefined;
-            if (buttonUrl && buttonText) {
-                reply_markup = {
-                    inline_keyboard: [[{ text: buttonText, url: buttonUrl }]]
-                };
-            }
-
-            let successCount = 0;
-            let failureCount = 0;
-
-            for (const userId of userIds) {
-                try {
-                    const payload = {
-                        chat_id: userId,
-                        ...(reply_markup && { reply_markup })
-                    };
-
-                    let url;
-                    if (imageUrl) {
-                        url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
-                        payload.photo = imageUrl;
-                        payload.caption = text;
-                    } else {
-                        url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-                        payload.text = text;
-                    }
-
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    const data = await response.json();
-                    if (data.ok) {
-                        successCount++;
-                    } else {
-                        failureCount++;
-                        log('warn', `Failed to send broadcast to ${userId}: ${data.description}`);
-                    }
-
-                } catch (e) {
-                    failureCount++;
-                    log('error', `Broadcast error for user ${userId}`, e);
-                }
-                
-                // Rate limit: 20 messages per second is safe
-                await new Promise(resolve => setTimeout(resolve, 50)); 
-            }
-            log('info', `Broadcast finished. Success: ${successCount}, Failures: ${failureCount}`);
-        })();
-
+        await saveConfig(req.body.config);
+        res.sendStatus(200);
     } catch (error) {
-        log('error', 'Broadcast initiation failed', error);
-        res.status(500).json({ error: 'Failed to start broadcast.' });
+        log('error', 'Saving config failed', error);
+        res.status(500).json({ error: 'Failed to save config' });
     }
 });
 
-app.get('/admin/api/config', checkAdminAuth, async (req, res) => res.json(await getGameConfig()));
-app.post('/admin/api/config', checkAdminAuth, async (req, res) => {
-    await saveConfig(req.body.config);
-    res.sendStatus(200);
-});
-app.get('/admin/api/players', checkAdminAuth, async (req, res) => res.json(await getAllPlayersForAdmin()));
-app.delete('/admin/api/player/:id', checkAdminAuth, async (req, res) => {
-    await deletePlayer(req.params.id);
-    res.sendStatus(200);
-});
-app.get('/admin/api/player/:id/details', checkAdminAuth, async (req, res) => res.json(await getPlayerDetails(req.params.id)));
-app.post('/admin/api/player/:id/update-balance', checkAdminAuth, async (req, res) => {
-    await updatePlayerBalance(req.params.id, req.body.amount);
-    res.sendStatus(200);
-});
-app.post('/admin/api/player/:id/reset-daily', checkAdminAuth, async(req, res) => {
-    const player = await getPlayer(req.params.id);
-    await resetPlayerDailyProgress(req.params.id, player);
-    res.sendStatus(200);
-});
-app.post('/admin/api/player/:id/reset-progress', checkAdminAuth, async(req, res) => {
-    await resetPlayerProgress(req.params.id);
-    res.sendStatus(200);
-});
-app.get('/admin/api/cheaters', checkAdminAuth, async(req, res) => res.json(await getCheaters()));
-app.get('/admin/api/dashboard-stats', checkAdminAuth, async (req, res) => {
+app.get('/admin/api/players', async (req, res) => {
     try {
-        const stats = await getDashboardStats();
-        stats.onlineNow = await getOnlinePlayerCount();
-        res.json(stats);
-    } catch(e) {
-        log('error', 'Fetching dashboard stats failed', e);
-        res.status(500).json({ error: e.message });
+        const players = await getAllPlayersForAdmin();
+        res.json(players);
+    } catch (error) {
+        log('error', 'Fetching players failed', error);
+        res.status(500).json({ error: 'Failed to fetch players' });
     }
 });
-app.get('/admin/api/player-locations', checkAdminAuth, async (req, res) => {
+
+app.delete('/admin/api/player/:id', async (req, res) => {
     try {
-        res.json(await getPlayerLocations());
-    } catch (e) {
-        log('error', 'Fetching player locations failed', e);
-        res.status(500).json({ error: e.message });
+        await deletePlayer(req.params.id);
+        res.sendStatus(200);
+    } catch (error) {
+        log('error', `Deleting player ${req.params.id} failed`, error);
+        res.status(500).json({ error: 'Failed to delete player' });
     }
 });
-app.get('/admin/api/daily-events', checkAdminAuth, async (req, res) => res.json(await getDailyEvent(new Date().toISOString().split('T')[0])));
-app.post('/admin/api/daily-events', checkAdminAuth, async (req, res) => {
+
+app.get('/admin/api/daily-events', async (req, res) => {
+    const today = new Date().toISOString().split('T')[0];
+    const event = await getDailyEvent(today);
+    res.json(event);
+});
+
+app.post('/admin/api/daily-events', async (req, res) => {
     const { combo_ids, cipher_word, combo_reward, cipher_reward } = req.body;
     const today = new Date().toISOString().split('T')[0];
     await saveDailyEvent(today, combo_ids, cipher_word, combo_reward, cipher_reward);
     res.sendStatus(200);
 });
-app.get('/admin/api/cell-analytics', checkAdminAuth, async (req, res) => res.json(await getCellAnalytics()));
-app.get('/admin/api/battle/status', checkAdminAuth, async(req, res) => {
-    const status = await getBattleStatusForCell(null); // Get global status
-    res.json({ status });
-});
-app.post('/admin/api/battle/force-start', checkAdminAuth, async(req, res) => {
-    await forceStartBattle(await getGameConfig());
-    res.sendStatus(200);
-});
-app.post('/admin/api/battle/force-end', checkAdminAuth, async(req, res) => {
-    await forceEndBattle(await getGameConfig());
-    res.sendStatus(200);
-});
 
-app.get('/admin/api/withdrawal-requests', checkAdminAuth, async (req, res) => {
-    const requests = await getWithdrawalRequestsForAdmin();
-    res.json(requests);
-});
-app.post('/admin/api/withdrawal-requests/:id/approve', checkAdminAuth, async (req, res) => {
-    await updateWithdrawalRequestStatusInDb(req.params.id, 'approved');
-    res.sendStatus(200);
-});
-app.post('/admin/api/withdrawal-requests/:id/reject', checkAdminAuth, async (req, res) => {
-    await updateWithdrawalRequestStatusInDb(req.params.id, 'rejected');
-    res.sendStatus(200);
-});
-
-app.get('/admin/api/video-submissions', checkAdminAuth, async (req, res) => {
-    const submissions = await getAdminSubmissionsDb();
-    res.json(submissions);
-});
-
-app.post('/admin/api/video-submissions/:id/approve', checkAdminAuth, async (req, res) => {
-    const { rewardAmount } = req.body;
-    if (!rewardAmount || isNaN(Number(rewardAmount))) {
-        return res.status(400).json({ error: 'Reward amount is required.' });
+app.get('/admin/api/dashboard-stats', async (req, res) => {
+    try {
+        const stats = await getDashboardStats();
+        const onlineCount = await getOnlinePlayerCount();
+        res.json({ ...stats, onlineNow: onlineCount });
+    } catch (error) {
+        log('error', 'Fetching dashboard stats failed', error);
+        res.status(500).json({ error: 'Failed to fetch stats' });
     }
-    await approveSubmissionDb(req.params.id, Number(rewardAmount));
+});
+
+app.get('/admin/api/player-locations', async (req, res) => {
+    try {
+        const locations = await getPlayerLocations();
+        res.json(locations);
+    } catch (error) {
+        log('error', 'Fetching player locations failed', error);
+        res.status(500).json({ error: 'Failed to fetch locations' });
+    }
+});
+
+app.get('/admin/api/player/:id/details', async (req, res) => {
+    const details = await getPlayerDetails(req.params.id);
+    if(details) res.json(details);
+    else res.sendStatus(404);
+});
+
+app.post('/admin/api/player/:id/update-balance', async (req, res) => {
+    await updatePlayerBalance(req.params.id, req.body.amount);
     res.sendStatus(200);
 });
 
-app.post('/admin/api/video-submissions/:id/reject', checkAdminAuth, async (req, res) => {
-    await rejectSubmissionDb(req.params.id);
+app.post('/admin/api/player/:id/reset-daily', async(req, res) => {
+    const player = await getPlayer(req.params.id);
+    if(player) {
+        await resetPlayerDailyProgress(req.params.id, player);
+    }
     res.sendStatus(200);
 });
 
-// --- Server Startup ---
-initializeDb().then(() => {
-    // Run the update once on startup
-    updateGeoIpData();
-    // Schedule the update to run every 7 days
-    setInterval(updateGeoIpData, 7 * 24 * 60 * 60 * 1000);
-    
-    app.listen(port, () => {
-        log('info', `Server listening on port ${port}`);
-        // Start battle check cron job
-        setInterval(() => checkAndManageBattles(getGameConfig()), 60 * 1000); // Check every minute
+app.get('/admin/api/cheaters', async (req, res) => {
+    const cheaters = await getCheaters();
+    res.json(cheaters);
+});
+
+app.post('/admin/api/player/:id/reset-progress', async (req, res) => {
+    await resetPlayerProgress(req.params.id);
+    res.sendStatus(200);
+});
+
+app.post('/admin/api/socials', async (req, res) => {
+    try {
+        const config = await getGameConfig();
+        config.socials = { ...config.socials, ...req.body };
+        await saveConfig(config);
+        // Force update cache after saving
+        await updateSocialStatsCache();
+        res.json(config.socials);
+    } catch (error) {
+        log('error', 'Saving socials failed', error);
+        res.status(500).json({ error: 'Failed to save socials' });
+    }
+});
+
+app.post('/admin/api/broadcast', async (req, res) => {
+    const { BOT_TOKEN } = process.env;
+    if (!BOT_TOKEN) {
+        return res.status(500).json({ error: "Bot token not configured." });
+    }
+
+    const { text, imageUrl, buttonUrl, buttonText } = req.body;
+    const userIds = await getAllUserIds();
+    let successCount = 0;
+    let failCount = 0;
+
+    log('info', `Starting broadcast to ${userIds.length} users.`);
+
+    const sendPromises = userIds.map(userId => {
+        const messagePayload = {
+            chat_id: userId,
+            text: text,
+            parse_mode: 'HTML',
+        };
+
+        if (imageUrl) {
+            messagePayload.photo = imageUrl;
+            messagePayload.caption = text;
+            delete messagePayload.text;
+        }
+
+        if (buttonUrl && buttonText) {
+            messagePayload.reply_markup = {
+                inline_keyboard: [[{ text: buttonText, url: buttonUrl }]]
+            };
+        }
+        
+        return fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(messagePayload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                successCount++;
+            } else {
+                failCount++;
+                log('warn', `Broadcast failed for user ${userId}: ${data.description}`);
+            }
+        })
+        .catch(error => {
+            failCount++;
+            log('error', `Broadcast network error for user ${userId}`, error);
+        });
     });
-}).catch(e => {
-    log('error', "Database initialization failed, server not started.", e);
-    process.exit(1);
+    
+    // We don't wait for all promises to resolve to give a quick response to the admin
+    res.status(202).json({ message: `Broadcast started for ${userIds.length} users.` });
+
+    // Wait for all messages to be sent in the background
+    Promise.all(sendPromises).then(() => {
+        log('info', `Broadcast finished. Success: ${successCount}, Failed: ${failCount}`);
+    });
 });
+
+app.get('/admin/api/battle/status', async (req, res) => {
+    try {
+        const status = await getBattleStatusForCell(null); // Get global status
+        res.json({ status });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/admin/api/battle/force-start', async (req, res) => {
+    try {
+        const config = await getGameConfig();
+        await forceStartBattle(config);
+        res.sendStatus(200);
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+app.post('/admin/api/battle/force-end', async (req, res) => {
+    try {
+        const config = await getGameConfig();
+        await forceEndBattle(config);
+        res.sendStatus(200);
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+app.get('/admin/api/cell-analytics', async (req, res) => {
+    try {
+        const analytics = await getCellAnalytics();
+        res.json(analytics);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/admin/api/withdrawal-requests', async (req, res) => {
+    try {
+        const requests = await getWithdrawalRequestsForAdmin();
+        res.json(requests);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/admin/api/withdrawal-requests/:id/approve', async (req, res) => {
+    try {
+        await updateWithdrawalRequestStatusInDb(req.params.id, 'approved');
+        res.sendStatus(200);
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+app.post('/admin/api/withdrawal-requests/:id/reject', async (req, res) => {
+     try {
+        await updateWithdrawalRequestStatusInDb(req.params.id, 'rejected');
+        res.sendStatus(200);
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+app.get('/admin/api/video-submissions', async (req, res) => {
+    try {
+        const submissions = await getAdminSubmissionsDb();
+        res.json(submissions);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/admin/api/video-submissions/:id/approve', async (req, res) => {
+    try {
+        const { rewardAmount } = req.body;
+        if (!rewardAmount || rewardAmount <= 0) {
+            return res.status(400).json({ error: 'Invalid reward amount.' });
+        }
+        await approveSubmissionDb(req.params.id, rewardAmount);
+        res.sendStatus(200);
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+app.post('/admin/api/video-submissions/:id/reject', async (req, res) => {
+    try {
+        await rejectSubmissionDb(req.params.id);
+        res.sendStatus(200);
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+// --- Server Initialization ---
+const startServer = async () => {
+    await initializeDb();
+    
+    // Initial social stats fetch on startup
+    updateSocialStatsCache();
+    // Then update every 5 minutes
+    setInterval(updateSocialStatsCache, 5 * 60 * 1000);
+
+    // Initial GeoIP update on startup
+    updateGeoIpData();
+    // Schedule daily updates (24 hours * 60 minutes * 60 seconds * 1000 milliseconds)
+    setInterval(updateGeoIpData, 24 * 60 * 60 * 1000);
+
+    // Battle management cron job (runs every minute)
+    setInterval(async () => {
+        const config = await getGameConfig();
+        await checkAndManageBattles(config);
+    }, 60 * 1000);
+
+    app.listen(port, () => {
+        log('info', `Ukhyliant backend listening on port ${port}`);
+    });
+};
+
+startServer();

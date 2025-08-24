@@ -1,5 +1,3 @@
-
-
 import pg from 'pg';
 import { 
     INITIAL_BOOSTS, 
@@ -844,7 +842,7 @@ export const claimGlitchCodeInDb = async (userId, code) => {
 
         const discoveredCodesStr = (player.discoveredGlitchCodes || []).map(c => String(c).toUpperCase());
         if (!discoveredCodesStr.includes(upperCaseCode)) {
-             player.discoveredGlitchCodes = [...(player.discoveredGlitchCodes || []), event.code];
+             throw new Error('Code has not been discovered yet.');
         }
 
         if (event.reward.type === 'coins') {
