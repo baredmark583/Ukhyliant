@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'https://esm.sh/react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry, Reward, MarketListing, WithdrawalRequest, BattleBoost, VideoSubmission } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -257,8 +256,9 @@ const API = {
         logger.error('API_MARK_GLITCH_SHOWN_FAILED', { error: data.error });
         return { error: data.error || 'Failed to mark glitch as shown.' };
     }
-    const responseData = await response.json();
-    return responseData;
+    // The server returns { player: PlayerState }. We just return that object.
+    // The previous error was wrapping it again: return { player: responseData }.
+    return await response.json();
   },
 
   getLeaderboard: async (): Promise<{topPlayers: LeaderboardPlayer[], totalPlayers: number} | null> => {
