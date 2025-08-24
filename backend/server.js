@@ -469,6 +469,16 @@ app.post('/api/player/:id', async (req, res) => {
         finalState.energy = clientState.energy;
         finalState.dailyTaps = clientState.dailyTaps;
 
+        // Merge discovered codes from client, as client-side triggers are valid.
+        const serverDiscovered = new Set(serverState.discoveredGlitchCodes || []);
+        const clientDiscovered = new Set(clientState.discoveredGlitchCodes || []);
+        if (clientDiscovered.size > serverDiscovered.size) {
+            const allDiscovered = Array.from(new Set([...serverDiscovered, ...clientDiscovered]));
+            finalState.discoveredGlitchCodes = allDiscovered;
+            // If the client discovered a new code, we should send the updated state back to confirm.
+            stateUpdatedForClient = true;
+        }
+
         // --- Handle other state updates ---
         const adminBonus = Number(serverState.adminBonus) || 0;
         if (adminBonus !== 0) {

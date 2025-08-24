@@ -641,8 +641,8 @@ export const useGame = () => {
                 const profitPerSecond = (p.profitPerHour || 0) / 3600;
                 return {
                     ...p,
-                    energy: Math.min(effectiveMaxEnergy, p.energy + ENERGY_REGEN_RATE),
-                    balance: Number(p.balance) + profitPerSecond,
+                    energy: Math.min(effectiveMaxEnergy, (p.energy || 0) + ENERGY_REGEN_RATE),
+                    balance: (Number(p.balance) || 0) + profitPerSecond,
                 };
             });
         }, 1000);
