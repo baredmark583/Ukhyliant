@@ -238,13 +238,13 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                 draggable="false"
             >
                 <div
-                    className="relative w-full h-full rounded-full transition-transform duration-100"
+                    className="relative w-full h-full rounded-full transition-transform duration-100 grid place-items-center"
                     style={{ transform: `translate(-2%, -2%) scale(${scale})` }}
                 >
                     <img
                         src={coinSkinUrl}
                         alt="coin"
-                        className={`w-full h-full rounded-full transition-all duration-300 pointer-events-none ${isTurboActive ? 'animate-pulse' : ''}`}
+                        className={`col-start-1 row-start-1 w-[90%] h-[90%] rounded-full transition-all duration-300 pointer-events-none ${isTurboActive ? 'animate-pulse' : ''}`}
                         style={isTurboActive ? { filter: 'drop-shadow(0 0 20px #f59e0b)' } : {}}
                         draggable="false"
                         {...(isExternal(coinSkinUrl) && { crossOrigin: 'anonymous' })}
@@ -254,7 +254,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                             src={getProxiedUrl(leagueOverlayUrl)}
                             onError={handleOverlayError}
                             alt="league effect"
-                            className="absolute top-0 left-0 w-full h-full pointer-events-none"
+                            className="col-start-1 row-start-1 w-[90%] h-[90%] pointer-events-none"
                             draggable="false"
                         />
                     )}
