@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -1438,45 +1437,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'save-config-item': {
                     const modal = document.getElementById('config-modal');
                     const isNew = !index;
-                    // Use a deep copy to prevent any weird reference issues.
                     const newItem = isNew ? {} : JSON.parse(JSON.stringify(localConfig[key][index] || {}));
 
-                    // --- Process localized string inputs first ---
-                    modal.querySelectorAll('input[data-lang]').forEach(input => {
+                    modal.querySelectorAll('[data-col]').forEach(input => {
                         const col = input.dataset.col;
                         const lang = input.dataset.lang;
-                        if (!col || !lang) return;
-
-                        if (!newItem[col] || typeof newItem[col] !== 'object' || Array.isArray(newItem[col])) {
-                            newItem[col] = {};
-                        }
-                        newItem[col][lang] = input.value;
-                    });
-
-                    // --- Process all other inputs ---
-                    modal.querySelectorAll('[data-col]:not([data-lang])').forEach(input => {
-                        const col = input.dataset.col;
                         const subcol = input.dataset.subcol;
 
                         let value;
-                        if (input.type === 'checkbox') {
-                            value = input.checked;
-                        } else if (input.type === 'number') {
-                            value = Number(input.value) || 0;
-                        } else {
-                            value = input.value;
-                        }
+                        if (input.type === 'checkbox') value = input.checked;
+                        else if (input.type === 'number') value = Number(input.value) || 0;
+                        else value = input.value;
 
-                        if (subcol) { // For complex objects like 'reward' or 'trigger'
+                        if (lang) { // Handle localized strings
                             if (!newItem[col] || typeof newItem[col] !== 'object' || Array.isArray(newItem[col])) {
                                 newItem[col] = {};
                             }
+                            newItem[col][lang] = value;
+                        } else if (subcol) { // Handle complex objects like 'reward'
+                             if (!newItem[col] || typeof newItem[col] !== 'object' || Array.isArray(newItem[col])) {
+                                newItem[col] = {};
+                            }
                             newItem[col][subcol] = value;
-                        } else { // For simple values
+                        } else { // Handle simple fields
                             newItem[col] = value;
                         }
                     });
-
 
                     if (isNew) {
                         if (!localConfig[key]) localConfig[key] = [];
@@ -1600,6 +1586,44 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(firstKey && configMeta[firstKey]) {
                         activeTab = firstKey;
                         render();
+                    }
+                    break;
+                }
+                case 'send-broadcast': {
+                    const button = actionTarget;
+                    const text = document.getElementById('broadcast-text').value;
+                    const imageUrl = document.getElementById('broadcast-image-url').value;
+                    const buttonUrl = document.getElementById('broadcast-button-url').value;
+                    const buttonText = document.getElementById('broadcast-button-text').value;
+
+                    if (!text.trim()) {
+                        alert(t('broadcast_text_required'));
+                        return;
+                    }
+                    if (buttonUrl && !buttonText) {
+                        alert(t('broadcast_button_text_required'));
+                        return;
+                    }
+                    if (!buttonUrl && buttonText) {
+                        alert(t('broadcast_button_url_required'));
+                        return;
+                    }
+                    
+                    button.disabled = true;
+                    button.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status"></span> ${t('sending_broadcast')}`;
+                    
+                    try {
+                        const result = await postData('broadcast', { text, imageUrl, buttonUrl, buttonText });
+                        if (result && result.message) {
+                            alert(result.message);
+                        } else {
+                            alert('Broadcast request sent.');
+                        }
+                    } catch (error) {
+                        alert('An error occurred. Check the console.');
+                    } finally {
+                        button.disabled = false;
+                        button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-send" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 14l11 -11" /><path d="M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5" /></svg> <span data-translate="send_broadcast">${t('send_broadcast')}</span>`;
                     }
                     break;
                 }

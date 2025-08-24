@@ -1516,23 +1516,34 @@ app.post('/admin/api/broadcast', async (req, res) => {
 
     const { text, imageUrl, buttonUrl, buttonText } = req.body;
     log('info', `[ADMIN_ACTION] Broadcast Message`, { text, imageUrl, buttonUrl, buttonText });
+    if (!text) {
+        return res.status(400).json({ error: "Message text is required." });
+    }
+
     const userIds = await getAllUserIds();
     let successCount = 0;
     let failCount = 0;
 
     log('info', `Starting broadcast to ${userIds.length} users.`);
 
+    // Respond to the admin immediately
+    res.status(202).json({ message: `Broadcast started for ${userIds.length} users.` });
+
+    // Process sending in the background
     const sendPromises = userIds.map(userId => {
+        let apiUrl;
         const messagePayload = {
             chat_id: userId,
-            text: text,
             parse_mode: 'HTML',
         };
 
         if (imageUrl) {
+            apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
             messagePayload.photo = imageUrl;
             messagePayload.caption = text;
-            delete messagePayload.text;
+        } else {
+            apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+            messagePayload.text = text;
         }
 
         if (buttonUrl && buttonText) {
@@ -1541,7 +1552,7 @@ app.post('/admin/api/broadcast', async (req, res) => {
             };
         }
         
-        return fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        return fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(messagePayload)
@@ -1561,10 +1572,7 @@ app.post('/admin/api/broadcast', async (req, res) => {
         });
     });
     
-    // We don't wait for all promises to resolve to give a quick response to the admin
-    res.status(202).json({ message: `Broadcast started for ${userIds.length} users.` });
-
-    // Wait for all messages to be sent in the background
+    // Wait for all messages to be sent
     Promise.all(sendPromises).then(() => {
         log('info', `Broadcast finished. Success: ${successCount}, Failed: ${failCount}`);
     });
