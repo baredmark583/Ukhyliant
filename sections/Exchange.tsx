@@ -239,7 +239,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             >
                 <div
                     className="relative w-full h-full rounded-full transition-transform duration-100"
-                    style={{ transform: `scale(${scale})` }}
+                    style={{ transform: `translate(-2%, -2%) scale(${scale})` }}
                 >
                     <img
                         src={coinSkinUrl}
