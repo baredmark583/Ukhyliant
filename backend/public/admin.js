@@ -1439,7 +1439,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const isNew = !index;
                     const newItem = isNew ? {} : JSON.parse(JSON.stringify(localConfig[key][index] || {}));
 
-                    modal.querySelectorAll('[data-col]').forEach(input => {
+                    // Handle all standard inputs
+                    modal.querySelectorAll('input[data-col], select[data-col]').forEach(input => {
                         const col = input.dataset.col;
                         const lang = input.dataset.lang;
                         const subcol = input.dataset.subcol;
@@ -1449,20 +1450,41 @@ document.addEventListener('DOMContentLoaded', () => {
                         else if (input.type === 'number') value = Number(input.value) || 0;
                         else value = input.value;
 
-                        if (lang) { // Handle localized strings
+                        if (lang) {
                             if (!newItem[col] || typeof newItem[col] !== 'object' || Array.isArray(newItem[col])) {
                                 newItem[col] = {};
                             }
                             newItem[col][lang] = value;
-                        } else if (subcol) { // Handle complex objects like 'reward'
-                             if (!newItem[col] || typeof newItem[col] !== 'object' || Array.isArray(newItem[col])) {
+                        } else if (subcol) {
+                            if (!newItem[col] || typeof newItem[col] !== 'object' || Array.isArray(newItem[col])) {
                                 newItem[col] = {};
                             }
                             newItem[col][subcol] = value;
-                        } else { // Handle simple fields
+                        } else {
                             newItem[col] = value;
                         }
                     });
+
+                    // Special handling for the 'trigger' object if it exists in this config type
+                    if (key === 'glitchEvents') {
+                        const triggerArea = modal.querySelector('#trigger-config-area');
+                        if (triggerArea) {
+                            const typeSelect = triggerArea.querySelector('select[data-subcol="type"]');
+                            const type = typeSelect ? typeSelect.value : null;
+                            if (type) {
+                                const params = {};
+                                triggerArea.querySelectorAll('[data-param]').forEach(paramInput => {
+                                    const paramName = paramInput.dataset.param;
+                                    const val = paramInput.type === 'number' ? Number(paramInput.value) : paramInput.value;
+                                    // Only add param if it's not empty or 0, to keep it clean
+                                    if (val || val === 0) { // Keep 0 for numeric inputs like hour/minute
+                                         params[paramName] = val;
+                                    }
+                                });
+                                newItem.trigger = { type, params };
+                            }
+                        }
+                    }
 
                     if (isNew) {
                         if (!localConfig[key]) localConfig[key] = [];
@@ -1630,18 +1652,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        document.body.addEventListener('change', e => {
-            const el = e.target;
-            // Handle trigger type change in config modal
-            if (el.matches('#config-modal [data-subcol="type"]') && el.closest('#trigger-config-area')) {
-                 const triggerContainer = document.getElementById('trigger-config-area');
-                 const triggerParamsContainer = document.getElementById('trigger-params-container');
-                 const newType = el.value;
-                 triggerParamsContainer.innerHTML = renderTriggerFields({ type: newType }).match(/<div id="trigger-params-container">([\s\S]*)<\/div>/)[1];
-            }
-        });
-
-        document.body.addEventListener('input', e => {
+        const handleFormInputAndChange = e => {
             const el = e.target;
             // Config table form inputs
             if (el.closest('.card-body')) {
@@ -1700,7 +1711,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el.id === 'loadingScreenUrl') localConfig.loadingScreenImageUrl = el.value;
             if (el.id === 'backgroundAudioUrl') localConfig.backgroundAudioUrl = el.value;
             if (el.id === 'finalVideoUrl') localConfig.finalVideoUrl = el.value;
-        });
+        };
+        
+        document.body.addEventListener('input', handleFormInputAndChange);
+        document.body.addEventListener('change', handleFormInputAndChange);
+
+        document.body.addEventListener('triggerTypeChange', e => {
+            if (e.target.matches('[data-subcol="type"]')) {
+                 const triggerContainer = document.getElementById('trigger-config-area');
+                 const triggerParamsContainer = document.getElementById('trigger-params-container');
+                 const newType = e.target.value;
+                 triggerParamsContainer.innerHTML = renderTriggerFields({ type: newType }).match(/<div id="trigger-params-container">([\s\S]*)<\/div>/)[1];
+            }
+        }, true);
+
 
         // Tab switching
         document.querySelectorAll('.tab-button').forEach(button => {

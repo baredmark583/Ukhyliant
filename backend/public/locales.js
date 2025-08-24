@@ -182,7 +182,7 @@ window.LOCALES = {
         'language': 'Language',
         'player_name': 'Player Name',
 
-        // Config Modal & Table
+        // Config Modal & Table Headers
         'config_edit_item': 'Edit Item',
         'config_add_item': 'Add New Item',
         'price': 'Price',
@@ -214,6 +214,7 @@ window.LOCALES = {
         'isFinal': 'Is Final?',
         'yes': 'Yes',
         'no': 'No',
+        'level': 'Level',
         'is_final_event': 'Is Final Event?',
         'trigger_type': 'Trigger Type',
         'trigger_params': 'Trigger Parameters',
@@ -475,7 +476,7 @@ window.LOCALES = {
         'language': 'Мова',
         'player_name': 'Ім\'я гравця',
 
-        // Config Modal & Table
+        // Config Modal & Table Headers
         'config_edit_item': 'Редагувати елемент',
         'config_add_item': 'Додати новий елемент',
         'price': 'Ціна',
@@ -507,6 +508,7 @@ window.LOCALES = {
         'isFinal': 'Це фінальна подія?',
         'yes': 'Так',
         'no': 'Ні',
+        'level': 'Рівень',
         'is_final_event': 'Це фінальна подія?',
         'trigger_type': 'Тип тригера',
         'trigger_params': 'Параметри тригера',
@@ -768,7 +770,7 @@ window.LOCALES = {
         'language': 'Язык',
         'player_name': 'Имя игрока',
 
-        // Config Modal & Table
+        // Config Modal & Table Headers
         'config_edit_item': 'Редактировать элемент',
         'config_add_item': 'Добавить новый элемент',
         'price': 'Цена',
@@ -800,6 +802,7 @@ window.LOCALES = {
         'isFinal': 'Это финальное событие?',
         'yes': 'Да',
         'no': 'Нет',
+        'level': 'Уровень',
         'is_final_event': 'Это финальное событие?',
         'trigger_type': 'Тип триггера',
         'trigger_params': 'Параметры триггера',
