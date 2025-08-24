@@ -238,8 +238,8 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                 draggable="false"
             >
                 <div
-                    className="relative w-[90%] h-[90%] rounded-full transition-transform duration-100 grid place-items-center"
-                    style={{ transform: `translate(-2%, -2%) scale(${scale})` }}
+                    className="relative w-full h-full rounded-full transition-transform duration-100 grid place-items-center"
+                    style={{ transform: `scale(${scale})` }}
                 >
                     <img
                         src={coinSkinUrl}
