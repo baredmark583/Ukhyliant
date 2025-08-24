@@ -706,6 +706,15 @@ app.post('/api/create-star-invoice', async (req, res) => {
             payload = `lootbox-${userId}-${itemId}`;
             price = config.lootboxCostStars || 0;
             if (price <= 0) return res.status(400).json({ ok: false, error: "Lootbox not for sale." });
+        } else if (payloadType === 'boost_reset') {
+            const boost = config.boosts.find(b => b.id === itemId);
+            if (!boost) return res.status(404).json({ ok: false, error: "Boost not found." });
+            
+            title = boost.name['en'] || 'Reset Boost Limit';
+            description = `Reset the daily purchase limit for ${title}.`;
+            payload = `boost_reset-${userId}-${itemId}`;
+            price = config.boostLimitResetCostStars || 0;
+            if (price <= 0) return res.status(400).json({ ok: false, error: "Boost limit reset is not for sale." });
         } else {
             return res.status(400).json({ ok: false, error: "Invalid payload type." });
         }
