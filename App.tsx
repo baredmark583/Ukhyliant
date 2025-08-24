@@ -10,6 +10,10 @@
 
 
 
+
+
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'https://esm.sh/react';
 import { TonConnectButton, useTonWallet, useTonConnectUI } from 'https://esm.sh/@tonconnect/ui-react';
 import { useGame, useAuth, useTranslation, AuthProvider } from './hooks/useGameLogic';
@@ -54,6 +58,13 @@ const formatNumber = (num: number): string => {
   if (num >= 10000) return `${(num / 1000).toFixed(1)}K`;
   return num.toLocaleString('en-US');
 };
+
+const getSafeLocalizedString = (localizedString: any, lang: Language, fallback: string = ''): string => {
+    if (localizedString && typeof localizedString === 'object') {
+        return localizedString[lang] || localizedString['en'] || fallback;
+    }
+    return fallback;
+}
 
 const GlitchEffect: React.FC<{ message?: string, code?: string, onClose?: () => void }> = ({ message: customMessage, code, onClose }) => {
     const t = useTranslation();
@@ -921,7 +932,7 @@ const LeaderboardScreen: React.FC<{
                         <div className="bg-slate-900/50 shadow-inner rounded-xl p-3 mb-4 flex justify-between items-center">
                             <div>
                                 <p className="text-sm text-[var(--text-secondary)]">{t('your_league')}</p>
-                                <p className="font-bold text-lg text-white">{currentLeague?.name[user.language] || 'N/A'}</p>
+                                <p className="font-bold text-lg text-white">{currentLeague?.name?.[user.language] || 'N/A'}</p>
                             </div>
                             <div className="text-right">
                                 <p className="text-sm text-[var(--text-secondary)]">{t('total_players')}</p>
@@ -956,6 +967,8 @@ const PurchaseResultModal: React.FC<{
     
     const isLootboxItem = result.type === 'lootbox';
     const title = isLootboxItem ? t('won_item') : t('task_unlocked');
+    
+    const itemName = getSafeLocalizedString(item?.name, lang, item?.id || 'New Item');
     const iconUrl = item.iconUrl || item.imageUrl;
 
     return (
@@ -963,11 +976,11 @@ const PurchaseResultModal: React.FC<{
             <div className="card-glow bg-slate-800 rounded-2xl w-full max-w-sm flex flex-col p-6 items-center" onClick={e => e.stopPropagation()}>
                 <h2 className="text-xl font-bold text-white mb-4">{title}!</h2>
                 <div className="w-32 h-32 mb-4 bg-slate-900/50 shadow-inner rounded-2xl p-2 flex items-center justify-center">
-                    <img src={iconUrl} alt={item.name[lang]} className="w-full h-full object-contain" {...(isExternal(iconUrl) && { crossOrigin: 'anonymous' })} />
+                    <img src={iconUrl} alt={itemName} className="w-full h-full object-contain" {...(isExternal(iconUrl) && { crossOrigin: 'anonymous' })} />
                 </div>
-                <p className="text-lg font-bold text-white mb-2">{item.name[lang]}</p>
-                {isLootboxItem && 'profitBoostPercent' in item && item.profitBoostPercent > 0 && <p className="text-[var(--accent-color)]">+{item.profitBoostPercent}% {t('profit_boost')}</p>}
-                {isLootboxItem && 'profitPerHour' in item && <p className="text-[var(--accent-color)]">+{formatNumber(item.profitPerHour)}/hr</p>}
+                <p className="text-lg font-bold text-white mb-2">{itemName}</p>
+                {isLootboxItem && item && 'profitBoostPercent' in item && item.profitBoostPercent > 0 && <p className="text-[var(--accent-color)]">+{item.profitBoostPercent}% {t('profit_boost')}</p>}
+                {isLootboxItem && item && 'profitPerHour' in item && <p className="text-[var(--accent-color)]">+{formatNumber(item.profitPerHour)}/hr</p>}
                 
                 <button onClick={onClose} className="w-full interactive-button rounded-lg font-bold py-3 mt-6 text-lg">
                     {t('close')}
