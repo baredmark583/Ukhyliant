@@ -229,7 +229,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
             
             {/* Clickable Coin Area */}
             <div
-                className="relative cursor-pointer select-none no-context-menu w-full max-w-[224px] aspect-square border-2 border-slate-700/50 rounded-full flex items-center justify-center p-4 my-auto shadow-inner bg-slate-900/50"
+                className="relative cursor-pointer select-none no-context-menu w-full max-w-[224px] aspect-square border-2 border-slate-700/50 rounded-full flex items-center justify-center my-auto shadow-inner bg-slate-900/50"
                 onMouseDown={handlePressStart}
                 onMouseUp={handlePressEnd}
                 onTouchStart={handlePressStart}
@@ -238,13 +238,13 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                 draggable="false"
             >
                 <div
-                    className="relative w-full h-full rounded-full transition-transform duration-100 grid place-items-center"
+                    className="relative w-[90%] h-[90%] rounded-full transition-transform duration-100 grid place-items-center"
                     style={{ transform: `translate(-2%, -2%) scale(${scale})` }}
                 >
                     <img
                         src={coinSkinUrl}
                         alt="coin"
-                        className={`col-start-1 row-start-1 w-[99%] h-[99%] rounded-full transition-all duration-300 pointer-events-none ${isTurboActive ? 'animate-pulse' : ''}`}
+                        className={`col-start-1 row-start-1 w-full h-full rounded-full transition-all duration-300 pointer-events-none ${isTurboActive ? 'animate-pulse' : ''}`}
                         style={isTurboActive ? { filter: 'drop-shadow(0 0 20px #f59e0b)' } : {}}
                         draggable="false"
                         {...(isExternal(coinSkinUrl) && { crossOrigin: 'anonymous' })}
@@ -254,7 +254,7 @@ const ExchangeScreen: React.FC<ExchangeProps> = ({ playerState, currentLeague, o
                             src={getProxiedUrl(leagueOverlayUrl)}
                             onError={handleOverlayError}
                             alt="league effect"
-                            className="col-start-1 row-start-1 w-[99%] h-[99%] pointer-events-none"
+                            className="col-start-1 row-start-1 w-full h-full pointer-events-none"
                             draggable="false"
                         />
                     )}
