@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let localConfig = {};
@@ -1437,28 +1438,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'save-config-item': {
                     const modal = document.getElementById('config-modal');
                     const isNew = !index;
-                    const newItem = isNew ? {} : { ...localConfig[key][index] };
+                    // Use a deep copy to prevent any weird reference issues.
+                    const newItem = isNew ? {} : JSON.parse(JSON.stringify(localConfig[key][index] || {}));
 
-                    modal.querySelectorAll('[data-col]').forEach(input => {
+                    // --- Process localized string inputs first ---
+                    modal.querySelectorAll('input[data-lang]').forEach(input => {
                         const col = input.dataset.col;
                         const lang = input.dataset.lang;
+                        if (!col || !lang) return;
+
+                        if (!newItem[col] || typeof newItem[col] !== 'object' || Array.isArray(newItem[col])) {
+                            newItem[col] = {};
+                        }
+                        newItem[col][lang] = input.value;
+                    });
+
+                    // --- Process all other inputs ---
+                    modal.querySelectorAll('[data-col]:not([data-lang])').forEach(input => {
+                        const col = input.dataset.col;
                         const subcol = input.dataset.subcol;
 
                         let value;
-                        if(input.type === 'checkbox') value = input.checked;
-                        else if(input.type === 'number') value = Number(input.value) || 0;
-                        else value = input.value;
-                        
-                        if (lang) {
-                            if (!newItem[col] || typeof newItem[col] !== 'object') newItem[col] = {};
-                            newItem[col][lang] = value;
-                        } else if (subcol) {
-                            if (!newItem[col] || typeof newItem[col] !== 'object') newItem[col] = {};
-                            newItem[col][subcol] = value;
+                        if (input.type === 'checkbox') {
+                            value = input.checked;
+                        } else if (input.type === 'number') {
+                            value = Number(input.value) || 0;
                         } else {
+                            value = input.value;
+                        }
+
+                        if (subcol) { // For complex objects like 'reward' or 'trigger'
+                            if (!newItem[col] || typeof newItem[col] !== 'object' || Array.isArray(newItem[col])) {
+                                newItem[col] = {};
+                            }
+                            newItem[col][subcol] = value;
+                        } else { // For simple values
                             newItem[col] = value;
                         }
                     });
+
 
                     if (isNew) {
                         if (!localConfig[key]) localConfig[key] = [];

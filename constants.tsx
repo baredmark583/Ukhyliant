@@ -8,18 +8,7 @@ export const MINI_APP_NAME = 'ukhyliant_game';
 export const DEFAULT_COIN_SKIN_ID = 'default_coin';
 
 // --- TRANSLATIONS ---
-type TranslationKeys = {
-  [key: string]: string;
-};
-
-type AllTranslations = {
-  en: TranslationKeys;
-  ua: TranslationKeys;
-  ru: TranslationKeys;
-};
-
-export const TRANSLATIONS: AllTranslations = {
-  en: {
+const enTranslations = {
     why_not_state_language: 'Why not in the state language?',
     skip_video: 'Skip',
     your_referrals: 'Your Referrals',
@@ -142,7 +131,19 @@ export const TRANSLATIONS: AllTranslations = {
     claimed_today: 'Claimed',
     check: 'Check',
     suspicion: 'Suspicion',
-  },
+};
+
+type TranslationKey = keyof typeof enTranslations;
+type TranslationKeys = Record<TranslationKey, string>;
+
+type AllTranslations = {
+  en: TranslationKeys;
+  ua: TranslationKeys;
+  ru: TranslationKeys;
+};
+
+export const TRANSLATIONS: AllTranslations = {
+  en: enTranslations,
   ua: {
     why_not_state_language: 'Чому не державною?',
     skip_video: 'Пропустити',

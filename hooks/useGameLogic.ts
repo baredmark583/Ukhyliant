@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'https://esm.sh/react';
 import { PlayerState, GameConfig, Upgrade, Language, User, DailyTask, Boost, SpecialTask, LeaderboardPlayer, BoxType, CoinSkin, BlackMarketCard, UpgradeCategory, League, Cell, BattleStatus, BattleLeaderboardEntry, Reward, MarketListing, WithdrawalRequest, BattleBoost, VideoSubmission } from '../types';
 import { INITIAL_MAX_ENERGY, ENERGY_REGEN_RATE, SAVE_DEBOUNCE_MS, TRANSLATIONS, DEFAULT_COIN_SKIN_ID } from '../constants';
@@ -623,11 +624,18 @@ export const useGameContext = () => {
     return context;
 };
 
+type TranslationKey = keyof typeof TRANSLATIONS['en'];
+
 export const useTranslation = () => {
     const { user } = useAuth();
     const lang = user?.language || 'en';
-    return useCallback((key: keyof (typeof TRANSLATIONS)[typeof lang]) => {
-        return TRANSLATIONS[lang]?.[key] || TRANSLATIONS.en[key];
+    return useCallback((key: TranslationKey) => {
+        const translations = TRANSLATIONS[lang];
+        // The `key in translations` check acts as a type guard for the compiler.
+        if (translations && key in translations) {
+            return translations[key];
+        }
+        return TRANSLATIONS.en[key];
     }, [lang]);
 };
 
